@@ -1111,6 +1111,14 @@ window.moveSem = function(d) {
   refreshCurrent();
 };
 
+// Inicializar labels de semana con la semana actual
+setTimeout(() => {
+  ['dash-sem','sem-label','prod-sem','col-sem'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = 'Sem ' + window.currentSem;
+  });
+}, 100);
+
 function updateBadges() {
   const venc = window.DB.cobranzas.filter(c => c.estado==='Pendiente' && diasDesdeHoy(c.vencimiento) >= 0).length;
   document.getElementById('badge-cobr').textContent = venc || '';
@@ -1549,7 +1557,7 @@ window.openModal = (type) => {
       const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
       const maxOT = otNros.length ? Math.max(...otNros) : 4400;
       document.getElementById('f-ot').value = maxOT + 1;
-      document.getElementById('f-semana').value = window.currentSem;
+      document.getElementById('f-semana').value = getSemanaActual();
       document.getElementById('f-sector').value = 'Producción';
       document.getElementById('f-vendedor').value = 'G';
       document.getElementById('f-estado').value = 'Aprobado';
