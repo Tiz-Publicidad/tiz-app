@@ -1728,8 +1728,10 @@ window.saveObra = async () => {
   if (!data.desc) { showToast('Ingresá una descripción'); return; }
   if (existingId) await updateDoc_('obras', existingId, data);
   else await addDoc_('obras', data);
+  // Sync a Google Sheets
+  syncToSheets(data);
   closeModal('obra');
-  showToast(existingId ? 'Obra actualizada' : 'Obra guardada');
+  showToast(existingId ? 'Obra actualizada ✓ Sheets' : 'Obra guardada ✓ Sheets');
 };
 
 window.saveCliente = async () => {
@@ -2431,6 +2433,24 @@ function renderEstCumplimiento() {
     s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
     s.onload=drawCharts; document.head.appendChild(s);
   } else { setTimeout(drawCharts,50); }
+}
+
+// ============================================================
+// SYNC CON GOOGLE SHEETS
+// ============================================================
+const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycby87k25AigT3MVUWWhp1vWWoqT5ICiWtUiFip1rCKgVpbX8V9bXAORs-p1B9t_bwwDR1A/exec';
+
+async function syncToSheets(data) {
+  try {
+    await fetch(SHEETS_WEBHOOK, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch(e) {
+    console.log('Sheets sync error (no crítico):', e.message);
+  }
 }
 
 window.exportarCSV = () => {
