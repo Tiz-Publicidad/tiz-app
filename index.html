@@ -1535,15 +1535,17 @@ function renderVendedores() {
 // MODALES
 window.openModal = (type) => {
   if (type==='obra') {
-    // Solo limpiar si es nueva obra (editingId ya fue seteado antes de llamar openModal)
     if (!window.editingId.obra) {
-      ['f-ot','f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+      ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+      // Sugerir siguiente número de OT
+      const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
+      const maxOT = otNros.length ? Math.max(...otNros) : 4400;
+      document.getElementById('f-ot').value = maxOT + 1;
       document.getElementById('f-semana').value = window.currentSem;
       document.getElementById('f-sector').value = 'Producción';
       document.getElementById('f-vendedor').value = 'G';
       document.getElementById('f-estado').value = 'Aprobado';
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
-      // Limpiar anotaciones
       ['Producción','Colocaciones','Diseño','Ventas','Compras'].forEach(s => {
         const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
         if(el) el.value = '';
@@ -1890,18 +1892,30 @@ function renderPPItems() {
   updatePPTotal();
 }
 
-window.generarPDF = () => {
-  const nro    = document.getElementById('pp-nro').value || '0000000';
-  const cliente = document.getElementById('pp-cliente').value || '';
-  const nota   = document.getElementById('pp-nota').value || '';
-  const cond   = document.getElementById('pp-condicion').value || '';
-  const validezDias = +document.getElementById('pp-validez').value || 7;
 
+window.generarPDF = async () => {
+  const nro      = document.getElementById('pp-nro').value || '0000';
+  const cliente  = document.getElementById('pp-cliente').value || '';
+  const nota     = document.getElementById('pp-nota').value || '';
+  const cond     = document.getElementById('pp-condicion').value || '';
+  const validezDias = +document.getElementById('pp-validez').value || 7;
   const hoy = new Date();
   const fmtFecha = d => d.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const validez = new Date(hoy); validez.setDate(validez.getDate() + validezDias);
-
   const total = window.ppItems.reduce((a,it)=>a+(it.precio||0)*(it.cant||1),0);
+
+  // Guardar en Firebase como respaldo
+  await addDoc_('presupuestos', {
+    nro, cliente, nota, cond,
+    fecha: hoy.toLocaleDateString('es-AR'),
+    validez: validez.toLocaleDateString('es-AR'),
+    items: window.ppItems,
+    importe: total,
+    obraId: window.editingId.obra || '',
+    creadoPor: window.currentUser?.email || '',
+    estado: 'Pendiente',
+    desc: window.ppItems.map(i=>i.desc).join(' / '),
+  });
 
   const rows = window.ppItems.map(it => {
     const sub = (it.precio||0)*(it.cant||1);
@@ -1913,98 +1927,130 @@ window.generarPDF = () => {
     </tr>`;
   }).join('');
 
-  const html = `
-  <div style="font-family:'Arial',sans-serif;max-width:800px;margin:0 auto;color:#222">
-    <!-- HEADER -->
-    <table style="width:100%;margin-bottom:20px">
-      <tr>
-        <td style="width:200px;vertical-align:top">
-          <!-- Logo TIZ -->
-          <div style="background:#1a1a1a;padding:14px 16px;border-radius:8px;display:inline-block">
-            <div style="font-size:28px;font-weight:900;color:#e8b84b;letter-spacing:-1px;line-height:1">TIZ</div>
-            <div style="font-size:9px;color:#888;letter-spacing:.15em;margin-top:2px">PUBLICIDAD</div>
-          </div>
-          <div style="margin-top:10px;font-size:10px;color:#555;line-height:1.7">
-            <div>📞 11-3479-9737</div>
-            <div>✉️ info@tizpublicidad.com</div>
-            <div>🌐 www.tizpublicidad.com</div>
-            <div>📍 Av Pte Perón 3779, J C Paz</div>
-          </div>
-        </td>
-        <td style="vertical-align:top;text-align:right">
-          <div style="font-size:22px;font-weight:700;color:#222;margin-bottom:12px">
-            Presupuesto Nro: &nbsp;<span style="color:#e8b84b">${nro.padStart(7,'0')}</span>
-          </div>
-          <table style="margin-left:auto;font-size:12px;color:#555">
-            <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Fecha:</td><td>${fmtFecha(hoy)}</td></tr>
-            <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Validez hasta:</td><td>${fmtFecha(validez)}</td></tr>
-            <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Cliente:</td><td>${cliente}</td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <!-- TABLA ITEMS -->
+  const html = `<div style="font-family:'Arial',sans-serif;max-width:800px;margin:0 auto;color:#222">
+    <table style="width:100%;margin-bottom:20px"><tr>
+      <td style="width:200px;vertical-align:top">
+        <div style="background:#1a1a1a;padding:14px 16px;border-radius:8px;display:inline-block">
+          <div style="font-size:28px;font-weight:900;color:#e8b84b;letter-spacing:-1px;line-height:1">TIZ</div>
+          <div style="font-size:9px;color:#888;letter-spacing:.15em;margin-top:2px">PUBLICIDAD</div>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:#555;line-height:1.7">
+          <div>📞 11-3479-9737</div><div>✉️ info@tizpublicidad.com</div>
+          <div>🌐 www.tizpublicidad.com</div><div>📍 Av Pte Perón 3779, J C Paz</div>
+        </div>
+      </td>
+      <td style="vertical-align:top;text-align:right">
+        <div style="font-size:22px;font-weight:700;color:#222;margin-bottom:12px">
+          Presupuesto Nro: &nbsp;<span style="color:#e8b84b">${String(nro).padStart(7,'0')}</span>
+        </div>
+        <table style="margin-left:auto;font-size:12px;color:#555">
+          <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Fecha:</td><td>${fmtFecha(hoy)}</td></tr>
+          <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Validez hasta:</td><td>${fmtFecha(validez)}</td></tr>
+          <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Cliente:</td><td>${cliente}</td></tr>
+        </table>
+      </td>
+    </tr></table>
     <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;border-radius:6px;overflow:hidden">
-      <thead>
-        <tr style="background:#f5f5f5">
-          <th style="padding:10px 12px;text-align:left;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Descripción</th>
-          <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd;white-space:nowrap">$ Unit</th>
-          <th style="padding:10px 12px;text-align:center;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Unidades</th>
-          <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Subtotal</th>
-        </tr>
-      </thead>
+      <thead><tr style="background:#f5f5f5">
+        <th style="padding:10px 12px;text-align:left;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Descripción</th>
+        <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd;white-space:nowrap">$ Unit</th>
+        <th style="padding:10px 12px;text-align:center;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Unidades</th>
+        <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Subtotal</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-
-    <!-- NOTAS -->
     <div style="margin-top:16px;font-size:11px;color:#666">
       <div><em>Nota: ${nota}</em></div>
       <div><em>Condición de compra: ${cond}</em></div>
     </div>
-
-    <!-- TOTAL -->
-    <table style="width:100%;margin-top:12px">
-      <tr>
-        <td></td>
-        <td style="text-align:right">
-          <div style="background:#1a1a1a;color:#e8b84b;padding:10px 20px;border-radius:6px;display:inline-block;font-size:14px;font-weight:700">
-            Total Cotizado &nbsp;&nbsp; ${fmtPeso(total)}
-          </div>
-        </td>
-      </tr>
-    </table>
-
-    <!-- FOOTER -->
+    <table style="width:100%;margin-top:12px"><tr><td></td>
+      <td style="text-align:right">
+        <div style="background:#1a1a1a;color:#e8b84b;padding:10px 20px;border-radius:6px;display:inline-block;font-size:14px;font-weight:700">
+          Total Cotizado &nbsp;&nbsp; ${fmtPeso(total)}
+        </div>
+      </td>
+    </tr></table>
     <div style="margin-top:32px;padding:12px 16px;background:#1a1a1a;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#aaa;flex-wrap:wrap;gap:8px">
-      <span>📞 11-34798737</span>
-      <span>✉️ INFO@TIZPUBLICIDAD.COM</span>
-      <span>🌐 WWW.TIZPUBLICIDAD.COM</span>
-      <span>📍 AV PTE PERÓN 3779, J C PAZ</span>
+      <span>📞 11-34798737</span><span>✉️ INFO@TIZPUBLICIDAD.COM</span>
+      <span>🌐 WWW.TIZPUBLICIDAD.COM</span><span>📍 AV PTE PERÓN 3779, J C PAZ</span>
     </div>
   </div>`;
 
-  // Mostrar en ventana de impresión
-  const printWin = window.open('', '_blank', 'width=900,height=700');
-  printWin.document.write(`
-    <!DOCTYPE html><html><head>
+  const nombreArchivo = `Presupuesto_${String(nro).padStart(4,'0')}_${cliente.replace(/[^a-zA-Z0-9]/g,'_')}`;
+
+  // Descargar Excel directamente
+  const doExcelDownload = () => {
+    if (!window.XLSX) {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = () => _descargarExcelPres(nombreArchivo, nro, cliente, nota, cond, hoy, validez, total);
+      document.head.appendChild(s);
+    } else {
+      _descargarExcelPres(nombreArchivo, nro, cliente, nota, cond, hoy, validez, total);
+    }
+  };
+
+  const printWin = window.open('', '_blank', 'width=920,height=750');
+  printWin.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <title>Presupuesto ${nro}</title>
+    <title>Presupuesto ${nro} — ${cliente}</title>
     <style>
-      body { margin: 20px; font-family: Arial, sans-serif; }
-      @media print {
-        body { margin: 0; padding: 20px; }
-        @page { margin: 1cm; }
-      }
+      body{margin:20px;font-family:Arial,sans-serif}
+      .toolbar{margin-top:20px;padding:14px 16px;background:#1a1a1a;border-radius:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+      .btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+      .hint{font-size:11px;color:#888;margin-left:auto}
+      @media print{.toolbar{display:none}body{margin:0;padding:20px}@page{margin:1cm}}
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
     </head><body>
     ${html}
-    <script>setTimeout(()=>window.print(),400)<\/script>
-    </body></html>
-  `);
-  printWin.document.close();
+    <div class="toolbar">
+      <button class="btn" style="background:#e8b84b;color:#000" onclick="window.print()">📄 Descargar PDF</button>
+      <button class="btn" style="background:#1d6f42;color:#fff" onclick="descargarExcel()">📊 Descargar Excel</button>
+      <span class="hint">PDF: en el diálogo elegí "Guardar como PDF" · Excel: se descarga directo</span>
+    </div>
+    <script>
+    const ITEMS = ${JSON.stringify(window.ppItems)};
+    const NRO = '${nro}';
+    const CLIENTE = '${cliente.replace(/'/g,"\\'")}';
+    const TOTAL = ${total};
+    const FECHA = '${hoy.toLocaleDateString('es-AR')}';
+    const VALIDEZ = '${validez.toLocaleDateString('es-AR')}';
+    const NOTA = '${nota.replace(/'/g,"\\'")}';
+    const COND = '${cond.replace(/'/g,"\\'")}';
 
-  showToast('Presupuesto generado — usá Ctrl+P para guardar como PDF');
+    function descargarExcel() {
+      const wb = XLSX.utils.book_new();
+      const data = [
+        ['PRESUPUESTO TIZ PUBLICIDAD'],
+        [''],
+        ['Nro Presupuesto', 'PRES-' + String(NRO).padStart(4,'0')],
+        ['Cliente', CLIENTE],
+        ['Fecha', FECHA],
+        ['Válido hasta', VALIDEZ],
+        [''],
+        ['Descripción', 'Precio Unitario', 'Unidades', 'Subtotal'],
+        ...ITEMS.map(i => [i.desc, +i.precio||0, +i.cant||1, (+i.precio||0)*(+i.cant||1)]),
+        [''],
+        ['', '', 'TOTAL COTIZADO', TOTAL],
+        [''],
+        ['Nota:', NOTA],
+        ['Condición:', COND],
+        [''],
+        ['TIZ Publicidad · info@tizpublicidad.com · 11-3479-9737 · Av Pte Perón 3779, J C Paz'],
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      // Estilos de ancho
+      ws['!cols'] = [{wch:45},{wch:18},{wch:12},{wch:18}];
+      // Merge título
+      ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}}];
+      XLSX.utils.book_append_sheet(wb, ws, 'Presupuesto');
+      XLSX.writeFile(wb, 'Presupuesto_' + String(NRO).padStart(4,'0') + '_' + CLIENTE.replace(/[^a-zA-Z0-9]/g,'_') + '.xlsx');
+    }
+    <\/script>
+    </body></html>`);
+  printWin.document.close();
+  showToast('Presupuesto guardado en Firebase ✓ — abrí la ventana para descargar PDF o Excel');
 };
 window.estTab = 'tabla';
 window.setEstTab = (tab, el) => {
