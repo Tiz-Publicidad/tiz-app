@@ -193,8 +193,9 @@ td.strong { color: var(--text); font-weight: 500; }
 .cli-option-sub { font-size: 10px; color: var(--text3); }
 
 /* Presupuesto PDF */
-.pp-item-row { display:grid; grid-template-columns:1fr 100px 80px 100px 32px; gap:6px; margin-bottom:6px; align-items:center; }
-.pp-item-row input { background:var(--surface2); border:1px solid var(--border2); border-radius:6px; padding:5px 8px; color:var(--text); font-size:12px; width:100%; }
+.pp-item-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+.pp-item-row input { background:var(--surface2); border:1px solid var(--border2); border-radius:6px; padding:5px 8px; color:var(--text); font-size:12px; }
+.pp-item-row input:first-child { flex:1; }
 @media print {
   body * { visibility:hidden; }
   #print-area, #print-area * { visibility:visible; }
@@ -696,16 +697,16 @@ td.strong { color: var(--text); font-weight: 500; }
     </div>
     <div style="margin:14px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Ítems</div>
     <div id="pp-items-wrap">
-      <div style="display:grid;grid-template-columns:1fr 100px 80px 100px 32px;gap:6px;margin-bottom:4px">
-        <span style="font-size:10px;color:var(--text3)">Descripción</span>
-        <span style="font-size:10px;color:var(--text3)">$ Unitario</span>
-        <span style="font-size:10px;color:var(--text3)">Unidades</span>
-        <span style="font-size:10px;color:var(--text3)">Subtotal</span>
-        <span></span>
+      <div style="display:flex;gap:6px;margin-bottom:6px;padding:0 2px">
+        <span style="flex:1;font-size:10px;color:var(--text3);text-transform:uppercase">Descripción</span>
+        <span style="width:110px;font-size:10px;color:var(--text3);text-transform:uppercase">$ Unitario</span>
+        <span style="width:70px;font-size:10px;color:var(--text3);text-transform:uppercase">Cant</span>
+        <span style="width:110px;font-size:10px;color:var(--text3);text-transform:uppercase;text-align:right">Subtotal</span>
+        <span style="width:32px"></span>
       </div>
-      <div id="pp-items"></div>
+      <div id="pp-items" style="max-height:260px;overflow-y:auto;padding-right:2px"></div>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="addItemPP()" style="margin-top:6px"><i class="ti ti-plus"></i> Agregar ítem</button>
+    <button class="btn btn-ghost btn-sm" onclick="addItemPP()" style="margin-top:8px"><i class="ti ti-plus"></i> Agregar ítem</button>
     <div style="text-align:right;margin-top:12px;font-size:14px;font-weight:600;color:var(--accent)">
       Total: <span id="pp-total">$0</span>
     </div>
@@ -1486,6 +1487,27 @@ window.editCliente = id => {
 };
 window.delCliente = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('clientes',id); };
 
+window.saveCliente = async () => {
+  const nombre = document.getElementById('fc-nombre').value.trim();
+  if (!nombre) { showToast('Ingresá el nombre del cliente'); return; }
+  const data = {
+    nombre,
+    cuit: document.getElementById('fc-cuit').value.trim(),
+    contacto: document.getElementById('fc-contacto').value.trim(),
+    cel: document.getElementById('fc-cel').value.trim(),
+    email: document.getElementById('fc-email').value.trim(),
+    notas: document.getElementById('fc-notas')?.value.trim() || '',
+  };
+  const id = window.editingId.cliente;
+  if (id) await updateDoc_('clientes', id, data);
+  else await addDoc_('clientes', data);
+  // Si hay una obra abierta, actualizar el campo cliente con el nombre guardado
+  const fCliente = document.getElementById('f-cliente');
+  if (fCliente && !id) fCliente.value = nombre;
+  closeModal('cliente');
+  showToast(id ? 'Cliente actualizado' : 'Cliente guardado ✓');
+};
+
 // RETENCIONES
 function renderRetenciones() {
   const rets = window.DB.retenciones;
@@ -1859,7 +1881,7 @@ window.abrirPresupuesto = () => {
   }] : [{ desc:'', precio:0, cant:1 }];
 
   renderPPItems();
-  document.getElementById('modal-presupuesto-pdf').classList.add('open');
+  document.getElementById('modal-prespdf').classList.add('open');
 };
 
 window.addItemPP = () => {
@@ -1899,11 +1921,11 @@ function renderPPItems() {
   if (!wrap) return;
   wrap.innerHTML = window.ppItems.map((it, i) => `
     <div class="pp-item-row">
-      <input value="${it.desc||''}" placeholder="Descripción del ítem" oninput="updateItemPP(${i},'desc',this.value)">
-      <input type="number" value="${it.precio||''}" placeholder="0" oninput="updateItemPP(${i},'precio',this.value)">
-      <input type="number" value="${it.cant||1}" placeholder="1" oninput="updateItemPP(${i},'cant',this.value)">
-      <span class="pp-subtotal" style="font-size:12px;color:var(--text2);padding:0 4px">${fmtPeso((it.precio||0)*(it.cant||1))}</span>
-      <button class="btn-icon" onclick="removeItemPP(${i})" style="padding:4px"><i class="ti ti-trash" style="font-size:12px"></i></button>
+      <input value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Descripción del ítem ${i+1}" oninput="updateItemPP(${i},'desc',this.value)" style="flex:1">
+      <input type="number" value="${it.precio||''}" placeholder="$ Unit" oninput="updateItemPP(${i},'precio',this.value)" style="width:110px">
+      <input type="number" value="${it.cant||1}" placeholder="Cant" oninput="updateItemPP(${i},'cant',this.value)" style="width:70px">
+      <span class="pp-subtotal" style="font-size:12px;color:var(--text2);width:110px;text-align:right;padding:0 4px;white-space:nowrap">${fmtPeso((it.precio||0)*(it.cant||1))}</span>
+      <button class="btn-icon" onclick="removeItemPP(${i})" title="Eliminar ítem" style="padding:4px;color:var(--red)"><i class="ti ti-trash" style="font-size:13px"></i></button>
     </div>
   `).join('');
   updatePPTotal();
@@ -2566,7 +2588,6 @@ window.sugerirClientes = (q) => {
   const dd = document.getElementById('clientes-dropdown');
   if (!q || q.length < 1) { dd.style.display = 'none'; return; }
 
-  // Buscar en clientes y también en clientes únicos de obras
   const clientesDB = window.DB.clientes.map(c => ({ nombre: c.nombre, cuit: c.cuit, fuente: 'db' }));
   const clientesObras = [...new Set(window.DB.obras.map(o => o.cliente).filter(Boolean))]
     .filter(n => !clientesDB.find(c => c.nombre?.toLowerCase() === n.toLowerCase()))
@@ -2574,19 +2595,39 @@ window.sugerirClientes = (q) => {
 
   const todos = [...clientesDB, ...clientesObras];
   const ql = q.toLowerCase();
-  const matches = todos
-    .filter(c => c.nombre && c.nombre.toLowerCase().includes(ql))
-    .slice(0, 8);
+  const matches = todos.filter(c => c.nombre && c.nombre.toLowerCase().includes(ql)).slice(0, 8);
 
-  if (!matches.length) { dd.style.display = 'none'; return; }
-
-  dd.innerHTML = matches.map(c => `
+  let html = matches.map(c => `
     <div class="cli-option" onmousedown="elegirCliente('${c.nombre.replace(/'/g,"\\'")}')">
       <span>${resaltar(c.nombre, q)}</span>
       ${c.cuit ? `<span class="cli-option-sub">CUIT: ${c.cuit}</span>` : `<span class="cli-option-sub" style="color:var(--text3)">de obras anteriores</span>`}
     </div>
   `).join('');
+
+  // Botón para crear cliente nuevo
+  html += `<div class="cli-option" onmousedown="nuevoClienteDesdeObra('${q.replace(/'/g,"\\'")}'')" style="border-top:1px solid var(--border);color:var(--accent)">
+    <span>➕ Crear cliente "<strong>${q}</strong>"</span>
+    <span class="cli-option-sub" style="color:var(--accent)">Abre el formulario de nuevo cliente</span>
+  </div>`;
+
+  dd.innerHTML = html;
   dd.style.display = 'block';
+};
+
+window.nuevoClienteDesdeObra = (nombre) => {
+  // Cerrar dropdown
+  cerrarSugerencias();
+  // Guardar el nombre en el campo de la obra por si vuelve
+  document.getElementById('f-cliente').value = nombre;
+  // Abrir modal de cliente con nombre precargado
+  window.editingId.cliente = null;
+  document.getElementById('fc-nombre').value = nombre;
+  document.getElementById('fc-cuit').value = '';
+  document.getElementById('fc-contacto').value = '';
+  document.getElementById('fc-cel').value = '';
+  document.getElementById('fc-email').value = '';
+  // Abrir modal cliente encima del modal obra
+  document.getElementById('modal-cliente').classList.add('open');
 };
 
 window.resaltar = (texto, q) => {
