@@ -750,9 +750,19 @@ td.strong { color: var(--text); font-weight: 500; }
     <div class="form-grid">
       <div class="form-group"><label>Nro presupuesto</label><input id="fp-nro"></div>
       <div class="form-group"><label>Vendedor</label><select id="fp-vend"><option>G</option><option>J</option><option>G/J</option></select></div>
-      <div class="form-group full"><label>Cliente</label><input id="fp-cliente"></div>
-      <div class="form-group full"><label>Descripción</label><input id="fp-desc"></div>
-      <div class="form-group"><label>Importe</label><input id="fp-importe" type="number"></div>
+      <div class="form-group full" style="position:relative"><label>Cliente</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="fp-cliente" style="flex:1" placeholder="Escribí para buscar cliente...">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="nuevoClienteDesdePresupuestoModal(document.getElementById('fp-cliente').value.trim())" title="Crear cliente nuevo">+ Cliente</button>
+        </div>
+      </div>
+      <div class="form-group full"><label>Descripción general</label><input id="fp-desc" placeholder="Resumen general del trabajo"></div>
+      <div class="form-group full">
+        <label>Ítems a cotizar</label>
+        <div id="fp-items" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addPresupuestoItem()"><i class="ti ti-plus"></i> Agregar renglón</button>
+      </div>
+      <div class="form-group"><label>Total neto</label><input id="fp-importe" type="number" readonly></div>
       <div class="form-group"><label>Fecha</label><input id="fp-fecha" placeholder="DD/MM/AAAA"></div>
       <div class="form-group"><label>Estado</label>
         <select id="fp-estado"><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option></select>
@@ -2159,7 +2169,101 @@ window.generarPDF = async () => {
       XLSX.writeFile(wb, 'Presupuesto_' + String(NRO).padStart(4,'0') + '_' + CLIENTE.replace(/[^a-zA-Z0-9]/g,'_') + '.xlsx');
     }
     <\/script>
-    </body></html>`);
+    
+
+<!-- PATCH v4.3: alta de cliente desde presupuesto robusta -->
+<script type="module">
+(function(){
+  function $(id){ return document.getElementById(id); }
+
+  function abrirClienteDesdePresupuesto(nombre){
+    nombre = (nombre || $('fp-cliente')?.value || $('pp-cliente')?.value || '').trim();
+    window._clienteOrigen = 'presupuesto';
+    window._clienteNuevoNombre = nombre;
+    window.editingId = window.editingId || {};
+    window.editingId.cliente = null;
+
+    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    const nom = $('fc-nombre');
+    if (nom) nom.value = nombre;
+
+    // Cerrar sugerencias y dejar el modal de cliente por encima.
+    $('fp-clientes-dropdown')?.style && ($('fp-clientes-dropdown').style.display = 'none');
+    $('pp-clientes-dropdown')?.style && ($('pp-clientes-dropdown').style.display = 'none');
+
+    const modalPres = $('modal-presupuesto');
+    if (modalPres) modalPres.classList.remove('open');
+
+    const modalCli = $('modal-cliente');
+    if (modalCli) {
+      modalCli.classList.add('open');
+      modalCli.style.zIndex = '9999';
+    }
+    setTimeout(() => nom?.focus(), 80);
+  }
+
+  // Sobrescribe funciones anteriores, aunque hayan quedado duplicadas en el archivo.
+  window.nuevoClienteDesdePresupuestoModal = abrirClienteDesdePresupuesto;
+  window.nuevoClienteDesdePresupuesto = abrirClienteDesdePresupuesto;
+
+  // Captura clicks/touches sobre cualquier opción "Crear cliente" del desplegable.
+  document.addEventListener('pointerdown', function(ev){
+    const item = ev.target.closest && ev.target.closest('.cli-option');
+    if (!item) return;
+    const txt = (item.textContent || '').toLowerCase();
+    if (!txt.includes('crear cliente')) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    abrirClienteDesdePresupuesto(($('fp-cliente')?.value || $('pp-cliente')?.value || '').trim());
+  }, true);
+
+  // Botón fijo: si el modal de presupuesto no tiene botón + Cliente, lo agrega.
+  function asegurarBotonCliente(){
+    const input = $('fp-cliente');
+    if (!input || $('btn-cliente-desde-presupuesto')) return;
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.gap = '8px';
+    wrapper.style.alignItems = 'center';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+    input.style.flex = '1';
+    const btn = document.createElement('button');
+    btn.id = 'btn-cliente-desde-presupuesto';
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.textContent = '+ Cliente';
+    btn.onclick = () => abrirClienteDesdePresupuesto(input.value);
+    wrapper.appendChild(btn);
+  }
+
+  const baseOpenModal = window.openModal;
+  window.openModal = function(type){
+    if (typeof baseOpenModal === 'function') baseOpenModal(type);
+    setTimeout(asegurarBotonCliente, 50);
+  };
+  document.addEventListener('DOMContentLoaded', asegurarBotonCliente);
+  setTimeout(asegurarBotonCliente, 500);
+
+  // Al guardar cliente, vuelve al presupuesto y coloca el nombre en el campo.
+  const baseSaveCliente = window.saveCliente;
+  window.saveCliente = async function(){
+    const origen = window._clienteOrigen;
+    const nombre = $('fc-nombre')?.value?.trim() || window._clienteNuevoNombre || '';
+    if (typeof baseSaveCliente === 'function') await baseSaveCliente();
+    if (origen === 'presupuesto' && nombre) {
+      const fp = $('fp-cliente'); if (fp) fp.value = nombre;
+      const pp = $('pp-cliente'); if (pp) pp.value = nombre;
+      const modalCli = $('modal-cliente'); if (modalCli) modalCli.style.zIndex = '';
+      $('modal-presupuesto')?.classList.add('open');
+    }
+    window._clienteOrigen = null;
+    window._clienteNuevoNombre = null;
+  };
+})();
+</script>
+
+</body></html>`);
   printWin.document.close();
   showToast('Presupuesto guardado en Firebase ✓ — abrí la ventana para descargar PDF o Excel');
 };
@@ -3100,7 +3204,8 @@ function tizEnsurePresupuestoClienteDropdown() {
   }
   input.setAttribute('autocomplete','off');
   input.oninput = () => sugerirClientesPresupuesto(input.value);
-  input.onblur = () => setTimeout(cerrarSugerenciasPresupuesto, 200);
+  input.onfocus = () => { if (input.value) sugerirClientesPresupuesto(input.value); };
+  input.onblur = () => setTimeout(cerrarSugerenciasPresupuesto, 250);
 }
 window.abrirNuevoPresupuesto = function() {
   window.editingId.presupuesto = null;
@@ -3152,8 +3257,11 @@ window.nuevoClienteDesdePresupuestoModal = function(nombre) {
   window._clienteNuevoNombre = nombre;
   window.editingId.cliente = null;
   ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const nom = document.getElementById('fc-nombre'); if (nom) nom.value = nombre;
+  const nom = document.getElementById('fc-nombre'); if (nom) nom.value = nombre || '';
+  // cerramos visualmente el modal de presupuesto para que el de cliente quede adelante
+  document.getElementById('modal-presupuesto')?.classList.remove('open');
   document.getElementById('modal-cliente').classList.add('open');
+  setTimeout(() => document.getElementById('fc-nombre')?.focus(), 80);
 };
 const _tizOpenModalBase = window.openModal;
 window.openModal = function(type) {
@@ -3233,5 +3341,372 @@ setTimeout(tizEnsurePresupuestoClienteDropdown, 500);
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
 </script>
+
+
+<!-- PATCH v4.3: alta de cliente desde presupuesto robusta -->
+<script type="module">
+(function(){
+  function $(id){ return document.getElementById(id); }
+
+  function abrirClienteDesdePresupuesto(nombre){
+    nombre = (nombre || $('fp-cliente')?.value || $('pp-cliente')?.value || '').trim();
+    window._clienteOrigen = 'presupuesto';
+    window._clienteNuevoNombre = nombre;
+    window.editingId = window.editingId || {};
+    window.editingId.cliente = null;
+
+    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    const nom = $('fc-nombre');
+    if (nom) nom.value = nombre;
+
+    // Cerrar sugerencias y dejar el modal de cliente por encima.
+    $('fp-clientes-dropdown')?.style && ($('fp-clientes-dropdown').style.display = 'none');
+    $('pp-clientes-dropdown')?.style && ($('pp-clientes-dropdown').style.display = 'none');
+
+    const modalPres = $('modal-presupuesto');
+    if (modalPres) modalPres.classList.remove('open');
+
+    const modalCli = $('modal-cliente');
+    if (modalCli) {
+      modalCli.classList.add('open');
+      modalCli.style.zIndex = '9999';
+    }
+    setTimeout(() => nom?.focus(), 80);
+  }
+
+  // Sobrescribe funciones anteriores, aunque hayan quedado duplicadas en el archivo.
+  window.nuevoClienteDesdePresupuestoModal = abrirClienteDesdePresupuesto;
+  window.nuevoClienteDesdePresupuesto = abrirClienteDesdePresupuesto;
+
+  // Captura clicks/touches sobre cualquier opción "Crear cliente" del desplegable.
+  document.addEventListener('pointerdown', function(ev){
+    const item = ev.target.closest && ev.target.closest('.cli-option');
+    if (!item) return;
+    const txt = (item.textContent || '').toLowerCase();
+    if (!txt.includes('crear cliente')) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    abrirClienteDesdePresupuesto(($('fp-cliente')?.value || $('pp-cliente')?.value || '').trim());
+  }, true);
+
+  // Botón fijo: si el modal de presupuesto no tiene botón + Cliente, lo agrega.
+  function asegurarBotonCliente(){
+    const input = $('fp-cliente');
+    if (!input || $('btn-cliente-desde-presupuesto')) return;
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.gap = '8px';
+    wrapper.style.alignItems = 'center';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+    input.style.flex = '1';
+    const btn = document.createElement('button');
+    btn.id = 'btn-cliente-desde-presupuesto';
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.textContent = '+ Cliente';
+    btn.onclick = () => abrirClienteDesdePresupuesto(input.value);
+    wrapper.appendChild(btn);
+  }
+
+  const baseOpenModal = window.openModal;
+  window.openModal = function(type){
+    if (typeof baseOpenModal === 'function') baseOpenModal(type);
+    setTimeout(asegurarBotonCliente, 50);
+  };
+  document.addEventListener('DOMContentLoaded', asegurarBotonCliente);
+  setTimeout(asegurarBotonCliente, 500);
+
+  // Al guardar cliente, vuelve al presupuesto y coloca el nombre en el campo.
+  const baseSaveCliente = window.saveCliente;
+  window.saveCliente = async function(){
+    const origen = window._clienteOrigen;
+    const nombre = $('fc-nombre')?.value?.trim() || window._clienteNuevoNombre || '';
+    if (typeof baseSaveCliente === 'function') await baseSaveCliente();
+    if (origen === 'presupuesto' && nombre) {
+      const fp = $('fp-cliente'); if (fp) fp.value = nombre;
+      const pp = $('pp-cliente'); if (pp) pp.value = nombre;
+      const modalCli = $('modal-cliente'); if (modalCli) modalCli.style.zIndex = '';
+      $('modal-presupuesto')?.classList.add('open');
+    }
+    window._clienteOrigen = null;
+    window._clienteNuevoNombre = null;
+  };
+})();
+</script>
+
+
+<script>
+/* ============================================================
+   TIZ v4.4 — Cliente nuevo como popup sobre presupuesto
+   Objetivo: no cerrar el presupuesto cuando se carga un cliente nuevo.
+   ============================================================ */
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  function cerrarDropdownClientes(){
+    ['fp-clientes-dropdown','pp-clientes-dropdown','clientes-dropdown'].forEach(id => {
+      const el = $(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+
+  function abrirClientePopupSobrePresupuesto(nombre){
+    cerrarDropdownClientes();
+    window._clienteOrigen = 'presupuesto';
+    window._clienteNuevoNombre = nombre || $('fp-cliente')?.value?.trim() || '';
+    window.editingId = window.editingId || {};
+    window.editingId.cliente = null;
+
+    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id => {
+      const el = $(id);
+      if (el) el.value = '';
+    });
+
+    const nom = $('fc-nombre');
+    if (nom) nom.value = window._clienteNuevoNombre || '';
+
+    // Mantener abierto el presupuesto y poner cliente encima.
+    const modalPres = $('modal-presupuesto');
+    if (modalPres) {
+      modalPres.classList.add('open');
+      modalPres.style.zIndex = '100';
+    }
+
+    const modalCli = $('modal-cliente');
+    if (modalCli) {
+      modalCli.classList.add('open');
+      modalCli.style.zIndex = '10000';
+    }
+
+    setTimeout(() => nom && nom.focus(), 80);
+  }
+
+  window.nuevoClienteDesdePresupuestoModal = abrirClientePopupSobrePresupuesto;
+  window.nuevoClienteDesdePresupuesto = abrirClientePopupSobrePresupuesto;
+
+  // Captura robusta para la opción del desplegable: Crear cliente.
+  document.addEventListener('pointerdown', function(ev){
+    const item = ev.target.closest && ev.target.closest('.cli-option');
+    if (!item) return;
+    const txt = (item.textContent || '').toLowerCase();
+    if (!txt.includes('crear cliente')) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    abrirClientePopupSobrePresupuesto(($('fp-cliente')?.value || $('pp-cliente')?.value || '').trim());
+  }, true);
+
+  // Si existe el botón + Cliente, forzamos el comportamiento correcto.
+  function conectarBotonCliente(){
+    const btns = Array.from(document.querySelectorAll('button'))
+      .filter(b => (b.textContent || '').toLowerCase().includes('cliente'));
+    btns.forEach(btn => {
+      if (btn.dataset.tizClientePopup === '1') return;
+      btn.dataset.tizClientePopup = '1';
+      btn.addEventListener('click', function(ev){
+        if (!$('modal-presupuesto')?.classList.contains('open')) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        abrirClientePopupSobrePresupuesto(($('fp-cliente')?.value || '').trim());
+      }, true);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', conectarBotonCliente);
+  setTimeout(conectarBotonCliente, 400);
+  setTimeout(conectarBotonCliente, 1200);
+
+  // Al guardar cliente: se cierra sólo el popup de cliente, se mantiene la coti abierta
+  // y se completa el cliente recién creado en el presupuesto.
+  const saveClienteAnterior = window.saveCliente;
+  window.saveCliente = async function(){
+    const origen = window._clienteOrigen;
+    const nombre = $('fc-nombre')?.value?.trim() || window._clienteNuevoNombre || '';
+
+    if (typeof saveClienteAnterior === 'function') {
+      await saveClienteAnterior();
+    }
+
+    if (origen === 'presupuesto' && nombre) {
+      const fp = $('fp-cliente');
+      if (fp) {
+        fp.value = nombre;
+        fp.dispatchEvent(new Event('input', { bubbles:true }));
+      }
+
+      const modalCli = $('modal-cliente');
+      if (modalCli) {
+        modalCli.classList.remove('open');
+        modalCli.style.zIndex = '';
+      }
+
+      const modalPres = $('modal-presupuesto');
+      if (modalPres) {
+        modalPres.classList.add('open');
+        modalPres.style.zIndex = '';
+      }
+
+      if (typeof window.showToast === 'function') {
+        window.showToast('Cliente creado y agregado al presupuesto');
+      }
+    }
+
+    window._clienteOrigen = null;
+    window._clienteNuevoNombre = null;
+  };
+})();
+</script>
+
+
+<script>
+/* ============================================================
+   TIZ v4.5 corregido — Ítems de presupuesto sin romper Firebase
+   ============================================================ */
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  window.addPresupuestoItem = function(desc = '', neto = '', cant = 1) {
+    const wrap = $('fp-items');
+    if (!wrap) return;
+
+    const row = document.createElement('div');
+    row.className = 'fp-item-row';
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 130px 80px 36px;gap:8px;align-items:center';
+
+    const inputDesc = document.createElement('input');
+    inputDesc.className = 'fp-item-desc';
+    inputDesc.placeholder = 'Descripción del ítem';
+    inputDesc.value = desc || '';
+
+    const inputNeto = document.createElement('input');
+    inputNeto.className = 'fp-item-neto';
+    inputNeto.type = 'number';
+    inputNeto.placeholder = '$ neto';
+    inputNeto.value = neto || '';
+    inputNeto.addEventListener('input', window.recalcularPresupuestoItems);
+
+    const inputCant = document.createElement('input');
+    inputCant.className = 'fp-item-cant';
+    inputCant.type = 'number';
+    inputCant.min = '1';
+    inputCant.placeholder = 'Cant';
+    inputCant.value = cant || 1;
+    inputCant.addEventListener('input', window.recalcularPresupuestoItems);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-icon';
+    btn.title = 'Quitar';
+    btn.innerHTML = '<i class="ti ti-trash"></i>';
+    btn.addEventListener('click', () => {
+      row.remove();
+      window.recalcularPresupuestoItems();
+    });
+
+    row.appendChild(inputDesc);
+    row.appendChild(inputNeto);
+    row.appendChild(inputCant);
+    row.appendChild(btn);
+    wrap.appendChild(row);
+    window.recalcularPresupuestoItems();
+  };
+
+  window.getPresupuestoItems = function() {
+    return Array.from(document.querySelectorAll('#fp-items .fp-item-row')).map(row => {
+      const neto = Number(row.querySelector('.fp-item-neto')?.value || 0);
+      const cant = Number(row.querySelector('.fp-item-cant')?.value || 1);
+      return {
+        desc: row.querySelector('.fp-item-desc')?.value?.trim() || '',
+        neto,
+        cant,
+        subtotal: neto * cant
+      };
+    }).filter(i => i.desc || i.neto);
+  };
+
+  window.recalcularPresupuestoItems = function() {
+    const total = window.getPresupuestoItems().reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
+    const importe = $('fp-importe');
+    if (importe) importe.value = Math.round(total || 0);
+  };
+
+  window.resetPresupuestoItems = function(items) {
+    const wrap = $('fp-items');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (Array.isArray(items) && items.length) {
+      items.forEach(i => window.addPresupuestoItem(i.desc, i.neto, i.cant));
+    } else {
+      window.addPresupuestoItem();
+    }
+    window.recalcularPresupuestoItems();
+  };
+
+  const openModalBase = window.openModal;
+  window.openModal = function(type) {
+    openModalBase(type);
+    if (type === 'presupuesto') {
+      setTimeout(() => {
+        const id = window.editingId?.presupuesto;
+        const p = id ? (window.DB.presupuestos || []).find(x => x.id === id) : null;
+        window.resetPresupuestoItems(p?.items || []);
+      }, 80);
+    }
+  };
+
+  const editPresBase = window.editPres;
+  window.editPres = function(id) {
+    editPresBase(id);
+    setTimeout(() => {
+      const p = (window.DB.presupuestos || []).find(x => x.id === id);
+      window.resetPresupuestoItems(p?.items || []);
+    }, 120);
+  };
+
+  const addDocBase = window.addDoc_;
+  window.addDoc_ = async function(col, data) {
+    if (col === 'presupuestos') {
+      const items = window.getPresupuestoItems();
+      data.items = items;
+      const total = items.reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
+      if (total) data.importe = total;
+    }
+
+    if (col === 'obras') {
+      const items = window.getPresupuestoItems();
+      if (items.length) {
+        data.items = items;
+        data.comentarios = (data.comentarios || '') + '\n\nÍtems cotizados:\n' +
+          items.map(i => '- ' + (i.cant || 1) + ' x ' + i.desc + ' — Neto $' + Math.round(i.neto || 0) + ' — Subtotal $' + Math.round(i.subtotal || 0)).join('\n');
+      }
+    }
+
+    return addDocBase(col, data);
+  };
+
+  const savePresupuestoBase = window.savePresupuesto;
+  window.savePresupuesto = async function() {
+    window.recalcularPresupuestoItems();
+    const items = window.getPresupuestoItems();
+    const descGeneral = $('fp-desc')?.value?.trim() || '';
+
+    if (!descGeneral && items.length) {
+      $('fp-desc').value = items.map(i => i.desc).filter(Boolean).join(' + ');
+    }
+
+    if (!descGeneral && !items.length) {
+      window.showToast?.('Ingresá una descripción o al menos un ítem');
+      return;
+    }
+
+    return savePresupuestoBase();
+  };
+
+  window.tizMostrarRutaOT = function() {
+    alert('Ruta automática de OT aprobada:\n\n1. Presupuesto cambia a Aprobado.\n2. La app crea una Obra/OT con el mismo número del presupuesto.\n3. La app llama al Apps Script TIZ - Automatización OT.\n4. Apps Script crea en Drive: Ordenes de trabajo aprobadas / OT XXXX - Cliente - Descripción.\n5. Dentro crea Google Sheet editable de Orden de Trabajo.\n6. Dentro crea subcarpetas: Archivos cliente, Diseño, Producción, Colocación y Fotos finales.\n7. La app guarda los links de carpeta y OT en Firebase.');
+  };
+})();
+</script>
+
 </body>
 </html>
