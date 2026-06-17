@@ -3070,6 +3070,166 @@ window.refreshCurrent = function() {
   if (window.currentPage === 'estadistica') renderEstadistica();
 };
 
+
+
+// ============================================================
+// V4.1 — PRESUPUESTOS: próximo número, autocomplete cliente y creación de OT
+// ============================================================
+function tizNextPresupuestoNro() {
+  const presNros = (window.DB?.presupuestos || [])
+    .map(p => parseInt(String(p.nro || '').replace(/\D/g,''), 10))
+    .filter(n => Number.isFinite(n) && n > 0);
+  const maxPres = presNros.length ? Math.max(...presNros) : 4659;
+  return String(maxPres + 1).padStart(4, '0');
+}
+function tizTodayAR() {
+  const d = new Date();
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+}
+function tizEnsurePresupuestoClienteDropdown() {
+  const input = document.getElementById('fp-cliente');
+  if (!input) return;
+  const parent = input.closest('.form-group');
+  if (parent) parent.style.position = 'relative';
+  let dd = document.getElementById('fp-clientes-dropdown');
+  if (!dd && parent) {
+    dd = document.createElement('div');
+    dd.id = 'fp-clientes-dropdown';
+    dd.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;z-index:350;max-height:180px;overflow-y:auto;margin-top:2px';
+    parent.appendChild(dd);
+  }
+  input.setAttribute('autocomplete','off');
+  input.oninput = () => sugerirClientesPresupuesto(input.value);
+  input.onblur = () => setTimeout(cerrarSugerenciasPresupuesto, 200);
+}
+window.abrirNuevoPresupuesto = function() {
+  window.editingId.presupuesto = null;
+  ['fp-cliente','fp-desc','fp-importe','fp-comentarios'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const nro = document.getElementById('fp-nro'); if (nro) nro.value = tizNextPresupuestoNro();
+  const vend = document.getElementById('fp-vend'); if (vend) vend.value = 'G';
+  const fecha = document.getElementById('fp-fecha'); if (fecha) fecha.value = tizTodayAR();
+  const estado = document.getElementById('fp-estado'); if (estado) estado.value = 'Enviado';
+  tizEnsurePresupuestoClienteDropdown();
+  const title = document.querySelector('#modal-presupuesto .modal-title');
+  if (title) title.textContent = 'Nuevo presupuesto';
+  document.getElementById('modal-presupuesto').classList.add('open');
+};
+window.sugerirClientesPresupuesto = function(q) {
+  const dd = document.getElementById('fp-clientes-dropdown');
+  if (!dd) return;
+  if (!q || q.length < 1) { dd.style.display = 'none'; return; }
+  const clientesDB = (window.DB.clientes || []).map(c => ({ nombre: c.nombre, cuit: c.cuit, fuente: 'Clientes' }));
+  const clientesObras = [...new Set((window.DB.obras || []).map(o => o.cliente).filter(Boolean))]
+    .filter(n => !clientesDB.find(c => (c.nombre||'').toLowerCase() === String(n).toLowerCase()))
+    .map(n => ({ nombre: n, cuit: '', fuente: 'Obras anteriores' }));
+  const todos = [...clientesDB, ...clientesObras];
+  const ql = q.toLowerCase();
+  const matches = todos.filter(c => c.nombre && c.nombre.toLowerCase().includes(ql)).slice(0, 8);
+  let html = matches.map(c => `
+    <div class="cli-option" onmousedown="elegirClientePresupuesto('${String(c.nombre).replace(/'/g,"\\'")}')">
+      <span>${resaltar ? resaltar(c.nombre, q) : c.nombre}</span>
+      ${c.cuit ? `<span class="cli-option-sub">CUIT: ${c.cuit}</span>` : `<span class="cli-option-sub">${c.fuente}</span>`}
+    </div>
+  `).join('');
+  html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuestoModal('${String(q).replace(/'/g,"\\'")}')" style="border-top:1px solid var(--border);color:var(--accent)">
+    <span>➕ Crear cliente "<strong>${q}</strong>"</span>
+    <span class="cli-option-sub" style="color:var(--accent)">Abre la carga de cliente nuevo</span>
+  </div>`;
+  dd.innerHTML = html;
+  dd.style.display = 'block';
+};
+window.elegirClientePresupuesto = function(nombre) {
+  const el = document.getElementById('fp-cliente'); if (el) el.value = nombre;
+  cerrarSugerenciasPresupuesto();
+};
+window.cerrarSugerenciasPresupuesto = function() {
+  const dd = document.getElementById('fp-clientes-dropdown');
+  if (dd) dd.style.display = 'none';
+};
+window.nuevoClienteDesdePresupuestoModal = function(nombre) {
+  cerrarSugerenciasPresupuesto();
+  window._clienteOrigen = 'presupuesto';
+  window._clienteNuevoNombre = nombre;
+  window.editingId.cliente = null;
+  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const nom = document.getElementById('fc-nombre'); if (nom) nom.value = nombre;
+  document.getElementById('modal-cliente').classList.add('open');
+};
+const _tizOpenModalBase = window.openModal;
+window.openModal = function(type) {
+  if (type === 'presupuesto' && !window.editingId.presupuesto) return window.abrirNuevoPresupuesto();
+  _tizOpenModalBase(type);
+  if (type === 'presupuesto') tizEnsurePresupuestoClienteDropdown();
+};
+const _tizEditPresBase = window.editPres;
+window.editPres = function(id) {
+  _tizEditPresBase(id);
+  tizEnsurePresupuestoClienteDropdown();
+};
+const _tizSaveClienteBase = window.saveCliente;
+window.saveCliente = async function() {
+  const origen = window._clienteOrigen;
+  const nombre = document.getElementById('fc-nombre')?.value?.trim() || window._clienteNuevoNombre || '';
+  await _tizSaveClienteBase();
+  if (origen === 'presupuesto' && nombre) {
+    const el = document.getElementById('fp-cliente');
+    if (el) el.value = nombre;
+    document.getElementById('modal-presupuesto')?.classList.add('open');
+  }
+  window._clienteOrigen = null;
+  window._clienteNuevoNombre = null;
+};
+const _tizSavePresupuestoBase = window.savePresupuesto;
+window.savePresupuesto = async function() {
+  const data = {
+    nro: document.getElementById('fp-nro').value.trim() || tizNextPresupuestoNro(),
+    vendedor: document.getElementById('fp-vend').value,
+    cliente: document.getElementById('fp-cliente').value.trim(),
+    desc: document.getElementById('fp-desc').value.trim(),
+    importe: +document.getElementById('fp-importe').value || 0,
+    fecha: document.getElementById('fp-fecha').value.trim() || tizTodayAR(),
+    estado: document.getElementById('fp-estado').value,
+    comentarios: document.getElementById('fp-comentarios').value.trim(),
+  };
+  if (!data.cliente) { showToast('Ingresá o seleccioná un cliente'); return; }
+  if (!data.desc) { showToast('Ingresá una descripción'); return; }
+  const id = window.editingId.presupuesto;
+  if (id) await updateDoc_('presupuestos', id, data); else await addDoc_('presupuestos', data);
+
+  if (data.estado === 'Aprobado') {
+    const existente = (window.DB.obras || []).find(o => String(o.ot || '') === String(data.nro));
+    if (!existente) {
+      const obra = {
+        ot: data.nro,
+        semana: getSemanaActual(),
+        desc: data.desc,
+        cliente: data.cliente,
+        sector: 'Producción',
+        vendedor: data.vendedor,
+        estado: 'Aprobado',
+        neto: data.importe,
+        bruto: Math.round(data.importe * 1.21),
+        gastos: 0,
+        fecha: data.fecha,
+        cobr: 'Pendiente',
+        comentarios: 'Creada automáticamente desde presupuesto aprobado ' + data.nro,
+        origenPresupuesto: data.nro,
+        notas_sector: { 'Ventas': data.comentarios || '' }
+      };
+      const ref = await addDoc_('obras', obra);
+      await dispararAutomatizacionOT(obra, ref.id);
+      showToast('Presupuesto aprobado: obra y OT automática creadas ✓');
+    } else {
+      showToast('Presupuesto guardado. Ya existe una obra con esa OT.');
+    }
+  } else {
+    showToast('Presupuesto guardado');
+  }
+  window.editingId.presupuesto = null;
+  closeModal('presupuesto');
+};
+setTimeout(tizEnsurePresupuestoClienteDropdown, 500);
+
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
 </script>
