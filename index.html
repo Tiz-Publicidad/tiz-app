@@ -477,6 +477,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="page-header">
         <div><div class="page-title">Presupuestos</div></div>
         <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" onclick="tizMostrarRutaOT()"><i class="ti ti-route"></i> Ruta OT</button>
           <button class="btn btn-primary btn-sm" onclick="openModal('presupuesto')"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
         </div>
       </div>
@@ -756,13 +757,13 @@ td.strong { color: var(--text); font-weight: 500; }
           <button type="button" class="btn btn-ghost btn-sm" onclick="nuevoClienteDesdePresupuestoModal(document.getElementById('fp-cliente').value.trim())" title="Crear cliente nuevo">+ Cliente</button>
         </div>
       </div>
-      <div class="form-group full"><label>Descripción general</label><input id="fp-desc" placeholder="Resumen general del trabajo"></div>
+      <div class="form-group full"><label>Descripción general</label><input id="fp-desc" placeholder="Ej: Cartelería exterior sucursal... "></div>
       <div class="form-group full">
         <label>Ítems a cotizar</label>
-        <div id="fp-items" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="addPresupuestoItem()"><i class="ti ti-plus"></i> Agregar renglón</button>
+        <div id="fp-items" style="display:flex;flex-direction:column;gap:6px;margin-top:2px"></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addPresupuestoItem()" style="width:max-content;margin-top:6px"><i class="ti ti-plus"></i> Agregar renglón</button>
       </div>
-      <div class="form-group"><label>Total neto</label><input id="fp-importe" type="number" readonly></div>
+      <div class="form-group"><label>Importe neto total</label><input id="fp-importe" type="number" readonly placeholder="0"></div>
       <div class="form-group"><label>Fecha</label><input id="fp-fecha" placeholder="DD/MM/AAAA"></div>
       <div class="form-group"><label>Estado</label>
         <select id="fp-estado"><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option></select>
@@ -2261,6 +2262,101 @@ window.generarPDF = async () => {
     window._clienteNuevoNombre = null;
   };
 })();
+
+// ============================================================
+// V4.5 - Ítems de presupuesto y ruta de OT
+// ============================================================
+window.addPresupuestoItem = function(desc = '', neto = '', cant = 1) {
+  const wrap = document.getElementById('fp-items');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.className = 'fp-item-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 120px 70px 34px;gap:6px;align-items:center';
+  row.innerHTML = `
+    <input class="fp-item-desc" placeholder="Descripción del ítem" value="${String(desc||'').replaceAll('"','&quot;')}">
+    <input class="fp-item-neto" type="number" placeholder="$ neto" value="${neto||''}" oninput="recalcularPresupuestoItems()">
+    <input class="fp-item-cant" type="number" min="1" placeholder="Cant" value="${cant||1}" oninput="recalcularPresupuestoItems()">
+    <button type="button" class="btn-icon" title="Quitar" onclick="this.closest('.fp-item-row').remove();recalcularPresupuestoItems()"><i class="ti ti-trash"></i></button>
+  `;
+  wrap.appendChild(row);
+  recalcularPresupuestoItems();
+};
+
+window.recalcularPresupuestoItems = function() {
+  const rows = [...document.querySelectorAll('#fp-items .fp-item-row')];
+  const total = rows.reduce((sum, row) => {
+    const neto = Number(row.querySelector('.fp-item-neto')?.value || 0);
+    const cant = Number(row.querySelector('.fp-item-cant')?.value || 1);
+    return sum + (neto * cant);
+  }, 0);
+  const importe = document.getElementById('fp-importe');
+  if (importe) importe.value = Math.round(total);
+};
+
+window.getPresupuestoItems = function() {
+  return [...document.querySelectorAll('#fp-items .fp-item-row')].map(row => ({
+    desc: row.querySelector('.fp-item-desc')?.value?.trim() || '',
+    neto: Number(row.querySelector('.fp-item-neto')?.value || 0),
+    cant: Number(row.querySelector('.fp-item-cant')?.value || 1),
+    subtotal: Number(row.querySelector('.fp-item-neto')?.value || 0) * Number(row.querySelector('.fp-item-cant')?.value || 1)
+  })).filter(i => i.desc || i.neto);
+};
+
+window.resetPresupuestoItems = function(items) {
+  const wrap = document.getElementById('fp-items');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (Array.isArray(items) && items.length) items.forEach(i => addPresupuestoItem(i.desc, i.neto, i.cant));
+  else addPresupuestoItem();
+  recalcularPresupuestoItems();
+};
+
+// Refuerza alta de presupuesto: agrega ítems y genera descripción operativa para la OT.
+const _tizSavePresupuestoItemsBase = window.savePresupuesto;
+window.savePresupuesto = async function() {
+  recalcularPresupuestoItems();
+  const items = getPresupuestoItems();
+  const descGeneral = document.getElementById('fp-desc')?.value?.trim() || '';
+  if (!items.length && !descGeneral) { showToast('Ingresá una descripción o al menos un ítem'); return; }
+  if (!descGeneral && items.length) {
+    document.getElementById('fp-desc').value = items.map(i => i.desc).filter(Boolean).join(' + ');
+  }
+  window._presupuestoItemsPendientes = items;
+  await _tizSavePresupuestoItemsBase();
+};
+
+// Asegura que al abrir Nuevo presupuesto aparezca al menos un renglón.
+const _tizOpenModalItemsBase = window.openModal;
+window.openModal = function(type) {
+  _tizOpenModalItemsBase(type);
+  if (type === 'presupuesto') {
+    setTimeout(() => {
+      const editingId = window.editingId?.presupuesto;
+      const p = editingId ? (window.DB.presupuestos || []).find(x => x.id === editingId) : null;
+      resetPresupuestoItems(p?.items || []);
+      if (p?.items?.length) recalcularPresupuestoItems();
+    }, 60);
+  }
+};
+
+// Guarda ítems dentro del presupuesto y los pasa a la obra automática.
+const _tizAddDocItemsBase = window.addDoc_;
+window.addDoc_ = async function(col, data) {
+  if (col === 'presupuestos') {
+    data.items = window._presupuestoItemsPendientes || getPresupuestoItems();
+    data.importe = data.items.reduce((s,i)=>s + (Number(i.subtotal)||0), 0) || data.importe || 0;
+  }
+  if (col === 'obras' && window._presupuestoItemsPendientes?.length) {
+    data.items = window._presupuestoItemsPendientes;
+    data.comentarios = (data.comentarios || '') + '\n\nÍtems cotizados:\n' + window._presupuestoItemsPendientes.map(i => `- ${i.cant || 1} x ${i.desc} — Neto $${Math.round(i.neto || 0)} — Subtotal $${Math.round(i.subtotal || 0)}`).join('\n');
+  }
+  return _tizAddDocItemsBase(col, data);
+};
+
+window.tizMostrarRutaOT = function() {
+  alert('Ruta automática de OT aprobada:\n\n1. Presupuesto cambia a Aprobado.\n2. La app crea una Obra/OT con el mismo número del presupuesto.\n3. La app llama al Apps Script TIZ - Automatización OT.\n4. Apps Script crea en Drive: Ordenes de trabajo aprobadas / OT XXXX - Cliente - Descripción.\n5. Dentro crea Google Sheet editable de Orden de Trabajo.\n6. Dentro crea subcarpetas: Archivos cliente, Diseño, Producción, Colocación y Fotos finales.\n7. La app guarda los links de carpeta y OT en Firebase.');
+};
+
 </script>
 
 </body></html>`);
@@ -3555,157 +3651,101 @@ setTimeout(tizEnsurePresupuestoClienteDropdown, 500);
     window._clienteNuevoNombre = null;
   };
 })();
-</script>
 
+// ============================================================
+// V4.5 - Ítems de presupuesto y ruta de OT
+// ============================================================
+window.addPresupuestoItem = function(desc = '', neto = '', cant = 1) {
+  const wrap = document.getElementById('fp-items');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.className = 'fp-item-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 120px 70px 34px;gap:6px;align-items:center';
+  row.innerHTML = `
+    <input class="fp-item-desc" placeholder="Descripción del ítem" value="${String(desc||'').replaceAll('"','&quot;')}">
+    <input class="fp-item-neto" type="number" placeholder="$ neto" value="${neto||''}" oninput="recalcularPresupuestoItems()">
+    <input class="fp-item-cant" type="number" min="1" placeholder="Cant" value="${cant||1}" oninput="recalcularPresupuestoItems()">
+    <button type="button" class="btn-icon" title="Quitar" onclick="this.closest('.fp-item-row').remove();recalcularPresupuestoItems()"><i class="ti ti-trash"></i></button>
+  `;
+  wrap.appendChild(row);
+  recalcularPresupuestoItems();
+};
 
-<script>
-/* ============================================================
-   TIZ v4.5 corregido — Ítems de presupuesto sin romper Firebase
-   ============================================================ */
-(function(){
-  const $ = (id) => document.getElementById(id);
+window.recalcularPresupuestoItems = function() {
+  const rows = [...document.querySelectorAll('#fp-items .fp-item-row')];
+  const total = rows.reduce((sum, row) => {
+    const neto = Number(row.querySelector('.fp-item-neto')?.value || 0);
+    const cant = Number(row.querySelector('.fp-item-cant')?.value || 1);
+    return sum + (neto * cant);
+  }, 0);
+  const importe = document.getElementById('fp-importe');
+  if (importe) importe.value = Math.round(total);
+};
 
-  window.addPresupuestoItem = function(desc = '', neto = '', cant = 1) {
-    const wrap = $('fp-items');
-    if (!wrap) return;
+window.getPresupuestoItems = function() {
+  return [...document.querySelectorAll('#fp-items .fp-item-row')].map(row => ({
+    desc: row.querySelector('.fp-item-desc')?.value?.trim() || '',
+    neto: Number(row.querySelector('.fp-item-neto')?.value || 0),
+    cant: Number(row.querySelector('.fp-item-cant')?.value || 1),
+    subtotal: Number(row.querySelector('.fp-item-neto')?.value || 0) * Number(row.querySelector('.fp-item-cant')?.value || 1)
+  })).filter(i => i.desc || i.neto);
+};
 
-    const row = document.createElement('div');
-    row.className = 'fp-item-row';
-    row.style.cssText = 'display:grid;grid-template-columns:1fr 130px 80px 36px;gap:8px;align-items:center';
+window.resetPresupuestoItems = function(items) {
+  const wrap = document.getElementById('fp-items');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (Array.isArray(items) && items.length) items.forEach(i => addPresupuestoItem(i.desc, i.neto, i.cant));
+  else addPresupuestoItem();
+  recalcularPresupuestoItems();
+};
 
-    const inputDesc = document.createElement('input');
-    inputDesc.className = 'fp-item-desc';
-    inputDesc.placeholder = 'Descripción del ítem';
-    inputDesc.value = desc || '';
+// Refuerza alta de presupuesto: agrega ítems y genera descripción operativa para la OT.
+const _tizSavePresupuestoItemsBase = window.savePresupuesto;
+window.savePresupuesto = async function() {
+  recalcularPresupuestoItems();
+  const items = getPresupuestoItems();
+  const descGeneral = document.getElementById('fp-desc')?.value?.trim() || '';
+  if (!items.length && !descGeneral) { showToast('Ingresá una descripción o al menos un ítem'); return; }
+  if (!descGeneral && items.length) {
+    document.getElementById('fp-desc').value = items.map(i => i.desc).filter(Boolean).join(' + ');
+  }
+  window._presupuestoItemsPendientes = items;
+  await _tizSavePresupuestoItemsBase();
+};
 
-    const inputNeto = document.createElement('input');
-    inputNeto.className = 'fp-item-neto';
-    inputNeto.type = 'number';
-    inputNeto.placeholder = '$ neto';
-    inputNeto.value = neto || '';
-    inputNeto.addEventListener('input', window.recalcularPresupuestoItems);
-
-    const inputCant = document.createElement('input');
-    inputCant.className = 'fp-item-cant';
-    inputCant.type = 'number';
-    inputCant.min = '1';
-    inputCant.placeholder = 'Cant';
-    inputCant.value = cant || 1;
-    inputCant.addEventListener('input', window.recalcularPresupuestoItems);
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn-icon';
-    btn.title = 'Quitar';
-    btn.innerHTML = '<i class="ti ti-trash"></i>';
-    btn.addEventListener('click', () => {
-      row.remove();
-      window.recalcularPresupuestoItems();
-    });
-
-    row.appendChild(inputDesc);
-    row.appendChild(inputNeto);
-    row.appendChild(inputCant);
-    row.appendChild(btn);
-    wrap.appendChild(row);
-    window.recalcularPresupuestoItems();
-  };
-
-  window.getPresupuestoItems = function() {
-    return Array.from(document.querySelectorAll('#fp-items .fp-item-row')).map(row => {
-      const neto = Number(row.querySelector('.fp-item-neto')?.value || 0);
-      const cant = Number(row.querySelector('.fp-item-cant')?.value || 1);
-      return {
-        desc: row.querySelector('.fp-item-desc')?.value?.trim() || '',
-        neto,
-        cant,
-        subtotal: neto * cant
-      };
-    }).filter(i => i.desc || i.neto);
-  };
-
-  window.recalcularPresupuestoItems = function() {
-    const total = window.getPresupuestoItems().reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
-    const importe = $('fp-importe');
-    if (importe) importe.value = Math.round(total || 0);
-  };
-
-  window.resetPresupuestoItems = function(items) {
-    const wrap = $('fp-items');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-    if (Array.isArray(items) && items.length) {
-      items.forEach(i => window.addPresupuestoItem(i.desc, i.neto, i.cant));
-    } else {
-      window.addPresupuestoItem();
-    }
-    window.recalcularPresupuestoItems();
-  };
-
-  const openModalBase = window.openModal;
-  window.openModal = function(type) {
-    openModalBase(type);
-    if (type === 'presupuesto') {
-      setTimeout(() => {
-        const id = window.editingId?.presupuesto;
-        const p = id ? (window.DB.presupuestos || []).find(x => x.id === id) : null;
-        window.resetPresupuestoItems(p?.items || []);
-      }, 80);
-    }
-  };
-
-  const editPresBase = window.editPres;
-  window.editPres = function(id) {
-    editPresBase(id);
+// Asegura que al abrir Nuevo presupuesto aparezca al menos un renglón.
+const _tizOpenModalItemsBase = window.openModal;
+window.openModal = function(type) {
+  _tizOpenModalItemsBase(type);
+  if (type === 'presupuesto') {
     setTimeout(() => {
-      const p = (window.DB.presupuestos || []).find(x => x.id === id);
-      window.resetPresupuestoItems(p?.items || []);
-    }, 120);
-  };
+      const editingId = window.editingId?.presupuesto;
+      const p = editingId ? (window.DB.presupuestos || []).find(x => x.id === editingId) : null;
+      resetPresupuestoItems(p?.items || []);
+      if (p?.items?.length) recalcularPresupuestoItems();
+    }, 60);
+  }
+};
 
-  const addDocBase = window.addDoc_;
-  window.addDoc_ = async function(col, data) {
-    if (col === 'presupuestos') {
-      const items = window.getPresupuestoItems();
-      data.items = items;
-      const total = items.reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0);
-      if (total) data.importe = total;
-    }
+// Guarda ítems dentro del presupuesto y los pasa a la obra automática.
+const _tizAddDocItemsBase = window.addDoc_;
+window.addDoc_ = async function(col, data) {
+  if (col === 'presupuestos') {
+    data.items = window._presupuestoItemsPendientes || getPresupuestoItems();
+    data.importe = data.items.reduce((s,i)=>s + (Number(i.subtotal)||0), 0) || data.importe || 0;
+  }
+  if (col === 'obras' && window._presupuestoItemsPendientes?.length) {
+    data.items = window._presupuestoItemsPendientes;
+    data.comentarios = (data.comentarios || '') + '\n\nÍtems cotizados:\n' + window._presupuestoItemsPendientes.map(i => `- ${i.cant || 1} x ${i.desc} — Neto $${Math.round(i.neto || 0)} — Subtotal $${Math.round(i.subtotal || 0)}`).join('\n');
+  }
+  return _tizAddDocItemsBase(col, data);
+};
 
-    if (col === 'obras') {
-      const items = window.getPresupuestoItems();
-      if (items.length) {
-        data.items = items;
-        data.comentarios = (data.comentarios || '') + '\n\nÍtems cotizados:\n' +
-          items.map(i => '- ' + (i.cant || 1) + ' x ' + i.desc + ' — Neto $' + Math.round(i.neto || 0) + ' — Subtotal $' + Math.round(i.subtotal || 0)).join('\n');
-      }
-    }
+window.tizMostrarRutaOT = function() {
+  alert('Ruta automática de OT aprobada:\n\n1. Presupuesto cambia a Aprobado.\n2. La app crea una Obra/OT con el mismo número del presupuesto.\n3. La app llama al Apps Script TIZ - Automatización OT.\n4. Apps Script crea en Drive: Ordenes de trabajo aprobadas / OT XXXX - Cliente - Descripción.\n5. Dentro crea Google Sheet editable de Orden de Trabajo.\n6. Dentro crea subcarpetas: Archivos cliente, Diseño, Producción, Colocación y Fotos finales.\n7. La app guarda los links de carpeta y OT en Firebase.');
+};
 
-    return addDocBase(col, data);
-  };
-
-  const savePresupuestoBase = window.savePresupuesto;
-  window.savePresupuesto = async function() {
-    window.recalcularPresupuestoItems();
-    const items = window.getPresupuestoItems();
-    const descGeneral = $('fp-desc')?.value?.trim() || '';
-
-    if (!descGeneral && items.length) {
-      $('fp-desc').value = items.map(i => i.desc).filter(Boolean).join(' + ');
-    }
-
-    if (!descGeneral && !items.length) {
-      window.showToast?.('Ingresá una descripción o al menos un ítem');
-      return;
-    }
-
-    return savePresupuestoBase();
-  };
-
-  window.tizMostrarRutaOT = function() {
-    alert('Ruta automática de OT aprobada:\n\n1. Presupuesto cambia a Aprobado.\n2. La app crea una Obra/OT con el mismo número del presupuesto.\n3. La app llama al Apps Script TIZ - Automatización OT.\n4. Apps Script crea en Drive: Ordenes de trabajo aprobadas / OT XXXX - Cliente - Descripción.\n5. Dentro crea Google Sheet editable de Orden de Trabajo.\n6. Dentro crea subcarpetas: Archivos cliente, Diseño, Producción, Colocación y Fotos finales.\n7. La app guarda los links de carpeta y OT en Firebase.');
-  };
-})();
 </script>
 
 </body>
