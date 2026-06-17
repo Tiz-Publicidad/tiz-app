@@ -201,3 +201,10 @@ td.strong { color: var(--text); font-weight: 500; }
   .sidebar { display: none; }
   .form-grid { grid-template-columns: 1fr; }
 }
+
+
+/* V3 Roles por puesto */
+#user-name { color: var(--accent) !important; }
+#user-sector { opacity: .9; }
+.nav-item[style*="display: none"] { display: none !important; }
+.role-hint { background: rgba(232,184,75,.08); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:12px; color:var(--text2); margin-bottom:12px; }

@@ -19,49 +19,131 @@ const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ hd: 'tizpublicidad.com' });
 
 // ============================================================
-// PERMISOS
+// ROLES / PUESTOS OPERATIVOS
 // ============================================================
-const ADMIN_EMAIL = 'info@tizpublicidad.com';
-
-// Mapa email → sector. Completar con los emails reales del equipo.
-const USER_SECTOR_MAP = {
-  'info@tizpublicidad.com':              'Ventas',
+// La app valida por email, pero en pantalla y permisos trabaja por puesto.
+// Para sumar/quitar usuarios, modificar solo este mapa.
+const USER_ROLE_MAP = {
+  'info@tizpublicidad.com':              'Admin',
+  'giancarlo.pareja@gmail.com':          'Admin',
   'pablo.aciar@tizpublicidad.com':       'Producción',
   'julieta.aguirre@tizpublicidad.com':   'Diseño',
   'carolina.flores@tizpublicidad.com':   'Compras',
   'arielbenitezpublicidad@gmail.com':    'Colocaciones',
+  // Agregar aquí el email real de cobranzas:
+  // 'cobranzas@tizpublicidad.com':      'Cobranzas',
+};
+
+const ROLE_LABELS = {
+  'Admin':'Admin','Ventas':'Ventas','Compras':'Compras','Producción':'Producción',
+  'Diseño':'Diseño','Colocaciones':'Colocaciones','Cobranzas':'Cobranzas'
+};
+
+const ROLE_HOME = {
+  'Admin':'dashboard',
+  'Ventas':'obras',
+  'Compras':'obras',
+  'Producción':'produccion',
+  'Diseño':'diseno',
+  'Colocaciones':'colocaciones',
+  'Cobranzas':'cobranzas'
+};
+
+const ROLE_PAGES = {
+  'Admin':['dashboard','obras','semana','produccion','colocaciones','diseno','cobranzas','presupuestos','clientes','tareas','retenciones','vendedores','estadistica'],
+  'Ventas':['dashboard','obras','semana','presupuestos','clientes','tareas','vendedores'],
+  'Compras':['dashboard','obras','semana','produccion','colocaciones','tareas'],
+  'Producción':['dashboard','obras','semana','produccion','diseno','tareas'],
+  'Diseño':['dashboard','obras','semana','diseno','tareas'],
+  'Colocaciones':['dashboard','obras','semana','colocaciones','tareas'],
+  'Cobranzas':['dashboard','obras','cobranzas','clientes','retenciones','tareas']
+};
+
+const ROLE_ACTIONS = {
+  'Admin':['obra:create','obra:edit','obra:delete','cliente:edit','presupuesto:edit','cobranza:edit','retencion:edit','tarea:edit','exportar'],
+  'Ventas':['obra:create','cliente:edit','presupuesto:edit','tarea:edit','exportar'],
+  'Compras':['obra:note','tarea:edit'],
+  'Producción':['obra:status','obra:note','tarea:edit'],
+  'Diseño':['obra:status','obra:note','tarea:edit'],
+  'Colocaciones':['obra:status','obra:note','tarea:edit'],
+  'Cobranzas':['cobranza:edit','retencion:edit','tarea:edit','exportar']
 };
 
 const SECTOR_COLORS = {
-  'Ventas':'var(--amber)','Producción':'var(--blue)',
-  'Colocaciones':'var(--teal)','Diseño':'var(--purple)','Compras':'var(--accent)'
+  'Admin':'var(--accent)','Ventas':'var(--amber)','Producción':'var(--blue)',
+  'Colocaciones':'var(--teal)','Diseño':'var(--purple)','Compras':'var(--accent)',
+  'Cobranzas':'var(--green)'
 };
 const SECTOR_EMOJI = {
-  'Ventas':'💰','Producción':'📦','Colocaciones':'🚛','Diseño':'✏️','Compras':'🛒'
+  'Admin':'🛡️','Ventas':'💰','Producción':'📦','Colocaciones':'🚛','Diseño':'✏️','Compras':'🛒','Cobranzas':'💵'
 };
 
 window.currentUser = null;
+window.USER_ROLE_MAP = USER_ROLE_MAP;
+window.ROLE_PAGES = ROLE_PAGES;
+window.ROLE_ACTIONS = ROLE_ACTIONS;
 
-function getUserSector(email) {
-  if (USER_SECTOR_MAP[email]) return USER_SECTOR_MAP[email];
+function getUserRole(email) {
+  if (USER_ROLE_MAP[email]) return USER_ROLE_MAP[email];
   const local = (email||'').split('@')[0].toLowerCase();
-  if (local.includes('prod'))   return 'Producción';
-  if (local.includes('col'))    return 'Colocaciones';
+  if (local.includes('admin') || local.includes('info')) return 'Admin';
+  if (local.includes('cob')) return 'Cobranzas';
+  if (local.includes('prod')) return 'Producción';
+  if (local.includes('col')) return 'Colocaciones';
   if (local.includes('dis') || local.includes('design')) return 'Diseño';
-  if (local.includes('comp'))   return 'Compras';
+  if (local.includes('comp')) return 'Compras';
+  if (local.includes('vent') || local.includes('comercial')) return 'Ventas';
   return 'Ventas';
 }
-window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
+
+function roleHasAction(action) {
+  const role = window.currentUser?.role || window.currentUser?.sector;
+  return !!role && (ROLE_ACTIONS[role] || []).includes(action);
+}
+
+window.canViewPage = page => {
+  const role = window.currentUser?.role || window.currentUser?.sector;
+  if (!role) return false;
+  return (ROLE_PAGES[role] || []).includes(page);
+};
+window.canAction = roleHasAction;
+window.canEditFechasCompromiso = () => roleHasAction('obra:edit') || roleHasAction('obra:status');
 window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
-  if (window.currentUser.isAdmin) return true;
-  if (window.currentUser.sector === s) return true;
-  // Compras también puede anotar en Colocaciones
-  if (window.currentUser.sector === 'Compras' && s === 'Colocaciones') return true;
+  const role = window.currentUser.role || window.currentUser.sector;
+  if (role === 'Admin') return true;
+  if (role === s) return true;
+  if (role === 'Compras' && (s === 'Compras' || s === 'Colocaciones' || s === 'Producción')) return true;
+  if (role === 'Ventas' && s === 'Ventas') return true;
+  if (role === 'Cobranzas' && s === 'Ventas') return true;
   return false;
 };
-window.canEditObra        = () => window.currentUser?.isAdmin;
-window.isAdmin            = () => window.currentUser?.isAdmin;
+window.canEditObra = () => roleHasAction('obra:edit') || roleHasAction('obra:create') || roleHasAction('obra:status') || roleHasAction('obra:note');
+window.isAdmin = () => (window.currentUser?.role || window.currentUser?.sector) === 'Admin';
+
+function getHomeForCurrentRole() {
+  const role = window.currentUser?.role || window.currentUser?.sector || 'Ventas';
+  return ROLE_HOME[role] || 'dashboard';
+}
+
+function applyRoleUI() {
+  const role = window.currentUser?.role || window.currentUser?.sector;
+  if (!role) return;
+  document.querySelectorAll('.nav-item[onclick^="goTo"]').forEach(btn => {
+    const m = btn.getAttribute('onclick')?.match(/goTo\('([^']+)'\)/);
+    if (!m) return;
+    btn.style.display = window.canViewPage(m[1]) ? 'flex' : 'none';
+  });
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = role === 'Admin' ? '' : 'none';
+  });
+  // Botones de creación por rol
+  document.querySelectorAll('[onclick*="openModal(\'obra\')"]').forEach(el => el.style.display = roleHasAction('obra:create') || roleHasAction('obra:edit') ? '' : 'none');
+  document.querySelectorAll('[onclick*="openModal(\'presupuesto\')"]').forEach(el => el.style.display = roleHasAction('presupuesto:edit') ? '' : 'none');
+  document.querySelectorAll('[onclick*="openModal(\'cliente\')"]').forEach(el => el.style.display = roleHasAction('cliente:edit') ? '' : 'none');
+  document.querySelectorAll('[onclick*="openModal(\'cobranza\')"]').forEach(el => el.style.display = roleHasAction('cobranza:edit') ? '' : 'none');
+  document.querySelectorAll('[onclick*="openModal(\'retencion\')"]').forEach(el => el.style.display = roleHasAction('retencion:edit') ? '' : 'none');
+}
 
 // ============================================================
 // AUTH SCREEN
@@ -89,7 +171,7 @@ window.doLogout = async () => { await signOut(auth); };
 onAuthStateChanged(auth, async user => {
   if (user) {
     // Validar que el email esté en la lista autorizada
-    const allowed = Object.keys(USER_SECTOR_MAP);
+    const allowed = Object.keys(USER_ROLE_MAP);
     if (!allowed.includes(user.email)) {
       await signOut(auth);
       document.getElementById('login-err').textContent =
@@ -97,13 +179,15 @@ onAuthStateChanged(auth, async user => {
       showLoginScreen();
       return;
     }
-    const sector = getUserSector(user.email);
+    const role = getUserRole(user.email);
     window.currentUser = {
       email: user.email,
       name: user.displayName,
       photo: user.photoURL,
-      sector,
-      isAdmin: user.email === ADMIN_EMAIL,
+      role,
+      // sector se mantiene por compatibilidad con funciones existentes
+      sector: role,
+      isAdmin: role === 'Admin',
     };
     hideLoginScreen();
     updateUserUI();
@@ -117,17 +201,21 @@ onAuthStateChanged(auth, async user => {
 function updateUserUI() {
   const u = window.currentUser;
   if (!u) return;
-  const color = SECTOR_COLORS[u.sector] || 'var(--accent)';
-  document.getElementById('user-name').textContent   = u.name || u.email;
-  document.getElementById('user-sector').textContent = u.sector;
-  document.getElementById('user-sector').style.color = color;
-  if (u.photo) {
-    document.getElementById('user-avatar').src   = u.photo;
-    document.getElementById('user-avatar').style.display = 'block';
+  const role = u.role || u.sector;
+  const color = SECTOR_COLORS[role] || 'var(--accent)';
+  const nameEl = document.getElementById('user-name');
+  const sectorEl = document.getElementById('user-sector');
+  if (nameEl) nameEl.textContent = `${SECTOR_EMOJI[role] || ''} ${ROLE_LABELS[role] || role}`;
+  if (sectorEl) {
+    sectorEl.textContent = 'Puesto operativo';
+    sectorEl.style.color = color;
   }
-  // Ocultar secciones admin-only en sidebar
-  if (!u.isAdmin) {
-    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+  const avatar = document.getElementById('user-avatar');
+  if (avatar) avatar.style.display = 'none';
+  applyRoleUI();
+  const home = getHomeForCurrentRole();
+  if (window.currentPage === 'dashboard' && home !== 'dashboard') {
+    setTimeout(() => window.goTo(home), 100);
   }
 }
 
@@ -2091,3 +2179,125 @@ window.refreshCurrent = function() {
 
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
+
+// ============================================================
+// V3 — ROLES POR PUESTO: navegación, permisos y acciones
+// ============================================================
+function showNoAccess(page) {
+  const home = getHomeForCurrentRole();
+  showToast(`Tu puesto no tiene acceso a ${page}. Redirigiendo a ${home}.`);
+  setTimeout(() => window.goTo(home), 50);
+}
+
+// Reforzar navegación por puesto
+const _v3GoTo = window.goTo;
+window.goTo = function(page) {
+  if (window.currentUser && !window.canViewPage(page)) {
+    showNoAccess(page);
+    return;
+  }
+  _v3GoTo(page);
+  applyRoleUI();
+};
+
+// Permisos de campos dentro de obra por puesto
+applyObraPermissions = function() {
+  const role = window.currentUser?.role || window.currentUser?.sector;
+  const isAdmin = role === 'Admin';
+  const isVentas = role === 'Ventas';
+  const canStatus = roleHasAction('obra:status');
+  const canCreateOrEdit = roleHasAction('obra:create') || roleHasAction('obra:edit');
+
+  // Campos base: ventas/admin pueden crear y completar datos comerciales.
+  ['f-ot','f-desc','f-cliente','f-sector','f-vendedor','f-estado','f-semana','f-comentarios'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = !(isAdmin || isVentas || canStatus);
+  });
+
+  // Fechas compromiso: admin y ventas definen; producción/colocaciones/diseño completan reales.
+  ['f-fprod-c','f-fcol-c'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.readOnly = !(isAdmin || isVentas); el.style.opacity = (isAdmin || isVentas) ? '1' : '0.55'; }
+  });
+  ['f-fprod-r','f-fcol-r'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.readOnly = !(isAdmin || canStatus); el.style.opacity = (isAdmin || canStatus) ? '1' : '0.55'; }
+  });
+
+  // Datos económicos/facturación: admin, ventas y cobranzas.
+  const canMoney = isAdmin || isVentas || role === 'Cobranzas';
+  ['f-neto','f-bruto','f-gastos','f-oc','f-nrfc','f-ffc','f-cobr'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = !canMoney;
+    el.readOnly = !canMoney;
+    el.style.opacity = canMoney ? '1' : '0.55';
+  });
+
+  // Notas por sector: cada puesto escribe su parte. Admin ve todo.
+  const sectors = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
+  const sectorKeys = {'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'};
+  sectors.forEach(sec => {
+    const key = sectorKeys[sec];
+    const textarea = document.getElementById('nota-'+key);
+    if (!textarea) return;
+    const canEdit = canAnnotateSector(sec);
+    textarea.readOnly = !canEdit;
+    textarea.style.opacity = canEdit ? '1' : '0.45';
+    textarea.title = canEdit ? `Puede editar notas de ${sec}` : `Solo lectura para puesto ${role}`;
+  });
+};
+
+// Reforzar apertura de modales por puesto
+const _v3OpenModal = window.openModal;
+window.openModal = function(type) {
+  const required = {
+    obra: 'obra:create',
+    cliente: 'cliente:edit',
+    presupuesto: 'presupuesto:edit',
+    cobranza: 'cobranza:edit',
+    retencion: 'retencion:edit',
+    tarea: 'tarea:edit'
+  }[type];
+  if (required && !roleHasAction(required) && !(type === 'obra' && (roleHasAction('obra:status') || roleHasAction('obra:note')))) {
+    showToast('Tu puesto no tiene permiso para crear/editar este módulo.');
+    return;
+  }
+  _v3OpenModal(type);
+  if (type === 'obra') setTimeout(applyObraPermissions, 50);
+};
+
+// Reforzar guardado por puesto
+const _v3SaveObra = window.saveObra;
+window.saveObra = async function() {
+  if (!window.canEditObra()) { showToast('Tu puesto no puede guardar obras.'); return; }
+  await _v3SaveObra();
+};
+const _v3SaveCliente = window.saveCliente;
+window.saveCliente = async function() {
+  if (!roleHasAction('cliente:edit')) { showToast('Tu puesto no puede guardar clientes.'); return; }
+  await _v3SaveCliente();
+};
+const _v3SavePresupuesto = window.savePresupuesto;
+window.savePresupuesto = async function() {
+  if (!roleHasAction('presupuesto:edit')) { showToast('Tu puesto no puede guardar presupuestos.'); return; }
+  await _v3SavePresupuesto();
+};
+const _v3SaveCobranza = window.saveCobranza;
+window.saveCobranza = async function() {
+  if (!roleHasAction('cobranza:edit')) { showToast('Tu puesto no puede guardar cobranzas.'); return; }
+  await _v3SaveCobranza();
+};
+const _v3SaveRetencion = window.saveRetencion;
+window.saveRetencion = async function() {
+  if (!roleHasAction('retencion:edit')) { showToast('Tu puesto no puede guardar retenciones.'); return; }
+  await _v3SaveRetencion();
+};
+
+// Refresco final: aplicar permisos después de cada render
+const _v3Refresh = window.refreshCurrent;
+window.refreshCurrent = function() {
+  _v3Refresh();
+  applyRoleUI();
+};

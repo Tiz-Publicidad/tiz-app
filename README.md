@@ -1,30 +1,44 @@
 # TIZ — Gestión Operativa
 
-Aplicación web interna de TIZ Publicidad para seguimiento operativo.
+Aplicación interna para seguimiento operativo de TIZ Publicidad.
+
+## Versión v3 — Roles por puesto
+
+Esta versión mantiene la app funcionando como antes, pero mejora la estructura de permisos: la app ya no muestra nombres de usuario como identidad operativa, sino **puestos**.
+
+Puestos definidos:
+
+- Admin
+- Ventas
+- Compras
+- Producción
+- Diseño
+- Colocaciones
+- Cobranzas
 
 ## Estructura
 
 ```text
-index.html                 # Estructura HTML principal
+index.html                 # HTML principal
 src/styles.css             # Estilos visuales
-src/app.js                 # Lógica, Firebase, permisos, render y CRUD
-backup/index-original.html # Copia completa del último archivo monolítico
+src/app.js                 # Firebase, roles, permisos, render y CRUD
+backup/index-original.html # Respaldo del último archivo monolítico
+README.md                  # Guía del proyecto
 docs/bitacora.md           # Registro de cambios
 docs/roadmap.md            # Próximas mejoras
 ```
 
-## Usuarios actuales
+## Cómo agregar usuarios
 
-La app usa Firebase Auth con lista autorizada dentro de `src/app.js`.
+Editar en `src/app.js` el mapa `USER_ROLE_MAP`:
 
-Usuarios cargados actualmente:
+```js
+const USER_ROLE_MAP = {
+  'info@tizpublicidad.com': 'Admin',
+  'pablo.aciar@tizpublicidad.com': 'Producción',
+  'carolina.flores@tizpublicidad.com': 'Compras',
+  'cobranzas@tizpublicidad.com': 'Cobranzas',
+};
+```
 
-- info@tizpublicidad.com — Ventas / Admin
-- pablo.aciar@tizpublicidad.com — Producción
-- julieta.aguirre@tizpublicidad.com — Diseño
-- carolina.flores@tizpublicidad.com — Compras
-- arielbenitezpublicidad@gmail.com — Colocaciones
-
-## Importante
-
-Esta versión separa el archivo único original en HTML, CSS y JavaScript para que sea más fácil mantenerlo en GitHub.
+El email se usa solo para validar acceso. La app trabaja por puesto.

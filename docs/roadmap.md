@@ -1,19 +1,34 @@
 # Roadmap TIZ App
 
-## Prioridad 1
+## Próxima etapa recomendada
 
-- Verificar que GitHub Pages publique `index.html` desde la raíz.
-- Probar login con los 5 usuarios autorizados.
-- Confirmar lectura/escritura en Firestore.
+### v4 — Flujo operativo por obra
 
-## Prioridad 2
+Implementar estados claros:
 
-- Mejorar permisos por sector.
-- Separar `app.js` en módulos: Firebase, auth, obras, clientes, cobranzas, presupuestos, tareas.
-- Agregar historial de cambios por obra.
+1. Presupuesto
+2. Aprobado
+3. Diseño
+4. Producción
+5. Calidad
+6. Colocación
+7. Facturado
+8. Cobrado
 
-## Prioridad 3
+### v5 — Tablero por puesto
 
-- Adjuntos por obra con Firebase Storage.
-- Exportación mejorada a Excel.
-- Dashboard con métricas por semana, sector y vendedor.
+Cada puesto debe ingresar directo a sus pendientes:
+
+- Producción: obras de esta semana, fechas reales, notas.
+- Diseño: pendientes de diseño, aprobaciones, cambios.
+- Colocaciones: agenda, direcciones, personal, fotos.
+- Cobranzas: vencimientos, facturas pendientes, retenciones.
+- Ventas: presupuestos, clientes y obras aprobadas.
+- Admin: tablero general.
+
+### v6 — Automatizaciones TIZ
+
+- Presupuesto aprobado → crear OT.
+- OT aprobada → carpeta Drive.
+- Colocación agendada → Google Calendar.
+- Obra vencida → alerta interna.
