@@ -750,7 +750,12 @@ td.strong { color: var(--text); font-weight: 500; }
     <div class="form-grid">
       <div class="form-group"><label>Nro presupuesto</label><input id="fp-nro"></div>
       <div class="form-group"><label>Vendedor</label><select id="fp-vend"><option>G</option><option>J</option><option>G/J</option></select></div>
-      <div class="form-group full"><label>Cliente</label><input id="fp-cliente"></div>
+      <div class="form-group full" style="position:relative"><label>Cliente</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="fp-cliente" style="flex:1" placeholder="Escribí para buscar cliente...">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="nuevoClienteDesdePresupuestoModal(document.getElementById('fp-cliente').value.trim())" title="Crear cliente nuevo">+ Cliente</button>
+        </div>
+      </div>
       <div class="form-group full"><label>Descripción</label><input id="fp-desc"></div>
       <div class="form-group"><label>Importe</label><input id="fp-importe" type="number"></div>
       <div class="form-group"><label>Fecha</label><input id="fp-fecha" placeholder="DD/MM/AAAA"></div>
@@ -3100,7 +3105,8 @@ function tizEnsurePresupuestoClienteDropdown() {
   }
   input.setAttribute('autocomplete','off');
   input.oninput = () => sugerirClientesPresupuesto(input.value);
-  input.onblur = () => setTimeout(cerrarSugerenciasPresupuesto, 200);
+  input.onfocus = () => { if (input.value) sugerirClientesPresupuesto(input.value); };
+  input.onblur = () => setTimeout(cerrarSugerenciasPresupuesto, 250);
 }
 window.abrirNuevoPresupuesto = function() {
   window.editingId.presupuesto = null;
@@ -3152,8 +3158,11 @@ window.nuevoClienteDesdePresupuestoModal = function(nombre) {
   window._clienteNuevoNombre = nombre;
   window.editingId.cliente = null;
   ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const nom = document.getElementById('fc-nombre'); if (nom) nom.value = nombre;
+  const nom = document.getElementById('fc-nombre'); if (nom) nom.value = nombre || '';
+  // cerramos visualmente el modal de presupuesto para que el de cliente quede adelante
+  document.getElementById('modal-presupuesto')?.classList.remove('open');
   document.getElementById('modal-cliente').classList.add('open');
+  setTimeout(() => document.getElementById('fc-nombre')?.focus(), 80);
 };
 const _tizOpenModalBase = window.openModal;
 window.openModal = function(type) {
