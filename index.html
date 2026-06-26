@@ -335,7 +335,7 @@ td.strong { color: var(--text); font-weight: 500; }
         <div class="header-actions">
           <button class="btn btn-ghost btn-sm" onclick="exportarExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
           <button class="btn btn-ghost btn-sm" onclick="exportarCSV()"><i class="ti ti-download"></i> CSV</button>
-          <button class="btn btn-primary btn-sm" onclick="window.editingId.obra=null;openModal('obra')"><i class="ti ti-plus"></i> Nueva obra</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirNuevaObraV52()"><i class="ti ti-plus"></i> Nueva obra</button>
         </div>
       </div>
       <div style="padding:16px 28px 0">
@@ -629,7 +629,7 @@ td.strong { color: var(--text); font-weight: 500; }
         <select id="f-vendedor"><option>G</option><option>J</option><option>G/J</option></select>
       </div>
       <div class="form-group"><label>Estado</label>
-        <select id="f-estado"><option>Presupuestado</option><option>Aprobado</option><option>En producción</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
+        <select id="f-estado"><option>Enviado</option><option>En revisión</option><option>Presupuestado</option><option>Aprobado</option><option>En producción</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option><option>Rechazado</option><option>Vencido</option></select>
       </div>
       <div class="form-group"><label>Semana</label><input id="f-semana" type="number" placeholder="22"></div>
       <div class="form-group"><label>Precio de venta (neto)</label><input id="f-neto" type="number" placeholder="0"></div>
@@ -3369,6 +3369,196 @@ window.refreshCurrent = function() {
       return null;
     }
     return oldSyncToSheetsV5 ? oldSyncToSheetsV5(data) : null;
+  };
+})();
+
+
+
+
+// ============================================================
+// V5.2 — Presupuestos usan el mismo formulario completo de Obra
+// ============================================================
+(function(){
+  const ESTADOS_FULL = ['Enviado','En revisión','Presupuestado','Aprobado','En producción','Entregado','Facturado','Cobrado','Rechazado','Vencido'];
+
+  function todayAR(){
+    const d = new Date();
+    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+  }
+  function nextPresNumV52(){
+    const presNros = (window.DB?.presupuestos || []).map(p=>parseInt(p.nro)||0).filter(n=>n>0);
+    const otNros = (window.DB?.obras || []).map(o=>parseInt(o.ot)||0).filter(n=>n>0);
+    return String(Math.max(0, ...presNros, ...otNros) + 1).padStart(4,'0');
+  }
+  function setValue(id, val){ const el=document.getElementById(id); if(el) el.value = val ?? ''; }
+  function getValue(id){ return (document.getElementById(id)?.value || '').trim(); }
+
+  window.ensureEstadoOptionsV52 = function(selected){
+    const sel = document.getElementById('f-estado');
+    if (!sel) return;
+    const actual = selected || sel.value || 'Presupuestado';
+    sel.innerHTML = ESTADOS_FULL.map(e => `<option>${e}</option>`).join('');
+    sel.value = ESTADOS_FULL.includes(actual) ? actual : 'Presupuestado';
+  };
+
+  window.clearObraFormV52 = function(defaultEstado){
+    ['f-ot','f-desc','f-cliente','f-semana','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-dias-pago','f-comentarios'].forEach(id=>setValue(id,''));
+    ['nota-produccion','nota-colocaciones','nota-diseno','nota-ventas','nota-compras'].forEach(id=>setValue(id,''));
+    setValue('f-sector','Ventas'); setValue('f-vendedor','G'); setValue('f-cobr','Pendiente');
+    ensureEstadoOptionsV52(defaultEstado || 'Presupuestado');
+    window.obraItems = [{descripcion:'', cantidad:1, unidad:'u', unitario:0, subtotal:0, observaciones:''}];
+    window.calculosAux = [{tipo:'Materiales', detalle:'', cantidad:1, unidad:'u', unitario:0, total:0}];
+    if (typeof renderObraItems === 'function') renderObraItems();
+    if (typeof renderCalculosAux === 'function') renderCalculosAux();
+  };
+
+  window.abrirNuevaObraV52 = function(){
+    window._obraModalOrigen = 'obras';
+    window.editingId.obra = null;
+    window.editingId.presupuesto = null;
+    clearObraFormV52('Presupuestado');
+    const t=document.getElementById('modal-obra-title'); if(t) t.textContent='Nueva obra';
+    openModal('obra');
+  };
+
+  window.abrirNuevoPresupuestoCompleto = function(){
+    window._obraModalOrigen = 'presupuestos';
+    window.editingId.obra = null;
+    window.editingId.presupuesto = null;
+    clearObraFormV52('Enviado');
+    setValue('f-ot', nextPresNumV52());
+    setValue('f-sector','Ventas');
+    const t=document.getElementById('modal-obra-title'); if(t) t.textContent='Nuevo presupuesto';
+    openModal('obra');
+  };
+
+  function fillObraFormFromData(d, titulo){
+    ensureEstadoOptionsV52(d.estado || 'Enviado');
+    setValue('f-ot', d.ot || d.nro || '');
+    setValue('f-sector', d.sector || 'Ventas');
+    setValue('f-desc', d.desc || '');
+    setValue('f-cliente', d.cliente || '');
+    setValue('f-vendedor', d.vendedor || 'G');
+    setValue('f-estado', d.estado || 'Enviado');
+    setValue('f-semana', d.semana || '');
+    setValue('f-neto', d.neto || d.importe || 0);
+    setValue('f-bruto', d.bruto || 0);
+    setValue('f-gastos', d.gastos || 0);
+    setValue('f-fprod-c', d.fprod_c || ''); setValue('f-fprod-r', d.fprod_r || '');
+    setValue('f-fcol-c', d.fcol_c || ''); setValue('f-fcol-r', d.fcol_r || '');
+    setValue('f-oc', d.oc || ''); setValue('f-nrfc', d.nrfc || ''); setValue('f-ffc', d.ffc || '');
+    setValue('f-cobr', d.cobr || 'Pendiente'); setValue('f-dias-pago', d.diasPago || '');
+    setValue('f-comentarios', d.comentarios || '');
+    const ns=d.notas_sector||{};
+    setValue('nota-produccion', ns['Producción'] || ''); setValue('nota-colocaciones', ns['Colocaciones'] || '');
+    setValue('nota-diseno', ns['Diseño'] || ''); setValue('nota-ventas', ns['Ventas'] || ''); setValue('nota-compras', ns['Compras'] || '');
+    const rawItems = d.itemsCotizados || d.items || [];
+    window.obraItems = rawItems.length ? rawItems.map(i=>({
+      descripcion: i.descripcion || i.desc || '',
+      cantidad: +i.cantidad || +i.cant || 1,
+      unidad: i.unidad || 'u',
+      unitario: +i.unitario || +i.precio || 0,
+      subtotal: +i.subtotal || ((+i.cantidad || +i.cant || 1) * (+i.unitario || +i.precio || 0)),
+      observaciones: i.observaciones || ''
+    })) : [{descripcion:d.desc||'', cantidad:1, unidad:'u', unitario:+(d.neto||d.importe||0), subtotal:+(d.neto||d.importe||0), observaciones:''}];
+    window.calculosAux = (d.calculosAuxiliares || []).length ? d.calculosAuxiliares : [{tipo:'Materiales', detalle:'', cantidad:1, unidad:'u', unitario:0, total:0}];
+    if (typeof renderObraItems === 'function') renderObraItems();
+    if (typeof renderCalculosAux === 'function') renderCalculosAux();
+    const t=document.getElementById('modal-obra-title'); if(t) t.textContent=titulo || 'Editar';
+  }
+
+  const oldEditObra = window.editObra;
+  window.editObra = function(id){
+    window._obraModalOrigen = 'obras';
+    const o=(window.DB.obras||[]).find(x=>x.id===id);
+    if(!o && oldEditObra) return oldEditObra(id);
+    window.editingId.obra=id; window.editingId.presupuesto=null;
+    fillObraFormFromData(o, 'Editar obra');
+    openModal('obra');
+  };
+
+  window.editPres = function(id){
+    const p=(window.DB.presupuestos||[]).find(x=>x.id===id);
+    if(!p) return;
+    window._obraModalOrigen = 'presupuestos';
+    window.editingId.presupuesto = id;
+    window.editingId.obra = p.obraId || null;
+    const obra = p.obraId ? (window.DB.obras||[]).find(o=>o.id===p.obraId) : null;
+    fillObraFormFromData(obra ? {...obra, ...p, ot: obra.ot || p.nro, estado: p.estado || obra.estado} : p, 'Editar presupuesto');
+    openModal('obra');
+  };
+
+  window.saveObra = async function(){
+    const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
+    const notas_sector = {};
+    const existingId = window.editingId.obra;
+    const existing = existingId ? (window.DB.obras||[]).find(x=>x.id===existingId) : null;
+    const existingNotas = existing?.notas_sector || {};
+    Object.entries(sectorKeys).forEach(([sec, key]) => {
+      const newVal = getValue('nota-'+key);
+      const oldVal = existingNotas[sec] || '';
+      notas_sector[sec] = newVal;
+      notas_sector[sec+'_ts'] = (newVal !== oldVal && newVal) ? new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : (existingNotas[sec+'_ts'] || '');
+    });
+    const itemsCotizados = typeof collectObraItems === 'function' ? collectObraItems() : [];
+    const calculosAuxiliares = typeof collectCalculosAux === 'function' ? collectCalculosAux() : [];
+    const totalItems = itemsCotizados.reduce((a,it)=>a+(+it.subtotal||0),0);
+    const estado = getValue('f-estado') || 'Enviado';
+    const data = {
+      ot: getValue('f-ot'), sector: getValue('f-sector') || 'Ventas', desc: getValue('f-desc'), cliente: getValue('f-cliente'),
+      vendedor: getValue('f-vendedor') || 'G', estado,
+      semana: +getValue('f-semana')||0, neto: +getValue('f-neto')||totalItems||0,
+      bruto: +getValue('f-bruto')||0, gastos: +getValue('f-gastos')||0,
+      fprod_c: getValue('f-fprod-c'), fprod_r: getValue('f-fprod-r'), fcol_c: getValue('f-fcol-c'), fcol_r: getValue('f-fcol-r'),
+      oc: getValue('f-oc'), nrfc: getValue('f-nrfc'), ffc: getValue('f-ffc'), cobr: getValue('f-cobr') || 'Pendiente', diasPago: +getValue('f-dias-pago')||0,
+      comentarios: getValue('f-comentarios'), notas_sector, itemsCotizados, calculosAuxiliares, totalItems,
+      totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
+      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
+      origen: window._obraModalOrigen || 'obras'
+    };
+    if (!data.desc) { showToast('Ingresá una descripción'); return; }
+    if (!data.cliente) { showToast('Ingresá o creá un cliente'); return; }
+    let docRefId = existingId;
+    if (existingId) await window.updateDoc_('obras', existingId, data);
+    else { const ref = await window.addDoc_('obras', data); docRefId = ref?.id || null; }
+
+    // Si vino desde Presupuestos, también se guarda/actualiza la ficha de presupuesto.
+    if (window._obraModalOrigen === 'presupuestos') {
+      const presData = {
+        nro: data.ot || nextPresNumV52(), obraId: docRefId || '', vendedor: data.vendedor,
+        cliente: data.cliente, desc: data.desc, importe: data.neto || totalItems || 0,
+        fecha: todayAR(), estado: data.estado, comentarios: data.comentarios,
+        items: itemsCotizados.map(i=>({desc:i.descripcion, cant:i.cantidad, precio:i.unitario, subtotal:i.subtotal})),
+        driveFolderUrl: data.driveFolderUrl || '', otSheetUrl: data.otSheetUrl || ''
+      };
+      if (window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, presData);
+      else {
+        const refP = await window.addDoc_('presupuestos', presData);
+        window.editingId.presupuesto = refP?.id || null;
+      }
+    }
+
+    try {
+      const syncResult = await syncToSheets({...data, firestoreId: docRefId});
+      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
+        const links = { driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '', driveSyncedAt: new Date().toISOString() };
+        if (docRefId) await window.updateDoc_('obras', docRefId, links);
+        if (window._obraModalOrigen === 'presupuestos' && window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, links);
+        if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Aprobado: carpeta Drive creada ✓');
+      } else if (String(data.estado || '').toLowerCase() === 'aprobado') {
+        showToast('Aprobado, pero falta verificar Apps Script / URL /exec');
+      }
+    } catch(e) { console.warn('No se pudo sincronizar Drive/Sheets:', e); }
+    closeModal('obra');
+    window.editingId.obra=null; window.editingId.presupuesto=null; window._obraModalOrigen='obras';
+    showToast('Guardado');
+  };
+
+  // Botones viejos que llamen openModal('presupuesto') quedan anulados: abren el formulario completo.
+  const oldOpenModal = window.openModal;
+  window.openModal = function(name){
+    if (name === 'presupuesto') return window.abrirNuevoPresupuestoCompleto();
+    return oldOpenModal ? oldOpenModal(name) : document.getElementById('modal-'+name)?.classList.add('open');
   };
 })();
 
