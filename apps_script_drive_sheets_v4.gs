@@ -1,47 +1,152 @@
-const FOLDER_ID = 'PEGAR_ID_CARPETA_ORDENES_APROBADAS';
+/**
+ * TIZ App v4 — Backend Google Apps Script
+ * 1) Crear una carpeta en Drive al aprobar una obra.
+ * 2) Crear/actualizar un Google Sheet de respaldo con: Obra, Items cotizados, Calculos auxiliares y Notas.
+ *
+ * PASO CLAVE:
+ * Reemplazar ORDENES_APROBADAS_FOLDER_ID por el ID de la carpeta madre de Drive:
+ * Drive > carpeta "Ordenes de trabajo aprobadas" > copiar ID de la URL.
+ */
+const ORDENES_APROBADAS_FOLDER_ID = 'PEGAR_ID_DE_LA_CARPETA_MADRE';
 
 function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents || '{}');
-    if (data.action !== 'obra_aprobada') return json({ok:false, error:'Acción no soportada'});
-    var obra = data.obra || {};
-    var items = data.items || [];
-    var calculos = data.calculos || [];
-    var parent = DriveApp.getFolderById(FOLDER_ID);
-    var ot = obra.ot || obra.nro || 'SIN_OT';
-    var cliente = limpiarNombre(obra.cliente || 'Sin cliente');
-    var desc = limpiarNombre(obra.desc || obra.descripcion || 'Sin descripcion');
-    var folderName = 'OT-' + ot + ' - ' + cliente + ' - ' + desc;
-    var folder = parent.createFolder(folderName);
-    folder.createFolder('01 Fotos cliente');
-    folder.createFolder('02 Diseño');
-    folder.createFolder('03 Producción');
-    folder.createFolder('04 Colocación');
-    folder.createFolder('05 Facturación');
-    var ss = SpreadsheetApp.create('Respaldo OT-' + ot + ' - ' + cliente);
-    var file = DriveApp.getFileById(ss.getId());
-    folder.addFile(file);
-    try { DriveApp.getRootFolder().removeFile(file); } catch(err) {}
-    var sh = ss.getSheets()[0];
-    sh.setName('Obra');
-    sh.getRange(1,1,1,2).setValues([['Campo','Valor']]);
-    var rows = Object.keys(obra).filter(function(k){ return ['itemsCotizados','calculosAuxiliares','notas_sector'].indexOf(k) === -1; }).map(function(k){ return [k, String(obra[k] == null ? '' : obra[k])]; });
-    if (rows.length) sh.getRange(2,1,rows.length,2).setValues(rows);
-    var shi = ss.insertSheet('Items cotizados');
-    shi.getRange(1,1,1,7).setValues([['Descripción','Cantidad','Unidad','Unitario','Subtotal','Observaciones','Tipo']]);
-    if (items.length) shi.getRange(2,1,items.length,7).setValues(items.map(function(i){ return [i.descripcion||i.desc||'', +i.cantidad||0, i.unidad||'', +i.unitario||+i.precio||0, +i.subtotal||((+i.cantidad||0)*(+i.unitario||+i.precio||0)), i.observaciones||'', i.tipo||'']; }));
-    var shc = ss.insertSheet('Calculos auxiliares');
-    shc.getRange(1,1,1,7).setValues([['Tipo','Detalle','Cantidad','Unidad','Unitario','Total','Observaciones']]);
-    if (calculos.length) shc.getRange(2,1,calculos.length,7).setValues(calculos.map(function(c){ return [c.tipo||'', c.detalle||c.concepto||'', +c.cantidad||0, c.unidad||'', +c.unitario||0, +c.total||((+c.cantidad||0)*(+c.unitario||0)), c.observaciones||'']; }));
-    var shot = ss.insertSheet('Orden de trabajo');
-    shot.getRange(1,1,10,2).setValues([
-      ['OT', ot], ['Cliente', obra.cliente||''], ['Descripción', obra.desc||''], ['Estado', obra.estado||''], ['Semana', obra.semana||''], ['Vendedor', obra.vendedor||''], ['Sector', obra.sector||''], ['Neto', obra.neto||''], ['OC/OP', obra.oc||''], ['Fecha creación', new Date()]
-    ]);
-    [sh, shi, shc, shot].forEach(function(s){ s.autoResizeColumns(1, Math.max(1, s.getLastColumn())); s.getRange(1,1,1,s.getLastColumn()).setFontWeight('bold'); });
-    return json({ok:true, folderUrl: folder.getUrl(), sheetUrl: ss.getUrl(), folderId: folder.getId(), sheetId: ss.getId()});
-  } catch(err) {
-    return json({ok:false, error: err.message, stack: err.stack});
+    const raw = e && e.postData && e.postData.contents ? e.postData.contents : '{}';
+    const payload = JSON.parse(raw);
+    const obra = payload.obra || payload || {};
+    const items = payload.itemsCotizados || obra.itemsCotizados || [];
+    const calculos = payload.calculosAuxiliares || obra.calculosAuxiliares || [];
+
+    if (!obra.desc && !obra.ot) return jsonOut({ ok:false, error:'Faltan datos de obra' });
+
+    // Si no está aprobada, solo confirmar recepción. No crea carpeta.
+    if (String(obra.estado || '').toLowerCase() !== 'aprobado') {
+      return jsonOut({ ok:true, skipped:true, reason:'La obra no está aprobada' });
+    }
+
+    const parent = DriveApp.getFolderById(ORDENES_APROBADAS_FOLDER_ID);
+    const folderName = cleanName(`OT-${obra.ot || 'SIN_OT'} - ${obra.cliente || 'SIN_CLIENTE'} - ${obra.desc || 'Obra'}`);
+    const folder = getOrCreateFolder(parent, folderName);
+
+    getOrCreateFolder(folder, 'Fotos');
+    getOrCreateFolder(folder, 'Archivos cliente');
+    getOrCreateFolder(folder, 'Producción');
+
+    const ssName = cleanName(`Respaldo OT-${obra.ot || 'SIN_OT'} - ${obra.cliente || ''}`);
+    const ss = getOrCreateSpreadsheetInFolder(folder, ssName);
+
+    writeObraSheet(ss, obra);
+    writeItemsSheet(ss, items);
+    writeCalculosSheet(ss, calculos);
+    writeNotasSheet(ss, obra.notas_sector || {});
+
+    return jsonOut({
+      ok: true,
+      driveFolderUrl: folder.getUrl(),
+      otSheetUrl: ss.getUrl(),
+      folderId: folder.getId(),
+      spreadsheetId: ss.getId()
+    });
+  } catch (err) {
+    return jsonOut({ ok:false, error:String(err && err.message ? err.message : err) });
   }
 }
-function json(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
-function limpiarNombre(s) { return String(s).replace(/[\\/:*?"<>|#%{}~&]/g,' ').replace(/\s+/g,' ').trim().substring(0,80); }
+
+function doGet() {
+  return jsonOut({ ok:true, service:'TIZ Drive Sheets v4' });
+}
+
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function cleanName(s) {
+  return String(s || '').replace(/[\\/:*?"<>|#%{}~&]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 180);
+}
+
+function getOrCreateFolder(parent, name) {
+  const it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+function getOrCreateSpreadsheetInFolder(folder, name) {
+  const files = folder.getFilesByName(name);
+  while (files.hasNext()) {
+    const f = files.next();
+    if (f.getMimeType() === MimeType.GOOGLE_SHEETS) return SpreadsheetApp.openById(f.getId());
+  }
+  const ss = SpreadsheetApp.create(name);
+  const file = DriveApp.getFileById(ss.getId());
+  folder.addFile(file);
+  DriveApp.getRootFolder().removeFile(file);
+  return ss;
+}
+
+function resetSheet(ss, name) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  sh.clear();
+  return sh;
+}
+
+function writeObraSheet(ss, obra) {
+  const sh = resetSheet(ss, 'Obra');
+  const rows = [
+    ['Campo', 'Valor'],
+    ['OT', obra.ot || ''],
+    ['Cliente', obra.cliente || ''],
+    ['Descripción', obra.desc || ''],
+    ['Estado', obra.estado || ''],
+    ['Semana', obra.semana || ''],
+    ['Sector', obra.sector || ''],
+    ['Vendedor', obra.vendedor || ''],
+    ['Neto', obra.neto || 0],
+    ['Bruto', obra.bruto || 0],
+    ['Gastos', obra.gastos || 0],
+    ['Total ítems', obra.totalItems || 0],
+    ['Total cálculos auxiliares', obra.totalCalculosAuxiliares || 0],
+    ['F. compromiso producción', obra.fprod_c || ''],
+    ['F. real producción', obra.fprod_r || ''],
+    ['F. compromiso colocación', obra.fcol_c || ''],
+    ['F. real colocación', obra.fcol_r || ''],
+    ['OC / OP', obra.oc || ''],
+    ['Nro factura', obra.nrfc || ''],
+    ['F. factura', obra.ffc || ''],
+    ['Estado cobranza', obra.cobr || ''],
+    ['Días pago', obra.diasPago || ''],
+    ['Comentarios', obra.comentarios || ''],
+    ['Firestore ID', obra.firestoreId || ''],
+    ['Última actualización', new Date()]
+  ];
+  sh.getRange(1,1,rows.length,2).setValues(rows);
+  sh.getRange(1,1,1,2).setFontWeight('bold').setBackground('#e8b84b');
+  sh.autoResizeColumns(1,2);
+}
+
+function writeItemsSheet(ss, items) {
+  const sh = resetSheet(ss, 'Items cotizados');
+  const rows = [['Descripción','Cantidad','Unitario','Subtotal','Observaciones']];
+  (items || []).forEach(i => rows.push([i.descripcion || i.desc || '', +i.cantidad || +i.cant || 0, +i.unitario || +i.precio || 0, +i.subtotal || 0, i.observaciones || '']));
+  sh.getRange(1,1,rows.length,5).setValues(rows);
+  sh.getRange(1,1,1,5).setFontWeight('bold').setBackground('#e8b84b');
+  sh.autoResizeColumns(1,5);
+}
+
+function writeCalculosSheet(ss, calculos) {
+  const sh = resetSheet(ss, 'Calculos auxiliares');
+  const rows = [['Concepto','Detalle','Cantidad','Unidad','Precio unitario','Total','Observaciones']];
+  (calculos || []).forEach(c => rows.push([c.concepto || '', c.detalle || '', +c.cantidad || 0, c.unidad || '', +c.precioUnitario || 0, +c.total || 0, c.observaciones || '']));
+  sh.getRange(1,1,rows.length,7).setValues(rows);
+  sh.getRange(1,1,1,7).setFontWeight('bold').setBackground('#e8b84b');
+  sh.autoResizeColumns(1,7);
+}
+
+function writeNotasSheet(ss, notas) {
+  const sh = resetSheet(ss, 'Notas por sector');
+  const sectors = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
+  const rows = [['Sector','Nota','Fecha/Hora']];
+  sectors.forEach(sec => rows.push([sec, notas[sec] || '', notas[sec + '_ts'] || '']));
+  sh.getRange(1,1,rows.length,3).setValues(rows);
+  sh.getRange(1,1,1,3).setFontWeight('bold').setBackground('#e8b84b');
+  sh.autoResizeColumns(1,3);
+}

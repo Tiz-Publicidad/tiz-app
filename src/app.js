@@ -256,7 +256,7 @@ function initListeners() {
 }
 
 // CRUD helpers
-window.addDoc_    = async (col_, data) => { await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); };
+window.addDoc_    = async (col_, data) => { const ref = await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); return ref; };
 window.updateDoc_ = async (col_, id, data) => { await updateDoc(doc(db, col_, id), data); };
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
 
@@ -694,6 +694,7 @@ window.editCliente = id => {
   const c = window.DB.clientes.find(x=>x.id===id);
   if(!c) return;
   window.editingId.cliente = id;
+  document.getElementById('fc-numero').value=c.numeroCliente||c.numero||'';
   document.getElementById('fc-nombre').value=c.nombre||'';
   document.getElementById('fc-cuit').value=c.cuit||'';
   document.getElementById('fc-contacto').value=c.contacto||'';
@@ -794,6 +795,10 @@ function renderVendedores() {
 
 // MODALES
 window.openModal = (type) => {
+  if (type==='cliente' && !window.editingId.cliente) {
+    const n = document.getElementById('fc-numero'); if(n) n.value = nextClienteNumero();
+    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+  }
   if (type==='obra') {
     if (!window.editingId.obra) {
       ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
@@ -806,6 +811,9 @@ window.openModal = (type) => {
       document.getElementById('f-vendedor').value = 'G';
       document.getElementById('f-estado').value = 'Aprobado';
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
+      window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
+      window.calculosAuxiliares = [];
+      renderObraItems(); renderCalculosAux();
       ['Producción','Colocaciones','Diseño','Ventas','Compras'].forEach(s => {
         const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
         if(el) el.value = '';
@@ -844,6 +852,9 @@ window.editObra = id => {
   document.getElementById('f-cobr').value = o.cobr||'Pendiente';
   document.getElementById('f-comentarios').value = o.comentarios||'';
   document.getElementById('modal-obra-title').textContent = 'Editar obra — ' + (o.ot||o.desc||'');
+  window.obraItems = Array.isArray(o.itemsCotizados) && o.itemsCotizados.length ? o.itemsCotizados : [{descripcion:o.desc||'', cantidad:1, unitario:+o.neto||0, subtotal:+o.neto||0, observaciones:''}];
+  window.calculosAuxiliares = Array.isArray(o.calculosAuxiliares) ? o.calculosAuxiliares : [];
+  renderObraItems(); renderCalculosAux();
 
   // Cargar anotaciones por sector
   const notas = o.notas_sector || {};
@@ -977,69 +988,183 @@ window.nuevoClienteDesdePresupuesto = nombre => {
   cerrarSugerenciasPP();
   document.getElementById('pp-cliente').value = nombre;
   window.editingId.cliente = null;
+  document.getElementById('fc-numero').value = nextClienteNumero();
   document.getElementById('fc-nombre').value = nombre;
-  ['fc-cuit','fc-contacto','fc-cel','fc-email'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   // Al guardar el cliente, volver al presupuesto
   window._volvioDePresupuesto = true;
   document.getElementById('modal-cliente').classList.add('open');
 };
 
+
+// ============================================================
+// ÍTEMS DE OBRA + CÁLCULOS AUXILIARES
+// ============================================================
+window.obraItems = window.obraItems || [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
+window.calculosAuxiliares = window.calculosAuxiliares || [];
+
+function moneyInput(v){ return Number.isFinite(+v) ? +v : 0; }
+function fmtPesoObra(n){ return '$' + Math.round(+n || 0).toLocaleString('es-AR'); }
+
+window.addObraItem = () => {
+  window.obraItems = collectObraItems();
+  window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
+  renderObraItems();
+};
+window.removeObraItem = idx => {
+  window.obraItems = collectObraItems();
+  window.obraItems.splice(idx,1);
+  if (!window.obraItems.length) window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
+  renderObraItems();
+};
+window.renderObraItems = () => {
+  const wrap = document.getElementById('obra-items-list');
+  if (!wrap) return;
+  const items = window.obraItems || [];
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
+      <span>Descripción</span><span>Cant.</span><span>$ Unit.</span><span>Subtotal</span><span></span>
+    </div>
+    ${items.map((it,i)=>`
+      <div class="obra-item-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:6px;align-items:center">
+        <input class="oi-desc" value="${(it.descripcion||'').replace(/"/g,'&quot;')}" placeholder="Ej: letras, lona, vinilo, estructura..." oninput="updateObraTotals()">
+        <input class="oi-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateObraTotals()">
+        <input class="oi-unit" type="number" step="0.01" value="${it.unitario ?? 0}" oninput="updateObraTotals()">
+        <input class="oi-sub" type="number" step="0.01" value="${it.subtotal ?? ((+it.cantidad||0)*(+it.unitario||0))}" oninput="updateObraTotals(true)">
+        <button type="button" class="btn-icon" onclick="removeObraItem(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
+        <input class="oi-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas del ítem" style="grid-column:1 / -1">
+      </div>`).join('')}`;
+  updateObraTotals();
+};
+window.collectObraItems = () => {
+  return [...document.querySelectorAll('.obra-item-row')].map(row => {
+    const cantidad = moneyInput(row.querySelector('.oi-cant')?.value);
+    const unitario = moneyInput(row.querySelector('.oi-unit')?.value);
+    const subtotalManual = moneyInput(row.querySelector('.oi-sub')?.value);
+    const subtotal = subtotalManual || cantidad * unitario;
+    return { descripcion: row.querySelector('.oi-desc')?.value.trim() || '', cantidad, unitario, subtotal, observaciones: row.querySelector('.oi-obs')?.value.trim() || '' };
+  }).filter(it => it.descripcion || it.subtotal || it.unitario);
+};
+window.updateObraTotals = (manual=false) => {
+  document.querySelectorAll('.obra-item-row').forEach(row => {
+    const cant = moneyInput(row.querySelector('.oi-cant')?.value);
+    const unit = moneyInput(row.querySelector('.oi-unit')?.value);
+    const sub = row.querySelector('.oi-sub');
+    if (sub && !manual && document.activeElement !== sub) sub.value = Math.round(cant * unit * 100) / 100;
+  });
+  const total = collectObraItems().reduce((a,it)=>a+(+it.subtotal||0),0);
+  const totalEl = document.getElementById('obra-items-total');
+  if (totalEl) totalEl.textContent = fmtPesoObra(total);
+  const neto = document.getElementById('f-neto');
+  if (neto && total > 0 && (!neto.value || +neto.value===0)) neto.value = Math.round(total);
+};
+
+window.addCalculoAux = () => {
+  window.calculosAuxiliares = collectCalculosAux();
+  window.calculosAuxiliares.push({concepto:'', detalle:'', cantidad:1, unidad:'', precioUnitario:0, total:0, observaciones:''});
+  renderCalculosAux();
+};
+window.removeCalculoAux = idx => {
+  window.calculosAuxiliares = collectCalculosAux();
+  window.calculosAuxiliares.splice(idx,1);
+  renderCalculosAux();
+};
+window.renderCalculosAux = () => {
+  const wrap = document.getElementById('obra-calculos-list');
+  if (!wrap) return;
+  const items = window.calculosAuxiliares || [];
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
+      <span>Concepto</span><span>Detalle</span><span>Cant.</span><span>Unidad</span><span>$ Unit.</span><span>Total</span><span></span>
+    </div>
+    ${items.map((it,i)=>`
+      <div class="calc-aux-row" data-idx="${i}" style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:6px;align-items:center">
+        <input class="ca-concepto" value="${(it.concepto||'').replace(/"/g,'&quot;')}" placeholder="Material/horas/etc" oninput="updateCalculosTotals()">
+        <input class="ca-detalle" value="${(it.detalle||'').replace(/"/g,'&quot;')}" placeholder="Detalle del cálculo" oninput="updateCalculosTotals()">
+        <input class="ca-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateCalculosTotals()">
+        <input class="ca-unidad" value="${(it.unidad||'').replace(/"/g,'&quot;')}" placeholder="m2/hs/u">
+        <input class="ca-unit" type="number" step="0.01" value="${it.precioUnitario ?? 0}" oninput="updateCalculosTotals()">
+        <input class="ca-total" type="number" step="0.01" value="${it.total ?? ((+it.cantidad||0)*(+it.precioUnitario||0))}" oninput="updateCalculosTotals(true)">
+        <button type="button" class="btn-icon" onclick="removeCalculoAux(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
+        <input class="ca-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas" style="grid-column:1 / -1">
+      </div>`).join('') || `<div style="font-size:12px;color:var(--text3);padding:8px 0">Sin cálculos auxiliares cargados todavía.</div>`}`;
+  updateCalculosTotals();
+};
+window.collectCalculosAux = () => {
+  return [...document.querySelectorAll('.calc-aux-row')].map(row => {
+    const cantidad = moneyInput(row.querySelector('.ca-cant')?.value);
+    const precioUnitario = moneyInput(row.querySelector('.ca-unit')?.value);
+    const totalManual = moneyInput(row.querySelector('.ca-total')?.value);
+    const total = totalManual || cantidad * precioUnitario;
+    return { concepto: row.querySelector('.ca-concepto')?.value.trim() || '', detalle: row.querySelector('.ca-detalle')?.value.trim() || '', cantidad, unidad: row.querySelector('.ca-unidad')?.value.trim() || '', precioUnitario, total, observaciones: row.querySelector('.ca-obs')?.value.trim() || '' };
+  }).filter(it => it.concepto || it.detalle || it.total || it.precioUnitario);
+};
+window.updateCalculosTotals = (manual=false) => {
+  document.querySelectorAll('.calc-aux-row').forEach(row => {
+    const cant = moneyInput(row.querySelector('.ca-cant')?.value);
+    const unit = moneyInput(row.querySelector('.ca-unit')?.value);
+    const total = row.querySelector('.ca-total');
+    if (total && !manual && document.activeElement !== total) total.value = Math.round(cant * unit * 100) / 100;
+  });
+  const total = collectCalculosAux().reduce((a,it)=>a+(+it.total||0),0);
+  const el = document.getElementById('obra-calculos-total');
+  if (el) el.textContent = fmtPesoObra(total);
+};
+
+function nextClienteNumero() {
+  const nums = window.DB.clientes.map(c => parseInt(String(c.numeroCliente || c.numero || '').replace(/\D/g,''),10)).filter(n => n>0);
+  return 'CLI-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4,'0');
+}
+
 window.saveObra = async () => {
-  // Leer anotaciones por sector
-  const sectorKeys = {
-    'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'
-  };
+  const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
   const notas_sector = {};
   const existingId = window.editingId.obra;
   const existing = existingId ? window.DB.obras.find(x=>x.id===existingId) : null;
   const existingNotas = existing?.notas_sector || {};
-
   Object.entries(sectorKeys).forEach(([sec, key]) => {
     const el = document.getElementById('nota-'+key);
     const newVal = el ? el.value.trim() : '';
     const oldVal = existingNotas[sec] || '';
     notas_sector[sec] = newVal;
-    // Si cambió, actualizar timestamp
-    if (newVal !== oldVal && newVal) {
-      notas_sector[sec+'_ts'] = new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
-    } else {
-      notas_sector[sec+'_ts'] = existingNotas[sec+'_ts'] || '';
-    }
+    notas_sector[sec+'_ts'] = (newVal !== oldVal && newVal) ? new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : (existingNotas[sec+'_ts'] || '');
   });
-
+  const itemsCotizados = collectObraItems();
+  const calculosAuxiliares = collectCalculosAux();
+  const totalItems = itemsCotizados.reduce((a,it)=>a+(+it.subtotal||0),0);
   const data = {
-    ot: document.getElementById('f-ot').value.trim(),
-    sector: document.getElementById('f-sector').value,
-    desc: document.getElementById('f-desc').value.trim(),
-    cliente: document.getElementById('f-cliente').value.trim(),
-    vendedor: document.getElementById('f-vendedor').value,
-    estado: document.getElementById('f-estado').value,
-    semana: +document.getElementById('f-semana').value||0,
-    neto: +document.getElementById('f-neto').value||0,
-    bruto: +document.getElementById('f-bruto').value||0,
-    gastos: +document.getElementById('f-gastos').value||0,
-    fprod_c: document.getElementById('f-fprod-c').value.trim(),
-    fprod_r: document.getElementById('f-fprod-r').value.trim(),
-    fcol_c: document.getElementById('f-fcol-c').value.trim(),
-    fcol_r: document.getElementById('f-fcol-r').value.trim(),
-    oc: document.getElementById('f-oc').value.trim(),
-    nrfc: document.getElementById('f-nrfc').value.trim(),
-    ffc: document.getElementById('f-ffc').value.trim(),
-    cobr: document.getElementById('f-cobr').value,
-    comentarios: document.getElementById('f-comentarios').value.trim(),
-    notas_sector,
+    ot: document.getElementById('f-ot').value.trim(), sector: document.getElementById('f-sector').value,
+    desc: document.getElementById('f-desc').value.trim(), cliente: document.getElementById('f-cliente').value.trim(),
+    vendedor: document.getElementById('f-vendedor').value, estado: document.getElementById('f-estado').value,
+    semana: +document.getElementById('f-semana').value||0, neto: +document.getElementById('f-neto').value||totalItems||0,
+    bruto: +document.getElementById('f-bruto').value||0, gastos: +document.getElementById('f-gastos').value||0,
+    fprod_c: document.getElementById('f-fprod-c').value.trim(), fprod_r: document.getElementById('f-fprod-r').value.trim(),
+    fcol_c: document.getElementById('f-fcol-c').value.trim(), fcol_r: document.getElementById('f-fcol-r').value.trim(),
+    oc: document.getElementById('f-oc').value.trim(), nrfc: document.getElementById('f-nrfc').value.trim(), ffc: document.getElementById('f-ffc').value.trim(),
+    cobr: document.getElementById('f-cobr').value, diasPago: +document.getElementById('f-dias-pago').value||0,
+    comentarios: document.getElementById('f-comentarios').value.trim(), notas_sector,
+    itemsCotizados, calculosAuxiliares, totalItems,
+    totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
+    driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
   };
   if (!data.desc) { showToast('Ingresá una descripción'); return; }
+  let docRefId = existingId;
   if (existingId) await updateDoc_('obras', existingId, data);
-  else await addDoc_('obras', data);
-  // Sync a Google Sheets
-  syncToSheets(data);
-  closeModal('obra');
-  showToast(existingId ? 'Obra actualizada ✓ Sheets' : 'Obra guardada ✓ Sheets');
+  else { const ref = await addDoc_('obras', data); docRefId = ref?.id || null; }
+  try {
+    const syncResult = await syncToSheets({...data, firestoreId: docRefId});
+    if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
+      const links = { driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '', driveSyncedAt: new Date().toISOString() };
+      if (docRefId) await updateDoc_('obras', docRefId, links);
+    }
+  } catch(e) { console.warn('No se pudo sincronizar Drive/Sheets:', e); }
+  closeModal('obra'); showToast(existingId ? 'Obra actualizada' : 'Obra guardada');
 };
 
 window.saveCliente = async () => {
+  const numeroCliente = document.getElementById('fc-numero')?.value || nextClienteNumero();
   const data = {
+    numeroCliente,
     nombre: document.getElementById('fc-nombre').value.trim(),
     cuit: document.getElementById('fc-cuit').value.trim(),
     contacto: document.getElementById('fc-contacto').value.trim(),
@@ -1050,8 +1175,12 @@ window.saveCliente = async () => {
   if(!data.nombre){showToast('Ingresá un nombre');return;}
   const id = window.editingId.cliente;
   if(id) await updateDoc_('clientes',id,data); else await addDoc_('clientes',data);
+  const fCliente = document.getElementById('f-cliente');
+  if (fCliente && document.getElementById('modal-obra')?.classList.contains('open')) fCliente.value = data.nombre;
+  const ppCliente = document.getElementById('pp-cliente');
+  if (ppCliente && document.getElementById('modal-prespdf')?.classList.contains('open')) ppCliente.value = data.nombre;
   window.editingId.cliente=null;
-  closeModal('cliente'); showToast('Cliente guardado');
+  closeModal('cliente'); showToast(`Cliente ${numeroCliente} guardado`);
 };
 
 window.savePresupuesto = async () => {
@@ -1787,18 +1916,16 @@ function renderEstCumplimiento() {
 // SYNC CON GOOGLE SHEETS
 // ============================================================
 const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycby87k25AigT3MVUWWhp1vWWoqT5ICiWtUiFip1rCKgVpbX8V9bXAORs-p1B9t_bwwDR1A/exec';
+const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
 
 async function syncToSheets(data) {
+  if (!DRIVE_SHEETS_WEBHOOK) return null;
+  const payload = { action: data.estado === 'Aprobado' ? 'obra_aprobada' : 'obra_guardada', obra: data, itemsCotizados: data.itemsCotizados || [], calculosAuxiliares: data.calculosAuxiliares || [] };
   try {
-    await fetch(SHEETS_WEBHOOK, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-  } catch(e) {
-    console.log('Sheets sync error (no crítico):', e.message);
-  }
+    const res = await fetch(DRIVE_SHEETS_WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+    const txt = await res.text();
+    try { return JSON.parse(txt); } catch(_) { return { ok: true, raw: txt }; }
+  } catch(e) { console.log('Sheets/Drive sync error (no crítico):', e.message); return null; }
 }
 
 window.exportarCSV = () => {
