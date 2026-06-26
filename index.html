@@ -219,6 +219,13 @@ td.strong { color: var(--text); font-weight: 500; }
   .sidebar { display: none; }
   .form-grid { grid-template-columns: 1fr; }
 }
+
+/* V4.3 — presupuesto completo desde página Presupuestos */
+#modal-prespdf .modal { max-width: 920px !important; width: calc(100vw - 80px); }
+#modal-presupuesto { display: none !important; }
+#pp-clientes-dropdown .cli-option:last-child { background: rgba(232,184,75,.08); }
+@media (max-width: 900px) { #modal-prespdf .modal { width: calc(100vw - 24px); } }
+
 </style>
 </head>
 <body>
@@ -485,7 +492,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="page-header">
         <div><div class="page-title">Presupuestos</div></div>
         <div class="header-actions">
-          <button class="btn btn-primary btn-sm" onclick="openModal('presupuesto')"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirNuevoPresupuestoCompleto()"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
         </div>
       </div>
       <div style="padding:16px 28px 0">
@@ -741,6 +748,7 @@ td.strong { color: var(--text); font-weight: 500; }
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-prespdf').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-ghost" onclick="guardarPresupuestoCompleto()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-device-floppy"></i> Guardar presupuesto</button>
       <button class="btn btn-primary" onclick="generarPDF()"><i class="ti ti-printer"></i> Generar PDF + Excel</button>
     </div>
   </div>
@@ -1799,6 +1807,7 @@ window.cargarDesdeOTs = async () => {
 
 // NÚMERO AUTOMÁTICO DE PRESUPUESTO
 window.abrirPresupuestoPDF = () => {
+  window._presupuestoOrigen = 'obra';
   const obraId = window.editingId.obra;
   const obra = obraId ? window.DB.obras.find(x=>x.id===obraId) : null;
   const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0);
@@ -2114,6 +2123,48 @@ window.setTareaTab = (tab, el) => {
   renderTareas();
 };
 
+
+// ============================================================
+// PRESUPUESTO COMPLETO DESDE PÁGINA PRESUPUESTOS
+// ============================================================
+window.abrirNuevoPresupuestoCompleto = () => {
+  window.editingId.presupuesto = null;
+  window.editingId.obra = null;
+  window._presupuestoOrigen = 'presupuestos';
+  const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0).filter(n=>n>0);
+  const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
+  const maxNro = Math.max(0, ...presNros, ...otNros);
+  document.getElementById('pp-nro').value = (maxNro+1).toString().padStart(4,'0');
+  document.getElementById('pp-cliente').value = '';
+  document.getElementById('pp-desc').value = '';
+  document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
+  document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
+  document.getElementById('pp-validez').value = '7';
+  window.ppItems = [{desc:'', precio:0, cant:1}];
+  renderPPItems();
+  document.getElementById('modal-prespdf').classList.add('open');
+};
+
+window.guardarPresupuestoCompleto = async () => {
+  const nro = document.getElementById('pp-nro').value.trim() || '0000';
+  const cliente = document.getElementById('pp-cliente').value.trim();
+  const descGeneral = document.getElementById('pp-desc').value.trim();
+  const nota = document.getElementById('pp-nota').value.trim();
+  const cond = document.getElementById('pp-condicion').value.trim();
+  const hoy = new Date().toLocaleDateString('es-AR');
+  const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
+  const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
+  if (!cliente) { showToast('Falta cargar el cliente'); return; }
+  if (!items.length) { showToast('Agregá al menos un ítem'); return; }
+  await addDoc_('presupuestos', {
+    nro, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
+    importe: total, fecha: hoy, estado: 'Pendiente',
+    nota, cond, items, creadoPor: window.currentUser?.email || '', obraId: ''
+  });
+  document.getElementById('modal-prespdf').classList.remove('open');
+  showToast('Presupuesto guardado con ítems');
+};
+
 // ============================================================
 // PRESUPUESTO PDF
 // ============================================================
@@ -2295,7 +2346,14 @@ window.generarPDF = async () => {
       .btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
       .hint{font-size:11px;color:#888;margin-left:auto}
       @media print{.toolbar{display:none}body{margin:0;padding:20px}@page{margin:1cm}}
-    </style>
+    
+/* V4.3 — presupuesto completo desde página Presupuestos */
+#modal-prespdf .modal { max-width: 920px !important; width: calc(100vw - 80px); }
+#modal-presupuesto { display: none !important; }
+#pp-clientes-dropdown .cli-option:last-child { background: rgba(232,184,75,.08); }
+@media (max-width: 900px) { #modal-prespdf .modal { width: calc(100vw - 24px); } }
+
+</style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
     </head><body>
     ${html}

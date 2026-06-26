@@ -42,3 +42,8 @@ const USER_ROLE_MAP = {
 ```
 
 El email se usa solo para validar acceso. La app trabaja por puesto.
+
+
+## V4.3
+- El botón Nuevo presupuesto ahora abre el presupuesto completo con cliente inteligente e ítems múltiples.
+- Se mantiene el modal anterior solo como respaldo, pero no se usa para altas nuevas.
