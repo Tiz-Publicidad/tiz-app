@@ -12,3 +12,6 @@ Versión preparada para GitHub Pages + Firebase + Apps Script.
 - Respaldo en Google Sheets con hojas: Orden de Trabajo, Obra, Items cotizados, Calculos auxiliares y Notas por sector.
 
 Leer `INSTRUCCIONES_V5.txt` antes de subir.
+
+
+V5.1: presupuesto actualizado para usar el logo real de TIZ en la emisión/impresión.
