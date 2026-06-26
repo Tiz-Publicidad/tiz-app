@@ -626,9 +626,16 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-section">Facturación</div>
       <div class="form-group"><label>OC / OP</label><input id="f-oc" placeholder="Nro orden de compra"></div>
       <div class="form-group"><label>Nro factura</label><input id="f-nrfc" placeholder="Nro factura"></div>
-      <div class="form-group"><label>F. factura</label><input id="f-ffc" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>F. factura</label><input id="f-ffc" placeholder="DD/MM/AAAA" oninput="calcFechaVencimiento()"></div>
       <div class="form-group"><label>Estado cobranza</label>
         <select id="f-cobr"><option>Pendiente</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
+      </div>
+      <div class="form-group"><label>Días de pago acordados</label>
+        <input id="f-dias-pago" type="number" placeholder="Ej: 30" oninput="calcFechaVencimiento()">
+      </div>
+      <div class="form-group" style="justify-content:flex-end">
+        <label>Fecha de vencimiento</label>
+        <span id="f-venc-calculada" style="font-size:12px;font-weight:500;padding-top:4px"></span>
       </div>
       <div class="form-group full"><label>Comentarios generales</label><textarea id="f-comentarios"></textarea></div>
       <div class="form-section">Anotaciones por sector</div>
@@ -1046,7 +1053,7 @@ function initListeners() {
 }
 
 // CRUD helpers
-window.addDoc_    = async (col_, data) => await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() });
+window.addDoc_    = async (col_, data) => { await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); };
 window.updateDoc_ = async (col_, id, data) => { await updateDoc(doc(db, col_, id), data); };
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
 
@@ -1060,6 +1067,34 @@ function semaforo(fc, fr) {
   return d<-3?'g':d<0?'a':'r';
 }
 function fmtM(n) { if(!n&&n!==0) return '-'; n=+n; if(n>=1e6) return '$'+Math.round(n/1e5)/10+'M'; if(n>=1000) return '$'+Math.round(n/1000)+'K'; return '$'+Math.round(n); }
+function alertaVencimiento(o) {
+  if (!o.ffc || !o.diasPago) return null;
+  const [d,m,y] = o.ffc.split('/');
+  if (!d||!m||!y) return null;
+  const fechaVenc = new Date(+y,+m-1,+d);
+  fechaVenc.setDate(fechaVenc.getDate() + (+o.diasPago||0));
+  const hoy = new Date();
+  const diff = Math.round((fechaVenc - hoy) / 86400000);
+  if (diff < 0) return `VENCIDA hace ${Math.abs(diff)} días (${fechaVenc.toLocaleDateString('es-AR')})`;
+  if (diff <= 5) return `Vence en ${diff} días (${fechaVenc.toLocaleDateString('es-AR')})`;
+  return null;
+}
+
+window.calcFechaVencimiento = () => {
+  const ffc = document.getElementById('f-ffc').value;
+  const dias = +document.getElementById('f-dias-pago').value||0;
+  const el = document.getElementById('f-venc-calculada');
+  if (!ffc || !dias || !el) { if(el) el.textContent=''; return; }
+  const [d,m,y] = ffc.split('/');
+  if(!d||!m||!y) { el.textContent=''; return; }
+  const fecha = new Date(+y,+m-1,+d);
+  fecha.setDate(fecha.getDate()+dias);
+  el.textContent = 'Vence: ' + fecha.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  const hoy = new Date();
+  const diff = Math.round((fecha-hoy)/86400000);
+  el.style.color = diff<0?'var(--red)':diff<=5?'var(--amber)':'var(--green)';
+};
+
 function hasNotas(o) {
   const n = o.notas_sector || {};
   return ['Producción','Colocaciones','Diseño','Ventas','Compras'].some(s => n[s] && n[s].trim());
@@ -1144,6 +1179,7 @@ function renderDashboard() {
   const pctP = pct(obras.filter(o=>o.fprod_c), 'prod');
   const pctC = pct(obras.filter(o=>o.fcol_c), 'col');
   const venc = obras.filter(o => semaforo(o.fprod_c,o.fprod_r)==='r').length;
+  const vencFacturas = obras.filter(o => alertaVencimiento(o)).length;
   const totalVentaSem = semObras.reduce((a,o)=>a+(+o.neto||0),0);
 
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -1153,6 +1189,7 @@ function renderDashboard() {
     <div class="kpi"><div class="kpi-label">Cumpl. producción</div><div class="kpi-val ${pctP===null?'':pctP>=80?'green':pctP>=60?'amber':'red'}">${pctP===null?'—':pctP+'%'}</div><div class="kpi-sub">acumulado global</div></div>
     <div class="kpi"><div class="kpi-label">Cumpl. colocación</div><div class="kpi-val ${pctC===null?'':pctC>=80?'green':pctC>=60?'amber':'red'}">${pctC===null?'—':pctC+'%'}</div><div class="kpi-sub">acumulado global</div></div>
     <div class="kpi"><div class="kpi-label">Alertas prod.</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div><div class="kpi-sub">vencidas o en riesgo</div></div>
+    <div class="kpi"><div class="kpi-label">Facturas por vencer</div><div class="kpi-val ${vencFacturas>0?'red':''}">${vencFacturas}</div><div class="kpi-sub">próximas o vencidas</div></div>
   `;
 
   const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
@@ -1229,9 +1266,11 @@ window.renderObras = function() {
       <td style="font-family:'DM Mono',monospace;font-size:11px">${dt!==null?dt+'d':'—'}</td>
       <td>${fmtM(o.neto)}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
+        ${o.nrfc ? `<span title="Facturado: FC ${o.nrfc}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>` : ''}
+        ${alertaVencimiento(o) ? `<span title="${alertaVencimiento(o)}" style="color:var(--red);margin-right:4px;font-size:13px">⚠</span>` : ''}
         ${tieneNotas?`<span title="Tiene anotaciones" style="color:var(--accent);margin-right:4px"><i class="ti ti-message-dots" style="font-size:13px;vertical-align:middle"></i></span>`:''}
-        ${o.driveFolderUrl?`<button class="btn-icon" title="Abrir carpeta OT" onclick="window.open('${o.driveFolderUrl}','_blank')"><i class="ti ti-folder" style="font-size:13px"></i></button>`:''}
-        ${o.otSheetUrl?`<button class="btn-icon" title="Abrir Google Sheet OT" onclick="window.open('${o.otSheetUrl}','_blank')" style="margin-left:4px"><i class="ti ti-table" style="font-size:13px"></i></button>`:''}
+        ${o.driveFolderUrl?`<button class="btn-icon" title="Abrir carpeta OT" onclick="event.stopPropagation();window.open('${o.driveFolderUrl}','_blank')"><i class="ti ti-folder" style="font-size:13px"></i></button>`:''}
+        ${o.otSheetUrl?`<button class="btn-icon" title="Abrir Google Sheet OT" onclick="event.stopPropagation();window.open('${o.otSheetUrl}','_blank')" style="margin-left:4px"><i class="ti ti-table" style="font-size:13px"></i></button>`:''}
         <button class="btn-icon" onclick="editObra('${o.id}')" style="margin-left:4px"><i class="ti ti-edit" style="font-size:13px"></i></button>
         <button class="btn-icon" onclick="delObra('${o.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
       </td>
@@ -1588,7 +1627,7 @@ function renderVendedores() {
 window.openModal = (type) => {
   if (type==='obra') {
     if (!window.editingId.obra) {
-      ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+      ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios','f-dias-pago'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
       // Sugerir siguiente número de OT
       const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
       const maxOT = otNros.length ? Math.max(...otNros) : 4400;
@@ -1634,6 +1673,7 @@ window.editObra = id => {
   document.getElementById('f-nrfc').value = o.nrfc||'';
   document.getElementById('f-ffc').value = o.ffc||'';
   document.getElementById('f-cobr').value = o.cobr||'Pendiente';
+  document.getElementById('f-dias-pago').value = o.diasPago||'';
   document.getElementById('f-comentarios').value = o.comentarios||'';
   document.getElementById('modal-obra-title').textContent = 'Editar obra — ' + (o.ot||o.desc||'');
 
@@ -1657,12 +1697,8 @@ window.editObra = id => {
 
 window.delObra = async id => { if(confirm('¿Eliminar esta obra?')) await deleteDoc_('obras',id); };
 window.quickChangeEstado = async (id, val) => {
-  const existing = window.DB.obras.find(o => o.id === id);
   await updateDoc_('obras', id, { estado: val, cobr: val });
   showToast('Estado actualizado: ' + val);
-  if (val === 'Aprobado' && existing?.estado !== 'Aprobado') {
-    await dispararAutomatizacionOT({ ...existing, estado: val, cobr: val }, id);
-  }
 };
 
 window.limpiarFiltros = () => {
@@ -1822,27 +1858,15 @@ window.saveObra = async () => {
     nrfc: document.getElementById('f-nrfc').value.trim(),
     ffc: document.getElementById('f-ffc').value.trim(),
     cobr: document.getElementById('f-cobr').value,
+    diasPago: +document.getElementById('f-dias-pago').value||0,
     comentarios: document.getElementById('f-comentarios').value.trim(),
     notas_sector,
   };
   if (!data.desc) { showToast('Ingresá una descripción'); return; }
-  let savedId = existingId;
-  if (existingId) {
-    await updateDoc_('obras', existingId, data);
-  } else {
-    const ref = await addDoc_('obras', data);
-    savedId = ref.id;
-  }
-
-  // Sync general a Google Sheets existente
+  if (existingId) await updateDoc_('obras', existingId, data);
+  else await addDoc_('obras', data);
+  // Sync a Google Sheets
   syncToSheets(data);
-
-  // Automatización V7: si pasa de Presupuestado a Aprobado, crea carpeta Drive + Google Sheet OT.
-  const pasoAAprobado = data.estado === 'Aprobado' && existing?.estado !== 'Aprobado';
-  if (pasoAAprobado) {
-    await dispararAutomatizacionOT(data, savedId);
-  }
-
   closeModal('obra');
   showToast(existingId ? 'Obra actualizada ✓ Sheets' : 'Obra guardada ✓ Sheets');
 };
@@ -2610,90 +2634,6 @@ async function syncToSheets(data) {
   }
 }
 
-// ============================================================
-// V7 — AUTOMATIZACIÓN OT APROBADA → DRIVE + GOOGLE SHEET
-// ============================================================
-// 1) Crear el Apps Script con el archivo apps-script/ot-automation.gs.
-// 2) Implementar como Web App.
-// 3) Pegar acá la URL terminada en /exec.
-const OT_AUTOMATION_WEBAPP_URL = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
-
-function callAppsScriptJSONP(url, payload) {
-  return new Promise((resolve, reject) => {
-    if (!url || url.includes('PEGAR_ACA')) {
-      reject(new Error('Falta configurar OT_AUTOMATION_WEBAPP_URL'));
-      return;
-    }
-    const cbName = 'otCallback_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error('Timeout esperando respuesta de Apps Script'));
-    }, 30000);
-    function cleanup() {
-      clearTimeout(timeout);
-      delete window[cbName];
-      script.remove();
-    }
-    window[cbName] = (res) => {
-      cleanup();
-      if (res && res.ok) resolve(res);
-      else reject(new Error(res?.error || 'Error en Apps Script'));
-    };
-    const qs = new URLSearchParams({
-      callback: cbName,
-      payload: JSON.stringify(payload)
-    });
-    script.src = `${url}?${qs.toString()}`;
-    script.onerror = () => {
-      cleanup();
-      reject(new Error('No se pudo llamar a Apps Script'));
-    };
-    document.body.appendChild(script);
-  });
-}
-
-async function dispararAutomatizacionOT(obra, id) {
-  try {
-    if (!id) return;
-    if (obra.driveFolderUrl || obra.otSheetUrl || obra.otAutomatizada) {
-      console.log('OT ya automatizada, no se duplica carpeta.', id);
-      return;
-    }
-    if (!obra.ot && !obra.desc) {
-      showToast('No se puede crear OT automática sin OT ni descripción');
-      return;
-    }
-    showToast('Creando carpeta y Google Sheet de OT...');
-    await updateDoc_('obras', id, {
-      otAutomatizacionEstado: 'pendiente',
-      otAutomatizacionFecha: new Date().toISOString()
-    });
-    const res = await callAppsScriptJSONP(OT_AUTOMATION_WEBAPP_URL, {
-      firebaseId: id,
-      obra,
-      solicitadoPor: window.currentUser?.puesto || window.currentUser?.sector || window.currentUser?.email || 'TIZ App'
-    });
-    await updateDoc_('obras', id, {
-      otAutomatizada: true,
-      otAutomatizacionEstado: 'ok',
-      driveFolderId: res.folderId || '',
-      driveFolderUrl: res.folderUrl || '',
-      otSheetId: res.sheetId || '',
-      otSheetUrl: res.sheetUrl || '',
-      otAutomatizacionFechaOk: new Date().toISOString()
-    });
-    showToast('OT automática creada en Drive ✓');
-  } catch(e) {
-    console.error('Automatización OT error:', e);
-    if (id) await updateDoc_('obras', id, {
-      otAutomatizacionEstado: 'error',
-      otAutomatizacionError: e.message || String(e)
-    });
-    showToast('No se pudo crear la carpeta OT. Revisar configuración.');
-  }
-}
-
 window.exportarCSV = () => {
   const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
   if (!obras.length) { showToast('No hay obras para exportar'); return; }
@@ -3069,166 +3009,6 @@ window.refreshCurrent = function() {
   if (window.currentPage === 'tareas') renderTareas();
   if (window.currentPage === 'estadistica') renderEstadistica();
 };
-
-
-
-// ============================================================
-// V4.1 — PRESUPUESTOS: próximo número, autocomplete cliente y creación de OT
-// ============================================================
-function tizNextPresupuestoNro() {
-  const presNros = (window.DB?.presupuestos || [])
-    .map(p => parseInt(String(p.nro || '').replace(/\D/g,''), 10))
-    .filter(n => Number.isFinite(n) && n > 0);
-  const maxPres = presNros.length ? Math.max(...presNros) : 4659;
-  return String(maxPres + 1).padStart(4, '0');
-}
-function tizTodayAR() {
-  const d = new Date();
-  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
-}
-function tizEnsurePresupuestoClienteDropdown() {
-  const input = document.getElementById('fp-cliente');
-  if (!input) return;
-  const parent = input.closest('.form-group');
-  if (parent) parent.style.position = 'relative';
-  let dd = document.getElementById('fp-clientes-dropdown');
-  if (!dd && parent) {
-    dd = document.createElement('div');
-    dd.id = 'fp-clientes-dropdown';
-    dd.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;z-index:350;max-height:180px;overflow-y:auto;margin-top:2px';
-    parent.appendChild(dd);
-  }
-  input.setAttribute('autocomplete','off');
-  input.oninput = () => sugerirClientesPresupuesto(input.value);
-  input.onblur = () => setTimeout(cerrarSugerenciasPresupuesto, 200);
-}
-window.abrirNuevoPresupuesto = function() {
-  window.editingId.presupuesto = null;
-  ['fp-cliente','fp-desc','fp-importe','fp-comentarios'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const nro = document.getElementById('fp-nro'); if (nro) nro.value = tizNextPresupuestoNro();
-  const vend = document.getElementById('fp-vend'); if (vend) vend.value = 'G';
-  const fecha = document.getElementById('fp-fecha'); if (fecha) fecha.value = tizTodayAR();
-  const estado = document.getElementById('fp-estado'); if (estado) estado.value = 'Enviado';
-  tizEnsurePresupuestoClienteDropdown();
-  const title = document.querySelector('#modal-presupuesto .modal-title');
-  if (title) title.textContent = 'Nuevo presupuesto';
-  document.getElementById('modal-presupuesto').classList.add('open');
-};
-window.sugerirClientesPresupuesto = function(q) {
-  const dd = document.getElementById('fp-clientes-dropdown');
-  if (!dd) return;
-  if (!q || q.length < 1) { dd.style.display = 'none'; return; }
-  const clientesDB = (window.DB.clientes || []).map(c => ({ nombre: c.nombre, cuit: c.cuit, fuente: 'Clientes' }));
-  const clientesObras = [...new Set((window.DB.obras || []).map(o => o.cliente).filter(Boolean))]
-    .filter(n => !clientesDB.find(c => (c.nombre||'').toLowerCase() === String(n).toLowerCase()))
-    .map(n => ({ nombre: n, cuit: '', fuente: 'Obras anteriores' }));
-  const todos = [...clientesDB, ...clientesObras];
-  const ql = q.toLowerCase();
-  const matches = todos.filter(c => c.nombre && c.nombre.toLowerCase().includes(ql)).slice(0, 8);
-  let html = matches.map(c => `
-    <div class="cli-option" onmousedown="elegirClientePresupuesto('${String(c.nombre).replace(/'/g,"\\'")}')">
-      <span>${resaltar ? resaltar(c.nombre, q) : c.nombre}</span>
-      ${c.cuit ? `<span class="cli-option-sub">CUIT: ${c.cuit}</span>` : `<span class="cli-option-sub">${c.fuente}</span>`}
-    </div>
-  `).join('');
-  html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuestoModal('${String(q).replace(/'/g,"\\'")}')" style="border-top:1px solid var(--border);color:var(--accent)">
-    <span>➕ Crear cliente "<strong>${q}</strong>"</span>
-    <span class="cli-option-sub" style="color:var(--accent)">Abre la carga de cliente nuevo</span>
-  </div>`;
-  dd.innerHTML = html;
-  dd.style.display = 'block';
-};
-window.elegirClientePresupuesto = function(nombre) {
-  const el = document.getElementById('fp-cliente'); if (el) el.value = nombre;
-  cerrarSugerenciasPresupuesto();
-};
-window.cerrarSugerenciasPresupuesto = function() {
-  const dd = document.getElementById('fp-clientes-dropdown');
-  if (dd) dd.style.display = 'none';
-};
-window.nuevoClienteDesdePresupuestoModal = function(nombre) {
-  cerrarSugerenciasPresupuesto();
-  window._clienteOrigen = 'presupuesto';
-  window._clienteNuevoNombre = nombre;
-  window.editingId.cliente = null;
-  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const nom = document.getElementById('fc-nombre'); if (nom) nom.value = nombre;
-  document.getElementById('modal-cliente').classList.add('open');
-};
-const _tizOpenModalBase = window.openModal;
-window.openModal = function(type) {
-  if (type === 'presupuesto' && !window.editingId.presupuesto) return window.abrirNuevoPresupuesto();
-  _tizOpenModalBase(type);
-  if (type === 'presupuesto') tizEnsurePresupuestoClienteDropdown();
-};
-const _tizEditPresBase = window.editPres;
-window.editPres = function(id) {
-  _tizEditPresBase(id);
-  tizEnsurePresupuestoClienteDropdown();
-};
-const _tizSaveClienteBase = window.saveCliente;
-window.saveCliente = async function() {
-  const origen = window._clienteOrigen;
-  const nombre = document.getElementById('fc-nombre')?.value?.trim() || window._clienteNuevoNombre || '';
-  await _tizSaveClienteBase();
-  if (origen === 'presupuesto' && nombre) {
-    const el = document.getElementById('fp-cliente');
-    if (el) el.value = nombre;
-    document.getElementById('modal-presupuesto')?.classList.add('open');
-  }
-  window._clienteOrigen = null;
-  window._clienteNuevoNombre = null;
-};
-const _tizSavePresupuestoBase = window.savePresupuesto;
-window.savePresupuesto = async function() {
-  const data = {
-    nro: document.getElementById('fp-nro').value.trim() || tizNextPresupuestoNro(),
-    vendedor: document.getElementById('fp-vend').value,
-    cliente: document.getElementById('fp-cliente').value.trim(),
-    desc: document.getElementById('fp-desc').value.trim(),
-    importe: +document.getElementById('fp-importe').value || 0,
-    fecha: document.getElementById('fp-fecha').value.trim() || tizTodayAR(),
-    estado: document.getElementById('fp-estado').value,
-    comentarios: document.getElementById('fp-comentarios').value.trim(),
-  };
-  if (!data.cliente) { showToast('Ingresá o seleccioná un cliente'); return; }
-  if (!data.desc) { showToast('Ingresá una descripción'); return; }
-  const id = window.editingId.presupuesto;
-  if (id) await updateDoc_('presupuestos', id, data); else await addDoc_('presupuestos', data);
-
-  if (data.estado === 'Aprobado') {
-    const existente = (window.DB.obras || []).find(o => String(o.ot || '') === String(data.nro));
-    if (!existente) {
-      const obra = {
-        ot: data.nro,
-        semana: getSemanaActual(),
-        desc: data.desc,
-        cliente: data.cliente,
-        sector: 'Producción',
-        vendedor: data.vendedor,
-        estado: 'Aprobado',
-        neto: data.importe,
-        bruto: Math.round(data.importe * 1.21),
-        gastos: 0,
-        fecha: data.fecha,
-        cobr: 'Pendiente',
-        comentarios: 'Creada automáticamente desde presupuesto aprobado ' + data.nro,
-        origenPresupuesto: data.nro,
-        notas_sector: { 'Ventas': data.comentarios || '' }
-      };
-      const ref = await addDoc_('obras', obra);
-      await dispararAutomatizacionOT(obra, ref.id);
-      showToast('Presupuesto aprobado: obra y OT automática creadas ✓');
-    } else {
-      showToast('Presupuesto guardado. Ya existe una obra con esa OT.');
-    }
-  } else {
-    showToast('Presupuesto guardado');
-  }
-  window.editingId.presupuesto = null;
-  closeModal('presupuesto');
-};
-setTimeout(tizEnsurePresupuestoClienteDropdown, 500);
 
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
