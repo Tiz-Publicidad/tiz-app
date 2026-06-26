@@ -42,3 +42,18 @@ const USER_ROLE_MAP = {
 ```
 
 El email se usa solo para validar acceso. La app trabaja por puesto.
+
+
+## Versión v4 — Presupuestos reales TIZ
+
+Agrega ítems múltiples por obra, cálculos auxiliares, numeración automática de clientes y respaldo automático en Drive/Sheets al aprobar una obra.
+
+### Configuración obligatoria para Drive
+
+1. Crear en Drive la carpeta madre: `Ordenes de trabajo aprobadas`.
+2. Copiar el ID de esa carpeta.
+3. Pegar `apps_script_drive_sheets_v4.gs` en Google Apps Script.
+4. Reemplazar `PEGAR_ID_CARPETA_ORDENES_APROBADAS` por el ID de la carpeta madre.
+5. Implementar como Aplicación web, ejecutar como `Yo`, acceso `Cualquier persona`.
+6. Copiar la URL `/exec`.
+7. En `index.html`, reemplazar `PEGAR_URL_WEB_APP_APPS_SCRIPT_AQUI` por esa URL.
