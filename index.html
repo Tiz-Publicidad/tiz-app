@@ -2836,6 +2836,8 @@ function renderEstCumplimiento() {
 // ============================================================
 // SYNC CON GOOGLE SHEETS
 // ============================================================
+// IMPORTANTE: pegar acá la URL de implementación de Apps Script que termina en /exec.
+// Si queda con PEGAR_URL, la app guarda la obra/presupuesto, pero NO crea carpetas en Drive.
 const SHEETS_WEBHOOK = 'PEGAR_URL_DE_IMPLEMENTACION_WEB_APP_APPS_SCRIPT';
 const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
 
@@ -3365,7 +3367,7 @@ window.refreshCurrent = function() {
   const oldSyncToSheetsV5 = window.syncToSheets;
   window.syncToSheets = async function(data){
     if (typeof SHEETS_WEBHOOK !== 'undefined' && String(SHEETS_WEBHOOK).includes('PEGAR_URL')) {
-      if (String(data?.estado || '').toLowerCase() === 'aprobado') showToast('Falta pegar la URL /exec del Apps Script en index.html');
+      if (String(data?.estado || '').toLowerCase() === 'aprobado') showToast('No se creó carpeta: falta pegar la URL /exec de Apps Script en index.html');
       return null;
     }
     return oldSyncToSheetsV5 ? oldSyncToSheetsV5(data) : null;
@@ -3407,7 +3409,7 @@ window.refreshCurrent = function() {
     setValue('f-sector','Ventas'); setValue('f-vendedor','G'); setValue('f-cobr','Pendiente');
     ensureEstadoOptionsV52(defaultEstado || 'Presupuestado');
     window.obraItems = [{descripcion:'', cantidad:1, unidad:'u', unitario:0, subtotal:0, observaciones:''}];
-    window.calculosAux = [{tipo:'Materiales', detalle:'', cantidad:1, unidad:'u', unitario:0, total:0}];
+    window.calculosAuxiliares = [{concepto:'Materiales', detalle:'', cantidad:1, unidad:'u', precioUnitario:0, total:0, observaciones:''}];
     if (typeof renderObraItems === 'function') renderObraItems();
     if (typeof renderCalculosAux === 'function') renderCalculosAux();
   };
@@ -3461,7 +3463,7 @@ window.refreshCurrent = function() {
       subtotal: +i.subtotal || ((+i.cantidad || +i.cant || 1) * (+i.unitario || +i.precio || 0)),
       observaciones: i.observaciones || ''
     })) : [{descripcion:d.desc||'', cantidad:1, unidad:'u', unitario:+(d.neto||d.importe||0), subtotal:+(d.neto||d.importe||0), observaciones:''}];
-    window.calculosAux = (d.calculosAuxiliares || []).length ? d.calculosAuxiliares : [{tipo:'Materiales', detalle:'', cantidad:1, unidad:'u', unitario:0, total:0}];
+    window.calculosAuxiliares = (d.calculosAuxiliares || []).length ? d.calculosAuxiliares : [{concepto:'Materiales', detalle:'', cantidad:1, unidad:'u', precioUnitario:0, total:0, observaciones:''}];
     if (typeof renderObraItems === 'function') renderObraItems();
     if (typeof renderCalculosAux === 'function') renderCalculosAux();
     const t=document.getElementById('modal-obra-title'); if(t) t.textContent=titulo || 'Editar';
