@@ -2833,33 +2833,81 @@ function renderEstCumplimiento() {
   } else { setTimeout(drawCharts,50); }
 }
 
+
 // ============================================================
-// SYNC CON GOOGLE SHEETS
+// SYNC CON GOOGLE DRIVE / APPS SCRIPT — CORREGIDO
 // ============================================================
-// IMPORTANTE: pegar acá la URL de implementación de Apps Script que termina en /exec.
-// Si queda con PEGAR_URL, la app guarda la obra/presupuesto, pero NO crea carpetas en Drive.
+// URL real de la implementación Web App de Apps Script.
+// Usa JSONP por GET para evitar bloqueos CORS desde GitHub Pages.
 const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
 const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
 
-async function syncToSheets(data) {
-  if (!DRIVE_SHEETS_WEBHOOK) return null;
-  const payload = { action: String(data.estado || '').toLowerCase() === 'aprobado' ? 'obra_aprobada' : 'obra_guardada', obra: data, itemsCotizados: data.itemsCotizados || [], calculosAuxiliares: data.calculosAuxiliares || [] };
-  try {
-    const res = await fetch(DRIVE_SHEETS_WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-    const txt = await res.text();
-    let parsed;
-    try { parsed = JSON.parse(txt); } catch(_) { parsed = { ok: res.ok, raw: txt }; }
-    if (String(data.estado || '').toLowerCase() === 'aprobado' && parsed && parsed.ok === false) {
-      showToast('No se creó carpeta Drive: ' + (parsed.error || 'revisar Apps Script'));
-      console.warn('Drive/Sheets respondió error:', parsed);
-    }
-    return parsed;
-  } catch(e) {
-    if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('No se pudo conectar con Apps Script');
-    console.log('Sheets/Drive sync error:', e.message);
-    return null;
-  }
+function isAprobadoEstado(v) {
+  return String(v || '').trim().toLowerCase() === 'aprobado';
 }
+
+function syncToSheetsJSONP(payload) {
+  return new Promise((resolve) => {
+    if (!DRIVE_SHEETS_WEBHOOK || String(DRIVE_SHEETS_WEBHOOK).includes('PEGAR_URL')) {
+      resolve({ ok:false, error:'Falta configurar URL de Apps Script' });
+      return;
+    }
+
+    const callback = 'tizDriveCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve({ ok:false, error:'Timeout llamando Apps Script' });
+    }, 25000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[callback]; } catch(_) { window[callback] = undefined; }
+      if (script && script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[callback] = function(response) {
+      cleanup();
+      resolve(response || { ok:false, error:'Respuesta vacía de Apps Script' });
+    };
+
+    const url = DRIVE_SHEETS_WEBHOOK
+      + '?callback=' + encodeURIComponent(callback)
+      + '&payload=' + encodeURIComponent(JSON.stringify(payload))
+      + '&_=' + Date.now();
+
+    script.onerror = function() {
+      cleanup();
+      resolve({ ok:false, error:'No se pudo cargar Apps Script. Revisar publicación/acceso.' });
+    };
+
+    script.src = url;
+    document.body.appendChild(script);
+  });
+}
+
+async function syncToSheets(data) {
+  const payload = {
+    action: isAprobadoEstado(data.estado) ? 'obra_aprobada' : 'obra_guardada',
+    obra: data,
+    itemsCotizados: data.itemsCotizados || [],
+    calculosAuxiliares: data.calculosAuxiliares || []
+  };
+
+  const parsed = await syncToSheetsJSONP(payload);
+
+  if (isAprobadoEstado(data.estado)) {
+    if (parsed && parsed.ok && (parsed.driveFolderUrl || parsed.otSheetUrl)) {
+      return parsed;
+    }
+    showToast('No se creó carpeta Drive: ' + ((parsed && parsed.error) ? parsed.error : 'revisar Apps Script'));
+    console.warn('Drive/Sheets respondió error:', parsed);
+    return parsed || null;
+  }
+
+  return parsed || null;
+}
+
 
 window.exportarCSV = () => {
   const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
