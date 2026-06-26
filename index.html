@@ -711,7 +711,7 @@ td.strong { color: var(--text); font-weight: 500; }
 </div>
 
 <div class="modal-overlay" id="modal-prespdf" style="padding:20px">
-  <div class="modal" style="max-width:760px;max-height:90vh;overflow-y:auto">
+  <div class="modal" style="max-width:1120px;width:calc(100vw - 80px);max-height:90vh;overflow-y:auto">
     <div class="modal-title">Generar presupuesto</div>
     <div class="form-grid">
       <div class="form-group"><label>Nro presupuesto</label><input id="pp-nro" placeholder="0001"></div>
@@ -2837,7 +2837,7 @@ function renderEstCumplimiento() {
 // ============================================================
 // SYNC CON GOOGLE SHEETS
 // ============================================================
-const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycby87k25AigT3MVUWWhp1vWWoqT5ICiWtUiFip1rCKgVpbX8V9bXAORs-p1B9t_bwwDR1A/exec';
+const SHEETS_WEBHOOK = 'PEGAR_URL_DE_IMPLEMENTACION_WEB_APP_APPS_SCRIPT';
 const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
 
 async function syncToSheets(data) {
@@ -3235,6 +3235,144 @@ window.refreshCurrent = function() {
   if (window.currentPage === 'tareas') renderTareas();
   if (window.currentPage === 'estadistica') renderEstadistica();
 };
+
+
+// ============================================================
+// TIZ V5 — Ajustes finales: presupuesto unificado, cliente nuevo y Drive
+// ============================================================
+(function(){
+  window.TIZ_DRIVE_PARENT_FOLDER_ID = '1M2SnvFBaU4IVN2Jq9omHR8jjIpargXh';
+
+  function escapeHtmlV5(s) {
+    return String(s || '').replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[ch]));
+  }
+  function normV5(s) { return String(s || '').trim().toLowerCase(); }
+  function nextPresupuestoNumeroV5() {
+    const presNros = (window.DB?.presupuestos || []).map(p=>parseInt(p.nro)||0).filter(n=>n>0);
+    const otNros = (window.DB?.obras || []).map(o=>parseInt(o.ot)||0).filter(n=>n>0);
+    return String(Math.max(0, ...presNros, ...otNros) + 1).padStart(4,'0');
+  }
+  function uniqueClientesV5() {
+    const byName = new Map();
+    (window.DB?.clientes || []).forEach(c => { if (c.nombre) byName.set(normV5(c.nombre), { nombre:c.nombre, cuit:c.cuit || '', numeroCliente:c.numeroCliente || c.numero || '', fuente:'clientes' }); });
+    (window.DB?.obras || []).forEach(o => { if (o.cliente && !byName.has(normV5(o.cliente))) byName.set(normV5(o.cliente), { nombre:o.cliente, cuit:'', numeroCliente:'', fuente:'obras' }); });
+    (window.DB?.presupuestos || []).forEach(p => { if (p.cliente && !byName.has(normV5(p.cliente))) byName.set(normV5(p.cliente), { nombre:p.cliente, cuit:'', numeroCliente:'', fuente:'presupuestos' }); });
+    return [...byName.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  }
+  function jsQuoteV5(s){ return String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' '); }
+  window._clienteReturnTarget = null;
+
+  window.openClienteNuevoV5 = function(nombre, target){
+    window._clienteReturnTarget = target || 'obra';
+    window.editingId.cliente = null;
+    const num = typeof nextClienteNumero === 'function' ? nextClienteNumero() : '';
+    const ids = ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'];
+    if (document.getElementById('fc-numero')) document.getElementById('fc-numero').value = num;
+    if (document.getElementById('fc-nombre')) document.getElementById('fc-nombre').value = nombre || '';
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('modal-cliente')?.classList.add('open');
+  };
+
+  function renderClienteDropdownV5(q, inputId, ddId, target){
+    const dd = document.getElementById(ddId);
+    if (!dd) return;
+    if (!q || q.length < 1) { dd.style.display = 'none'; return; }
+    const ql = normV5(q);
+    const matches = uniqueClientesV5().filter(c => normV5(c.nombre).includes(ql)).slice(0, 10);
+    let html = matches.map(c => `
+      <div class="cli-option" onmousedown="document.getElementById('${inputId}').value='${jsQuoteV5(c.nombre)}';document.getElementById('${ddId}').style.display='none'">
+        <span>${escapeHtmlV5(c.nombre)}</span>
+        <span class="cli-option-sub">${c.numeroCliente ? 'Cliente ' + escapeHtmlV5(c.numeroCliente) + ' · ' : ''}${c.cuit ? 'CUIT: ' + escapeHtmlV5(c.cuit) : (c.fuente === 'clientes' ? 'Base de clientes' : 'Usado anteriormente')}</span>
+      </div>`).join('');
+    html += `<div class="cli-option" onmousedown="document.getElementById('${inputId}').value='${jsQuoteV5(q)}';document.getElementById('${ddId}').style.display='none';openClienteNuevoV5('${jsQuoteV5(q)}','${target}')" style="border-top:1px solid var(--border);color:var(--accent)">
+      <span>➕ Crear cliente nuevo: <strong>${escapeHtmlV5(q)}</strong></span>
+      <span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver a esta carga</span>
+    </div>`;
+    dd.innerHTML = html;
+    dd.style.display = 'block';
+  }
+
+  window.sugerirClientes = function(q){ renderClienteDropdownV5(q, 'f-cliente', 'clientes-dropdown', 'obra'); };
+  window.sugerirClientesPP = function(q){ renderClienteDropdownV5(q, 'pp-cliente', 'pp-clientes-dropdown', 'presupuesto'); };
+  window.nuevoClienteDesdeObra = nombre => openClienteNuevoV5(nombre, 'obra');
+  window.nuevoClienteDesdePresupuesto = nombre => openClienteNuevoV5(nombre, 'presupuesto');
+
+  const oldSaveClienteV5 = window.saveCliente;
+  window.saveCliente = async function(){
+    const nombre = document.getElementById('fc-nombre')?.value.trim() || '';
+    await oldSaveClienteV5();
+    if (!nombre) return;
+    if (window._clienteReturnTarget === 'presupuesto' && document.getElementById('pp-cliente')) {
+      document.getElementById('pp-cliente').value = nombre;
+      document.getElementById('modal-prespdf')?.classList.add('open');
+    }
+    if (window._clienteReturnTarget === 'obra' && document.getElementById('f-cliente')) {
+      document.getElementById('f-cliente').value = nombre;
+      document.getElementById('modal-obra')?.classList.add('open');
+    }
+    window._clienteReturnTarget = null;
+  };
+
+  window.abrirNuevoPresupuestoCompleto = function(){
+    window.editingId.presupuesto = null;
+    window.editingId.obra = null;
+    window._presupuestoOrigen = 'presupuestos';
+    document.getElementById('pp-nro').value = nextPresupuestoNumeroV5();
+    document.getElementById('pp-cliente').value = '';
+    document.getElementById('pp-desc').value = '';
+    document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
+    document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
+    document.getElementById('pp-validez').value = '7';
+    window.ppItems = [{desc:'', precio:0, cant:1}];
+    if (typeof renderPPItems === 'function') renderPPItems();
+    document.getElementById('modal-prespdf')?.classList.add('open');
+  };
+
+  window.abrirPresupuestoPDF = function(){
+    const obraId = window.editingId.obra;
+    const obra = obraId ? (window.DB.obras || []).find(x=>x.id===obraId) : null;
+    window._presupuestoOrigen = obra ? 'obra' : 'presupuestos';
+    document.getElementById('pp-nro').value = obra?.ot ? String(obra.ot).padStart(4,'0') : nextPresupuestoNumeroV5();
+    document.getElementById('pp-cliente').value = obra?.cliente || '';
+    document.getElementById('pp-desc').value = obra?.desc || '';
+    document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
+    document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
+    document.getElementById('pp-validez').value = '7';
+    const items = Array.isArray(obra?.itemsCotizados) && obra.itemsCotizados.length
+      ? obra.itemsCotizados.map(i => ({ desc:i.descripcion || i.desc || '', precio:+i.unitario || +i.precio || 0, cant:+i.cantidad || +i.cant || 1 }))
+      : [{ desc: obra?.desc || '', precio:+obra?.neto || 0, cant:1 }];
+    window.ppItems = items;
+    if (typeof renderPPItems === 'function') renderPPItems();
+    document.getElementById('modal-prespdf')?.classList.add('open');
+  };
+
+  window.editPres = function(id){
+    const p = (window.DB.presupuestos || []).find(x=>x.id===id);
+    if (!p) return;
+    window.editingId.presupuesto = id;
+    window.editingId.obra = p.obraId || null;
+    window._presupuestoOrigen = 'presupuestos';
+    document.getElementById('pp-nro').value = p.nro || '';
+    document.getElementById('pp-cliente').value = p.cliente || '';
+    document.getElementById('pp-desc').value = p.desc || '';
+    document.getElementById('pp-nota').value = p.nota || 'Los precios cotizados se encuentran a valores netos';
+    document.getElementById('pp-condicion').value = p.cond || 'Anticipo 50% Saldo a contraentrega';
+    document.getElementById('pp-validez').value = p.validezDias || 7;
+    window.ppItems = Array.isArray(p.items) && p.items.length ? p.items.map(i=>({ desc:i.desc || i.descripcion || '', precio:+i.precio || +i.unitario || 0, cant:+i.cant || +i.cantidad || 1 })) : [{desc:p.desc||'', precio:+p.importe||0, cant:1}];
+    if (typeof renderPPItems === 'function') renderPPItems();
+    document.getElementById('modal-prespdf')?.classList.add('open');
+  };
+
+  const oldSyncToSheetsV5 = window.syncToSheets;
+  window.syncToSheets = async function(data){
+    if (typeof SHEETS_WEBHOOK !== 'undefined' && String(SHEETS_WEBHOOK).includes('PEGAR_URL')) {
+      if (String(data?.estado || '').toLowerCase() === 'aprobado') showToast('Falta pegar la URL /exec del Apps Script en index.html');
+      return null;
+    }
+    return oldSyncToSheetsV5 ? oldSyncToSheetsV5(data) : null;
+  };
+})();
+
 
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos

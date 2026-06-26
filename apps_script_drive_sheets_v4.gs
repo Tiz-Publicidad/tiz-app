@@ -7,7 +7,7 @@
  * Reemplazar ORDENES_APROBADAS_FOLDER_ID por el ID de la carpeta madre de Drive:
  * Drive > carpeta "Ordenes de trabajo aprobadas" > copiar ID de la URL.
  */
-const ORDENES_APROBADAS_FOLDER_ID = 'PEGAR_ID_DE_LA_CARPETA_MADRE';
+const ORDENES_APROBADAS_FOLDER_ID = '1M2SnvFBaU4IVN2Jq9omHR8jjIpargXh';
 
 function doPost(e) {
   try {
@@ -28,13 +28,17 @@ function doPost(e) {
     const folderName = cleanName(`OT-${obra.ot || 'SIN_OT'} - ${obra.cliente || 'SIN_CLIENTE'} - ${obra.desc || 'Obra'}`);
     const folder = getOrCreateFolder(parent, folderName);
 
-    getOrCreateFolder(folder, 'Fotos');
-    getOrCreateFolder(folder, 'Archivos cliente');
-    getOrCreateFolder(folder, 'Producción');
+    getOrCreateFolder(folder, '01 Fotos');
+    getOrCreateFolder(folder, '02 Archivos cliente');
+    getOrCreateFolder(folder, '03 Diseño');
+    getOrCreateFolder(folder, '04 Producción');
+    getOrCreateFolder(folder, '05 Colocación');
+    getOrCreateFolder(folder, '06 Facturación');
 
     const ssName = cleanName(`Respaldo OT-${obra.ot || 'SIN_OT'} - ${obra.cliente || ''}`);
     const ss = getOrCreateSpreadsheetInFolder(folder, ssName);
 
+    writeOrdenTrabajoSheet(ss, obra);
     writeObraSheet(ss, obra);
     writeItemsSheet(ss, items);
     writeCalculosSheet(ss, calculos);
@@ -149,4 +153,32 @@ function writeNotasSheet(ss, notas) {
   sh.getRange(1,1,rows.length,3).setValues(rows);
   sh.getRange(1,1,1,3).setFontWeight('bold').setBackground('#e8b84b');
   sh.autoResizeColumns(1,3);
+}
+
+
+function writeOrdenTrabajoSheet(ss, obra) {
+  const sh = resetSheet(ss, 'Orden de Trabajo');
+  const rows = [
+    ['TIZ PUBLICIDAD - ORDEN DE TRABAJO', ''],
+    ['OT', obra.ot || ''],
+    ['Cliente', obra.cliente || ''],
+    ['Descripción de la obra', obra.desc || ''],
+    ['Sector responsable', obra.sector || ''],
+    ['Semana', obra.semana || ''],
+    ['Vendedor', obra.vendedor || ''],
+    ['Estado', obra.estado || ''],
+    ['Fecha compromiso producción', obra.fprod_c || ''],
+    ['Fecha real producción', obra.fprod_r || ''],
+    ['Fecha compromiso colocación', obra.fcol_c || ''],
+    ['Fecha real colocación', obra.fcol_r || ''],
+    ['OC / OP', obra.oc || ''],
+    ['Nro factura', obra.nrfc || ''],
+    ['Comentarios generales', obra.comentarios || ''],
+    ['Carpeta generada', new Date()]
+  ];
+  sh.getRange(1,1,rows.length,2).setValues(rows);
+  sh.getRange(1,1,1,2).merge().setFontWeight('bold').setFontSize(14).setBackground('#e8b84b');
+  sh.getRange(2,1,rows.length-1,1).setFontWeight('bold');
+  sh.setColumnWidth(1, 230);
+  sh.setColumnWidth(2, 620);
 }
