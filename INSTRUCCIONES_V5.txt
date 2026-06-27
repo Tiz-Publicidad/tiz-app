@@ -1,1 +1,39 @@
-Ver INSTRUCCIONES_FIX_V5_6.txt. Esta versión ya trae configurada la URL de Apps Script y usa JSONP para Drive.
+TIZ APP V5 - PASOS OBLIGATORIOS
+
+1) GitHub
+- Subir todo el contenido de este ZIP al repo tiz-app.
+- Mantener carpetas backup, docs y src.
+- Reemplazar index.html y apps_script_drive_sheets_v4.gs.
+
+2) Google Apps Script
+- Abrir tu proyecto de Apps Script.
+- Pegar TODO el contenido del archivo apps_script_drive_sheets_v4.gs.
+- El ID de carpeta madre ya está configurado:
+  1M2SnvFBaU4IVN2Jq9omHR8jjIpargXh
+- Guardar.
+- Implementar > Nueva implementación > Aplicación web.
+- Ejecutar como: Yo.
+- Acceso: Cualquier persona.
+- Copiar la URL que termina en /exec.
+
+3) Conectar app con Apps Script
+- En GitHub, abrir index.html.
+- Buscar esta línea:
+  const SHEETS_WEBHOOK = 'PEGAR_URL_DE_IMPLEMENTACION_WEB_APP_APPS_SCRIPT';
+- Reemplazar solo el texto PEGAR_URL... por la URL /exec de Apps Script.
+- Commit changes.
+
+4) Prueba
+- Abrir la app.
+- Crear o editar una obra.
+- Estado: Aprobado.
+- Guardar.
+- En Drive, dentro de Producción / OT 2026 debería crearse la carpeta.
+
+Mejoras incluidas:
+- Presupuestos > Nuevo presupuesto abre el formato nuevo con ítems.
+- Editar presupuesto abre el formato nuevo.
+- Cliente con sugerencias.
+- Crear cliente nuevo desde obra o presupuesto y volver al formulario.
+- Obra con ítems cotizados y cálculos auxiliares.
+- Apps Script guarda en Drive: Orden de Trabajo, Obra, Items, Calculos auxiliares, Notas.

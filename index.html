@@ -36,29 +36,30 @@ input, select, textarea { font-family: inherit; }
 
 /* Layout */
 .app { display: flex; min-height: 100vh; }
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar { width: 176px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
 .main { flex: 1; overflow-x: hidden; }
 
 /* Sidebar */
-.logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+.logo { padding: 14px 12px 12px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-direction:column; }
 .logo-mark { font-size: 18px; font-weight: 600; color: var(--accent); letter-spacing: -0.5px; }
 .logo-sub { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
-.nav { padding: 10px 8px; flex: 1; }
+.logo-img { width: 92px; height:auto; display:block; margin-bottom:6px; }
+.nav { padding: 8px 6px; flex: 1; }
 .nav-section { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; padding: 12px 10px 4px; }
-.nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--text2); font-size: 13px; cursor: pointer; transition: all .15s; border: none; background: none; width: 100%; text-align: left; }
+.nav-item { display: flex; align-items: center; gap: 7px; padding: 7px 8px; border-radius: 8px; color: var(--text2); font-size: 13px; cursor: pointer; transition: all .15s; border: none; background: none; width: 100%; text-align: left; }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--surface3); color: var(--accent); }
 .nav-item i { font-size: 16px; width: 18px; }
 .nav-badge { margin-left: auto; background: var(--red); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; }
 
 /* Header */
-.page-header { padding: 20px 28px 0; display: flex; align-items: center; justify-content: space-between; }
+.page-header { padding: 18px 24px 0; display: flex; align-items: center; justify-content: space-between; }
 .page-title { font-size: 20px; font-weight: 600; color: var(--text); }
 .page-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; }
 .header-actions { display: flex; gap: 8px; align-items: center; }
 
 /* Content */
-.page { padding: 20px 28px 40px; display: none; }
+.page { padding: 18px 24px 40px; display: none; }
 .page.active { display: block; }
 
 /* Buttons */
@@ -226,6 +227,15 @@ td.strong { color: var(--text); font-weight: 500; }
 #pp-clientes-dropdown .cli-option:last-child { background: rgba(232,184,75,.08); }
 @media (max-width: 900px) { #modal-prespdf .modal { width: calc(100vw - 24px); } }
 
+
+/* V5.7 — layout más ancho y tabla compacta */
+#page-obras .table-wrap { overflow-x:auto; }
+#page-obras table { min-width: 1180px; }
+#page-obras th, #page-obras td { padding: 8px 9px; }
+#page-obras td:nth-child(1), #page-obras th:nth-child(1) { width:48px; min-width:48px; }
+#page-obras td:nth-child(2), #page-obras th:nth-child(2) { width:62px; min-width:62px; }
+.main { min-width:0; }
+
 </style>
 </head>
 <body>
@@ -234,7 +244,7 @@ td.strong { color: var(--text); font-weight: 500; }
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo">
-      <div class="logo-mark">TIZ</div>
+      <img class="logo-img" src="assets/tiz-logo.png" alt="TIZ Publicidad">
       <div class="logo-sub">Gestión operativa</div>
     </div>
     <nav class="nav">
@@ -2834,22 +2844,26 @@ function renderEstCumplimiento() {
 }
 
 // ============================================================
-// SYNC CON GOOGLE SHEETS / DRIVE — JSONP
+// SYNC CON GOOGLE SHEETS
 // ============================================================
-// URL publicada de Apps Script. Debe terminar en /exec.
+// IMPORTANTE: pegar acá la URL de implementación de Apps Script que termina en /exec.
+// Si queda con PEGAR_URL, la app guarda la obra/presupuesto, pero NO crea carpetas en Drive.
 const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
 const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
+const TIZ_DRIVE_PARENT_FOLDER_ID = '1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh';
+window.TIZ_DRIVE_PARENT_FOLDER_ID = TIZ_DRIVE_PARENT_FOLDER_ID;
 
-function callAppsScriptJSONP(payload, timeoutMs = 25000) {
+function callAppsScriptJSONP(payload, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
-    if (!DRIVE_SHEETS_WEBHOOK || !String(DRIVE_SHEETS_WEBHOOK).startsWith('https://script.google.com/')) {
+    const urlBase = String(DRIVE_SHEETS_WEBHOOK || '').trim();
+    if (!urlBase || !urlBase.startsWith('https://script.google.com/')) {
       reject(new Error('Falta configurar la URL /exec de Apps Script'));
       return;
     }
     const callbackName = 'tizDriveCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     const script = document.createElement('script');
-    const sep = DRIVE_SHEETS_WEBHOOK.includes('?') ? '&' : '?';
-    const url = DRIVE_SHEETS_WEBHOOK + sep + 'callback=' + encodeURIComponent(callbackName) + '&payload=' + encodeURIComponent(JSON.stringify(payload));
+    const sep = urlBase.includes('?') ? '&' : '?';
+    const url = urlBase + sep + 'callback=' + encodeURIComponent(callbackName) + '&payload=' + encodeURIComponent(JSON.stringify(payload));
     let done = false;
     const cleanup = () => {
       try { delete window[callbackName]; } catch(_) { window[callbackName] = undefined; }
@@ -2873,7 +2887,7 @@ function callAppsScriptJSONP(payload, timeoutMs = 25000) {
       done = true;
       clearTimeout(timer);
       cleanup();
-      reject(new Error('No se pudo cargar Apps Script. Revisar URL /exec.'));
+      reject(new Error('No se pudo cargar Apps Script. Revisar URL /exec o permisos.'));
     };
     script.src = url;
     document.head.appendChild(script);
@@ -2884,23 +2898,25 @@ async function syncToSheets(data) {
   const aprobado = String(data?.estado || '').toLowerCase() === 'aprobado';
   const payload = {
     action: aprobado ? 'obra_aprobada' : 'obra_guardada',
+    parentFolderId: TIZ_DRIVE_PARENT_FOLDER_ID,
     obra: data,
     itemsCotizados: data.itemsCotizados || [],
     calculosAuxiliares: data.calculosAuxiliares || []
   };
   try {
     const parsed = await callAppsScriptJSONP(payload);
-    if (aprobado && parsed && parsed.ok === false) {
-      showToast('No se creó carpeta Drive: ' + (parsed.error || 'revisar Apps Script'));
+    if (parsed && parsed.ok === false) {
       console.warn('Drive/Sheets respondió error:', parsed);
+      if (aprobado) showToast('No se creó carpeta Drive: ' + (parsed.error || 'revisar Apps Script'));
     }
     return parsed;
   } catch(e) {
-    if (aprobado) showToast('No se pudo conectar con Apps Script: ' + e.message);
     console.warn('Sheets/Drive sync error:', e);
+    if (aprobado) showToast('No se pudo conectar con Apps Script: ' + e.message);
     return null;
   }
 }
+window.syncToSheets = syncToSheets;
 
 window.exportarCSV = () => {
   const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
@@ -3283,7 +3299,7 @@ window.refreshCurrent = function() {
 // TIZ V5 — Ajustes finales: presupuesto unificado, cliente nuevo y Drive
 // ============================================================
 (function(){
-  window.TIZ_DRIVE_PARENT_FOLDER_ID = '1M2SnvFBaU4IVN2Jq9omHR8jjIpargXh';
+  window.TIZ_DRIVE_PARENT_FOLDER_ID = '1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh';
 
   function escapeHtmlV5(s) {
     return String(s || '').replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[ch]));
@@ -3407,7 +3423,7 @@ window.refreshCurrent = function() {
 
   const oldSyncToSheetsV5 = window.syncToSheets;
   window.syncToSheets = async function(data){
-    if (typeof SHEETS_WEBHOOK === 'undefined' || !String(SHEETS_WEBHOOK).startsWith('https://script.google.com/')) {
+    if (typeof SHEETS_WEBHOOK !== 'undefined' && String(SHEETS_WEBHOOK).includes('PEGAR_URL')) {
       if (String(data?.estado || '').toLowerCase() === 'aprobado') showToast('No se creó carpeta: falta pegar la URL /exec de Apps Script en index.html');
       return null;
     }

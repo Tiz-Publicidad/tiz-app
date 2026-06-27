@@ -1913,72 +1913,19 @@ function renderEstCumplimiento() {
 }
 
 // ============================================================
-// SYNC CON GOOGLE SHEETS / DRIVE — JSONP
+// SYNC CON GOOGLE SHEETS
 // ============================================================
-// URL publicada de Apps Script. Debe terminar en /exec.
-const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
+const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycby87k25AigT3MVUWWhp1vWWoqT5ICiWtUiFip1rCKgVpbX8V9bXAORs-p1B9t_bwwDR1A/exec';
 const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
 
-function callAppsScriptJSONP(payload, timeoutMs = 25000) {
-  return new Promise((resolve, reject) => {
-    if (!DRIVE_SHEETS_WEBHOOK || !String(DRIVE_SHEETS_WEBHOOK).startsWith('https://script.google.com/')) {
-      reject(new Error('Falta configurar la URL /exec de Apps Script'));
-      return;
-    }
-    const callbackName = 'tizDriveCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const script = document.createElement('script');
-    const sep = DRIVE_SHEETS_WEBHOOK.includes('?') ? '&' : '?';
-    const url = DRIVE_SHEETS_WEBHOOK + sep + 'callback=' + encodeURIComponent(callbackName) + '&payload=' + encodeURIComponent(JSON.stringify(payload));
-    let done = false;
-    const cleanup = () => {
-      try { delete window[callbackName]; } catch(_) { window[callbackName] = undefined; }
-      if (script.parentNode) script.parentNode.removeChild(script);
-    };
-    const timer = setTimeout(() => {
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error('Apps Script no respondió. Revisar implementación/permisos.'));
-    }, timeoutMs);
-    window[callbackName] = (response) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      cleanup();
-      resolve(response);
-    };
-    script.onerror = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      cleanup();
-      reject(new Error('No se pudo cargar Apps Script. Revisar URL /exec.'));
-    };
-    script.src = url;
-    document.head.appendChild(script);
-  });
-}
-
 async function syncToSheets(data) {
-  const aprobado = String(data?.estado || '').toLowerCase() === 'aprobado';
-  const payload = {
-    action: aprobado ? 'obra_aprobada' : 'obra_guardada',
-    obra: data,
-    itemsCotizados: data.itemsCotizados || [],
-    calculosAuxiliares: data.calculosAuxiliares || []
-  };
+  if (!DRIVE_SHEETS_WEBHOOK) return null;
+  const payload = { action: data.estado === 'Aprobado' ? 'obra_aprobada' : 'obra_guardada', obra: data, itemsCotizados: data.itemsCotizados || [], calculosAuxiliares: data.calculosAuxiliares || [] };
   try {
-    const parsed = await callAppsScriptJSONP(payload);
-    if (aprobado && parsed && parsed.ok === false) {
-      showToast('No se creó carpeta Drive: ' + (parsed.error || 'revisar Apps Script'));
-      console.warn('Drive/Sheets respondió error:', parsed);
-    }
-    return parsed;
-  } catch(e) {
-    if (aprobado) showToast('No se pudo conectar con Apps Script: ' + e.message);
-    console.warn('Sheets/Drive sync error:', e);
-    return null;
-  }
+    const res = await fetch(DRIVE_SHEETS_WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+    const txt = await res.text();
+    try { return JSON.parse(txt); } catch(_) { return { ok: true, raw: txt }; }
+  } catch(e) { console.log('Sheets/Drive sync error (no crítico):', e.message); return null; }
 }
 
 window.exportarCSV = () => {

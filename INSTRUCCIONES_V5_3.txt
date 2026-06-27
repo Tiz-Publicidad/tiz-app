@@ -1,1 +1,33 @@
-Ver INSTRUCCIONES_FIX_V5_6.txt. Esta versión ya trae configurada la URL de Apps Script y usa JSONP para Drive.
+TIZ APP V5.3 - PRESUPUESTO COMPLETO + DRIVE
+
+Qué corrige:
+1) Nuevo presupuesto abre el MISMO formulario completo que Nueva obra.
+2) El presupuesto se guarda también como obra, para que tenga todos los campos operativos.
+3) Desde ese formulario podés pasar Estado de Enviado / En revisión / Presupuestado a Aprobado.
+4) Cuando queda en Aprobado, llama a Apps Script para crear carpeta dentro de Drive > Producción > OT 2026.
+5) Corrige cálculos auxiliares que podían no cargarse al abrir desde Presupuestos.
+
+IMPORTANTE PARA CARPETAS DRIVE:
+- Apps Script ya tiene configurada la carpeta madre:
+  1M2SnvFBaU4IVN2Jq9omHR8jjIpargXh
+
+Pero después de publicar Apps Script tenés que copiar la URL que termina en /exec y pegarla en index.html en esta línea:
+
+const SHEETS_WEBHOOK = 'PEGAR_URL_DE_IMPLEMENTACION_WEB_APP_APPS_SCRIPT';
+
+Ejemplo:
+const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxx/exec';
+
+Si no pegás esa URL, la app guarda el presupuesto/obra en Firebase, pero NO puede crear carpetas en Drive.
+
+Flujo correcto:
+1) Subir este ZIP a GitHub.
+2) En Apps Script pegar apps_script_drive_sheets_v4.gs.
+3) Guardar.
+4) Implementar > Nueva implementación > Aplicación web.
+5) Ejecutar como: Yo.
+6) Acceso: Cualquier persona.
+7) Copiar URL /exec.
+8) Pegar URL en index.html, línea SHEETS_WEBHOOK.
+9) Commit changes.
+10) Probar presupuesto nuevo > Estado Aprobado > Guardar.
