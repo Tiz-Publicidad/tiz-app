@@ -236,6 +236,19 @@ td.strong { color: var(--text); font-weight: 500; }
 #page-obras td:nth-child(2), #page-obras th:nth-child(2) { width:62px; min-width:62px; }
 .main { min-width:0; }
 
+
+/* V5.8 — Alertas inteligentes / flujo por sector */
+.risk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:18px;padding:3px 8px;font-size:10px;font-weight:600}
+.risk-ok{background:rgba(76,175,125,.14);color:var(--green)}
+.risk-warn{background:rgba(232,160,32,.15);color:var(--amber)}
+.risk-danger{background:rgba(224,92,92,.16);color:var(--red)}
+.alert-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px}
+.alert-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
+.checklist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.check-item{display:flex;gap:7px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;color:var(--text2)}
+.check-item input{width:14px;height:14px}
+@media(max-width:900px){.checklist-grid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -267,6 +280,10 @@ td.strong { color: var(--text); font-weight: 500; }
       </button>
       <button class="nav-item" onclick="goTo('diseno')">
         <i class="ti ti-pencil"></i> Diseño
+      </button>
+      <button class="nav-item" onclick="goTo('alertas')">
+        <i class="ti ti-alert-triangle"></i> Alertas
+        <span class="nav-badge" id="badge-alertas" style="display:none">0</span>
       </button>
       <div class="nav-section">Comercial</div>
       <button class="nav-item" onclick="goTo('cobranzas')">
@@ -458,6 +475,24 @@ td.strong { color: var(--text); font-weight: 500; }
           <div class="table-wrap"><table>
             <thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>Diseñador</th><th>Estado</th><th>Precio venta</th><th></th></tr></thead>
             <tbody id="dis-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ALERTAS INTELIGENTES -->
+    <div id="page-alertas" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Alertas inteligentes</div><div class="page-subtitle">Problemas que la app detecta antes de que traben la obra</div></div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="alertas-kpis"></div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Obras con posibles problemas</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Riesgo</th><th>OT</th><th>Cliente</th><th>Descripción</th><th>Sector</th><th>Problemas detectados</th><th></th></tr></thead>
+            <tbody id="alertas-tbody"></tbody>
           </table></div>
         </div>
       </div>
@@ -670,6 +705,21 @@ td.strong { color: var(--text); font-weight: 500; }
         <span id="f-venc-calculada" style="font-size:12px;font-weight:500;padding-top:4px"></span>
       </div>
       <div class="form-group full"><label>Comentarios generales</label><textarea id="f-comentarios"></textarea></div>
+      <div class="form-section">Checklist de liberación / control</div>
+      <div class="form-group full">
+        <div class="checklist-grid" id="checklist-v58">
+          <label class="check-item"><input type="checkbox" data-check="clienteConfirmado"> Cliente confirmado</label>
+          <label class="check-item"><input type="checkbox" data-check="ocCargada"> OC / OP cargada</label>
+          <label class="check-item"><input type="checkbox" data-check="senaRecibida"> Seña recibida</label>
+          <label class="check-item"><input type="checkbox" data-check="disenoAprobado"> Diseño aprobado</label>
+          <label class="check-item"><input type="checkbox" data-check="materialesCompletos"> Materiales completos</label>
+          <label class="check-item"><input type="checkbox" data-check="produccionTerminada"> Producción terminada</label>
+          <label class="check-item"><input type="checkbox" data-check="colocacionCoordinada"> Colocación coordinada</label>
+          <label class="check-item"><input type="checkbox" data-check="fotosFinales"> Fotos finales cargadas</label>
+          <label class="check-item"><input type="checkbox" data-check="facturado"> Facturado</label>
+          <label class="check-item"><input type="checkbox" data-check="cobrado"> Cobrado</label>
+        </div>
+      </div>
       <div class="form-section">Anotaciones por sector</div>
       <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column">
         <p style="font-size:11px;color:var(--text3);margin:0">Cada sector puede escribir sus propias notas. Se guarda con fecha y hora automáticamente.</p>
@@ -1175,6 +1225,7 @@ window.refreshCurrent = function() {
   else if (p==='produccion') renderProduccion();
   else if (p==='colocaciones') renderColocaciones();
   else if (p==='diseno') renderDiseno();
+  else if (p==='alertas') renderAlertasV58();
   else if (p==='cobranzas') renderCobranzas();
   else if (p==='presupuestos') renderPresupuestos();
   else if (p==='clientes') renderClientes();
@@ -1201,6 +1252,9 @@ function updateBadges() {
   const venc = window.DB.cobranzas.filter(c => c.estado==='Pendiente' && diasDesdeHoy(c.vencimiento) >= 0).length;
   document.getElementById('badge-cobr').textContent = venc || '';
   document.getElementById('badge-cobr').style.display = venc ? '' : 'none';
+  const alertCount = (window.DB.obras||[]).filter(o => window.analizaObraV58 && window.analizaObraV58(o).nivel !== 'ok').length;
+  const ba = document.getElementById('badge-alertas');
+  if (ba) { ba.textContent = alertCount || ''; ba.style.display = alertCount ? '' : 'none'; }
 }
 
 // DASHBOARD
@@ -1282,10 +1336,11 @@ window.renderObras = function() {
   document.getElementById('obras-tbody').innerHTML = obras.length ? obras.map(o => {
     const dt = diasEntre(o.fprod_r||o.fprod_c, o.fcol_r||o.fcol_c);
     const tieneNotas = hasNotas(o);
+    const riesgoV58 = window.analizaObraV58 ? window.analizaObraV58(o) : {nivel:'ok', problemas:[]};
     return `<tr onclick="toggleNotasRow('${o.id}')" style="cursor:pointer">
       <td>${o.semana||'—'}</td>
       <td class="strong">${o.ot||'—'}</td>
-      <td class="strong" style="max-width:150px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}</td>
+      <td class="strong" style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}<div style="margin-top:5px">${riesgoV58.nivel==='ok'?'':`<span class="risk-pill ${riesgoV58.nivel==='danger'?'risk-danger':'risk-warn'}">${riesgoV58.nivel==='danger'?'🔴':'🟡'} ${riesgoV58.problemas.length}</span>`}</div></td>
       <td>${o.cliente||''}</td>
       <td><span style="font-size:11px;font-weight:500;color:var(--blue)">${o.sector||''}</span></td>
       <td onclick="event.stopPropagation()">
@@ -1744,8 +1799,9 @@ window.delObra = async id => { if(confirm('¿Eliminar esta obra?')) await delete
 window.quickChangeEstado = async (id, val) => {
   const obra = window.DB.obras.find(o => o.id === id);
   const data = { ...(obra || {}), estado: val, cobr: val, firestoreId: id };
-  await updateDoc_('obras', id, { estado: val, cobr: val });
+  await updateDoc_('obras', id, { estado: val, cobr: val, historial: window.buildHistorialV58 ? window.buildHistorialV58(obra, val) : (obra?.historial || []) });
   if (String(val || '').toLowerCase() === 'aprobado') {
+    if (!obra?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) { await window.crearTareasAutomaticasV58({...obra, estado:val, id}); await updateDoc_('obras', id, { autoTasksCreatedAt: new Date().toISOString() }); } 
     showToast('Aprobando obra y creando carpeta Drive...');
     const syncResult = await syncToSheets(data);
     if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
@@ -2025,7 +2081,10 @@ window.saveObra = async () => {
     comentarios: document.getElementById('f-comentarios').value.trim(), notas_sector,
     itemsCotizados, calculosAuxiliares, totalItems,
     totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
-    driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
+    checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
+      historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
+      alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
+      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
   };
   if (!data.desc) { showToast('Ingresá una descripción'); return; }
   let docRefId = existingId;
@@ -2361,6 +2420,19 @@ window.generarPDF = async () => {
 #modal-presupuesto { display: none !important; }
 #pp-clientes-dropdown .cli-option:last-child { background: rgba(232,184,75,.08); }
 @media (max-width: 900px) { #modal-prespdf .modal { width: calc(100vw - 24px); } }
+
+
+/* V5.8 — Alertas inteligentes / flujo por sector */
+.risk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:18px;padding:3px 8px;font-size:10px;font-weight:600}
+.risk-ok{background:rgba(76,175,125,.14);color:var(--green)}
+.risk-warn{background:rgba(232,160,32,.15);color:var(--amber)}
+.risk-danger{background:rgba(224,92,92,.16);color:var(--red)}
+.alert-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px}
+.alert-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
+.checklist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.check-item{display:flex;gap:7px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;color:var(--text2)}
+.check-item input{width:14px;height:14px}
+@media(max-width:900px){.checklist-grid{grid-template-columns:1fr}}
 
 </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
@@ -3469,6 +3541,7 @@ window.refreshCurrent = function() {
     window.calculosAuxiliares = [{concepto:'Materiales', detalle:'', cantidad:1, unidad:'u', precioUnitario:0, total:0, observaciones:''}];
     if (typeof renderObraItems === 'function') renderObraItems();
     if (typeof renderCalculosAux === 'function') renderCalculosAux();
+    if (window.setChecklistV58) window.setChecklistV58({});
   };
 
   window.abrirNuevaObraV52 = function(){
@@ -3508,6 +3581,7 @@ window.refreshCurrent = function() {
     setValue('f-oc', d.oc || ''); setValue('f-nrfc', d.nrfc || ''); setValue('f-ffc', d.ffc || '');
     setValue('f-cobr', d.cobr || 'Pendiente'); setValue('f-dias-pago', d.diasPago || '');
     setValue('f-comentarios', d.comentarios || '');
+    if (window.setChecklistV58) window.setChecklistV58(d.checklist || {});
     const ns=d.notas_sector||{};
     setValue('nota-produccion', ns['Producción'] || ''); setValue('nota-colocaciones', ns['Colocaciones'] || '');
     setValue('nota-diseno', ns['Diseño'] || ''); setValue('nota-ventas', ns['Ventas'] || ''); setValue('nota-compras', ns['Compras'] || '');
@@ -3572,6 +3646,9 @@ window.refreshCurrent = function() {
       oc: getValue('f-oc'), nrfc: getValue('f-nrfc'), ffc: getValue('f-ffc'), cobr: getValue('f-cobr') || 'Pendiente', diasPago: +getValue('f-dias-pago')||0,
       comentarios: getValue('f-comentarios'), notas_sector, itemsCotizados, calculosAuxiliares, totalItems,
       totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
+      checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
+      historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
+      alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
       driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
       origen: window._obraModalOrigen || 'obras'
     };
@@ -3580,6 +3657,11 @@ window.refreshCurrent = function() {
     let docRefId = existingId;
     if (existingId) await window.updateDoc_('obras', existingId, data);
     else { const ref = await window.addDoc_('obras', data); docRefId = ref?.id || null; }
+
+    if (String(data.estado||'').toLowerCase()==='aprobado' && !existing?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) {
+      await window.crearTareasAutomaticasV58({...data, id: docRefId});
+      if (docRefId) await window.updateDoc_('obras', docRefId, { autoTasksCreatedAt: new Date().toISOString() });
+    }
 
     // Si vino desde Presupuestos, también se guarda/actualiza la ficha de presupuesto.
     if (window._obraModalOrigen === 'presupuestos') {
@@ -3621,6 +3703,104 @@ window.refreshCurrent = function() {
   };
 })();
 
+
+
+
+// ============================================================
+// V5.8 — Alertas inteligentes, checklist, historial y tareas automáticas
+// ============================================================
+window.collectChecklistV58 = function(){
+  const out = {};
+  document.querySelectorAll('#checklist-v58 input[data-check]').forEach(i => out[i.dataset.check] = !!i.checked);
+  return out;
+};
+window.setChecklistV58 = function(data){
+  document.querySelectorAll('#checklist-v58 input[data-check]').forEach(i => i.checked = !!(data && data[i.dataset.check]));
+};
+window.buildHistorialV58 = function(existing, nuevoEstado){
+  const h = Array.isArray(existing?.historial) ? [...existing.historial] : [];
+  const old = existing?.estado || '';
+  if (!existing) h.push({fecha:new Date().toISOString(), texto:'Obra/presupuesto creado', usuario:window.currentUser?.email||''});
+  if (old && old !== nuevoEstado) h.push({fecha:new Date().toISOString(), texto:`Estado cambió de ${old} a ${nuevoEstado}`, usuario:window.currentUser?.email||''});
+  if (!old && nuevoEstado) h.push({fecha:new Date().toISOString(), texto:`Estado inicial: ${nuevoEstado}`, usuario:window.currentUser?.email||''});
+  return h.slice(-40);
+};
+function fechaVencidaV58(f){
+  if (!f) return false;
+  const d = parseFecha(f);
+  if (!d) return false;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return d < hoy;
+}
+window.analizaObraV58 = function(o){
+  const problemas = [];
+  const estado = String(o.estado||'').toLowerCase();
+  const aprobada = ['aprobado','en producción','entregado','facturado','cobrado','cerrado'].includes(estado);
+  const activa = !['cobrado','cerrado','rechazado'].includes(estado);
+  if (aprobada && !o.driveFolderUrl) problemas.push('OT aprobada sin carpeta Drive');
+  if (aprobada && !o.fprod_c) problemas.push('Falta fecha compromiso producción');
+  if (aprobada && !o.fcol_c && ['colocaciones','producción','ventas'].includes(String(o.sector||'').toLowerCase())) problemas.push('Falta fecha compromiso colocación');
+  if (!o.cliente) problemas.push('Falta cliente');
+  if ((+o.neto||+o.importe||0) > 0 && !(o.itemsCotizados||o.items||[]).length) problemas.push('Tiene precio pero no ítems cotizados');
+  if (fechaVencidaV58(o.fprod_c) && !o.fprod_r && activa) problemas.push('Producción vencida');
+  if (fechaVencidaV58(o.fcol_c) && !o.fcol_r && activa) problemas.push('Colocación vencida');
+  if (['facturado'].includes(estado) && String(o.cobr||'').toLowerCase() !== 'cobrado') problemas.push('Facturada pero pendiente de cobranza');
+  const chk = o.checklist || {};
+  if (aprobada && !chk.disenoAprobado && String(o.sector||'') !== 'Ventas') problemas.push('Falta marcar diseño aprobado');
+  if (aprobada && !chk.materialesCompletos && ['Producción','Compras'].includes(o.sector||'')) problemas.push('Falta marcar materiales completos');
+  let nivel = 'ok';
+  if (problemas.some(p=>/vencida|sin carpeta|Falta cliente/i.test(p))) nivel='danger';
+  else if (problemas.length) nivel='warn';
+  return {nivel, problemas};
+};
+window.renderAlertasV58 = function(){
+  const data = (window.DB.obras||[]).map(o=>({obra:o, r:window.analizaObraV58(o)})).filter(x=>x.r.nivel!=='ok');
+  const graves = data.filter(x=>x.r.nivel==='danger').length;
+  const medias = data.filter(x=>x.r.nivel==='warn').length;
+  const sinDrive = data.filter(x=>x.r.problemas.includes('OT aprobada sin carpeta Drive')).length;
+  const prodVenc = data.filter(x=>x.r.problemas.includes('Producción vencida')).length;
+  const k=document.getElementById('alertas-kpis');
+  if(k) k.innerHTML = `
+    <div class="kpi"><div class="kpi-label">Alertas graves</div><div class="kpi-val red">${graves}</div><div class="kpi-sub">requieren acción</div></div>
+    <div class="kpi"><div class="kpi-label">Alertas medias</div><div class="kpi-val amber">${medias}</div><div class="kpi-sub">preventivas</div></div>
+    <div class="kpi"><div class="kpi-label">Sin carpeta Drive</div><div class="kpi-val ${sinDrive?'red':''}">${sinDrive}</div><div class="kpi-sub">aprobadas</div></div>
+    <div class="kpi"><div class="kpi-label">Prod. vencida</div><div class="kpi-val ${prodVenc?'red':''}">${prodVenc}</div><div class="kpi-sub">sin fecha real</div></div>`;
+  const tbody=document.getElementById('alertas-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = data.length ? data.slice(0,120).map(({obra:o,r})=>`
+    <tr>
+      <td><span class="risk-pill ${r.nivel==='danger'?'risk-danger':'risk-warn'}">${r.nivel==='danger'?'🔴 Grave':'🟡 Media'}</span></td>
+      <td class="strong">${o.ot||o.nro||'—'}</td>
+      <td>${o.cliente||'—'}</td><td class="strong">${o.desc||''}</td><td>${o.sector||''}</td>
+      <td>${r.problemas.map(p=>`<div>• ${p}</div>`).join('')}</td>
+      <td>${o.id?`<button class="btn btn-ghost btn-sm" onclick="editObra('${o.id}')">Abrir</button>`:''}</td>
+    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Sin alertas. Todo ordenado.</td></tr>';
+};
+window.crearTareasAutomaticasV58 = async function(obra){
+  const ot = obra.ot || obra.nro || 'SIN OT';
+  const base = { obraId: obra.id||'', ot, cliente: obra.cliente||'', obraDesc: obra.desc||'', automatica:true, completada:false, fecha:new Date().toLocaleDateString('es-AR') };
+  const tareas = [
+    {sector:'Ventas', desc:'Confirmar OC / seña / condición de pago'},
+    {sector:'Diseño', desc:'Preparar y validar archivos finales'},
+    {sector:'Compras', desc:'Revisar materiales faltantes y compras'},
+    {sector:'Producción', desc:'Planificar fabricación y tiempos'},
+    {sector:'Colocaciones', desc:'Coordinar instalación, permisos y recursos'}
+  ];
+  const existentes = (window.DB.tareas||[]).filter(t=>t.automatica && (t.obraId===obra.id || t.ot===ot));
+  for (const t of tareas) {
+    if (existentes.some(e=>e.sector===t.sector && e.desc===t.desc)) continue;
+    await window.addDoc_('tareas', {...base, sector:t.sector, desc:t.desc, notas:`Automática al aprobar OT ${ot}`});
+  }
+};
+const oldRenderDashboardV58 = renderDashboard;
+renderDashboard = function(){
+  oldRenderDashboardV58();
+  const cont = document.getElementById('dash-kpis');
+  if (!cont) return;
+  const alertas = (window.DB.obras||[]).map(o=>window.analizaObraV58(o)).filter(r=>r.nivel!=='ok');
+  const graves = alertas.filter(r=>r.nivel==='danger').length;
+  cont.insertAdjacentHTML('beforeend', `<div class="kpi"><div class="kpi-label">Alertas inteligentes</div><div class="kpi-val ${graves?'red':alertas.length?'amber':'green'}">${alertas.length}</div><div class="kpi-sub">${graves} graves</div></div>`);
+};
 
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos

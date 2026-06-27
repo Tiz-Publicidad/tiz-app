@@ -9,7 +9,7 @@ TIZ APP V5 - PASOS OBLIGATORIOS
 - Abrir tu proyecto de Apps Script.
 - Pegar TODO el contenido del archivo apps_script_drive_sheets_v4.gs.
 - El ID de carpeta madre ya está configurado:
-  1M2SnvFBaU4IVN2Jq9omHR8jjIpargXh
+  1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh
 - Guardar.
 - Implementar > Nueva implementación > Aplicación web.
 - Ejecutar como: Yo.

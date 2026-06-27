@@ -9,7 +9,7 @@ Qué corrige:
 
 IMPORTANTE PARA CARPETAS DRIVE:
 - Apps Script ya tiene configurada la carpeta madre:
-  1M2SnvFBaU4IVN2Jq9omHR8jjIpargXh
+  1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh
 
 Pero después de publicar Apps Script tenés que copiar la URL que termina en /exec y pegarla en index.html en esta línea:
 
