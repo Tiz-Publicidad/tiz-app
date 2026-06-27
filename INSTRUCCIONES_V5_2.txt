@@ -1,16 +1,1 @@
-TIZ App V5.2
-
-Cambios principales:
-- Nuevo presupuesto abre el mismo formulario completo que Nueva obra.
-- El presupuesto tiene todos los campos: cliente, items, calculos auxiliares, produccion, colocacion, facturacion, notas por sector.
-- El estado del presupuesto permite Enviado, En revision y Aprobado.
-- Cuando se guarda como Aprobado, se intenta crear automaticamente la carpeta de OT en Drive via Apps Script.
-- El Apps Script ya tiene configurada como carpeta madre: Produccion / OT 2026.
-- El presupuesto usa el logo real de TIZ desde assets/tiz-logo-presupuesto.png.
-
-IMPORTANTE:
-1) Subir todos los archivos y carpetas a GitHub.
-2) En Apps Script pegar el contenido de apps_script_drive_sheets_v4.gs.
-3) Implementar como Aplicacion web.
-4) Copiar la URL que termina en /exec.
-5) Pegar esa URL en index.html donde dice: PEGAR_URL_DE_IMPLEMENTACION_WEB_APP_APPS_SCRIPT
+Ver INSTRUCCIONES_FIX_V5_6.txt. Esta versión ya trae configurada la URL de Apps Script y usa JSONP para Drive.
