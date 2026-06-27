@@ -1,17 +1,22 @@
-# TIZ — Gestión Operativa V5
+# TIZ — Gestión Operativa V6 estable
 
-Versión preparada para GitHub Pages + Firebase + Apps Script.
+Versión corregida para probar alertas, checklist, historial, tareas automáticas y respaldo Drive/Sheets.
 
-## Cambios principales
+## Flujo clave
+Al pasar una obra o presupuesto a **Aprobado**, la app llama Apps Script por JSONP y crea en Drive:
 
-- Presupuestos unificados: el botón **Presupuestos > Nuevo presupuesto** abre el formulario nuevo con ítems.
-- Alta de clientes desde Obra o Presupuesto.
-- Sugerencias de clientes existentes.
-- Ítems cotizados y cálculos auxiliares por obra.
-- Creación de carpetas en Drive al aprobar una obra mediante Apps Script.
-- Respaldo en Google Sheets con hojas: Orden de Trabajo, Obra, Items cotizados, Calculos auxiliares y Notas por sector.
+- Carpeta OT dentro de `Producción / OT 2026`.
+- Subcarpetas: Archivos Cliente, Diseño, Compras, Producción, Colocaciones, Fotos finales, Facturación.
+- Google Sheet de respaldo con:
+  - Orden de Trabajo
+  - Datos obra
+  - Items cotizados
+  - Calculos auxiliares
+  - Notas por sector
+  - Datos Facturacion
 
-Leer `INSTRUCCIONES_V5.txt` antes de subir.
+## Para producción
+Producción abre la carpeta de la OT y ve el Sheet de respaldo. Ahí puede revisar qué cotizó Ventas, qué cálculos auxiliares usó y qué quedó fuera del presupuesto final.
 
-
-V5.1: presupuesto actualizado para usar el logo real de TIZ en la emisión/impresión.
+## Para facturación
+La hoja `Datos Facturacion` concentra los datos que salen de la cotización y de la OT. Además, desde el formulario se puede descargar un CSV con el botón **Datos factura**.

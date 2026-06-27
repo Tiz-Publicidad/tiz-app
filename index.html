@@ -765,6 +765,7 @@ td.strong { color: var(--text); font-weight: 500; }
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('obra')">Cancelar</button>
       <button class="btn btn-ghost" onclick="abrirPresupuestoPDF()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-file-invoice"></i> Generar presupuesto</button>
+      <button class="btn btn-ghost" onclick="exportarDatosFacturaActual()" title="Descarga datos listos para facturación"><i class="ti ti-receipt"></i> Datos factura</button>
       <button class="btn btn-primary" onclick="saveObra()">Guardar</button>
     </div>
   </div>
@@ -1143,6 +1144,7 @@ window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); 
 
 // Helpers
 function parseDate(s) { if (!s) return null; const [d,m,y] = s.split('/'); return new Date(+y,+m-1,+d); }
+function parseFecha(s) { return parseDate(s); }
 function diasEntre(a, b) { const da=parseDate(a), db_=parseDate(b); if(!da||!db_) return null; return Math.round((db_-da)/(864e5)); }
 function diasDesdeHoy(s) { const d=parseDate(s); if(!d) return null; return Math.round((new Date()-d)/(864e5)); }
 function semaforo(fc, fr) {
@@ -3727,7 +3729,7 @@ window.buildHistorialV58 = function(existing, nuevoEstado){
 };
 function fechaVencidaV58(f){
   if (!f) return false;
-  const d = parseFecha(f);
+  const d = (typeof parseFecha === 'function' ? parseFecha(f) : parseDate(f));
   if (!d) return false;
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   return d < hoy;
@@ -3804,6 +3806,41 @@ renderDashboard = function(){
 
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
+
+// ============================================================
+// V6 — Datos de facturación desde cotización/OT
+// Descarga un CSV con los datos que se pueden copiar/importar al sistema de facturación.
+// ============================================================
+window.exportarDatosFacturaActual = function(){
+  try {
+    const items = (typeof collectObraItems === 'function') ? collectObraItems() : [];
+    const totalItems = items.reduce((a,i)=>a+(Number(i.subtotal)||0),0);
+    const data = {
+      ot: getValue('f-ot'),
+      cliente: getValue('f-cliente'),
+      descripcion: getValue('f-desc'),
+      oc_op: getValue('f-oc'),
+      nro_factura: getValue('f-nrfc'),
+      fecha_factura: getValue('f-ffc'),
+      condicion_pago_dias: getValue('f-dias-pago'),
+      neto: Number(getValue('f-neto')) || totalItems || 0,
+      bruto: Number(getValue('f-bruto')) || 0,
+      total_items: totalItems,
+      estado_cobranza: getValue('f-cobr') || 'Pendiente'
+    };
+    const rows = [['Campo','Valor'], ...Object.entries(data), [], ['Items','Cantidad','Unitario','Subtotal','Observaciones']];
+    items.forEach(i => rows.push([i.descripcion||i.desc||'', i.cantidad||i.cant||'', i.unitario||i.precio||'', i.subtotal||'', i.observaciones||'']));
+    const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TIZ_Datos_Factura_OT_${data.ot || 'SIN_OT'}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('Datos de factura descargados');
+  } catch(e) { console.error(e); showToast('No se pudo exportar datos de factura'); }
+};
+
 </script>
 </body>
 </html>
