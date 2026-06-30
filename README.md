@@ -20,3 +20,8 @@ Producción abre la carpeta de la OT y ve el Sheet de respaldo. Ahí puede revis
 
 ## Para facturación
 La hoja `Datos Facturacion` concentra los datos que salen de la cotización y de la OT. Además, desde el formulario se puede descargar un CSV con el botón **Datos factura**.
+
+
+## Versión V7.1 — ERP + Clemen IA
+
+Esta versión agrega un panel inicial de IA operativa para anticipar problemas: obras aprobadas sin carpeta, vencimientos, facturación pendiente, cobranzas vencidas, ítems faltantes y compras probables. También mantiene el módulo de Facturación separado de las carpetas OT y el respaldo de cálculos auxiliares para Producción.

@@ -1,0 +1,24 @@
+TIZ ERP V7 — Facturación y alertas IA
+
+Qué trae esta versión:
+1) Nuevo módulo ERP "Facturación" en el menú lateral.
+2) Resumen general de comprobantes: Factura A/B, Nota de Crédito/Débito, cliente, CUIT, OT, neto, IVA, total, CAE y estado.
+3) Botón "Preparar factura" desde Obras y Presupuestos.
+4) Exportación CSV para cargar/copiar datos rápido en ARCA.
+5) Alertas IA básicas de facturación:
+   - pre-facturas sin CUIT;
+   - comprobantes listos para emitir;
+   - obras entregadas sin factura preparada.
+6) La factura NO se guarda dentro de la carpeta OT. Queda registrada en el ERP en una colección separada "facturas".
+
+IMPORTANTE:
+- Esta versión NO emite todavía directamente en ARCA. Prepara la factura y deja los datos ordenados.
+- La integración real con ARCA requiere certificado digital, clave privada, punto de venta web service y definición del tipo de comprobantes.
+- El PDF/archivo oficial de factura deberá guardarse después en una carpeta Drive separada "Facturas" cuando integremos la etapa ARCA.
+
+Cómo subir:
+1) Subir todos los archivos y carpetas a GitHub, reemplazando los existentes.
+2) Reemplazar el código de Apps Script por apps_script_drive_sheets_v4.gs.
+3) Guardar e Implementar nuevamente Apps Script.
+4) Abrir la app con Ctrl + Shift + R.
+5) Probar: Obras > botón recibo / Presupuestos > botón recibo / menú Facturación.

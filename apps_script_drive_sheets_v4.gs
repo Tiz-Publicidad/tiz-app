@@ -7,6 +7,7 @@
  * - Google Sheet de respaldo con Orden de Trabajo, Items, Calculos auxiliares, Notas y Datos Facturacion.
  */
 const ORDENES_APROBADAS_FOLDER_ID = '1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh';
+const FACTURAS_ROOT_NAME = 'Facturas';
 
 function doGet(e) {
   try {
@@ -30,6 +31,7 @@ function doPost(e) {
 }
 
 function handleTizPayload_(payload) {
+  if (payload && payload.action === 'factura_guardada') return handleFacturaPayload_(payload);
   const obra = payload.obra || payload || {};
   const items = payload.itemsCotizados || obra.itemsCotizados || [];
   const calculos = payload.calculosAuxiliares || obra.calculosAuxiliares || [];
@@ -101,4 +103,44 @@ function writeFacturacionSheet_(ss, obra, items) {
   const rows=[['Campo','Valor'], ['Cliente',obra.cliente||''], ['CUIT',obra.cuit||''], ['OT',obra.ot||obra.nro||''], ['OC / OP',obra.oc||''], ['Descripción factura',obra.desc||''], ['Importe neto',Number(obra.neto||obra.importe||totalItems||0)], ['Importe bruto',Number(obra.bruto||0)], ['Condición pago días',obra.diasPago||''], ['Estado cobranza',obra.cobr||'Pendiente'], [], ['Items para factura','Cantidad','Unitario','Subtotal']];
   (items||[]).forEach(i=>rows.push([i.descripcion||i.desc||'', Number(i.cantidad||i.cant||1), Number(i.unitario||i.precio||0), Number(i.subtotal||0)]));
   setRows_(sh, rows); sh.getRange(1,1,1,2).setFontWeight('bold').setBackground('#e8b84b'); sh.getRange(13,1,1,4).setFontWeight('bold').setBackground('#e8b84b');
+}
+
+
+function handleFacturaPayload_(payload) {
+  const factura = payload.factura || payload || {};
+  const parentId = payload.parentFolderId || ORDENES_APROBADAS_FOLDER_ID;
+  const otRoot = DriveApp.getFolderById(parentId);
+  const prodParent = otRoot.getParents().hasNext() ? otRoot.getParents().next() : otRoot;
+  const facturasRoot = getOrCreateFolder_(prodParent, FACTURAS_ROOT_NAME);
+  const year = String((factura.fecha || new Date().getFullYear()).toString().match(/(20\d{2})/)?.[1] || new Date().getFullYear());
+  const yearFolder = getOrCreateFolder_(facturasRoot, year);
+  const tipoFolder = getOrCreateFolder_(yearFolder, cleanName_(factura.tipo || 'Comprobantes'));
+  const ss = getOrCreateSpreadsheetInFolder_(yearFolder, cleanName_(`Resumen facturacion TIZ ${year}`));
+  upsertFacturaResumen_(ss, factura);
+  const compName = cleanName_(`${factura.tipo || 'Comprobante'} ${factura.puntoVenta || ''}-${factura.nro || factura.id || 'SIN_NUMERO'} ${factura.cliente || ''}`);
+  const compFolder = getOrCreateFolder_(tipoFolder, compName);
+  const dataSs = getOrCreateSpreadsheetInFolder_(compFolder, cleanName_(`Datos ${compName}`));
+  writeFacturaDetalle_(dataSs, factura);
+  return { ok:true, facturasFolderUrl: facturasRoot.getUrl(), facturaFolderUrl: compFolder.getUrl(), facturaSheetUrl: dataSs.getUrl(), resumenFacturacionUrl: ss.getUrl() };
+}
+
+function upsertFacturaResumen_(ss, f) {
+  const sh = resetSheet_(ss, 'Resumen facturacion');
+  const rows = [['ID','Fecha','Tipo','Punto venta','Numero','Cliente','CUIT','OT','Neto','IVA','Total','CAE','Vto CAE','Estado','Link PDF/Drive','Notas']];
+  const props = PropertiesService.getScriptProperties();
+  const key = 'facturas_resumen_' + ss.getId();
+  let prev = [];
+  try { prev = JSON.parse(props.getProperty(key) || '[]'); } catch(_) { prev = []; }
+  const id = f.id || [f.tipo,f.puntoVenta,f.nro,f.ot,f.cliente].join('|');
+  prev = prev.filter(x => String(x[0]) !== String(id));
+  prev.push([id, f.fecha||'', f.tipo||'', f.puntoVenta||'', f.nro||'', f.cliente||'', f.cuit||'', f.ot||'', Number(f.neto||0), Number(f.iva||0), Number(f.total||0), f.cae||'', f.caeVto||'', f.estado||'Borrador', f.linkPdf||'', f.notas||'']);
+  setRows_(sh, rows.concat(prev));
+  sh.getRange(1,1,1,16).setFontWeight('bold').setBackground('#e8b84b');
+  props.setProperty(key, JSON.stringify(prev.slice(-1000)));
+}
+
+function writeFacturaDetalle_(ss, f) {
+  const sh = resetSheet_(ss, 'Datos factura');
+  const rows = [['Campo','Valor'], ['Fecha',f.fecha||''], ['Tipo',f.tipo||''], ['Punto venta',f.puntoVenta||''], ['Numero',f.nro||''], ['Cliente',f.cliente||''], ['CUIT',f.cuit||''], ['Condicion IVA',f.condicionIva||''], ['OT',f.ot||''], ['Descripcion',f.descripcion||''], ['Neto',Number(f.neto||0)], ['IVA %',Number(f.ivaPct||0)], ['IVA',Number(f.iva||0)], ['Total',Number(f.total||0)], ['CAE',f.cae||''], ['Vto CAE',f.caeVto||''], ['Estado',f.estado||''], ['Notas',f.notas||'']];
+  setRows_(sh, rows); sh.getRange(1,1,1,2).setFontWeight('bold').setBackground('#e8b84b'); sh.setColumnWidth(1,220); sh.setColumnWidth(2,600);
 }
