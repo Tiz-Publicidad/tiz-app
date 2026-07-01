@@ -249,6 +249,12 @@ td.strong { color: var(--text); font-weight: 500; }
 .check-item input{width:14px;height:14px}
 @media(max-width:900px){.checklist-grid{grid-template-columns:1fr}}
 
+
+.drive-status-dot{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:8px;border:1px solid var(--border);font-size:12px;margin-right:4px}
+.drive-status-ready{color:var(--green);background:rgba(55,180,120,.08)}
+.drive-status-pending{color:var(--amber);background:rgba(232,184,75,.08)}
+.drive-status-missing{color:var(--text3);background:rgba(255,255,255,.03)}
+
 </style>
 </head>
 <body>
@@ -1357,6 +1363,66 @@ function renderDashboard() {
   }).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Sin alertas activas</td></tr>';
 }
 
+
+// DRIVE / OT — modo cola estable V9
+function isObraAprobadaParaDrive(o){
+  return ['aprobado','en producción','entregado','facturado','cobrado'].includes(String(o?.estado||'').toLowerCase());
+}
+function driveStatusV9(o){
+  if (o?.driveFolderUrl) return 'ready';
+  if (o?.driveSyncStatus === 'queued' || o?.driveSyncStatus === 'pending') return 'pending';
+  if (isObraAprobadaParaDrive(o)) return 'missing';
+  return 'none';
+}
+window.renderDriveButtonsV9 = function(o){
+  const st = driveStatusV9(o);
+  let html = '';
+  if (st === 'ready') {
+    html += `<button class="btn-icon drive-status-ready" title="Abrir carpeta OT en Drive" onclick="event.stopPropagation();window.open('${o.driveFolderUrl}','_blank')"><i class="ti ti-folder" style="font-size:13px"></i></button>`;
+  } else if (st === 'pending') {
+    html += `<button class="btn-icon drive-status-pending" title="Carpeta OT pendiente de sincronización. Click para reenviar pedido." onclick="event.stopPropagation();requestDriveSyncForObra('${o.id}')"><i class="ti ti-folder-plus" style="font-size:13px"></i></button>`;
+  } else if (st === 'missing') {
+    html += `<button class="btn-icon drive-status-missing" title="Crear pedido de carpeta OT" onclick="event.stopPropagation();requestDriveSyncForObra('${o.id}')"><i class="ti ti-file-plus" style="font-size:13px"></i></button>`;
+  }
+  if (o?.otSheetUrl) {
+    html += `<button class="btn-icon" title="Abrir Google Sheet OT" onclick="event.stopPropagation();window.open('${o.otSheetUrl}','_blank')" style="margin-left:4px"><i class="ti ti-table" style="font-size:13px"></i></button>`;
+  }
+  return html;
+};
+
+async function queueDriveSyncV9(obra, origen='manual'){
+  if (!obra) return null;
+  const payload = {
+    action:'crear_ot_drive',
+    status:'pending',
+    origen,
+    obraId: obra.id || obra.firestoreId || '',
+    ot: obra.ot || obra.nro || '',
+    cliente: obra.cliente || '',
+    desc: obra.desc || '',
+    estado: obra.estado || '',
+    parentFolderId: window.TIZ_DRIVE_PARENT_FOLDER_ID || TIZ_DRIVE_PARENT_FOLDER_ID,
+    obra,
+    itemsCotizados: obra.itemsCotizados || [],
+    calculosAuxiliares: obra.calculosAuxiliares || [],
+    createdAtText: new Date().toISOString()
+  };
+  const ref = await addDoc_('driveQueue', payload);
+  if (obra.id) await updateDoc_('obras', obra.id, { driveSyncStatus:'queued', driveSyncRequestedAt:new Date().toISOString(), driveSyncQueueId:ref.id || '' });
+  return ref;
+}
+window.queueDriveSyncV9 = queueDriveSyncV9;
+
+window.requestDriveSyncForObra = async function(id){
+  const obra = (window.DB.obras||[]).find(x=>x.id===id);
+  if (!obra) { showToast('No encontré la obra.'); return; }
+  if (obra.driveFolderUrl) { window.open(obra.driveFolderUrl,'_blank'); return; }
+  if (!isObraAprobadaParaDrive(obra)) { showToast('La OT todavía no está aprobada.'); return; }
+  await queueDriveSyncV9(obra, 'boton_fila');
+  showToast('Pedido de carpeta OT guardado. Queda pendiente para el sincronizador Drive.');
+  renderObras();
+};
+
 // OBRAS
 window.renderObras = function() {
   const SECTORS = ['Todos','Producción','Colocaciones','Diseño','Ventas','Compras'];
@@ -1404,8 +1470,7 @@ window.renderObras = function() {
         ${o.nrfc ? `<span title="Facturado: FC ${o.nrfc}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>` : ''}
         ${alertaVencimiento(o) ? `<span title="${alertaVencimiento(o)}" style="color:var(--red);margin-right:4px;font-size:13px">⚠</span>` : ''}
         ${tieneNotas?`<span title="Tiene anotaciones" style="color:var(--accent);margin-right:4px"><i class="ti ti-message-dots" style="font-size:13px;vertical-align:middle"></i></span>`:''}
-        ${o.driveFolderUrl?`<button class="btn-icon" title="Abrir carpeta OT" onclick="event.stopPropagation();window.open('${o.driveFolderUrl}','_blank')"><i class="ti ti-folder" style="font-size:13px"></i></button>`:''}
-        ${o.otSheetUrl?`<button class="btn-icon" title="Abrir Google Sheet OT" onclick="event.stopPropagation();window.open('${o.otSheetUrl}','_blank')" style="margin-left:4px"><i class="ti ti-table" style="font-size:13px"></i></button>`:''}
+        ${renderDriveButtonsV9(o)}
         <button class="btn-icon" onclick="editObra('${o.id}')" style="margin-left:4px"><i class="ti ti-edit" style="font-size:13px"></i></button>
         <button class="btn-icon" onclick="delObra('${o.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
       </td>
@@ -3006,7 +3071,7 @@ function renderEstCumplimiento() {
 // ============================================================
 // IMPORTANTE: pegar acá la URL de implementación de Apps Script que termina en /exec.
 // Si queda con PEGAR_URL, la app guarda la obra/presupuesto, pero NO crea carpetas en Drive.
-const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycby9vhkFbz6Jt0IA9RtkCXQ1jb_tEyOPTorckPIYylHIHzBzFXXSfSKpgrJQTbdGDYy8U/exec';
+const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyPPP7WwVFFVBrxU9sQB603UX_wagJhkUjSKMDpTXDKiqAgTdq6qntpuNzKTrvdqq6j/exec';
 const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
 const TIZ_DRIVE_PARENT_FOLDER_ID = '1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh';
 window.TIZ_DRIVE_PARENT_FOLDER_ID = TIZ_DRIVE_PARENT_FOLDER_ID;
@@ -3054,24 +3119,38 @@ function callAppsScriptJSONP(payload, timeoutMs = 30000) {
 
 async function syncToSheets(data) {
   const aprobado = String(data?.estado || '').toLowerCase() === 'aprobado';
+  if (!aprobado) return { ok:true, queued:false, skipped:true, reason:'La obra no está aprobada' };
+
+  // V9: la app no depende de Drive en el momento de guardar.
+  // Primero deja el pedido en Firebase para que el sincronizador lo procese.
+  let queueRef = null;
+  try {
+    queueRef = await queueDriveSyncV9(data, data?.origenSync || 'auto_aprobado');
+  } catch(e) {
+    console.warn('No se pudo crear pedido en driveQueue:', e);
+  }
+
+  // Intento inmediato opcional: si Apps Script está bien configurado, crea ya la carpeta.
+  // Si falla, NO rompe la obra: queda pendiente en driveQueue.
   const payload = {
-    action: aprobado ? 'obra_aprobada' : 'obra_guardada',
+    action: 'obra_aprobada',
     parentFolderId: TIZ_DRIVE_PARENT_FOLDER_ID,
     obra: data,
     itemsCotizados: data.itemsCotizados || [],
     calculosAuxiliares: data.calculosAuxiliares || []
   };
   try {
-    const parsed = await callAppsScriptJSONP(payload);
+    const parsed = await callAppsScriptJSONP(payload, 12000);
     if (parsed && parsed.ok === false) {
       console.warn('Drive/Sheets respondió error:', parsed);
-      if (aprobado) showToast('No se creó carpeta Drive: ' + (parsed.error || 'revisar Apps Script'));
+      showToast('OT guardada. Drive queda pendiente: ' + (parsed.error || 'revisar sincronizador'));
+      return { ok:false, queued:true, queueId:queueRef?.id||'', error:parsed.error||'Apps Script respondió error' };
     }
-    return parsed;
+    return { ...(parsed||{}), queued:true, queueId:queueRef?.id||'' };
   } catch(e) {
-    console.warn('Sheets/Drive sync error:', e);
-    if (aprobado) showToast('No se pudo conectar con Apps Script: ' + e.message);
-    return null;
+    console.warn('Drive sync inmediato falló; queda pendiente en Firebase:', e);
+    showToast('OT guardada. Carpeta Drive pendiente para sincronizador.');
+    return { ok:true, queued:true, queueId:queueRef?.id||'', pending:true, error:e.message };
   }
 }
 window.syncToSheets = syncToSheets;
@@ -3908,23 +3987,18 @@ window.refreshCurrent = function() {
   };
 
   window.repararCarpetasOTPendientes = async function(){
-    const pendientes = (window.DB.obras||[]).filter(o => ['aprobado','en producción','entregado','facturado','cobrado'].includes(String(o.estado||'').toLowerCase()) && !o.driveFolderUrl);
+    const pendientes = (window.DB.obras||[]).filter(o => isObraAprobadaParaDrive(o) && !o.driveFolderUrl);
     if (!pendientes.length) { showToast('No hay OTs aprobadas sin carpeta.'); return; }
-    if (!confirm(`Se van a crear/verificar ${pendientes.length} carpetas OT pendientes en Drive. ¿Continuar?`)) return;
+    if (!confirm(`Se van a dejar ${pendientes.length} pedidos de carpeta OT pendientes para el sincronizador Drive. ¿Continuar?`)) return;
     let ok=0, fail=0;
     for (const o of pendientes) {
-      try {
-        showToast(`Creando carpeta OT ${o.ot||o.nro||''}...`);
-        const result = await syncToSheets({...o, firestoreId:o.id, parentFolderId:window.TIZ_DRIVE_PARENT_FOLDER_ID});
-        if (result?.driveFolderUrl || result?.otSheetUrl) {
-          await updateDoc_('obras', o.id, {driveFolderUrl:result.driveFolderUrl||'', otSheetUrl:result.otSheetUrl||'', driveSyncedAt:new Date().toISOString()});
-          ok++;
-        } else { fail++; console.warn('Sin respuesta Drive para OT', o, result); }
-      } catch(e) { fail++; console.error('Error creando carpeta OT', o, e); }
+      try { await queueDriveSyncV9(o, 'lote_alertas'); ok++; }
+      catch(e) { fail++; console.error('Error encolando carpeta OT', o, e); }
     }
-    showToast(`Carpetas revisadas: ${ok} creadas/actualizadas · ${fail} con error`);
+    showToast(`Pedidos Drive generados: ${ok} · errores: ${fail}`);
+    renderObras();
     if (typeof renderAlertasV58 === 'function') renderAlertasV58();
-  };
+  }
 
   // En cada carga del dashboard/alertas agregamos el botón por si la vista fue regenerada.
   setTimeout(()=>{ ensureValidationBox(); }, 1000);

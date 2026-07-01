@@ -1,0 +1,18 @@
+TIZ ERP V9 - Drive por cola Firebase
+
+Qué cambia:
+1) Al aprobar una obra/presupuesto, la app NO depende de que Drive responda en ese instante.
+2) La OT queda guardada en Firebase.
+3) Se crea un pedido en la colección driveQueue.
+4) Si Apps Script responde, también crea la carpeta inmediatamente.
+5) Si Apps Script falla, la obra queda igual guardada y marcada como pendiente de sincronización.
+
+Iconos en Obras:
+- Carpeta: ya tiene carpeta OT en Drive. Click abre Drive.
+- Tabla: ya tiene Google Sheet de respaldo. Click abre la planilla.
+- Archivo/carpeta con +: no tiene carpeta todavía. Click genera o reenvía pedido de sincronización.
+
+Botón en Alertas:
+- Crear carpetas OT pendientes: genera pedidos en driveQueue para todas las obras aprobadas sin carpeta.
+
+Esto prepara el ERP para un sincronizador Drive separado, más estable que depender de Drive al momento de guardar la obra.
