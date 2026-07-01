@@ -1,0 +1,14 @@
+TIZ ERP V8 estable
+
+Incluye:
+- Recupera menú y pantalla Clemen IA.
+- Mantiene URL nueva de Apps Script publicada.
+- Mantiene validación de cotizaciones mínimas.
+- Mantiene creación de carpetas OT pendientes y respaldo Google Sheet.
+
+Implementación:
+1) Subir todos los archivos a GitHub.
+2) Pegar apps_script_drive_sheets_v4.gs en Apps Script.
+3) Implementar / actualizar implementación.
+4) Abrir app y hacer Ctrl+Shift+R.
+5) Verificar menú Clemen IA y crear carpeta de una OT aprobada.

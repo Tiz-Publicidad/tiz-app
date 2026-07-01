@@ -20,3 +20,9 @@ Producción abre la carpeta de la OT y ve el Sheet de respaldo. Ahí puede revis
 
 ## Para facturación
 La hoja `Datos Facturacion` concentra los datos que salen de la cotización y de la OT. Además, desde el formulario se puede descargar un CSV con el botón **Datos factura**.
+
+
+## V8 estable ERP IA
+- Clemen IA restaurada.
+- URL Apps Script nueva mantenida.
+- Validación de cotizaciones y OT pendientes conservada.

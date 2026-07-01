@@ -1184,6 +1184,8 @@ window.saveCliente = async () => {
 };
 
 window.savePresupuesto = async () => {
+  const id = window.editingId.presupuesto;
+  const existing = id ? window.DB.presupuestos.find(x => x.id === id) : null;
   const data = {
     nro: document.getElementById('fp-nro').value.trim(),
     vendedor: document.getElementById('fp-vend').value,
@@ -1193,9 +1195,46 @@ window.savePresupuesto = async () => {
     fecha: document.getElementById('fp-fecha').value.trim(),
     estado: document.getElementById('fp-estado').value,
     comentarios: document.getElementById('fp-comentarios').value.trim(),
+    driveFolderUrl: existing?.driveFolderUrl || '',
+    otSheetUrl: existing?.otSheetUrl || '',
   };
-  const id = window.editingId.presupuesto;
-  if(id) await updateDoc_('presupuestos',id,data); else await addDoc_('presupuestos',data);
+  if (!data.desc) { showToast('Ingresá una descripción'); return; }
+  let docRefId = id;
+  if(id) await updateDoc_('presupuestos',id,data); else { const ref = await addDoc_('presupuestos',data); docRefId = ref?.id || null; }
+
+  // Si el presupuesto queda Aprobado, también debe generar carpeta OT y respaldo.
+  // Lo enviamos al mismo backend que usa Obras, pero adaptando campos del presupuesto.
+  if (String(data.estado || '').toLowerCase() === 'aprobado') {
+    try {
+      const otPayload = {
+        ...data,
+        ot: data.nro,
+        neto: data.importe,
+        totalItems: data.importe,
+        sector: data.sector || 'Ventas',
+        itemsCotizados: data.itemsCotizados || [{ descripcion: data.desc, cantidad: 1, unidad: 'u', unitario: data.importe, subtotal: data.importe, observaciones: 'Generado desde Presupuestos' }],
+        calculosAuxiliares: data.calculosAuxiliares || [],
+        firestoreId: docRefId,
+        origen: 'presupuesto'
+      };
+      const syncResult = await syncToSheets(otPayload);
+      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
+        const links = {
+          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
+          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+          driveSyncedAt: new Date().toISOString()
+        };
+        if (docRefId) await updateDoc_('presupuestos', docRefId, links);
+        showToast('Presupuesto aprobado: carpeta OT creada');
+      } else {
+        showToast('Presupuesto guardado. Revisar si Apps Script creó la carpeta.');
+      }
+    } catch(e) {
+      console.warn('No se pudo crear carpeta OT desde presupuesto:', e);
+      showToast('Presupuesto aprobado, pero no se pudo crear carpeta OT');
+    }
+  }
+
   window.editingId.presupuesto=null;
   closeModal('presupuesto'); showToast('Presupuesto guardado');
 };

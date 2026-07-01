@@ -265,6 +265,10 @@ td.strong { color: var(--text); font-weight: 500; }
       <button class="nav-item active" onclick="goTo('dashboard')">
         <i class="ti ti-layout-dashboard"></i> Dashboard
       </button>
+      <button class="nav-item" onclick="goTo('ia')">
+        <i class="ti ti-sparkles"></i> Clemen IA
+        <span class="nav-badge" id="badge-ia" style="display:none">0</span>
+      </button>
       <button class="nav-item" onclick="goTo('obras')">
         <i class="ti ti-list-check"></i> Obras
       </button>
@@ -351,6 +355,43 @@ td.strong { color: var(--text); font-weight: 500; }
               <tbody id="dash-alertas"></tbody>
             </table></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- CLEMEN IA / ERP -->
+    <div id="page-ia" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Clemen IA</div><div class="page-subtitle">Alertas, anticipación y sugerencias para el ERP TIZ</div></div>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" onclick="exportarResumenIA()"><i class="ti ti-download"></i> Resumen CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="renderIAERP()"><i class="ti ti-refresh"></i> Actualizar</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="ia-kpis"></div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Resumen ejecutivo de hoy</span></div>
+          <div class="card-body" id="ia-resumen" style="font-size:13px;color:var(--text2);line-height:1.7"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Obras que requieren decisión</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Riesgo</th><th>OT</th><th>Cliente</th><th>Descripción</th><th>Motivo</th><th>Acción sugerida</th><th></th></tr></thead>
+            <tbody id="ia-obras-tbody"></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Facturación y cobranza</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Tipo</th><th>Cliente</th><th>OT/FC</th><th>Importe</th><th>Problema</th><th>Acción</th></tr></thead>
+            <tbody id="ia-fac-tbody"></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Compras probables detectadas por descripción</span></div>
+          <div class="card-body" id="ia-compras" style="font-size:12px;color:var(--text2);line-height:1.7"></div>
         </div>
       </div>
     </div>
@@ -2132,6 +2173,8 @@ window.saveCliente = async () => {
 };
 
 window.savePresupuesto = async () => {
+  const id = window.editingId.presupuesto;
+  const existing = id ? window.DB.presupuestos.find(x => x.id === id) : null;
   const data = {
     nro: document.getElementById('fp-nro').value.trim(),
     vendedor: document.getElementById('fp-vend').value,
@@ -2141,9 +2184,46 @@ window.savePresupuesto = async () => {
     fecha: document.getElementById('fp-fecha').value.trim(),
     estado: document.getElementById('fp-estado').value,
     comentarios: document.getElementById('fp-comentarios').value.trim(),
+    driveFolderUrl: existing?.driveFolderUrl || '',
+    otSheetUrl: existing?.otSheetUrl || '',
   };
-  const id = window.editingId.presupuesto;
-  if(id) await updateDoc_('presupuestos',id,data); else await addDoc_('presupuestos',data);
+  if (!data.desc) { showToast('Ingresá una descripción'); return; }
+  let docRefId = id;
+  if(id) await updateDoc_('presupuestos',id,data); else { const ref = await addDoc_('presupuestos',data); docRefId = ref?.id || null; }
+
+  // Si el presupuesto queda Aprobado, también debe generar carpeta OT y respaldo.
+  // Lo enviamos al mismo backend que usa Obras, pero adaptando campos del presupuesto.
+  if (String(data.estado || '').toLowerCase() === 'aprobado') {
+    try {
+      const otPayload = {
+        ...data,
+        ot: data.nro,
+        neto: data.importe,
+        totalItems: data.importe,
+        sector: data.sector || 'Ventas',
+        itemsCotizados: data.itemsCotizados || [{ descripcion: data.desc, cantidad: 1, unidad: 'u', unitario: data.importe, subtotal: data.importe, observaciones: 'Generado desde Presupuestos' }],
+        calculosAuxiliares: data.calculosAuxiliares || [],
+        firestoreId: docRefId,
+        origen: 'presupuesto'
+      };
+      const syncResult = await syncToSheets(otPayload);
+      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
+        const links = {
+          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
+          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+          driveSyncedAt: new Date().toISOString()
+        };
+        if (docRefId) await updateDoc_('presupuestos', docRefId, links);
+        showToast('Presupuesto aprobado: carpeta OT creada');
+      } else {
+        showToast('Presupuesto guardado. Revisar si Apps Script creó la carpeta.');
+      }
+    } catch(e) {
+      console.warn('No se pudo crear carpeta OT desde presupuesto:', e);
+      showToast('Presupuesto aprobado, pero no se pudo crear carpeta OT');
+    }
+  }
+
   window.editingId.presupuesto=null;
   closeModal('presupuesto'); showToast('Presupuesto guardado');
 };
@@ -3982,6 +4062,107 @@ renderDashboard = function(){
 // renderDashboard se llama cuando Firebase carga datos
 
 // ============================================================
+// V7.1 — Clemen IA / ERP de anticipación
+// ============================================================
+function safeLower(v){ return String(v||'').toLowerCase(); }
+function safeMoney(v){ return Number(v||0) || 0; }
+function fechaToDateERP(v){
+  if(!v) return null;
+  if (v instanceof Date && !isNaN(v)) return v;
+  if (typeof parseFecha === 'function') { try { const d=parseFecha(v); if(d && !isNaN(d)) return d; } catch(_){} }
+  if (typeof parseDate === 'function') { try { const d=parseDate(v); if(d && !isNaN(d)) return d; } catch(_){} }
+  const m=String(v).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){ const yy=Number(m[3].length===2?'20'+m[3]:m[3]); return new Date(yy, Number(m[2])-1, Number(m[1])); }
+  const d=new Date(v); return isNaN(d)?null:d;
+}
+function diasHastaERP(v){ const d=fechaToDateERP(v); if(!d) return null; const hoy=new Date(); hoy.setHours(0,0,0,0); d.setHours(0,0,0,0); return Math.round((d-hoy)/86400000); }
+function riesgoBadgeERP(nivel){
+  const map={alto:'red',medio:'amber',bajo:'blue',ok:'green'};
+  const txt={alto:'Alto',medio:'Medio',bajo:'Bajo',ok:'OK'};
+  return `<span class="badge badge-${map[nivel]||'gray'}">${txt[nivel]||nivel}</span>`;
+}
+function evaluarObraERP(o){
+  const problemas=[];
+  const estado=safeLower(o.estado);
+  const neto=safeMoney(o.neto || o.importe || o.totalItems);
+  const gastos=safeMoney(o.gastos);
+  const aprobada=['aprobado','en producción','entregado','facturado','cobrado'].includes(estado);
+  const activa=!['rechazado','vencido','cobrado','cerrado'].includes(estado);
+  if(aprobada && !o.driveFolderUrl) problemas.push(['alto','OT aprobada sin carpeta Drive','Crear carpeta OT y respaldo de presupuesto']);
+  if(aprobada && !o.fprod_c) problemas.push(['medio','Aprobada sin fecha compromiso de producción','Asignar fecha producción']);
+  if(aprobada && !o.fcol_c && ['entregado','facturado','cobrado'].indexOf(estado)<0) problemas.push(['bajo','Sin fecha tentativa de colocación','Pedir disponibilidad a Colocaciones']);
+  if(!o.cliente) problemas.push(['alto','Falta cliente','Completar ficha cliente']);
+  if(aprobada && !neto) problemas.push(['alto','Aprobada sin importe','Revisar cotización antes de producir']);
+  if(aprobada && (!o.itemsCotizados || !o.itemsCotizados.length)) problemas.push(['medio','No tiene ítems cotizados cargados','Cargar renglones para que Producción vea alcance']);
+  if(neto && gastos && (neto-gastos)/neto < 0.18) problemas.push(['alto','Margen estimado bajo','Revisar gastos/costos antes de fabricar']);
+  const dp=diasHastaERP(o.fprod_c); if(activa && o.fprod_c && !o.fprod_r && dp!==null && dp<0) problemas.push(['alto',`Producción vencida hace ${Math.abs(dp)} días`,'Reprogramar o destrabar sector']);
+  const dc=diasHastaERP(o.fcol_c); if(activa && o.fcol_c && !o.fcol_r && dc!==null && dc<0) problemas.push(['alto',`Colocación vencida hace ${Math.abs(dc)} días`,'Revisar con Colocaciones']);
+  if(['entregado','cobrado'].includes(estado) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))) problemas.push(['medio','Entregada sin factura preparada','Preparar factura desde OT']);
+  if(['facturado'].includes(estado) && safeLower(o.cobr)!=='cobrado') problemas.push(['medio','Facturada pero pendiente de cobro','Crear/actualizar cobranza']);
+  const score=problemas.some(p=>p[0]==='alto')?'alto':problemas.some(p=>p[0]==='medio')?'medio':problemas.length?'bajo':'ok';
+  return {obra:o, score, problemas};
+}
+function detectarComprasERP(){
+  const reglas=[
+    ['Acrílico',['acrilico','acrílico','opalino']], ['Vinilo / impresión',['vinilo','lona','backlight','impresion','impresión']],
+    ['LED / fuentes',['led','modulo','módulo','neon','neón','fuente']], ['Chapa / estructura',['chapa','hierro','caño','estructura','herrería']],
+    ['MDF / carpintería',['mdf','melamina','madera','carpintería']], ['ACM / aluminio',['acm','alucobond','aluminio']]
+  ];
+  const activas=(window.DB.obras||[]).filter(o=>['aprobado','en producción','presupuestado'].includes(safeLower(o.estado)));
+  return reglas.map(([nombre,keys])=>{
+    const obras=activas.filter(o=>keys.some(k=>safeLower((o.desc||'')+' '+(o.comentarios||'')).includes(k)));
+    return {nombre, obras};
+  }).filter(x=>x.obras.length);
+}
+window.generarAnalisisERP=function(){
+  const obras=(window.DB.obras||[]).map(evaluarObraERP);
+  const riesgos=obras.filter(r=>r.score!=='ok').sort((a,b)=>({alto:0,medio:1,bajo:2}[a.score]-{alto:0,medio:1,bajo:2}[b.score]));
+  const facturas=window.DB.facturas||[];
+  const cobranzas=window.DB.cobranzas||[];
+  const facPend=facturas.filter(f=>f.estado!=='Emitida');
+  const facSinCuit=facPend.filter(f=>!f.cuit);
+  const cobVenc=cobranzas.filter(c=>safeLower(c.estado)!=='cobrado' && diasHastaERP(c.venc)<0);
+  return {obras, riesgos, facturas, facPend, facSinCuit, cobVenc, compras:detectarComprasERP()};
+};
+window.renderIAERP=function(){
+  const a=window.generarAnalisisERP();
+  const totalObras=(window.DB.obras||[]).length;
+  const activas=(window.DB.obras||[]).filter(o=>!['cobrado','rechazado','vencido','cerrado'].includes(safeLower(o.estado))).length;
+  const graves=a.riesgos.filter(r=>r.score==='alto').length;
+  const medio=a.riesgos.filter(r=>r.score==='medio').length;
+  const listoFact=(window.DB.obras||[]).filter(o=>['entregado'].includes(safeLower(o.estado)) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))).length;
+  const k=document.getElementById('ia-kpis');
+  if(k) k.innerHTML=`<div class="kpi"><div class="kpi-label">Obras activas</div><div class="kpi-val">${activas}</div><div class="kpi-sub">sobre ${totalObras} totales</div></div><div class="kpi"><div class="kpi-label">Riesgo alto</div><div class="kpi-val ${graves?'red':'green'}">${graves}</div><div class="kpi-sub">requieren decisión</div></div><div class="kpi"><div class="kpi-label">Riesgo medio</div><div class="kpi-val ${medio?'amber':'green'}">${medio}</div></div><div class="kpi"><div class="kpi-label">Listas para facturar</div><div class="kpi-val ${listoFact?'amber':'green'}">${listoFact}</div></div>`;
+  const resumen=[];
+  if(graves) resumen.push(`🔴 Hay <b>${graves}</b> obra(s) con riesgo alto. Prioridad: carpetas Drive, fechas vencidas o importes faltantes.`);
+  if(medio) resumen.push(`🟡 Hay <b>${medio}</b> alerta(s) medias: fechas pendientes, ítems faltantes o facturación por preparar.`);
+  if(a.cobVenc.length) resumen.push(`💰 Hay <b>${a.cobVenc.length}</b> cobranza(s) vencida(s). Revisar antes de tomar nuevos compromisos.`);
+  if(a.compras.length) resumen.push(`🛒 Detecté necesidades probables de compras en <b>${a.compras.length}</b> rubro(s).`);
+  if(!resumen.length) resumen.push('🟢 No detecto problemas fuertes con la información cargada. Mantener actualizadas fechas, ítems y costos para mejorar las predicciones.');
+  const resEl=document.getElementById('ia-resumen'); if(resEl) resEl.innerHTML=resumen.join('<br>');
+  const tb=document.getElementById('ia-obras-tbody');
+  if(tb) tb.innerHTML=a.riesgos.slice(0,30).map(r=>{const p=r.problemas[0]||['ok','Sin problema','']; const o=r.obra; return `<tr><td>${riesgoBadgeERP(r.score)}</td><td class="strong">${o.ot||o.nro||'—'}</td><td>${o.cliente||'—'}</td><td>${o.desc||''}</td><td>${p[1]}</td><td>${p[2]}</td><td><button class="btn-icon" onclick="window.editingId.obra='${o.id}';openModal('obra')"><i class="ti ti-edit" style="font-size:13px"></i></button></td></tr>`}).join('') || '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">Sin obras críticas.</td></tr>';
+  const tf=document.getElementById('ia-fac-tbody');
+  const rows=[];
+  (window.DB.obras||[]).filter(o=>['entregado'].includes(safeLower(o.estado)) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))).forEach(o=>rows.push(['Preparar factura',o.cliente,o.ot||o.nro,fmtM(o.neto||o.importe),'Entregada sin pre-factura',`<button class="btn btn-ghost btn-sm" onclick="prepararFacturaDesdeObra('${o.id}')">Preparar</button>`]));
+  a.facSinCuit.forEach(f=>rows.push(['Dato faltante',f.cliente,f.nro||f.ot,fmtM(f.total||f.neto),'Pre-factura sin CUIT','Completar ficha fiscal']));
+  a.cobVenc.forEach(c=>rows.push(['Cobranza',c.cliente,c.nrfc||c.ot,fmtM(c.importe),'Vencida','Reclamar / reprogramar']));
+  if(tf) tf.innerHTML=rows.slice(0,25).map(r=>`<tr><td>${r[0]}</td><td>${r[1]||''}</td><td>${r[2]||''}</td><td>${r[3]||''}</td><td>${r[4]||''}</td><td>${r[5]||''}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text3)">Sin alertas de facturación/cobranza.</td></tr>';
+  const comp=document.getElementById('ia-compras');
+  if(comp) comp.innerHTML=a.compras.map(c=>`<div style="margin-bottom:8px"><b style="color:var(--accent)">${c.nombre}</b>: ${c.obras.length} obra(s) posibles — ${c.obras.slice(0,5).map(o=>'OT '+(o.ot||o.nro||'—')+' '+(o.cliente||'')).join(' · ')}</div>`).join('') || 'No detecté compras probables por descripción. Cargar ítems/cálculos auxiliares mejora esta lectura.';
+  const bia=document.getElementById('badge-ia'); if(bia){ const n=graves+medio; bia.textContent=n||''; bia.style.display=n?'':'none'; }
+};
+window.exportarResumenIA=function(){
+  const a=window.generarAnalisisERP();
+  const rows=[['Tipo','Nivel','OT/FC','Cliente','Descripción','Problema','Acción']];
+  a.riesgos.forEach(r=>{const o=r.obra; r.problemas.forEach(p=>rows.push(['Obra',p[0],o.ot||o.nro||'',o.cliente||'',o.desc||'',p[1],p[2]]));});
+  descargarCSV('clemen_ia_resumen_tiz.csv', rows);
+};
+const oldUpdateBadgesV71 = window.updateBadges;
+window.updateBadges = function(){ if(oldUpdateBadgesV71) oldUpdateBadgesV71(); try{ const a=window.generarAnalisisERP(); const n=a.riesgos.filter(r=>r.score!=='ok').length; const bia=document.getElementById('badge-ia'); if(bia){ bia.textContent=n||''; bia.style.display=n?'':'none'; } }catch(e){} };
+
+
+
 // V6 — Datos de facturación desde cotización/OT
 // Descarga un CSV con los datos que se pueden copiar/importar al sistema de facturación.
 // ============================================================
@@ -4014,6 +4195,17 @@ window.exportarDatosFacturaActual = function(){
     showToast('Datos de factura descargados');
   } catch(e) { console.error(e); showToast('No se pudo exportar datos de factura'); }
 };
+
+
+
+// V8 — asegurar render de Clemen IA sin tocar el resto de navegación
+(function(){
+  const _refreshV8 = window.refreshCurrent;
+  window.refreshCurrent = function(){
+    if (typeof _refreshV8 === 'function') _refreshV8.apply(this, arguments);
+    if (window.currentPage === 'ia' && typeof window.renderIAERP === 'function') window.renderIAERP();
+  };
+})();
 
 </script>
 </body>
