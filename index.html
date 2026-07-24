@@ -2660,7 +2660,8 @@ window.generarPDF = async () => {
       XLSX.writeFile(wb, 'Presupuesto_' + String(NRO).padStart(4,'0') + '_' + CLIENTE.replace(/[^a-zA-Z0-9]/g,'_') + '.xlsx');
     }
     <\/script>
-    </body></html>`);
+    <script type="module" src="compras.js?v=TIZ-V21-20260724"></script>
+</body></html>`);
   printWin.document.close();
   showToast('Presupuesto guardado en Firebase ✓ — abrí la ventana para descargar PDF o Excel');
 };
@@ -4335,7 +4336,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V20.1 · DRIVE VISIBLE · 24/07/2026';
+  badge.textContent = 'TIZ V21 · COMPRAS + STOCK · 24/07/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
@@ -4345,5 +4346,6 @@ window.exportarDatosFacturaActual = function(){
 })();
 
 </script>
+<script type="module" src="compras.js?v=TIZ-V21-20260724"></script>
 </body>
 </html>
