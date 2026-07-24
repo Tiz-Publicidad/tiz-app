@@ -809,7 +809,8 @@ window.openModal = (type) => {
       document.getElementById('f-semana').value = getSemanaActual();
       document.getElementById('f-sector').value = 'Producción';
       document.getElementById('f-vendedor').value = 'G';
-      document.getElementById('f-estado').value = 'Presupuestado';
+      const estadoNuevaObra = document.getElementById('f-estado');
+      if (estadoNuevaObra) { estadoNuevaObra.selectedIndex = 0; estadoNuevaObra.value = 'Presupuestado'; }
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
       window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
       window.calculosAuxiliares = [];
@@ -876,7 +877,26 @@ window.editObra = id => {
 
 window.delObra = async id => { if(confirm('¿Eliminar esta obra?')) await deleteDoc_('obras',id); };
 window.quickChangeEstado = async (id, val) => {
-  await updateDoc_('obras', id, { estado: val, cobr: val });
+  const obra = window.DB.obras.find(o => o.id === id);
+  await updateDoc_('obras', id, { estado: val });
+  if (String(val).trim().toLowerCase() === 'aprobado' && obra) {
+    try {
+      const result = await syncToSheets({ ...obra, estado: val, firestoreId: id });
+      if (result?.driveFolderUrl) {
+        await updateDoc_('obras', id, {
+          driveFolderUrl: result.driveFolderUrl,
+          driveFolderId: result.folderId || '',
+          driveSyncedAt: new Date().toISOString()
+        });
+        showToast('Estado Aprobado · carpeta OT creada/reutilizada');
+        return;
+      }
+    } catch (error) {
+      console.error('[TIZ V16] Error creando carpeta OT:', error);
+      showToast('Aprobado, pero Drive falló: ' + (error?.message || error));
+      return;
+    }
+  }
   showToast('Estado actualizado: ' + val);
 };
 
@@ -1117,6 +1137,9 @@ function nextClienteNumero() {
 }
 
 window.saveObra = async () => {
+  const estadoEl = document.getElementById('f-estado');
+  // Nueva obra: el valor inicial real es Presupuestado. El usuario puede cambiarlo manualmente antes de guardar.
+  if (!window.editingId?.obra && estadoEl && !estadoEl.value) estadoEl.value = 'Presupuestado';
   const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
   const notas_sector = {};
   const existingId = window.editingId.obra;
@@ -1996,6 +2019,29 @@ async function syncToSheets(data) {
   });
 }
 
+
+// Diagnóstico manual desde la consola del navegador:
+// await testDriveOtConnection()  -> valida despliegue y acceso a la carpeta madre.
+window.testDriveOtConnection = async function() {
+  if (!TIZ_DRIVE_OT_WEBHOOK || !TIZ_DRIVE_OT_WEBHOOK.includes('/exec')) throw new Error('URL /exec no configurada');
+  return await new Promise((resolve, reject) => {
+    const callback = '__tizDrivePing_' + Date.now();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => cleanup(new Error('Apps Script no respondió al diagnóstico')), 15000);
+    function cleanup(err, value) {
+      clearTimeout(timer);
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      script.remove();
+      if (err) reject(err); else resolve(value);
+    }
+    window[callback] = result => result?.ok ? cleanup(null, result) : cleanup(new Error(result?.error || 'Diagnóstico fallido'));
+    script.onerror = () => cleanup(new Error('No se pudo cargar el Apps Script'));
+    const payload = JSON.stringify({action:'ping'});
+    script.src = TIZ_DRIVE_OT_WEBHOOK + '?' + new URLSearchParams({callback, payload, _t:String(Date.now())});
+    document.head.appendChild(script);
+  });
+};
+
 window.exportarCSV = () => {
   const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
   if (!obras.length) { showToast('No hay obras para exportar'); return; }
@@ -2356,28 +2402,25 @@ window.openModal = type => {
 window.openNewObra = function() {
   window.editingId = window.editingId || {};
   window.editingId.obra = null;
-  const obraId = document.getElementById('obra-id');
-  if (obraId) obraId.value = '';
 
-  // Abrir mediante el flujo normal para conservar cálculos, permisos y validaciones.
+  // Abrir primero el flujo normal, luego resetear explícitamente el único formulario activo.
   window.openModal('obra');
 
-  // Blindaje contra restauración de formularios del navegador y wrappers históricos.
-  const forcePresupuestado = () => {
-    if (window.editingId?.obra) return;
-    const estado = document.getElementById('f-estado');
-    if (estado) {
-      estado.value = 'Presupuestado';
-      estado.selectedIndex = Math.max(0, Array.from(estado.options).findIndex(o => o.value === 'Presupuestado' || o.textContent.trim() === 'Presupuestado'));
-      estado.dispatchEvent(new Event('change', { bubbles:true }));
-    }
-    const title = document.getElementById('modal-obra-title');
-    if (title) title.textContent = 'Nueva obra';
-  };
-  forcePresupuestado();
-  requestAnimationFrame(forcePresupuestado);
-  setTimeout(forcePresupuestado, 60);
-  setTimeout(forcePresupuestado, 250);
+  const estado = document.getElementById('f-estado');
+  const obraId = document.getElementById('obra-id');
+  if (obraId) obraId.value = '';
+  if (estado) {
+    estado.selectedIndex = 0;
+    estado.value = 'Presupuestado';
+  }
+  const title = document.getElementById('modal-obra-title');
+  if (title) title.textContent = 'Nueva obra';
+
+  console.info('[TIZ V16] Nueva obra abierta', {
+    editingId: window.editingId.obra,
+    estado: estado?.value,
+    build: 'TIZ-V14-20260724'
+  });
 };
 
 // ============================================================
@@ -2526,3 +2569,7 @@ window.refreshCurrent = function() {
   _v3Refresh();
   applyRoleUI();
 };
+
+console.info('[TIZ] Build activo: TIZ-V14-20260724');
+
+console.info('TIZ ERP V16 FINAL cargado');
