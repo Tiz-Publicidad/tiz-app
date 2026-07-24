@@ -1954,7 +1954,7 @@ function renderEstCumplimiento() {
 // ============================================================
 // SYNC CON GOOGLE SHEETS
 // ============================================================
-const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycby9vhkFbz6Jt0IA9RtkCXQ1jb_tEyOPTorckPIYylHIHzBzFXXSfSKpgrJQTbdGDYy8U/exec';
+const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec'; 
 const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
 
 async function syncToSheets(data) {
