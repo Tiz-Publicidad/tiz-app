@@ -809,7 +809,7 @@ window.openModal = (type) => {
       document.getElementById('f-semana').value = getSemanaActual();
       document.getElementById('f-sector').value = 'Producción';
       document.getElementById('f-vendedor').value = 'G';
-      document.getElementById('f-estado').value = 'Aprobado';
+      document.getElementById('f-estado').value = 'Presupuestado';
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
       window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
       window.calculosAuxiliares = [];
@@ -837,7 +837,7 @@ window.editObra = id => {
   document.getElementById('f-desc').value = o.desc||'';
   document.getElementById('f-cliente').value = o.cliente||'';
   document.getElementById('f-vendedor').value = o.vendedor||'G';
-  document.getElementById('f-estado').value = o.estado||'Aprobado';
+  document.getElementById('f-estado').value = o.estado||'Presupuestado';
   document.getElementById('f-semana').value = o.semana||'';
   document.getElementById('f-neto').value = o.neto||'';
   document.getElementById('f-bruto').value = o.bruto||'';
@@ -1952,19 +1952,12 @@ function renderEstCumplimiento() {
 }
 
 // ============================================================
-// SYNC CON GOOGLE SHEETS
+// SINCRONIZACIÓN EXTERNA DESACTIVADA
 // ============================================================
-const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
-const DRIVE_SHEETS_WEBHOOK = SHEETS_WEBHOOK;
-
+// Las obras se guardan solamente en Firebase. Este stub conserva la
+// compatibilidad con el flujo de guardado sin crear carpetas ni llamar Apps Script.
 async function syncToSheets(data) {
-  if (!DRIVE_SHEETS_WEBHOOK) return null;
-  const payload = { action: data.estado === 'Aprobado' ? 'obra_aprobada' : 'obra_guardada', obra: data, itemsCotizados: data.itemsCotizados || [], calculosAuxiliares: data.calculosAuxiliares || [] };
-  try {
-    const res = await fetch(DRIVE_SHEETS_WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-    const txt = await res.text();
-    try { return JSON.parse(txt); } catch(_) { return { ok: true, raw: txt }; }
-  } catch(e) { console.log('Sheets/Drive sync error (no crítico):', e.message); return null; }
+  return null;
 }
 
 window.exportarCSV = () => {

@@ -1594,7 +1594,7 @@ window.openModal = (type) => {
       document.getElementById('f-semana').value = getSemanaActual();
       document.getElementById('f-sector').value = 'Producción';
       document.getElementById('f-vendedor').value = 'G';
-      document.getElementById('f-estado').value = 'Aprobado';
+      document.getElementById('f-estado').value = 'Presupuestado';
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
       ['Producción','Colocaciones','Diseño','Ventas','Compras'].forEach(s => {
         const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
@@ -1619,7 +1619,7 @@ window.editObra = id => {
   document.getElementById('f-desc').value = o.desc||'';
   document.getElementById('f-cliente').value = o.cliente||'';
   document.getElementById('f-vendedor').value = o.vendedor||'G';
-  document.getElementById('f-estado').value = o.estado||'Aprobado';
+  document.getElementById('f-estado').value = o.estado||'Presupuestado';
   document.getElementById('f-semana').value = o.semana||'';
   document.getElementById('f-neto').value = o.neto||'';
   document.getElementById('f-bruto').value = o.bruto||'';
@@ -2574,21 +2574,12 @@ function renderEstCumplimiento() {
 }
 
 // ============================================================
-// SYNC CON GOOGLE SHEETS
+// SINCRONIZACIÓN EXTERNA DESACTIVADA
 // ============================================================
-const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycby87k25AigT3MVUWWhp1vWWoqT5ICiWtUiFip1rCKgVpbX8V9bXAORs-p1B9t_bwwDR1A/exec';
-
+// Las obras se guardan solamente en Firebase. Este stub conserva la
+// compatibilidad con el flujo de guardado sin crear carpetas ni llamar Apps Script.
 async function syncToSheets(data) {
-  try {
-    await fetch(SHEETS_WEBHOOK, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-  } catch(e) {
-    console.log('Sheets sync error (no crítico):', e.message);
-  }
+  return null;
 }
 
 window.exportarCSV = () => {
