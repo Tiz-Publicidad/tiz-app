@@ -1952,13 +1952,95 @@ function renderEstCumplimiento() {
 }
 
 // ============================================================
-// SINCRONIZACIÓN EXTERNA DESACTIVADA
+// AUTOMATIZACIÓN DRIVE OT — V12 (JSONP compacto y reintentos)
 // ============================================================
-// Las obras se guardan solamente en Firebase. Este stub conserva la
-// compatibilidad con el flujo de guardado sin crear carpetas ni llamar Apps Script.
-async function syncToSheets(data) {
-  return null;
+const TIZ_OT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
+const TIZ_OT_TOKEN = 'TIZ-OT-2026-V12';
+const TIZ_OT_QUEUE_KEY = 'tiz_ot_drive_queue_v12';
+
+function buildOtDrivePayload(data) {
+  return {
+    action: 'createOtFolder',
+    token: TIZ_OT_TOKEN,
+    ot: String(data?.ot || data?.nro || '').trim(),
+    cliente: String(data?.cliente || '').trim(),
+    desc: String(data?.desc || '').trim(),
+    estado: String(data?.estado || '').trim(),
+    firestoreId: String(data?.firestoreId || '').trim(),
+    origen: String(data?.origen || 'obra').trim(),
+    vendedor: String(data?.vendedor || '').trim(),
+    semana: String(data?.semana || '').trim()
+  };
 }
+
+function jsonpOtRequest(payload, timeoutMs = 20000) {
+  return new Promise((resolve, reject) => {
+    if (!TIZ_OT_WEBAPP_URL || !TIZ_OT_WEBAPP_URL.includes('/exec')) {
+      reject(new Error('Falta configurar TIZ_OT_WEBAPP_URL'));
+      return;
+    }
+    const callback = '__tizOtCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    let finished = false;
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      script.remove();
+    };
+    window[callback] = result => { cleanup(); result?.ok ? resolve(result) : reject(new Error(result?.error || 'Apps Script respondió con error')); };
+    const params = new URLSearchParams({
+      callback,
+      payload: JSON.stringify(payload),
+      v: '12'
+    });
+    script.src = TIZ_OT_WEBAPP_URL + '?' + params.toString();
+    script.async = true;
+    script.onerror = () => { cleanup(); reject(new Error('No se pudo conectar con Apps Script')); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Tiempo de espera agotado al crear carpeta OT')); }, timeoutMs);
+    document.head.appendChild(script);
+  });
+}
+
+function readOtQueue() {
+  try { return JSON.parse(localStorage.getItem(TIZ_OT_QUEUE_KEY) || '[]'); } catch (_) { return []; }
+}
+function writeOtQueue(queue) { localStorage.setItem(TIZ_OT_QUEUE_KEY, JSON.stringify(queue.slice(-50))); }
+function enqueueOtDrive(payload, error) {
+  const queue = readOtQueue();
+  const key = payload.ot || payload.firestoreId || JSON.stringify(payload);
+  const existing = queue.find(x => x.key === key);
+  if (existing) { existing.payload = payload; existing.error = String(error || ''); existing.updatedAt = Date.now(); existing.attempts = (existing.attempts || 0) + 1; }
+  else queue.push({ key, payload, error: String(error || ''), createdAt: Date.now(), updatedAt: Date.now(), attempts: 1 });
+  writeOtQueue(queue);
+}
+async function retryOtDriveQueue() {
+  const queue = readOtQueue();
+  if (!queue.length) return;
+  const pending = [];
+  for (const item of queue) {
+    try { await jsonpOtRequest(item.payload, 15000); }
+    catch (err) { item.error = String(err?.message || err); item.updatedAt = Date.now(); item.attempts = (item.attempts || 0) + 1; pending.push(item); }
+  }
+  writeOtQueue(pending);
+}
+
+async function syncToSheets(data) {
+  const payload = buildOtDrivePayload(data);
+  if (payload.estado.toLowerCase() !== 'aprobado') return { ok:true, skipped:true, reason:'Estado no aprobado' };
+  if (!payload.ot) throw new Error('No se puede crear la carpeta: falta el número de OT');
+  try {
+    const result = await jsonpOtRequest(payload);
+    return result;
+  } catch (err) {
+    enqueueOtDrive(payload, err?.message || err);
+    throw err;
+  }
+}
+window.retryOtDriveQueue = retryOtDriveQueue;
+window.addEventListener('online', () => retryOtDriveQueue());
+setTimeout(() => retryOtDriveQueue(), 5000);
 
 window.exportarCSV = () => {
   const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
@@ -2462,25 +2544,32 @@ window.refreshCurrent = function() {
 };
 
 
-// TIZ V11 — ESTADO INICIAL BLINDADO
-const _tizV11OpenModal = window.openModal;
-window.openModal = function(type) {
-  const nuevaObra = type === 'obra' && !window.editingId?.obra;
-  _tizV11OpenModal(type);
-  if (nuevaObra) {
-    const fijarPresupuestado = () => {
-      const estado = document.getElementById('f-estado');
-      if (!estado) return;
-      estado.value = 'Presupuestado';
-      Array.from(estado.options).forEach(op => {
-        op.selected = op.value === 'Presupuestado' || op.textContent.trim() === 'Presupuestado';
-      });
-      estado.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-    fijarPresupuestado();
-    requestAnimationFrame(fijarPresupuestado);
-    setTimeout(fijarPresupuestado, 0);
-    setTimeout(fijarPresupuestado, 80);
+// ============================================================
+// V12 — ESTADO INICIAL DEFINITIVO
+// ============================================================
+(function instalarEstadoInicialPresupuestadoV12(){
+  const estado = document.getElementById('f-estado');
+  if (estado) {
+    [...estado.options].forEach(opt => { opt.selected = opt.value === 'Presupuestado'; });
+    estado.value = 'Presupuestado';
   }
-};
-console.info('TIZ ERP build: V11 Presupuestado + Drive OT base');
+  const anterior = window.openModal;
+  window.openModal = function(type) {
+    const esNuevaObra = type === 'obra' && !window.editingId?.obra;
+    if (esNuevaObra) {
+      const e = document.getElementById('f-estado');
+      if (e) e.value = 'Presupuestado';
+    }
+    const resultado = anterior.apply(this, arguments);
+    if (esNuevaObra) {
+      // Se ejecuta después de todos los wrappers antiguos que modifican el modal.
+      [0, 25, 75, 150].forEach(ms => setTimeout(() => {
+        const e = document.getElementById('f-estado');
+        if (e) e.value = 'Presupuestado';
+      }, ms));
+    }
+    return resultado;
+  };
+  console.info('TIZ ERP V12: estado inicial Presupuestado + Drive OT automático');
+})();
+

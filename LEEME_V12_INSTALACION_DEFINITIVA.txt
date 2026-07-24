@@ -1,0 +1,31 @@
+TIZ ERP V12 — INSTALACIÓN DEFINITIVA
+
+1. SUBIR A GITHUB
+- Reemplazar todos los archivos del repositorio por los de este ZIP.
+- Confirmar que index.html empieza con <!DOCTYPE html>.
+- Esperar GitHub Pages y recargar con Ctrl+Shift+R.
+- En Presupuestos > Nueva obra, Estado debe iniciar en Presupuestado.
+
+2. CONFIGURAR APPS SCRIPT PARA DRIVE
+- Abrir el proyecto de Apps Script existente.
+- Reemplazar TODO el código por apps_script_drive_ot_v12.gs.
+- Guardar.
+- Implementar > Administrar implementaciones > editar la aplicación web.
+- Ejecutar como: Yo. Acceso: Cualquier usuario.
+- Crear nueva versión e implementar.
+- La URL configurada en el ERP es:
+  https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec
+- Si Google entrega otra URL /exec, reemplazar TIZ_OT_WEBAPP_URL en index.html, app.js y src/app.js.
+
+3. FLUJO
+- Una obra nueva nace Presupuestado.
+- Al guardarla como Presupuestado no crea carpeta.
+- Al cambiarla a Aprobado y guardar, crea una única carpeta OT y seis subcarpetas.
+- Si se vuelve a guardar, reutiliza la carpeta existente por número de OT.
+- Si falla internet/Apps Script, queda en cola local y reintenta al volver la conexión.
+
+4. PRUEBA
+- Crear obra de prueba con una OT no usada.
+- Guardar como Presupuestado: no debe aparecer carpeta.
+- Editar, cambiar a Aprobado y guardar: debe crearla.
+- Guardar de nuevo: no debe duplicarla.
