@@ -2460,3 +2460,27 @@ window.refreshCurrent = function() {
   _v3Refresh();
   applyRoleUI();
 };
+
+
+// TIZ V11 — ESTADO INICIAL BLINDADO
+const _tizV11OpenModal = window.openModal;
+window.openModal = function(type) {
+  const nuevaObra = type === 'obra' && !window.editingId?.obra;
+  _tizV11OpenModal(type);
+  if (nuevaObra) {
+    const fijarPresupuestado = () => {
+      const estado = document.getElementById('f-estado');
+      if (!estado) return;
+      estado.value = 'Presupuestado';
+      Array.from(estado.options).forEach(op => {
+        op.selected = op.value === 'Presupuestado' || op.textContent.trim() === 'Presupuestado';
+      });
+      estado.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    fijarPresupuestado();
+    requestAnimationFrame(fijarPresupuestado);
+    setTimeout(fijarPresupuestado, 0);
+    setTimeout(fijarPresupuestado, 80);
+  }
+};
+console.info('TIZ ERP build: V11 Presupuestado + Drive OT base');

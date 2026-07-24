@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- TIZ_BUILD_2026_07_24_V11 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TIZ — Gestión Operativa</title>
@@ -611,7 +615,7 @@ td.strong { color: var(--text); font-weight: 500; }
         <select id="f-vendedor"><option>G</option><option>J</option><option>G/J</option></select>
       </div>
       <div class="form-group"><label>Estado</label>
-        <select id="f-estado"><option>Presupuestado</option><option>Aprobado</option><option>En producción</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
+        <select id="f-estado"><option value="Presupuestado" selected>Presupuestado</option><option value="Aprobado">Aprobado</option><option>En producción</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
       </div>
       <div class="form-group"><label>Semana</label><input id="f-semana" type="number" placeholder="22"></div>
       <div class="form-group"><label>Precio de venta (neto)</label><input id="f-neto" type="number" placeholder="0"></div>
@@ -2960,6 +2964,31 @@ window.refreshCurrent = function() {
 
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
+
+
+// TIZ V11 — ESTADO INICIAL BLINDADO
+// Esta capa final se ejecuta después de todos los wrappers anteriores.
+const _tizV11OpenModal = window.openModal;
+window.openModal = function(type) {
+  const nuevaObra = type === 'obra' && !window.editingId?.obra;
+  _tizV11OpenModal(type);
+  if (nuevaObra) {
+    const fijarPresupuestado = () => {
+      const estado = document.getElementById('f-estado');
+      if (!estado) return;
+      estado.value = 'Presupuestado';
+      Array.from(estado.options).forEach(op => {
+        op.selected = op.value === 'Presupuestado' || op.textContent.trim() === 'Presupuestado';
+      });
+      estado.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    fijarPresupuestado();
+    requestAnimationFrame(fijarPresupuestado);
+    setTimeout(fijarPresupuestado, 0);
+    setTimeout(fijarPresupuestado, 80);
+  }
+};
+console.info('TIZ ERP build: V11 Presupuestado + Drive OT base');
 </script>
 </body>
 </html>
