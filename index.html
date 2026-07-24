@@ -3078,7 +3078,58 @@ window.TIZ_DRIVE_PARENT_FOLDER_ID = TIZ_DRIVE_PARENT_FOLDER_ID;
 
 function callAppsScriptJSONP(payload, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
-    const urlBase = String(DRIVE_SHEETS_WEBHOOK || '').trim();
+    // Enviar solamente los datos necesarios.
+// No incluir historial, checklist, alertas ni datos internos de Firebase,
+// porque vuelven demasiado larga la URL JSONP.
+const obraOriginal = payload.obra || {};
+
+const payloadCompacto = {
+  action: payload.action,
+  parentFolderId: payload.parentFolderId,
+
+  obra: {
+    id: obraOriginal.id || '',
+    firestoreId: obraOriginal.firestoreId || obraOriginal.id || '',
+    ot: obraOriginal.ot || '',
+    desc: obraOriginal.desc || '',
+    cliente: obraOriginal.cliente || '',
+    estado: obraOriginal.estado || '',
+    sector: obraOriginal.sector || '',
+    vendedor: obraOriginal.vendedor || '',
+    semana: obraOriginal.semana || '',
+
+    neto: obraOriginal.neto || 0,
+    bruto: obraOriginal.bruto || 0,
+    gastos: obraOriginal.gastos || 0,
+
+    fprod_c: obraOriginal.fprod_c || '',
+    fprod_r: obraOriginal.fprod_r || '',
+    fcol_c: obraOriginal.fcol_c || '',
+    fcol_r: obraOriginal.fcol_r || '',
+
+    oc: obraOriginal.oc || '',
+    nrfc: obraOriginal.nrfc || '',
+    ffc: obraOriginal.ffc || '',
+    cobr: obraOriginal.cobr || '',
+    comentarios: obraOriginal.comentarios || ''
+  },
+
+  itemsCotizados:
+    payload.itemsCotizados ||
+    obraOriginal.itemsCotizados ||
+    [],
+
+  calculosAuxiliares:
+    payload.calculosAuxiliares ||
+    obraOriginal.calculosAuxiliares ||
+    []
+};
+
+const url =
+  urlBase +
+  sep +
+  'callback=' + encodeURIComponent(callbackName) +
+  '&payload=' + encodeURIComponent(JSON.stringify(payloadCompacto));
     if (!urlBase || !urlBase.startsWith('https://script.google.com/')) {
       reject(new Error('Falta configurar la URL /exec de Apps Script'));
       return;
