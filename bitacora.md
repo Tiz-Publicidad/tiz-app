@@ -36,30 +36,29 @@ input, select, textarea { font-family: inherit; }
 
 /* Layout */
 .app { display: flex; min-height: 100vh; }
-.sidebar { width: 176px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
 .main { flex: 1; overflow-x: hidden; }
 
 /* Sidebar */
-.logo { padding: 14px 12px 12px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-direction:column; }
+.logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
 .logo-mark { font-size: 18px; font-weight: 600; color: var(--accent); letter-spacing: -0.5px; }
 .logo-sub { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
-.logo-img { width: 92px; height:auto; display:block; margin-bottom:6px; }
-.nav { padding: 8px 6px; flex: 1; }
+.nav { padding: 10px 8px; flex: 1; }
 .nav-section { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; padding: 12px 10px 4px; }
-.nav-item { display: flex; align-items: center; gap: 7px; padding: 7px 8px; border-radius: 8px; color: var(--text2); font-size: 13px; cursor: pointer; transition: all .15s; border: none; background: none; width: 100%; text-align: left; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--text2); font-size: 13px; cursor: pointer; transition: all .15s; border: none; background: none; width: 100%; text-align: left; }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--surface3); color: var(--accent); }
 .nav-item i { font-size: 16px; width: 18px; }
 .nav-badge { margin-left: auto; background: var(--red); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; }
 
 /* Header */
-.page-header { padding: 18px 24px 0; display: flex; align-items: center; justify-content: space-between; }
+.page-header { padding: 20px 28px 0; display: flex; align-items: center; justify-content: space-between; }
 .page-title { font-size: 20px; font-weight: 600; color: var(--text); }
 .page-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; }
 .header-actions { display: flex; gap: 8px; align-items: center; }
 
 /* Content */
-.page { padding: 18px 24px 40px; display: none; }
+.page { padding: 20px 28px 40px; display: none; }
 .page.active { display: block; }
 
 /* Buttons */
@@ -118,14 +117,6 @@ td.strong { color: var(--text); font-weight: 500; }
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: flex-start; justify-content: center; padding-top: 40px; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
 .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 580px; }
-#modal-obra .modal { max-width: 1120px; width: calc(100vw - 80px); }
-#modal-prespdf .modal { max-width: 900px; width: calc(100vw - 80px); }
-.modal input, .modal select, .modal textarea { min-width: 0; }
-#obra-items-list, #obra-calculos-list { overflow-x: auto; padding-bottom: 4px; }
-#obra-items-list .obra-item-row, #obra-calculos-list .calc-aux-row { min-width: 760px; }
-#modal-obra .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-#modal-obra .form-group.full { grid-column: 1 / -1; }
-@media (max-width: 900px) { #modal-obra .modal, #modal-prespdf .modal { width: calc(100vw - 24px); } #modal-obra .form-grid { grid-template-columns: 1fr; } }
 .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 18px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-group { display: flex; flex-direction: column; gap: 5px; }
@@ -220,41 +211,6 @@ td.strong { color: var(--text); font-weight: 500; }
   .sidebar { display: none; }
   .form-grid { grid-template-columns: 1fr; }
 }
-
-/* V4.3 — presupuesto completo desde página Presupuestos */
-#modal-prespdf .modal { max-width: 920px !important; width: calc(100vw - 80px); }
-#modal-presupuesto { display: none !important; }
-#pp-clientes-dropdown .cli-option:last-child { background: rgba(232,184,75,.08); }
-@media (max-width: 900px) { #modal-prespdf .modal { width: calc(100vw - 24px); } }
-
-
-/* V5.7 — layout más ancho y tabla compacta */
-#page-obras .table-wrap { overflow-x:auto; }
-#page-obras table { min-width: 1180px; }
-#page-obras th, #page-obras td { padding: 8px 9px; }
-#page-obras td:nth-child(1), #page-obras th:nth-child(1) { width:48px; min-width:48px; }
-#page-obras td:nth-child(2), #page-obras th:nth-child(2) { width:62px; min-width:62px; }
-.main { min-width:0; }
-
-
-/* V5.8 — Alertas inteligentes / flujo por sector */
-.risk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:18px;padding:3px 8px;font-size:10px;font-weight:600}
-.risk-ok{background:rgba(76,175,125,.14);color:var(--green)}
-.risk-warn{background:rgba(232,160,32,.15);color:var(--amber)}
-.risk-danger{background:rgba(224,92,92,.16);color:var(--red)}
-.alert-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px}
-.alert-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
-.checklist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.check-item{display:flex;gap:7px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;color:var(--text2)}
-.check-item input{width:14px;height:14px}
-@media(max-width:900px){.checklist-grid{grid-template-columns:1fr}}
-
-
-.drive-status-dot{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:8px;border:1px solid var(--border);font-size:12px;margin-right:4px}
-.drive-status-ready{color:var(--green);background:rgba(55,180,120,.08)}
-.drive-status-pending{color:var(--amber);background:rgba(232,184,75,.08)}
-.drive-status-missing{color:var(--text3);background:rgba(255,255,255,.03)}
-
 </style>
 </head>
 <body>
@@ -263,17 +219,13 @@ td.strong { color: var(--text); font-weight: 500; }
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo">
-      <img class="logo-img" src="assets/tiz-logo.png" alt="TIZ Publicidad">
+      <div class="logo-mark">TIZ</div>
       <div class="logo-sub">Gestión operativa</div>
     </div>
     <nav class="nav">
       <div class="nav-section">Principal</div>
       <button class="nav-item active" onclick="goTo('dashboard')">
         <i class="ti ti-layout-dashboard"></i> Dashboard
-      </button>
-      <button class="nav-item" onclick="goTo('ia')">
-        <i class="ti ti-sparkles"></i> Clemen IA
-        <span class="nav-badge" id="badge-ia" style="display:none">0</span>
       </button>
       <button class="nav-item" onclick="goTo('obras')">
         <i class="ti ti-list-check"></i> Obras
@@ -290,10 +242,6 @@ td.strong { color: var(--text); font-weight: 500; }
       </button>
       <button class="nav-item" onclick="goTo('diseno')">
         <i class="ti ti-pencil"></i> Diseño
-      </button>
-      <button class="nav-item" onclick="goTo('alertas')">
-        <i class="ti ti-alert-triangle"></i> Alertas
-        <span class="nav-badge" id="badge-alertas" style="display:none">0</span>
       </button>
       <div class="nav-section">Comercial</div>
       <button class="nav-item" onclick="goTo('cobranzas')">
@@ -365,43 +313,6 @@ td.strong { color: var(--text); font-weight: 500; }
       </div>
     </div>
 
-
-    <!-- CLEMEN IA / ERP -->
-    <div id="page-ia" class="page">
-      <div class="page-header">
-        <div><div class="page-title">Clemen IA</div><div class="page-subtitle">Alertas, anticipación y sugerencias para el ERP TIZ</div></div>
-        <div class="header-actions">
-          <button class="btn btn-ghost btn-sm" onclick="exportarResumenIA()"><i class="ti ti-download"></i> Resumen CSV</button>
-          <button class="btn btn-primary btn-sm" onclick="renderIAERP()"><i class="ti ti-refresh"></i> Actualizar</button>
-        </div>
-      </div>
-      <div style="padding:16px 28px 0">
-        <div class="kpi-grid" id="ia-kpis"></div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Resumen ejecutivo de hoy</span></div>
-          <div class="card-body" id="ia-resumen" style="font-size:13px;color:var(--text2);line-height:1.7"></div>
-        </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Obras que requieren decisión</span></div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>Riesgo</th><th>OT</th><th>Cliente</th><th>Descripción</th><th>Motivo</th><th>Acción sugerida</th><th></th></tr></thead>
-            <tbody id="ia-obras-tbody"></tbody>
-          </table></div>
-        </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Facturación y cobranza</span></div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>Tipo</th><th>Cliente</th><th>OT/FC</th><th>Importe</th><th>Problema</th><th>Acción</th></tr></thead>
-            <tbody id="ia-fac-tbody"></tbody>
-          </table></div>
-        </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Compras probables detectadas por descripción</span></div>
-          <div class="card-body" id="ia-compras" style="font-size:12px;color:var(--text2);line-height:1.7"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- OBRAS -->
     <div id="page-obras" class="page">
       <div class="page-header">
@@ -409,7 +320,7 @@ td.strong { color: var(--text); font-weight: 500; }
         <div class="header-actions">
           <button class="btn btn-ghost btn-sm" onclick="exportarExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
           <button class="btn btn-ghost btn-sm" onclick="exportarCSV()"><i class="ti ti-download"></i> CSV</button>
-          <button class="btn btn-primary btn-sm" onclick="abrirNuevaObraV52()"><i class="ti ti-plus"></i> Nueva obra</button>
+          <button class="btn btn-primary btn-sm" onclick="window.editingId.obra=null;openModal('obra')"><i class="ti ti-plus"></i> Nueva obra</button>
         </div>
       </div>
       <div style="padding:16px 28px 0">
@@ -527,27 +438,6 @@ td.strong { color: var(--text); font-weight: 500; }
       </div>
     </div>
 
-
-    <!-- ALERTAS INTELIGENTES -->
-    <div id="page-alertas" class="page">
-      <div class="page-header">
-        <div><div class="page-title">Alertas inteligentes</div><div class="page-subtitle">Problemas que la app detecta antes de que traben la obra</div></div>
-        <div class="header-actions">
-          <button class="btn btn-ghost btn-sm" onclick="repararCarpetasOTPendientes()"><i class="ti ti-folder-plus"></i> Crear carpetas OT pendientes</button>
-        </div>
-      </div>
-      <div style="padding:16px 28px 0">
-        <div class="kpi-grid" id="alertas-kpis"></div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Obras con posibles problemas</span></div>
-          <div class="table-wrap"><table>
-            <thead><tr><th>Riesgo</th><th>OT</th><th>Cliente</th><th>Descripción</th><th>Sector</th><th>Problemas detectados</th><th></th></tr></thead>
-            <tbody id="alertas-tbody"></tbody>
-          </table></div>
-        </div>
-      </div>
-    </div>
-
     <!-- COBRANZAS -->
     <div id="page-cobranzas" class="page">
       <div class="page-header">
@@ -587,7 +477,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="page-header">
         <div><div class="page-title">Presupuestos</div></div>
         <div class="header-actions">
-          <button class="btn btn-primary btn-sm" onclick="abrirNuevoPresupuestoCompleto()"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal('presupuesto')"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
         </div>
       </div>
       <div style="padding:16px 28px 0">
@@ -713,27 +603,20 @@ td.strong { color: var(--text); font-weight: 500; }
       </div>
       <div class="form-group full"><label>Descripción</label><input id="f-desc" placeholder="Descripción del trabajo"></div>
       <div class="form-group" style="position:relative">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <label>Cliente</label>
-          <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="nuevoClienteDesdeObra(document.getElementById('f-cliente').value || '')">+ Nuevo cliente</button>
-        </div>
-        <input id="f-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientes(this.value)" onfocus="sugerirClientes(this.value)" onblur="setTimeout(()=>cerrarSugerencias(),250)">
-        <div id="clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;z-index:400;max-height:220px;overflow-y:auto;margin-top:2px;box-shadow:0 12px 30px rgba(0,0,0,.45)"></div>
+        <label>Cliente</label>
+        <input id="f-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientes(this.value)" onblur="setTimeout(()=>cerrarSugerencias(),200)">
+        <div id="clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--border-radius-md);z-index:200;max-height:180px;overflow-y:auto;margin-top:2px"></div>
       </div>
       <div class="form-group"><label>Vendedor</label>
         <select id="f-vendedor"><option>G</option><option>J</option><option>G/J</option></select>
       </div>
       <div class="form-group"><label>Estado</label>
-        <select id="f-estado"><option>Enviado</option><option>En revisión</option><option>Presupuestado</option><option>Aprobado</option><option>En producción</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option><option>Rechazado</option><option>Vencido</option></select>
+        <select id="f-estado"><option>Presupuestado</option><option>Aprobado</option><option>En producción</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
       </div>
       <div class="form-group"><label>Semana</label><input id="f-semana" type="number" placeholder="22"></div>
       <div class="form-group"><label>Precio de venta (neto)</label><input id="f-neto" type="number" placeholder="0"></div>
       <div class="form-group"><label>Precio de venta (bruto)</label><input id="f-bruto" type="number" placeholder="0"></div>
       <div class="form-group"><label>Gastos</label><input id="f-gastos" type="number" placeholder="0"></div>
-      <div class="form-section">Ítems cotizados</div>
-      <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column"><p style="font-size:11px;color:var(--text3);margin:0">Una obra puede tener varios renglones con importes distintos.</p><div id="obra-items-list"></div><button type="button" class="btn btn-ghost btn-sm" onclick="addObraItem()" style="align-self:flex-start"><i class="ti ti-plus"></i> Agregar ítem</button><div style="text-align:right;font-size:13px;color:var(--accent);font-weight:600">Total ítems: <span id="obra-items-total">$0</span></div></div>
-      <div class="form-section">Cálculos auxiliares / respaldo interno</div>
-      <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column"><p style="font-size:11px;color:var(--text3);margin:0">Guardá materiales, horas, colocación, tercerizados o cualquier cuenta usada para formar el precio.</p><div id="obra-calculos-list"></div><button type="button" class="btn btn-ghost btn-sm" onclick="addCalculoAux()" style="align-self:flex-start"><i class="ti ti-plus"></i> Agregar cálculo</button><div style="text-align:right;font-size:13px;color:var(--text2);font-weight:600">Total auxiliar: <span id="obra-calculos-total">$0</span></div></div>
       <div class="form-section">Producción</div>
       <div class="form-group"><label>F. compromiso prod.</label><input id="f-fprod-c" placeholder="DD/MM/AAAA"></div>
       <div class="form-group"><label>F. real prod.</label><input id="f-fprod-r" placeholder="DD/MM/AAAA"></div>
@@ -743,33 +626,11 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-section">Facturación</div>
       <div class="form-group"><label>OC / OP</label><input id="f-oc" placeholder="Nro orden de compra"></div>
       <div class="form-group"><label>Nro factura</label><input id="f-nrfc" placeholder="Nro factura"></div>
-      <div class="form-group"><label>F. factura</label><input id="f-ffc" placeholder="DD/MM/AAAA" oninput="calcFechaVencimiento()"></div>
+      <div class="form-group"><label>F. factura</label><input id="f-ffc" placeholder="DD/MM/AAAA"></div>
       <div class="form-group"><label>Estado cobranza</label>
         <select id="f-cobr"><option>Pendiente</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
       </div>
-      <div class="form-group"><label>Días de pago acordados</label>
-        <input id="f-dias-pago" type="number" placeholder="Ej: 30" oninput="calcFechaVencimiento()">
-      </div>
-      <div class="form-group" style="justify-content:flex-end">
-        <label>Fecha de vencimiento</label>
-        <span id="f-venc-calculada" style="font-size:12px;font-weight:500;padding-top:4px"></span>
-      </div>
       <div class="form-group full"><label>Comentarios generales</label><textarea id="f-comentarios"></textarea></div>
-      <div class="form-section">Checklist de liberación / control</div>
-      <div class="form-group full">
-        <div class="checklist-grid" id="checklist-v58">
-          <label class="check-item"><input type="checkbox" data-check="clienteConfirmado"> Cliente confirmado</label>
-          <label class="check-item"><input type="checkbox" data-check="ocCargada"> OC / OP cargada</label>
-          <label class="check-item"><input type="checkbox" data-check="senaRecibida"> Seña recibida</label>
-          <label class="check-item"><input type="checkbox" data-check="disenoAprobado"> Diseño aprobado</label>
-          <label class="check-item"><input type="checkbox" data-check="materialesCompletos"> Materiales completos</label>
-          <label class="check-item"><input type="checkbox" data-check="produccionTerminada"> Producción terminada</label>
-          <label class="check-item"><input type="checkbox" data-check="colocacionCoordinada"> Colocación coordinada</label>
-          <label class="check-item"><input type="checkbox" data-check="fotosFinales"> Fotos finales cargadas</label>
-          <label class="check-item"><input type="checkbox" data-check="facturado"> Facturado</label>
-          <label class="check-item"><input type="checkbox" data-check="cobrado"> Cobrado</label>
-        </div>
-      </div>
       <div class="form-section">Anotaciones por sector</div>
       <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column">
         <p style="font-size:11px;color:var(--text3);margin:0">Cada sector puede escribir sus propias notas. Se guarda con fecha y hora automáticamente.</p>
@@ -815,14 +676,13 @@ td.strong { color: var(--text); font-weight: 500; }
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('obra')">Cancelar</button>
       <button class="btn btn-ghost" onclick="abrirPresupuestoPDF()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-file-invoice"></i> Generar presupuesto</button>
-      <button class="btn btn-ghost" onclick="exportarDatosFacturaActual()" title="Descarga datos listos para facturación"><i class="ti ti-receipt"></i> Datos factura</button>
       <button class="btn btn-primary" onclick="saveObra()">Guardar</button>
     </div>
   </div>
 </div>
 
 <div class="modal-overlay" id="modal-prespdf" style="padding:20px">
-  <div class="modal" style="max-width:1120px;width:calc(100vw - 80px);max-height:90vh;overflow-y:auto">
+  <div class="modal" style="max-width:760px;max-height:90vh;overflow-y:auto">
     <div class="modal-title">Generar presupuesto</div>
     <div class="form-grid">
       <div class="form-group"><label>Nro presupuesto</label><input id="pp-nro" placeholder="0001"></div>
@@ -859,7 +719,6 @@ td.strong { color: var(--text); font-weight: 500; }
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-prespdf').classList.remove('open')">Cancelar</button>
-      <button class="btn btn-ghost" onclick="guardarPresupuestoCompleto()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-device-floppy"></i> Guardar presupuesto</button>
       <button class="btn btn-primary" onclick="generarPDF()"><i class="ti ti-printer"></i> Generar PDF + Excel</button>
     </div>
   </div>
@@ -870,8 +729,7 @@ td.strong { color: var(--text); font-weight: 500; }
     <div class="modal-title">Nuevo cliente</div>
     <input type="hidden" id="cli-id">
     <div class="form-grid">
-      <div class="form-group"><label>N° cliente</label><input id="fc-numero" placeholder="Automático" readonly></div>
-      <div class="form-group"><label>Nombre / Razón social</label><input id="fc-nombre"></div>
+      <div class="form-group full"><label>Nombre / Razón social</label><input id="fc-nombre"></div>
       <div class="form-group"><label>CUIT</label><input id="fc-cuit"></div>
       <div class="form-group"><label>Contacto</label><input id="fc-contacto"></div>
       <div class="form-group"><label>Celular</label><input id="fc-cel"></div>
@@ -1188,13 +1046,12 @@ function initListeners() {
 }
 
 // CRUD helpers
-window.addDoc_    = async (col_, data) => { const ref = await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); return ref; };
+window.addDoc_    = async (col_, data) => { await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); };
 window.updateDoc_ = async (col_, id, data) => { await updateDoc(doc(db, col_, id), data); };
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
 
 // Helpers
 function parseDate(s) { if (!s) return null; const [d,m,y] = s.split('/'); return new Date(+y,+m-1,+d); }
-function parseFecha(s) { return parseDate(s); }
 function diasEntre(a, b) { const da=parseDate(a), db_=parseDate(b); if(!da||!db_) return null; return Math.round((db_-da)/(864e5)); }
 function diasDesdeHoy(s) { const d=parseDate(s); if(!d) return null; return Math.round((new Date()-d)/(864e5)); }
 function semaforo(fc, fr) {
@@ -1203,34 +1060,6 @@ function semaforo(fc, fr) {
   return d<-3?'g':d<0?'a':'r';
 }
 function fmtM(n) { if(!n&&n!==0) return '-'; n=+n; if(n>=1e6) return '$'+Math.round(n/1e5)/10+'M'; if(n>=1000) return '$'+Math.round(n/1000)+'K'; return '$'+Math.round(n); }
-function alertaVencimiento(o) {
-  if (!o.ffc || !o.diasPago) return null;
-  const [d,m,y] = o.ffc.split('/');
-  if (!d||!m||!y) return null;
-  const fechaVenc = new Date(+y,+m-1,+d);
-  fechaVenc.setDate(fechaVenc.getDate() + (+o.diasPago||0));
-  const hoy = new Date();
-  const diff = Math.round((fechaVenc - hoy) / 86400000);
-  if (diff < 0) return `VENCIDA hace ${Math.abs(diff)} días (${fechaVenc.toLocaleDateString('es-AR')})`;
-  if (diff <= 5) return `Vence en ${diff} días (${fechaVenc.toLocaleDateString('es-AR')})`;
-  return null;
-}
-
-window.calcFechaVencimiento = () => {
-  const ffc = document.getElementById('f-ffc').value;
-  const dias = +document.getElementById('f-dias-pago').value||0;
-  const el = document.getElementById('f-venc-calculada');
-  if (!ffc || !dias || !el) { if(el) el.textContent=''; return; }
-  const [d,m,y] = ffc.split('/');
-  if(!d||!m||!y) { el.textContent=''; return; }
-  const fecha = new Date(+y,+m-1,+d);
-  fecha.setDate(fecha.getDate()+dias);
-  el.textContent = 'Vence: ' + fecha.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
-  const hoy = new Date();
-  const diff = Math.round((fecha-hoy)/86400000);
-  el.style.color = diff<0?'var(--red)':diff<=5?'var(--amber)':'var(--green)';
-};
-
 function hasNotas(o) {
   const n = o.notas_sector || {};
   return ['Producción','Colocaciones','Diseño','Ventas','Compras'].some(s => n[s] && n[s].trim());
@@ -1277,7 +1106,6 @@ window.refreshCurrent = function() {
   else if (p==='produccion') renderProduccion();
   else if (p==='colocaciones') renderColocaciones();
   else if (p==='diseno') renderDiseno();
-  else if (p==='alertas') renderAlertasV58();
   else if (p==='cobranzas') renderCobranzas();
   else if (p==='presupuestos') renderPresupuestos();
   else if (p==='clientes') renderClientes();
@@ -1304,9 +1132,6 @@ function updateBadges() {
   const venc = window.DB.cobranzas.filter(c => c.estado==='Pendiente' && diasDesdeHoy(c.vencimiento) >= 0).length;
   document.getElementById('badge-cobr').textContent = venc || '';
   document.getElementById('badge-cobr').style.display = venc ? '' : 'none';
-  const alertCount = (window.DB.obras||[]).filter(o => window.analizaObraV58 && window.analizaObraV58(o).nivel !== 'ok').length;
-  const ba = document.getElementById('badge-alertas');
-  if (ba) { ba.textContent = alertCount || ''; ba.style.display = alertCount ? '' : 'none'; }
 }
 
 // DASHBOARD
@@ -1319,7 +1144,6 @@ function renderDashboard() {
   const pctP = pct(obras.filter(o=>o.fprod_c), 'prod');
   const pctC = pct(obras.filter(o=>o.fcol_c), 'col');
   const venc = obras.filter(o => semaforo(o.fprod_c,o.fprod_r)==='r').length;
-  const vencFacturas = obras.filter(o => alertaVencimiento(o)).length;
   const totalVentaSem = semObras.reduce((a,o)=>a+(+o.neto||0),0);
 
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -1329,7 +1153,6 @@ function renderDashboard() {
     <div class="kpi"><div class="kpi-label">Cumpl. producción</div><div class="kpi-val ${pctP===null?'':pctP>=80?'green':pctP>=60?'amber':'red'}">${pctP===null?'—':pctP+'%'}</div><div class="kpi-sub">acumulado global</div></div>
     <div class="kpi"><div class="kpi-label">Cumpl. colocación</div><div class="kpi-val ${pctC===null?'':pctC>=80?'green':pctC>=60?'amber':'red'}">${pctC===null?'—':pctC+'%'}</div><div class="kpi-sub">acumulado global</div></div>
     <div class="kpi"><div class="kpi-label">Alertas prod.</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div><div class="kpi-sub">vencidas o en riesgo</div></div>
-    <div class="kpi"><div class="kpi-label">Facturas por vencer</div><div class="kpi-val ${vencFacturas>0?'red':''}">${vencFacturas}</div><div class="kpi-sub">próximas o vencidas</div></div>
   `;
 
   const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
@@ -1363,18 +1186,6 @@ function renderDashboard() {
   }).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Sin alertas activas</td></tr>';
 }
 
-
-// DRIVE / OT — integración desactivada temporalmente
-// Estas funciones quedan como compatibilidad para que el resto del ERP siga funcionando.
-function isObraAprobadaParaDrive(o){ return false; }
-function driveStatusV9(o){ return 'none'; }
-window.renderDriveButtonsV9 = function(){ return ''; };
-async function queueDriveSyncV9(){ return null; }
-window.queueDriveSyncV9 = queueDriveSyncV9;
-window.requestDriveSyncForObra = async function(){
-  showToast('Integración con Drive temporalmente desactivada');
-};
-
 // OBRAS
 window.renderObras = function() {
   const SECTORS = ['Todos','Producción','Colocaciones','Diseño','Ventas','Compras'];
@@ -1400,11 +1211,10 @@ window.renderObras = function() {
   document.getElementById('obras-tbody').innerHTML = obras.length ? obras.map(o => {
     const dt = diasEntre(o.fprod_r||o.fprod_c, o.fcol_r||o.fcol_c);
     const tieneNotas = hasNotas(o);
-    const riesgoV58 = window.analizaObraV58 ? window.analizaObraV58(o) : {nivel:'ok', problemas:[]};
     return `<tr onclick="toggleNotasRow('${o.id}')" style="cursor:pointer">
       <td>${o.semana||'—'}</td>
       <td class="strong">${o.ot||'—'}</td>
-      <td class="strong" style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}<div style="margin-top:5px">${riesgoV58.nivel==='ok'?'':`<span class="risk-pill ${riesgoV58.nivel==='danger'?'risk-danger':'risk-warn'}">${riesgoV58.nivel==='danger'?'🔴':'🟡'} ${riesgoV58.problemas.length}</span>`}</div></td>
+      <td class="strong" style="max-width:150px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}</td>
       <td>${o.cliente||''}</td>
       <td><span style="font-size:11px;font-weight:500;color:var(--blue)">${o.sector||''}</span></td>
       <td onclick="event.stopPropagation()">
@@ -1419,11 +1229,8 @@ window.renderObras = function() {
       <td style="font-family:'DM Mono',monospace;font-size:11px">${dt!==null?dt+'d':'—'}</td>
       <td>${fmtM(o.neto)}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
-        ${o.nrfc ? `<span title="Facturado: FC ${o.nrfc}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>` : ''}
-        ${alertaVencimiento(o) ? `<span title="${alertaVencimiento(o)}" style="color:var(--red);margin-right:4px;font-size:13px">⚠</span>` : ''}
         ${tieneNotas?`<span title="Tiene anotaciones" style="color:var(--accent);margin-right:4px"><i class="ti ti-message-dots" style="font-size:13px;vertical-align:middle"></i></span>`:''}
-        ${renderDriveButtonsV9(o)}
-        <button class="btn-icon" onclick="editObra('${o.id}')" style="margin-left:4px"><i class="ti ti-edit" style="font-size:13px"></i></button>
+        <button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button>
         <button class="btn-icon" onclick="delObra('${o.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
       </td>
     </tr>
@@ -1677,7 +1484,6 @@ window.editCliente = id => {
   const c = window.DB.clientes.find(x=>x.id===id);
   if(!c) return;
   window.editingId.cliente = id;
-  document.getElementById('fc-numero').value=c.numeroCliente||c.numero||'';
   document.getElementById('fc-nombre').value=c.nombre||'';
   document.getElementById('fc-cuit').value=c.cuit||'';
   document.getElementById('fc-contacto').value=c.contacto||'';
@@ -1778,13 +1584,9 @@ function renderVendedores() {
 
 // MODALES
 window.openModal = (type) => {
-  if (type==='cliente' && !window.editingId.cliente) {
-    const n = document.getElementById('fc-numero'); if(n) n.value = nextClienteNumero();
-    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
-  }
   if (type==='obra') {
     if (!window.editingId.obra) {
-      ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios','f-dias-pago'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+      ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
       // Sugerir siguiente número de OT
       const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
       const maxOT = otNros.length ? Math.max(...otNros) : 4400;
@@ -1794,9 +1596,6 @@ window.openModal = (type) => {
       document.getElementById('f-vendedor').value = 'G';
       document.getElementById('f-estado').value = 'Aprobado';
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
-      window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
-      window.calculosAuxiliares = [];
-      renderObraItems(); renderCalculosAux();
       ['Producción','Colocaciones','Diseño','Ventas','Compras'].forEach(s => {
         const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
         if(el) el.value = '';
@@ -1833,12 +1632,8 @@ window.editObra = id => {
   document.getElementById('f-nrfc').value = o.nrfc||'';
   document.getElementById('f-ffc').value = o.ffc||'';
   document.getElementById('f-cobr').value = o.cobr||'Pendiente';
-  document.getElementById('f-dias-pago').value = o.diasPago||'';
   document.getElementById('f-comentarios').value = o.comentarios||'';
   document.getElementById('modal-obra-title').textContent = 'Editar obra — ' + (o.ot||o.desc||'');
-  window.obraItems = Array.isArray(o.itemsCotizados) && o.itemsCotizados.length ? o.itemsCotizados : [{descripcion:o.desc||'', cantidad:1, unitario:+o.neto||0, subtotal:+o.neto||0, observaciones:''}];
-  window.calculosAuxiliares = Array.isArray(o.calculosAuxiliares) ? o.calculosAuxiliares : [];
-  renderObraItems(); renderCalculosAux();
 
   // Cargar anotaciones por sector
   const notas = o.notas_sector || {};
@@ -1860,22 +1655,8 @@ window.editObra = id => {
 
 window.delObra = async id => { if(confirm('¿Eliminar esta obra?')) await deleteDoc_('obras',id); };
 window.quickChangeEstado = async (id, val) => {
-  const obra = window.DB.obras.find(o => o.id === id);
-  const data = { ...(obra || {}), estado: val, cobr: val, firestoreId: id };
-  await updateDoc_('obras', id, { estado: val, cobr: val, historial: window.buildHistorialV58 ? window.buildHistorialV58(obra, val) : (obra?.historial || []) });
-  if (String(val || '').toLowerCase() === 'aprobado') {
-    if (!obra?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) { await window.crearTareasAutomaticasV58({...obra, estado:val, id}); await updateDoc_('obras', id, { autoTasksCreatedAt: new Date().toISOString() }); } 
-    showToast('Actualizando estado...');
-    const syncResult = await syncToSheets(data);
-    if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-      await updateDoc_('obras', id, { driveFolderUrl: syncResult.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || '', driveSyncedAt: new Date().toISOString() });
-      showToast('Carpeta de OT creada ✓');
-    } else {
-      showToast('Estado actualizado: Aprobado');
-    }
-  } else {
-    showToast('Estado actualizado: ' + val);
-  }
+  await updateDoc_('obras', id, { estado: val, cobr: val });
+  showToast('Estado actualizado: ' + val);
 };
 
 window.limpiarFiltros = () => {
@@ -1936,7 +1717,6 @@ window.cargarDesdeOTs = async () => {
 
 // NÚMERO AUTOMÁTICO DE PRESUPUESTO
 window.abrirPresupuestoPDF = () => {
-  window._presupuestoOrigen = 'obra';
   const obraId = window.editingId.obra;
   const obra = obraId ? window.DB.obras.find(x=>x.id===obraId) : null;
   const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0);
@@ -1987,190 +1767,69 @@ window.nuevoClienteDesdePresupuesto = nombre => {
   cerrarSugerenciasPP();
   document.getElementById('pp-cliente').value = nombre;
   window.editingId.cliente = null;
-  document.getElementById('fc-numero').value = nextClienteNumero();
   document.getElementById('fc-nombre').value = nombre;
-  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fc-cuit','fc-contacto','fc-cel','fc-email'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   // Al guardar el cliente, volver al presupuesto
   window._volvioDePresupuesto = true;
   document.getElementById('modal-cliente').classList.add('open');
 };
 
-
-// ============================================================
-// ÍTEMS DE OBRA + CÁLCULOS AUXILIARES
-// ============================================================
-window.obraItems = window.obraItems || [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
-window.calculosAuxiliares = window.calculosAuxiliares || [];
-
-function moneyInput(v){ return Number.isFinite(+v) ? +v : 0; }
-function fmtPesoObra(n){ return '$' + Math.round(+n || 0).toLocaleString('es-AR'); }
-
-window.addObraItem = () => {
-  window.obraItems = collectObraItems();
-  window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
-  renderObraItems();
-};
-window.removeObraItem = idx => {
-  window.obraItems = collectObraItems();
-  window.obraItems.splice(idx,1);
-  if (!window.obraItems.length) window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
-  renderObraItems();
-};
-window.renderObraItems = () => {
-  const wrap = document.getElementById('obra-items-list');
-  if (!wrap) return;
-  const items = window.obraItems || [];
-  wrap.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
-      <span>Descripción</span><span>Cant.</span><span>$ Unit.</span><span>Subtotal</span><span></span>
-    </div>
-    ${items.map((it,i)=>`
-      <div class="obra-item-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:6px;align-items:center">
-        <input class="oi-desc" value="${(it.descripcion||'').replace(/"/g,'&quot;')}" placeholder="Ej: letras, lona, vinilo, estructura..." oninput="updateObraTotals()">
-        <input class="oi-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateObraTotals()">
-        <input class="oi-unit" type="number" step="0.01" value="${it.unitario ?? 0}" oninput="updateObraTotals()">
-        <input class="oi-sub" type="number" step="0.01" value="${it.subtotal ?? ((+it.cantidad||0)*(+it.unitario||0))}" oninput="updateObraTotals(true)">
-        <button type="button" class="btn-icon" onclick="removeObraItem(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
-        <input class="oi-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas del ítem" style="grid-column:1 / -1">
-      </div>`).join('')}`;
-  updateObraTotals();
-};
-window.collectObraItems = () => {
-  return [...document.querySelectorAll('.obra-item-row')].map(row => {
-    const cantidad = moneyInput(row.querySelector('.oi-cant')?.value);
-    const unitario = moneyInput(row.querySelector('.oi-unit')?.value);
-    const subtotalManual = moneyInput(row.querySelector('.oi-sub')?.value);
-    const subtotal = subtotalManual || cantidad * unitario;
-    return { descripcion: row.querySelector('.oi-desc')?.value.trim() || '', cantidad, unitario, subtotal, observaciones: row.querySelector('.oi-obs')?.value.trim() || '' };
-  }).filter(it => it.descripcion || it.subtotal || it.unitario);
-};
-window.updateObraTotals = (manual=false) => {
-  document.querySelectorAll('.obra-item-row').forEach(row => {
-    const cant = moneyInput(row.querySelector('.oi-cant')?.value);
-    const unit = moneyInput(row.querySelector('.oi-unit')?.value);
-    const sub = row.querySelector('.oi-sub');
-    if (sub && !manual && document.activeElement !== sub) sub.value = Math.round(cant * unit * 100) / 100;
-  });
-  const total = collectObraItems().reduce((a,it)=>a+(+it.subtotal||0),0);
-  const totalEl = document.getElementById('obra-items-total');
-  if (totalEl) totalEl.textContent = fmtPesoObra(total);
-  const neto = document.getElementById('f-neto');
-  if (neto && total > 0 && (!neto.value || +neto.value===0)) neto.value = Math.round(total);
-};
-
-window.addCalculoAux = () => {
-  window.calculosAuxiliares = collectCalculosAux();
-  window.calculosAuxiliares.push({concepto:'', detalle:'', cantidad:1, unidad:'', precioUnitario:0, total:0, observaciones:''});
-  renderCalculosAux();
-};
-window.removeCalculoAux = idx => {
-  window.calculosAuxiliares = collectCalculosAux();
-  window.calculosAuxiliares.splice(idx,1);
-  renderCalculosAux();
-};
-window.renderCalculosAux = () => {
-  const wrap = document.getElementById('obra-calculos-list');
-  if (!wrap) return;
-  const items = window.calculosAuxiliares || [];
-  wrap.innerHTML = `
-    <div style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
-      <span>Concepto</span><span>Detalle</span><span>Cant.</span><span>Unidad</span><span>$ Unit.</span><span>Total</span><span></span>
-    </div>
-    ${items.map((it,i)=>`
-      <div class="calc-aux-row" data-idx="${i}" style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:6px;align-items:center">
-        <input class="ca-concepto" value="${(it.concepto||'').replace(/"/g,'&quot;')}" placeholder="Material/horas/etc" oninput="updateCalculosTotals()">
-        <input class="ca-detalle" value="${(it.detalle||'').replace(/"/g,'&quot;')}" placeholder="Detalle del cálculo" oninput="updateCalculosTotals()">
-        <input class="ca-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateCalculosTotals()">
-        <input class="ca-unidad" value="${(it.unidad||'').replace(/"/g,'&quot;')}" placeholder="m2/hs/u">
-        <input class="ca-unit" type="number" step="0.01" value="${it.precioUnitario ?? 0}" oninput="updateCalculosTotals()">
-        <input class="ca-total" type="number" step="0.01" value="${it.total ?? ((+it.cantidad||0)*(+it.precioUnitario||0))}" oninput="updateCalculosTotals(true)">
-        <button type="button" class="btn-icon" onclick="removeCalculoAux(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
-        <input class="ca-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas" style="grid-column:1 / -1">
-      </div>`).join('') || `<div style="font-size:12px;color:var(--text3);padding:8px 0">Sin cálculos auxiliares cargados todavía.</div>`}`;
-  updateCalculosTotals();
-};
-window.collectCalculosAux = () => {
-  return [...document.querySelectorAll('.calc-aux-row')].map(row => {
-    const cantidad = moneyInput(row.querySelector('.ca-cant')?.value);
-    const precioUnitario = moneyInput(row.querySelector('.ca-unit')?.value);
-    const totalManual = moneyInput(row.querySelector('.ca-total')?.value);
-    const total = totalManual || cantidad * precioUnitario;
-    return { concepto: row.querySelector('.ca-concepto')?.value.trim() || '', detalle: row.querySelector('.ca-detalle')?.value.trim() || '', cantidad, unidad: row.querySelector('.ca-unidad')?.value.trim() || '', precioUnitario, total, observaciones: row.querySelector('.ca-obs')?.value.trim() || '' };
-  }).filter(it => it.concepto || it.detalle || it.total || it.precioUnitario);
-};
-window.updateCalculosTotals = (manual=false) => {
-  document.querySelectorAll('.calc-aux-row').forEach(row => {
-    const cant = moneyInput(row.querySelector('.ca-cant')?.value);
-    const unit = moneyInput(row.querySelector('.ca-unit')?.value);
-    const total = row.querySelector('.ca-total');
-    if (total && !manual && document.activeElement !== total) total.value = Math.round(cant * unit * 100) / 100;
-  });
-  const total = collectCalculosAux().reduce((a,it)=>a+(+it.total||0),0);
-  const el = document.getElementById('obra-calculos-total');
-  if (el) el.textContent = fmtPesoObra(total);
-};
-
-function nextClienteNumero() {
-  const nums = window.DB.clientes.map(c => parseInt(String(c.numeroCliente || c.numero || '').replace(/\D/g,''),10)).filter(n => n>0);
-  return 'CLI-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4,'0');
-}
-
 window.saveObra = async () => {
-  const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
+  // Leer anotaciones por sector
+  const sectorKeys = {
+    'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'
+  };
   const notas_sector = {};
   const existingId = window.editingId.obra;
   const existing = existingId ? window.DB.obras.find(x=>x.id===existingId) : null;
   const existingNotas = existing?.notas_sector || {};
+
   Object.entries(sectorKeys).forEach(([sec, key]) => {
     const el = document.getElementById('nota-'+key);
     const newVal = el ? el.value.trim() : '';
     const oldVal = existingNotas[sec] || '';
     notas_sector[sec] = newVal;
-    notas_sector[sec+'_ts'] = (newVal !== oldVal && newVal) ? new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : (existingNotas[sec+'_ts'] || '');
+    // Si cambió, actualizar timestamp
+    if (newVal !== oldVal && newVal) {
+      notas_sector[sec+'_ts'] = new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    } else {
+      notas_sector[sec+'_ts'] = existingNotas[sec+'_ts'] || '';
+    }
   });
-  const itemsCotizados = collectObraItems();
-  const calculosAuxiliares = collectCalculosAux();
-  const totalItems = itemsCotizados.reduce((a,it)=>a+(+it.subtotal||0),0);
+
   const data = {
-    ot: document.getElementById('f-ot').value.trim(), sector: document.getElementById('f-sector').value,
-    desc: document.getElementById('f-desc').value.trim(), cliente: document.getElementById('f-cliente').value.trim(),
-    vendedor: document.getElementById('f-vendedor').value, estado: document.getElementById('f-estado').value,
-    semana: +document.getElementById('f-semana').value||0, neto: +document.getElementById('f-neto').value||totalItems||0,
-    bruto: +document.getElementById('f-bruto').value||0, gastos: +document.getElementById('f-gastos').value||0,
-    fprod_c: document.getElementById('f-fprod-c').value.trim(), fprod_r: document.getElementById('f-fprod-r').value.trim(),
-    fcol_c: document.getElementById('f-fcol-c').value.trim(), fcol_r: document.getElementById('f-fcol-r').value.trim(),
-    oc: document.getElementById('f-oc').value.trim(), nrfc: document.getElementById('f-nrfc').value.trim(), ffc: document.getElementById('f-ffc').value.trim(),
-    cobr: document.getElementById('f-cobr').value, diasPago: +document.getElementById('f-dias-pago').value||0,
-    comentarios: document.getElementById('f-comentarios').value.trim(), notas_sector,
-    itemsCotizados, calculosAuxiliares, totalItems,
-    validacionCotizacion: window.analizaCotizacionMinimaTIZ ? window.analizaCotizacionMinimaTIZ({cliente:getValue('f-cliente'), desc:getValue('f-desc'), comentarios:getValue('f-comentarios'), sector:getValue('f-sector'), estado:getValue('f-estado'), neto:+getValue('f-neto')||totalItems||0, itemsCotizados, calculosAuxiliares}) : null,
-    totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
-    checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
-      historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
-      alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
-      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
+    ot: document.getElementById('f-ot').value.trim(),
+    sector: document.getElementById('f-sector').value,
+    desc: document.getElementById('f-desc').value.trim(),
+    cliente: document.getElementById('f-cliente').value.trim(),
+    vendedor: document.getElementById('f-vendedor').value,
+    estado: document.getElementById('f-estado').value,
+    semana: +document.getElementById('f-semana').value||0,
+    neto: +document.getElementById('f-neto').value||0,
+    bruto: +document.getElementById('f-bruto').value||0,
+    gastos: +document.getElementById('f-gastos').value||0,
+    fprod_c: document.getElementById('f-fprod-c').value.trim(),
+    fprod_r: document.getElementById('f-fprod-r').value.trim(),
+    fcol_c: document.getElementById('f-fcol-c').value.trim(),
+    fcol_r: document.getElementById('f-fcol-r').value.trim(),
+    oc: document.getElementById('f-oc').value.trim(),
+    nrfc: document.getElementById('f-nrfc').value.trim(),
+    ffc: document.getElementById('f-ffc').value.trim(),
+    cobr: document.getElementById('f-cobr').value,
+    comentarios: document.getElementById('f-comentarios').value.trim(),
+    notas_sector,
   };
   if (!data.desc) { showToast('Ingresá una descripción'); return; }
-  let docRefId = existingId;
   if (existingId) await updateDoc_('obras', existingId, data);
-  else { const ref = await addDoc_('obras', data); docRefId = ref?.id || null; }
-  try {
-    const syncResult = await syncToSheets({...data, firestoreId: docRefId});
-    if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-      const links = { driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '', driveSyncedAt: new Date().toISOString() };
-      if (docRefId) await updateDoc_('obras', docRefId, links);
-      if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Obra aprobada: carpeta Drive creada ✓');
-    } else if (String(data.estado || '').toLowerCase() === 'aprobado') {
-      showToast('Obra aprobada');
-    }
-  } catch(e) { console.warn('No se pudo sincronizar Drive/Sheets:', e); }
-  closeModal('obra'); showToast(existingId ? 'Obra actualizada' : 'Obra guardada');
+  else await addDoc_('obras', data);
+  // Sync a Google Sheets
+  syncToSheets(data);
+  closeModal('obra');
+  showToast(existingId ? 'Obra actualizada ✓ Sheets' : 'Obra guardada ✓ Sheets');
 };
 
 window.saveCliente = async () => {
-  const numeroCliente = document.getElementById('fc-numero')?.value || nextClienteNumero();
   const data = {
-    numeroCliente,
     nombre: document.getElementById('fc-nombre').value.trim(),
     cuit: document.getElementById('fc-cuit').value.trim(),
     contacto: document.getElementById('fc-contacto').value.trim(),
@@ -2181,17 +1840,11 @@ window.saveCliente = async () => {
   if(!data.nombre){showToast('Ingresá un nombre');return;}
   const id = window.editingId.cliente;
   if(id) await updateDoc_('clientes',id,data); else await addDoc_('clientes',data);
-  const fCliente = document.getElementById('f-cliente');
-  if (fCliente && document.getElementById('modal-obra')?.classList.contains('open')) fCliente.value = data.nombre;
-  const ppCliente = document.getElementById('pp-cliente');
-  if (ppCliente && document.getElementById('modal-prespdf')?.classList.contains('open')) ppCliente.value = data.nombre;
   window.editingId.cliente=null;
-  closeModal('cliente'); showToast(`Cliente ${numeroCliente} guardado`);
+  closeModal('cliente'); showToast('Cliente guardado');
 };
 
 window.savePresupuesto = async () => {
-  const id = window.editingId.presupuesto;
-  const existing = id ? window.DB.presupuestos.find(x => x.id === id) : null;
   const data = {
     nro: document.getElementById('fp-nro').value.trim(),
     vendedor: document.getElementById('fp-vend').value,
@@ -2201,46 +1854,9 @@ window.savePresupuesto = async () => {
     fecha: document.getElementById('fp-fecha').value.trim(),
     estado: document.getElementById('fp-estado').value,
     comentarios: document.getElementById('fp-comentarios').value.trim(),
-    driveFolderUrl: existing?.driveFolderUrl || '',
-    otSheetUrl: existing?.otSheetUrl || '',
   };
-  if (!data.desc) { showToast('Ingresá una descripción'); return; }
-  let docRefId = id;
-  if(id) await updateDoc_('presupuestos',id,data); else { const ref = await addDoc_('presupuestos',data); docRefId = ref?.id || null; }
-
-  // Si el presupuesto queda Aprobado, también debe generar carpeta OT y respaldo.
-  // Lo enviamos al mismo backend que usa Obras, pero adaptando campos del presupuesto.
-  if (String(data.estado || '').toLowerCase() === 'aprobado') {
-    try {
-      const otPayload = {
-        ...data,
-        ot: data.nro,
-        neto: data.importe,
-        totalItems: data.importe,
-        sector: data.sector || 'Ventas',
-        itemsCotizados: data.itemsCotizados || [{ descripcion: data.desc, cantidad: 1, unidad: 'u', unitario: data.importe, subtotal: data.importe, observaciones: 'Generado desde Presupuestos' }],
-        calculosAuxiliares: data.calculosAuxiliares || [],
-        firestoreId: docRefId,
-        origen: 'presupuesto'
-      };
-      const syncResult = await syncToSheets(otPayload);
-      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-        const links = {
-          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
-          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
-          driveSyncedAt: new Date().toISOString()
-        };
-        if (docRefId) await updateDoc_('presupuestos', docRefId, links);
-        showToast('Presupuesto aprobado: carpeta OT creada');
-      } else {
-        showToast('Presupuesto aprobado y guardado');
-      }
-    } catch(e) {
-      console.warn('No se pudo crear carpeta OT desde presupuesto:', e);
-      showToast('Presupuesto aprobado y guardado');
-    }
-  }
-
+  const id = window.editingId.presupuesto;
+  if(id) await updateDoc_('presupuestos',id,data); else await addDoc_('presupuestos',data);
   window.editingId.presupuesto=null;
   closeModal('presupuesto'); showToast('Presupuesto guardado');
 };
@@ -2293,48 +1909,6 @@ window.setTareaTab = (tab, el) => {
   document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   renderTareas();
-};
-
-
-// ============================================================
-// PRESUPUESTO COMPLETO DESDE PÁGINA PRESUPUESTOS
-// ============================================================
-window.abrirNuevoPresupuestoCompleto = () => {
-  window.editingId.presupuesto = null;
-  window.editingId.obra = null;
-  window._presupuestoOrigen = 'presupuestos';
-  const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0).filter(n=>n>0);
-  const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
-  const maxNro = Math.max(0, ...presNros, ...otNros);
-  document.getElementById('pp-nro').value = (maxNro+1).toString().padStart(4,'0');
-  document.getElementById('pp-cliente').value = '';
-  document.getElementById('pp-desc').value = '';
-  document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
-  document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
-  document.getElementById('pp-validez').value = '7';
-  window.ppItems = [{desc:'', precio:0, cant:1}];
-  renderPPItems();
-  document.getElementById('modal-prespdf').classList.add('open');
-};
-
-window.guardarPresupuestoCompleto = async () => {
-  const nro = document.getElementById('pp-nro').value.trim() || '0000';
-  const cliente = document.getElementById('pp-cliente').value.trim();
-  const descGeneral = document.getElementById('pp-desc').value.trim();
-  const nota = document.getElementById('pp-nota').value.trim();
-  const cond = document.getElementById('pp-condicion').value.trim();
-  const hoy = new Date().toLocaleDateString('es-AR');
-  const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
-  const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
-  if (!cliente) { showToast('Falta cargar el cliente'); return; }
-  if (!items.length) { showToast('Agregá al menos un ítem'); return; }
-  await addDoc_('presupuestos', {
-    nro, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
-    importe: total, fecha: hoy, estado: 'Pendiente',
-    nota, cond, items, creadoPor: window.currentUser?.email || '', obraId: ''
-  });
-  document.getElementById('modal-prespdf').classList.remove('open');
-  showToast('Presupuesto guardado con ítems');
 };
 
 // ============================================================
@@ -2448,8 +2022,9 @@ window.generarPDF = async () => {
   const html = `<div style="font-family:'Arial',sans-serif;max-width:800px;margin:0 auto;color:#222">
     <table style="width:100%;margin-bottom:20px"><tr>
       <td style="width:200px;vertical-align:top">
-        <div style="background:#000;padding:10px 14px;border-radius:8px;display:inline-block">
-          <img src="assets/tiz-logo-presupuesto.png" alt="TIZ Publicidad" style="display:block;width:118px;height:auto;object-fit:contain">
+        <div style="background:#1a1a1a;padding:14px 16px;border-radius:8px;display:inline-block">
+          <div style="font-size:28px;font-weight:900;color:#e8b84b;letter-spacing:-1px;line-height:1">TIZ</div>
+          <div style="font-size:9px;color:#888;letter-spacing:.15em;margin-top:2px">PUBLICIDAD</div>
         </div>
         <div style="margin-top:10px;font-size:10px;color:#555;line-height:1.7">
           <div>📞 11-3479-9737</div><div>✉️ info@tizpublicidad.com</div>
@@ -2517,27 +2092,7 @@ window.generarPDF = async () => {
       .btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
       .hint{font-size:11px;color:#888;margin-left:auto}
       @media print{.toolbar{display:none}body{margin:0;padding:20px}@page{margin:1cm}}
-    
-/* V4.3 — presupuesto completo desde página Presupuestos */
-#modal-prespdf .modal { max-width: 920px !important; width: calc(100vw - 80px); }
-#modal-presupuesto { display: none !important; }
-#pp-clientes-dropdown .cli-option:last-child { background: rgba(232,184,75,.08); }
-@media (max-width: 900px) { #modal-prespdf .modal { width: calc(100vw - 24px); } }
-
-
-/* V5.8 — Alertas inteligentes / flujo por sector */
-.risk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:18px;padding:3px 8px;font-size:10px;font-weight:600}
-.risk-ok{background:rgba(76,175,125,.14);color:var(--green)}
-.risk-warn{background:rgba(232,160,32,.15);color:var(--amber)}
-.risk-danger{background:rgba(224,92,92,.16);color:var(--red)}
-.alert-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px}
-.alert-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
-.checklist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.check-item{display:flex;gap:7px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;color:var(--text2)}
-.check-item input{width:14px;height:14px}
-@media(max-width:900px){.checklist-grid{grid-template-columns:1fr}}
-
-</style>
+    </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
     </head><body>
     ${html}
@@ -3018,15 +2573,23 @@ function renderEstCumplimiento() {
   } else { setTimeout(drawCharts,50); }
 }
 
-// // ============================================================
-// SINCRONIZACIÓN DRIVE / SHEETS DESACTIVADA
 // ============================================================
-// El ERP guarda normalmente en Firebase. La integración externa se
-// reconstruirá desde cero cuando la aplicación esté validada y estable.
+// SYNC CON GOOGLE SHEETS
+// ============================================================
+const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycby87k25AigT3MVUWWhp1vWWoqT5ICiWtUiFip1rCKgVpbX8V9bXAORs-p1B9t_bwwDR1A/exec';
+
 async function syncToSheets(data) {
-  return { ok: true, skipped: true, reason: 'Integración Drive desactivada' };
+  try {
+    await fetch(SHEETS_WEBHOOK, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch(e) {
+    console.log('Sheets sync error (no crítico):', e.message);
+  }
 }
-window.syncToSheets = syncToSheets;
 
 window.exportarCSV = () => {
   const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
@@ -3105,19 +2668,19 @@ window.sugerirClientes = (q) => {
 };
 
 window.nuevoClienteDesdeObra = (nombre) => {
+  // Cerrar dropdown
   cerrarSugerencias();
-  const nombreLimpio = (nombre || '').trim();
-  if (document.getElementById('f-cliente')) document.getElementById('f-cliente').value = nombreLimpio;
+  // Guardar el nombre en el campo de la obra por si vuelve
+  document.getElementById('f-cliente').value = nombre;
+  // Abrir modal de cliente con nombre precargado
   window.editingId.cliente = null;
-  const n = document.getElementById('fc-numero'); if (n) n.value = nextClienteNumero();
-  document.getElementById('fc-nombre').value = nombreLimpio;
+  document.getElementById('fc-nombre').value = nombre;
   document.getElementById('fc-cuit').value = '';
   document.getElementById('fc-contacto').value = '';
   document.getElementById('fc-cel').value = '';
   document.getElementById('fc-email').value = '';
-  document.getElementById('fc-notas').value = '';
+  // Abrir modal cliente encima del modal obra
   document.getElementById('modal-cliente').classList.add('open');
-  setTimeout(()=>document.getElementById('fc-nombre')?.focus(), 80);
 };
 
 window.resaltar = (texto, q) => {
@@ -3404,737 +2967,8 @@ window.refreshCurrent = function() {
   if (window.currentPage === 'estadistica') renderEstadistica();
 };
 
-
-// ============================================================
-// TIZ V5 — Ajustes finales: presupuesto unificado, cliente nuevo y Drive
-// ============================================================
-(function(){
-  window.TIZ_DRIVE_PARENT_FOLDER_ID = '1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh';
-
-  function escapeHtmlV5(s) {
-    return String(s || '').replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[ch]));
-  }
-  function normV5(s) { return String(s || '').trim().toLowerCase(); }
-  function nextPresupuestoNumeroV5() {
-    const presNros = (window.DB?.presupuestos || []).map(p=>parseInt(p.nro)||0).filter(n=>n>0);
-    const otNros = (window.DB?.obras || []).map(o=>parseInt(o.ot)||0).filter(n=>n>0);
-    return String(Math.max(0, ...presNros, ...otNros) + 1).padStart(4,'0');
-  }
-  function uniqueClientesV5() {
-    const byName = new Map();
-    (window.DB?.clientes || []).forEach(c => { if (c.nombre) byName.set(normV5(c.nombre), { nombre:c.nombre, cuit:c.cuit || '', numeroCliente:c.numeroCliente || c.numero || '', fuente:'clientes' }); });
-    (window.DB?.obras || []).forEach(o => { if (o.cliente && !byName.has(normV5(o.cliente))) byName.set(normV5(o.cliente), { nombre:o.cliente, cuit:'', numeroCliente:'', fuente:'obras' }); });
-    (window.DB?.presupuestos || []).forEach(p => { if (p.cliente && !byName.has(normV5(p.cliente))) byName.set(normV5(p.cliente), { nombre:p.cliente, cuit:'', numeroCliente:'', fuente:'presupuestos' }); });
-    return [...byName.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  }
-  function jsQuoteV5(s){ return String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' '); }
-  window._clienteReturnTarget = null;
-
-  window.openClienteNuevoV5 = function(nombre, target){
-    window._clienteReturnTarget = target || 'obra';
-    window.editingId.cliente = null;
-    const num = typeof nextClienteNumero === 'function' ? nextClienteNumero() : '';
-    const ids = ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'];
-    if (document.getElementById('fc-numero')) document.getElementById('fc-numero').value = num;
-    if (document.getElementById('fc-nombre')) document.getElementById('fc-nombre').value = nombre || '';
-    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    document.getElementById('modal-cliente')?.classList.add('open');
-  };
-
-  function renderClienteDropdownV5(q, inputId, ddId, target){
-    const dd = document.getElementById(ddId);
-    if (!dd) return;
-    if (!q || q.length < 1) { dd.style.display = 'none'; return; }
-    const ql = normV5(q);
-    const matches = uniqueClientesV5().filter(c => normV5(c.nombre).includes(ql)).slice(0, 10);
-    let html = matches.map(c => `
-      <div class="cli-option" onmousedown="document.getElementById('${inputId}').value='${jsQuoteV5(c.nombre)}';document.getElementById('${ddId}').style.display='none'">
-        <span>${escapeHtmlV5(c.nombre)}</span>
-        <span class="cli-option-sub">${c.numeroCliente ? 'Cliente ' + escapeHtmlV5(c.numeroCliente) + ' · ' : ''}${c.cuit ? 'CUIT: ' + escapeHtmlV5(c.cuit) : (c.fuente === 'clientes' ? 'Base de clientes' : 'Usado anteriormente')}</span>
-      </div>`).join('');
-    html += `<div class="cli-option" onmousedown="document.getElementById('${inputId}').value='${jsQuoteV5(q)}';document.getElementById('${ddId}').style.display='none';openClienteNuevoV5('${jsQuoteV5(q)}','${target}')" style="border-top:1px solid var(--border);color:var(--accent)">
-      <span>➕ Crear cliente nuevo: <strong>${escapeHtmlV5(q)}</strong></span>
-      <span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver a esta carga</span>
-    </div>`;
-    dd.innerHTML = html;
-    dd.style.display = 'block';
-  }
-
-  window.sugerirClientes = function(q){ renderClienteDropdownV5(q, 'f-cliente', 'clientes-dropdown', 'obra'); };
-  window.sugerirClientesPP = function(q){ renderClienteDropdownV5(q, 'pp-cliente', 'pp-clientes-dropdown', 'presupuesto'); };
-  window.nuevoClienteDesdeObra = nombre => openClienteNuevoV5(nombre, 'obra');
-  window.nuevoClienteDesdePresupuesto = nombre => openClienteNuevoV5(nombre, 'presupuesto');
-
-  const oldSaveClienteV5 = window.saveCliente;
-  window.saveCliente = async function(){
-    const nombre = document.getElementById('fc-nombre')?.value.trim() || '';
-    await oldSaveClienteV5();
-    if (!nombre) return;
-    if (window._clienteReturnTarget === 'presupuesto' && document.getElementById('pp-cliente')) {
-      document.getElementById('pp-cliente').value = nombre;
-      document.getElementById('modal-prespdf')?.classList.add('open');
-    }
-    if (window._clienteReturnTarget === 'obra' && document.getElementById('f-cliente')) {
-      document.getElementById('f-cliente').value = nombre;
-      document.getElementById('modal-obra')?.classList.add('open');
-    }
-    window._clienteReturnTarget = null;
-  };
-
-  window.abrirNuevoPresupuestoCompleto = function(){
-    window.editingId.presupuesto = null;
-    window.editingId.obra = null;
-    window._presupuestoOrigen = 'presupuestos';
-    document.getElementById('pp-nro').value = nextPresupuestoNumeroV5();
-    document.getElementById('pp-cliente').value = '';
-    document.getElementById('pp-desc').value = '';
-    document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
-    document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
-    document.getElementById('pp-validez').value = '7';
-    window.ppItems = [{desc:'', precio:0, cant:1}];
-    if (typeof renderPPItems === 'function') renderPPItems();
-    document.getElementById('modal-prespdf')?.classList.add('open');
-  };
-
-  window.abrirPresupuestoPDF = function(){
-    const obraId = window.editingId.obra;
-    const obra = obraId ? (window.DB.obras || []).find(x=>x.id===obraId) : null;
-    window._presupuestoOrigen = obra ? 'obra' : 'presupuestos';
-    document.getElementById('pp-nro').value = obra?.ot ? String(obra.ot).padStart(4,'0') : nextPresupuestoNumeroV5();
-    document.getElementById('pp-cliente').value = obra?.cliente || '';
-    document.getElementById('pp-desc').value = obra?.desc || '';
-    document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
-    document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
-    document.getElementById('pp-validez').value = '7';
-    const items = Array.isArray(obra?.itemsCotizados) && obra.itemsCotizados.length
-      ? obra.itemsCotizados.map(i => ({ desc:i.descripcion || i.desc || '', precio:+i.unitario || +i.precio || 0, cant:+i.cantidad || +i.cant || 1 }))
-      : [{ desc: obra?.desc || '', precio:+obra?.neto || 0, cant:1 }];
-    window.ppItems = items;
-    if (typeof renderPPItems === 'function') renderPPItems();
-    document.getElementById('modal-prespdf')?.classList.add('open');
-  };
-
-  window.editPres = function(id){
-    const p = (window.DB.presupuestos || []).find(x=>x.id===id);
-    if (!p) return;
-    window.editingId.presupuesto = id;
-    window.editingId.obra = p.obraId || null;
-    window._presupuestoOrigen = 'presupuestos';
-    document.getElementById('pp-nro').value = p.nro || '';
-    document.getElementById('pp-cliente').value = p.cliente || '';
-    document.getElementById('pp-desc').value = p.desc || '';
-    document.getElementById('pp-nota').value = p.nota || 'Los precios cotizados se encuentran a valores netos';
-    document.getElementById('pp-condicion').value = p.cond || 'Anticipo 50% Saldo a contraentrega';
-    document.getElementById('pp-validez').value = p.validezDias || 7;
-    window.ppItems = Array.isArray(p.items) && p.items.length ? p.items.map(i=>({ desc:i.desc || i.descripcion || '', precio:+i.precio || +i.unitario || 0, cant:+i.cant || +i.cantidad || 1 })) : [{desc:p.desc||'', precio:+p.importe||0, cant:1}];
-    if (typeof renderPPItems === 'function') renderPPItems();
-    document.getElementById('modal-prespdf')?.classList.add('open');
-  };
-  // Integración Drive desactivada: se conserva el guardado en Firebase.
-
-})();
-
-
-
-
-// ============================================================
-// V5.2 — Presupuestos usan el mismo formulario completo de Obra
-// ============================================================
-(function(){
-  const ESTADOS_FULL = ['Enviado','En revisión','Presupuestado','Aprobado','En producción','Entregado','Facturado','Cobrado','Rechazado','Vencido'];
-
-  function todayAR(){
-    const d = new Date();
-    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
-  }
-  function nextPresNumV52(){
-    const presNros = (window.DB?.presupuestos || []).map(p=>parseInt(p.nro)||0).filter(n=>n>0);
-    const otNros = (window.DB?.obras || []).map(o=>parseInt(o.ot)||0).filter(n=>n>0);
-    return String(Math.max(0, ...presNros, ...otNros) + 1).padStart(4,'0');
-  }
-  function setValue(id, val){ const el=document.getElementById(id); if(el) el.value = val ?? ''; }
-  function getValue(id){ return (document.getElementById(id)?.value || '').trim(); }
-
-  window.ensureEstadoOptionsV52 = function(selected){
-    const sel = document.getElementById('f-estado');
-    if (!sel) return;
-    const actual = selected || sel.value || 'Presupuestado';
-    sel.innerHTML = ESTADOS_FULL.map(e => `<option>${e}</option>`).join('');
-    sel.value = ESTADOS_FULL.includes(actual) ? actual : 'Presupuestado';
-  };
-
-  window.clearObraFormV52 = function(defaultEstado){
-    ['f-ot','f-desc','f-cliente','f-semana','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-dias-pago','f-comentarios'].forEach(id=>setValue(id,''));
-    ['nota-produccion','nota-colocaciones','nota-diseno','nota-ventas','nota-compras'].forEach(id=>setValue(id,''));
-    setValue('f-sector','Ventas'); setValue('f-vendedor','G'); setValue('f-cobr','Pendiente');
-    ensureEstadoOptionsV52(defaultEstado || 'Presupuestado');
-    window.obraItems = [{descripcion:'', cantidad:1, unidad:'u', unitario:0, subtotal:0, observaciones:''}];
-    window.calculosAuxiliares = [{concepto:'Materiales', detalle:'', cantidad:1, unidad:'u', precioUnitario:0, total:0, observaciones:''}];
-    if (typeof renderObraItems === 'function') renderObraItems();
-    if (typeof renderCalculosAux === 'function') renderCalculosAux();
-    if (window.setChecklistV58) window.setChecklistV58({});
-  };
-
-  window.abrirNuevaObraV52 = function(){
-    window._obraModalOrigen = 'obras';
-    window.editingId.obra = null;
-    window.editingId.presupuesto = null;
-    clearObraFormV52('Presupuestado');
-    const t=document.getElementById('modal-obra-title'); if(t) t.textContent='Nueva obra';
-    openModal('obra');
-  };
-
-  window.abrirNuevoPresupuestoCompleto = function(){
-    window._obraModalOrigen = 'presupuestos';
-    window.editingId.obra = null;
-    window.editingId.presupuesto = null;
-    clearObraFormV52('Enviado');
-    setValue('f-ot', nextPresNumV52());
-    setValue('f-sector','Ventas');
-    const t=document.getElementById('modal-obra-title'); if(t) t.textContent='Nuevo presupuesto';
-    openModal('obra');
-  };
-
-  function fillObraFormFromData(d, titulo){
-    ensureEstadoOptionsV52(d.estado || 'Enviado');
-    setValue('f-ot', d.ot || d.nro || '');
-    setValue('f-sector', d.sector || 'Ventas');
-    setValue('f-desc', d.desc || '');
-    setValue('f-cliente', d.cliente || '');
-    setValue('f-vendedor', d.vendedor || 'G');
-    setValue('f-estado', d.estado || 'Enviado');
-    setValue('f-semana', d.semana || '');
-    setValue('f-neto', d.neto || d.importe || 0);
-    setValue('f-bruto', d.bruto || 0);
-    setValue('f-gastos', d.gastos || 0);
-    setValue('f-fprod-c', d.fprod_c || ''); setValue('f-fprod-r', d.fprod_r || '');
-    setValue('f-fcol-c', d.fcol_c || ''); setValue('f-fcol-r', d.fcol_r || '');
-    setValue('f-oc', d.oc || ''); setValue('f-nrfc', d.nrfc || ''); setValue('f-ffc', d.ffc || '');
-    setValue('f-cobr', d.cobr || 'Pendiente'); setValue('f-dias-pago', d.diasPago || '');
-    setValue('f-comentarios', d.comentarios || '');
-    if (window.setChecklistV58) window.setChecklistV58(d.checklist || {});
-    const ns=d.notas_sector||{};
-    setValue('nota-produccion', ns['Producción'] || ''); setValue('nota-colocaciones', ns['Colocaciones'] || '');
-    setValue('nota-diseno', ns['Diseño'] || ''); setValue('nota-ventas', ns['Ventas'] || ''); setValue('nota-compras', ns['Compras'] || '');
-    const rawItems = d.itemsCotizados || d.items || [];
-    window.obraItems = rawItems.length ? rawItems.map(i=>({
-      descripcion: i.descripcion || i.desc || '',
-      cantidad: +i.cantidad || +i.cant || 1,
-      unidad: i.unidad || 'u',
-      unitario: +i.unitario || +i.precio || 0,
-      subtotal: +i.subtotal || ((+i.cantidad || +i.cant || 1) * (+i.unitario || +i.precio || 0)),
-      observaciones: i.observaciones || ''
-    })) : [{descripcion:d.desc||'', cantidad:1, unidad:'u', unitario:+(d.neto||d.importe||0), subtotal:+(d.neto||d.importe||0), observaciones:''}];
-    window.calculosAuxiliares = (d.calculosAuxiliares || []).length ? d.calculosAuxiliares : [{concepto:'Materiales', detalle:'', cantidad:1, unidad:'u', precioUnitario:0, total:0, observaciones:''}];
-    if (typeof renderObraItems === 'function') renderObraItems();
-    if (typeof renderCalculosAux === 'function') renderCalculosAux();
-    const t=document.getElementById('modal-obra-title'); if(t) t.textContent=titulo || 'Editar';
-  }
-
-  const oldEditObra = window.editObra;
-  window.editObra = function(id){
-    window._obraModalOrigen = 'obras';
-    const o=(window.DB.obras||[]).find(x=>x.id===id);
-    if(!o && oldEditObra) return oldEditObra(id);
-    window.editingId.obra=id; window.editingId.presupuesto=null;
-    fillObraFormFromData(o, 'Editar obra');
-    openModal('obra');
-  };
-
-  window.editPres = function(id){
-    const p=(window.DB.presupuestos||[]).find(x=>x.id===id);
-    if(!p) return;
-    window._obraModalOrigen = 'presupuestos';
-    window.editingId.presupuesto = id;
-    window.editingId.obra = p.obraId || null;
-    const obra = p.obraId ? (window.DB.obras||[]).find(o=>o.id===p.obraId) : null;
-    fillObraFormFromData(obra ? {...obra, ...p, ot: obra.ot || p.nro, estado: p.estado || obra.estado} : p, 'Editar presupuesto');
-    openModal('obra');
-  };
-
-  window.saveObra = async function(){
-    const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
-    const notas_sector = {};
-    const existingId = window.editingId.obra;
-    const existing = existingId ? (window.DB.obras||[]).find(x=>x.id===existingId) : null;
-    const existingNotas = existing?.notas_sector || {};
-    Object.entries(sectorKeys).forEach(([sec, key]) => {
-      const newVal = getValue('nota-'+key);
-      const oldVal = existingNotas[sec] || '';
-      notas_sector[sec] = newVal;
-      notas_sector[sec+'_ts'] = (newVal !== oldVal && newVal) ? new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : (existingNotas[sec+'_ts'] || '');
-    });
-    const itemsCotizados = typeof collectObraItems === 'function' ? collectObraItems() : [];
-    const calculosAuxiliares = typeof collectCalculosAux === 'function' ? collectCalculosAux() : [];
-    const totalItems = itemsCotizados.reduce((a,it)=>a+(+it.subtotal||0),0);
-    const estado = getValue('f-estado') || 'Enviado';
-    const data = {
-      ot: getValue('f-ot'), sector: getValue('f-sector') || 'Ventas', desc: getValue('f-desc'), cliente: getValue('f-cliente'),
-      vendedor: getValue('f-vendedor') || 'G', estado,
-      semana: +getValue('f-semana')||0, neto: +getValue('f-neto')||totalItems||0,
-      bruto: +getValue('f-bruto')||0, gastos: +getValue('f-gastos')||0,
-      fprod_c: getValue('f-fprod-c'), fprod_r: getValue('f-fprod-r'), fcol_c: getValue('f-fcol-c'), fcol_r: getValue('f-fcol-r'),
-      oc: getValue('f-oc'), nrfc: getValue('f-nrfc'), ffc: getValue('f-ffc'), cobr: getValue('f-cobr') || 'Pendiente', diasPago: +getValue('f-dias-pago')||0,
-      comentarios: getValue('f-comentarios'), notas_sector, itemsCotizados, calculosAuxiliares, totalItems,
-      totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
-      checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
-      historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
-      alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
-      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
-      origen: window._obraModalOrigen || 'obras'
-    };
-    if (!data.desc) { showToast('Ingresá una descripción'); return; }
-    if (!data.cliente) { showToast('Ingresá o creá un cliente'); return; }
-    let docRefId = existingId;
-    if (existingId) await window.updateDoc_('obras', existingId, data);
-    else { const ref = await window.addDoc_('obras', data); docRefId = ref?.id || null; }
-
-    if (String(data.estado||'').toLowerCase()==='aprobado' && !existing?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) {
-      await window.crearTareasAutomaticasV58({...data, id: docRefId});
-      if (docRefId) await window.updateDoc_('obras', docRefId, { autoTasksCreatedAt: new Date().toISOString() });
-    }
-
-    // Si vino desde Presupuestos, también se guarda/actualiza la ficha de presupuesto.
-    if (window._obraModalOrigen === 'presupuestos') {
-      const presData = {
-        nro: data.ot || nextPresNumV52(), obraId: docRefId || '', vendedor: data.vendedor,
-        cliente: data.cliente, desc: data.desc, importe: data.neto || totalItems || 0,
-        fecha: todayAR(), estado: data.estado, comentarios: data.comentarios,
-        items: itemsCotizados.map(i=>({desc:i.descripcion, cant:i.cantidad, precio:i.unitario, subtotal:i.subtotal})),
-        driveFolderUrl: data.driveFolderUrl || '', otSheetUrl: data.otSheetUrl || ''
-      };
-      if (window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, presData);
-      else {
-        const refP = await window.addDoc_('presupuestos', presData);
-        window.editingId.presupuesto = refP?.id || null;
-      }
-    }
-
-    try {
-      const syncResult = await syncToSheets({...data, firestoreId: docRefId});
-      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-        const links = { driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '', driveSyncedAt: new Date().toISOString() };
-        if (docRefId) await window.updateDoc_('obras', docRefId, links);
-        if (window._obraModalOrigen === 'presupuestos' && window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, links);
-        if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Aprobado: carpeta Drive creada ✓');
-      } else if (String(data.estado || '').toLowerCase() === 'aprobado') {
-        showToast('Aprobado y guardado');
-      }
-    } catch(e) { console.warn('No se pudo sincronizar Drive/Sheets:', e); }
-    closeModal('obra');
-    window.editingId.obra=null; window.editingId.presupuesto=null; window._obraModalOrigen='obras';
-    showToast('Guardado');
-  };
-
-  // Botones viejos que llamen openModal('presupuesto') quedan anulados: abren el formulario completo.
-  const oldOpenModal = window.openModal;
-  window.openModal = function(name){
-    if (name === 'presupuesto') return window.abrirNuevoPresupuestoCompleto();
-    return oldOpenModal ? oldOpenModal(name) : document.getElementById('modal-'+name)?.classList.add('open');
-  };
-})();
-
-
-
-
-
-// ============================================================
-// V7.2 — Calidad mínima de cotización + reparación masiva de carpetas OT
-// ============================================================
-(function(){
-  const SPECIFIC_IRON_RE = /(20x20|30x30|40x40|50x50|60x40|80x40|100x50|tubo|cañ[oó]n?|perfil|ipe|upn|angulo|ángulo|planchuela|calibre|espesor)/i;
-  const LED_TYPE_RE = /(m[oó]dulo|5050|5054|2835|ne[oó]n|tira led|pixel|lupa|fuente|driver|12v|24v|220v)/i;
-  const MATERIAL_RE = /(acr[ií]lico|pvc|chapa|aluminio|acm|mdf|hierro|lona|vinilo|polyfan|polifan|pintura|tela|backlight)/i;
-  const MEASURE_RE = /\b\d+(?:[\.,]\d+)?\s*(m|mt|mts|cm|mm|x)\b/i;
-  const ALTO_RE = /(alto|altura|h\s*:|h=|\b\d+(?:[\.,]\d+)?\s*(m|cm)\s*(de\s*)?alto)/i;
-  const PROF_RE = /(profundidad|prof\.|faja|lateral|espesor|canto|saliente|retorno)/i;
-  const COLOC_RE = /(colocaci[oó]n|instalaci[oó]n|montaje|retira|sin colocar|con colocar|incluye coloc)/i;
-  const PRINT_RE = /(vinilo|lona|impresi[oó]n|laminado|backlight|microperforado|electrost[aá]tico)/i;
-  const STAND_RE = /(stand|t[oó]tem|totem|corp[oó]reo|escenograf|pantalla|piso|dep[oó]sito|counter)/i;
-
-  function normTxt(v){ return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-  function allQuoteText(data){
-    const items = data.itemsCotizados || data.items || [];
-    const calcs = data.calculosAuxiliares || [];
-    return [data.desc, data.comentarios, data.sector, ...(items||[]).map(i=>[i.descripcion,i.desc,i.observaciones].join(' ')), ...(calcs||[]).map(c=>[c.concepto,c.detalle,c.observaciones].join(' '))].join(' ');
-  }
-  function add(level, campo, msg, sugerencia, arr){ arr.push({level, campo, msg, sugerencia}); }
-
-  window.analizaCotizacionMinimaTIZ = function(data){
-    const problemas=[];
-    const txtRaw = allQuoteText(data);
-    const txt = normTxt(txtRaw);
-    const items = data.itemsCotizados || data.items || [];
-    const calcs = data.calculosAuxiliares || [];
-    const hasItems = Array.isArray(items) && items.some(i => String(i.descripcion||i.desc||'').trim());
-    const hasCalcs = Array.isArray(calcs) && calcs.some(c => String(c.detalle||c.concepto||'').trim());
-
-    if (!String(data.cliente||'').trim()) add('grave','Cliente','Falta cliente.','Cargar cliente antes de aprobar.',problemas);
-    if (!String(data.desc||'').trim()) add('grave','Descripción','Falta descripción general.','Agregar qué se fabrica y para dónde.',problemas);
-    if (!hasItems) add('grave','Ítems','No hay ítems cotizados.','Agregar al menos un renglón con descripción e importe.',problemas);
-    if (!MEASURE_RE.test(txtRaw)) add('media','Medidas','No se detectaron medidas.','Indicar ancho x alto, y profundidad si corresponde.',problemas);
-    if (!MATERIAL_RE.test(txtRaw)) add('media','Materiales','No se detectó material principal.','Ej: hierro, chapa, PVC, acrílico, ACM, lona, vinilo, MDF.',problemas);
-
-    if (/estructura\s+de\s+hierro|hierro|herrer/i.test(txtRaw)) {
-      if (!SPECIFIC_IRON_RE.test(txtRaw)) add('grave','Hierro','Dice estructura/hierro, pero no especifica tipo de perfil.','Elegir base: 20x20, 30x30, 40x40, 60x40, chapa/calibre o “estimar por obra similar”.',problemas);
-    }
-    if (/letra|corp[oó]rea|corporea/i.test(txtRaw)) {
-      if (!ALTO_RE.test(txtRaw) && !MEASURE_RE.test(txtRaw)) add('grave','Letras','Dice letras corpóreas, pero no indica alto/medida.','Cargar alto de letra o medida total.',problemas);
-      if (!PROF_RE.test(txtRaw)) add('media','Letras','No se indica profundidad/faja/lateral.','Ej: faja 8 cm, lateral chapa, contraletra PVC.',problemas);
-      if (!/(retro|ilumin|sin\s+ilumin|no\s+ilumin|led)/i.test(txtRaw)) add('grave','Iluminación','No indica si las letras son iluminadas o sin iluminación.','Marcar: retroiluminadas por módulos LED, frente iluminado, neón flexible o sin iluminación.',problemas);
-    }
-    if (/(ilumin|led|retro|ne[oó]n)/i.test(txtRaw) && !LED_TYPE_RE.test(txtRaw)) {
-      add('media','LED','Menciona iluminación/LED, pero no el tipo.','Ej: módulos LED, tira 2835, neón flexible, fuente 12V/24V.',problemas);
-    }
-    if (/(marquesina|cartel iluminado|backlight|caj[oó]n)/i.test(txtRaw)) {
-      if (!MEASURE_RE.test(txtRaw)) add('grave','Marquesina/cartel','Faltan medidas principales.','Cargar ancho x alto y profundidad si es cajón.',problemas);
-      if (!/(frente|lona|backlight|acr[ií]lico|chapa|acm|vinilo|tela)/i.test(txtRaw)) add('media','Frente','No queda claro el frente/revestimiento.','Ej: lona backlight, acrílico, chapa, ACM, vinilo impreso.',problemas);
-    }
-    if (PRINT_RE.test(txtRaw) && !/(laminado|brillo|mate|backlight|alta\s*resoluci[oó]n|uv|eco|solvente)/i.test(txtRaw)) {
-      add('baja','Impresión','Hay impresión/vinilo/lona pero falta terminación.','Agregar si lleva laminado, backlight, UV, brillo/mate, etc.',problemas);
-    }
-    if (STAND_RE.test(txtRaw)) {
-      if (!MEASURE_RE.test(txtRaw)) add('media','Stand/tótems','Faltan medidas generales.','Cargar ancho, alto, profundidad y cantidad de piezas.',problemas);
-      if (/pantalla/i.test(txtRaw) && !/(led|tv|cliente|incluida|no\s+incluida|provista)/i.test(txtRaw)) add('media','Pantalla','Menciona pantalla, pero no aclara si la provee TIZ o cliente.','Indicar pantalla incluida/no incluida y medida.',problemas);
-    }
-    if (!COLOC_RE.test(txtRaw)) add('baja','Colocación','No se detecta si incluye colocación.','Indicar incluye colocación / retira cliente / cotizar aparte.',problemas);
-    if (!hasCalcs && (Number(data.neto||data.importe||0)>0)) add('baja','Cálculos auxiliares','No hay respaldo interno de cálculo.','Agregar al menos materiales/horas/flete/tercerizados estimados para que Producción entienda qué consideró Ventas.',problemas);
-
-    const graves = problemas.filter(p=>p.level==='grave').length;
-    const medias = problemas.filter(p=>p.level==='media').length;
-    const score = Math.max(0, 100 - graves*25 - medias*12 - problemas.filter(p=>p.level==='baja').length*5);
-    const estado = graves ? 'Insuficiente para producción' : medias ? 'Suficiente para enviar, revisar antes de producir' : 'Completa para generar OT';
-    return {ok: graves===0, score, estado, problemas};
-  };
-
-  window.renderValidacionCotizacionTIZ = function(data){
-    const box = document.getElementById('validacion-cotizacion-tiz');
-    if (!box || !window.analizaCotizacionMinimaTIZ) return;
-    const r = window.analizaCotizacionMinimaTIZ(data || window.buildObraDataPreviewTIZ?.() || {});
-    const color = r.problemas.some(p=>p.level==='grave') ? 'var(--red)' : r.problemas.length ? 'var(--amber)' : 'var(--green)';
-    box.style.display = 'block';
-    box.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:6px">
-      <strong style="color:${color}">${r.problemas.length?'⚠️ Cotización a revisar':'✅ Cotización completa'}</strong>
-      <span style="font-family:DM Mono,monospace;color:${color}">${r.score}/100</span>
-    </div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${r.estado}</div>
-    ${r.problemas.length ? `<div style="display:grid;gap:5px">${r.problemas.slice(0,8).map(p=>`<div style="font-size:11px;color:var(--text2)"><b style="color:${p.level==='grave'?'var(--red)':p.level==='media'?'var(--amber)':'var(--text3)'}">${p.level.toUpperCase()}</b> · ${p.msg}<br><span style="color:var(--text3)">${p.sugerencia}</span></div>`).join('')}</div>` : `<div style="font-size:11px;color:var(--text3)">Tiene los datos mínimos para que Producción, Compras y Clemen IA puedan avanzar.</div>`}`;
-  };
-
-  window.buildObraDataPreviewTIZ = function(){
-    const safe = id => document.getElementById(id)?.value || '';
-    return {cliente:safe('f-cliente'), desc:safe('f-desc'), comentarios:safe('f-comentarios'), sector:safe('f-sector'), estado:safe('f-estado'), neto:Number(safe('f-neto')||0), itemsCotizados:(typeof collectObraItems==='function'?collectObraItems():[]), calculosAuxiliares:(typeof collectCalculosAux==='function'?collectCalculosAux():[])};
-  };
-
-  function ensureValidationBox(){
-    if (document.getElementById('validacion-cotizacion-tiz')) return;
-    const modal = document.querySelector('#modal-obra .form-grid');
-    if (!modal) return;
-    const div = document.createElement('div');
-    div.className = 'form-group full';
-    div.innerHTML = `<label>Clemen IA — calidad de datos</label><div id="validacion-cotizacion-tiz" style="background:rgba(232,184,75,.08);border:1px solid var(--border2);border-radius:10px;padding:12px"></div>`;
-    const desc = document.getElementById('f-desc')?.closest('.form-group');
-    if (desc && desc.nextSibling) desc.parentNode.insertBefore(div, desc.nextSibling); else modal.insertBefore(div, modal.firstChild);
-    ['f-desc','f-cliente','f-sector','f-estado','f-comentarios','f-neto'].forEach(id => document.getElementById(id)?.addEventListener('input', () => window.renderValidacionCotizacionTIZ()));
-    document.getElementById('obra-items-list')?.addEventListener('input', () => window.renderValidacionCotizacionTIZ());
-    document.getElementById('obra-calculos-list')?.addEventListener('input', () => window.renderValidacionCotizacionTIZ());
-  }
-  const oldOpenModalQuality = window.openModal;
-  window.openModal = function(name){
-    const res = oldOpenModalQuality ? oldOpenModalQuality.apply(this, arguments) : undefined;
-    if (name === 'obra') setTimeout(()=>{ ensureValidationBox(); window.renderValidacionCotizacionTIZ(); }, 80);
-    return res;
-  };
-  const oldEditObraQuality = window.editObra;
-  window.editObra = function(id){
-    const res = oldEditObraQuality ? oldEditObraQuality.apply(this, arguments) : undefined;
-    setTimeout(()=>{ ensureValidationBox(); window.renderValidacionCotizacionTIZ(); }, 120);
-    return res;
-  };
-
-  window.repararCarpetasOTPendientes = async function(){ showToast('Integración con Drive temporalmente desactivada'); };
-
-  // En cada carga del dashboard/alertas agregamos el botón por si la vista fue regenerada.
-  setTimeout(()=>{ ensureValidationBox(); }, 1000);
-})();
-
-
-// ============================================================
-// V5.8 — Alertas inteligentes, checklist, historial y tareas automáticas
-// ============================================================
-window.collectChecklistV58 = function(){
-  const out = {};
-  document.querySelectorAll('#checklist-v58 input[data-check]').forEach(i => out[i.dataset.check] = !!i.checked);
-  return out;
-};
-window.setChecklistV58 = function(data){
-  document.querySelectorAll('#checklist-v58 input[data-check]').forEach(i => i.checked = !!(data && data[i.dataset.check]));
-};
-window.buildHistorialV58 = function(existing, nuevoEstado){
-  const h = Array.isArray(existing?.historial) ? [...existing.historial] : [];
-  const old = existing?.estado || '';
-  if (!existing) h.push({fecha:new Date().toISOString(), texto:'Obra/presupuesto creado', usuario:window.currentUser?.email||''});
-  if (old && old !== nuevoEstado) h.push({fecha:new Date().toISOString(), texto:`Estado cambió de ${old} a ${nuevoEstado}`, usuario:window.currentUser?.email||''});
-  if (!old && nuevoEstado) h.push({fecha:new Date().toISOString(), texto:`Estado inicial: ${nuevoEstado}`, usuario:window.currentUser?.email||''});
-  return h.slice(-40);
-};
-function fechaVencidaV58(f){
-  if (!f) return false;
-  const d = (typeof parseFecha === 'function' ? parseFecha(f) : parseDate(f));
-  if (!d) return false;
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  return d < hoy;
-}
-window.analizaObraV58 = function(o){
-  const problemas = [];
-  const estado = String(o.estado||'').toLowerCase();
-  const aprobada = ['aprobado','en producción','entregado','facturado','cobrado','cerrado'].includes(estado);
-  const activa = !['cobrado','cerrado','rechazado'].includes(estado);
-  
-  if (aprobada && !o.fprod_c) problemas.push('Falta fecha compromiso producción');
-  if (aprobada && !o.fcol_c && ['colocaciones','producción','ventas'].includes(String(o.sector||'').toLowerCase())) problemas.push('Falta fecha compromiso colocación');
-  if (!o.cliente) problemas.push('Falta cliente');
-  if ((+o.neto||+o.importe||0) > 0 && !(o.itemsCotizados||o.items||[]).length) problemas.push('Tiene precio pero no ítems cotizados');
-  if (fechaVencidaV58(o.fprod_c) && !o.fprod_r && activa) problemas.push('Producción vencida');
-  if (fechaVencidaV58(o.fcol_c) && !o.fcol_r && activa) problemas.push('Colocación vencida');
-  if (['facturado'].includes(estado) && String(o.cobr||'').toLowerCase() !== 'cobrado') problemas.push('Facturada pero pendiente de cobranza');
-  const chk = o.checklist || {};
-  if (aprobada && !chk.disenoAprobado && String(o.sector||'') !== 'Ventas') problemas.push('Falta marcar diseño aprobado');
-  if (aprobada && !chk.materialesCompletos && ['Producción','Compras'].includes(o.sector||'')) problemas.push('Falta marcar materiales completos');
-  if (window.analizaCotizacionMinimaTIZ) {
-    const q = window.analizaCotizacionMinimaTIZ(o);
-    (q.problemas||[]).filter(p=>p.level==='grave' || (aprobada && p.level==='media')).slice(0,6).forEach(p => problemas.push('Cotización incompleta: ' + p.msg));
-  }
-  let nivel = 'ok';
-  if (problemas.some(p=>/vencida|sin carpeta|Falta cliente/i.test(p))) nivel='danger';
-  else if (problemas.length) nivel='warn';
-  return {nivel, problemas};
-};
-window.renderAlertasV58 = function(){
-  const data = (window.DB.obras||[]).map(o=>({obra:o, r:window.analizaObraV58(o)})).filter(x=>x.r.nivel!=='ok');
-  const graves = data.filter(x=>x.r.nivel==='danger').length;
-  const medias = data.filter(x=>x.r.nivel==='warn').length;
-  const sinDrive = data.filter(x=>x.r.problemas.includes('OT aprobada sin carpeta Drive')).length;
-  const prodVenc = data.filter(x=>x.r.problemas.includes('Producción vencida')).length;
-  const k=document.getElementById('alertas-kpis');
-  if(k) k.innerHTML = `
-    <div class="kpi"><div class="kpi-label">Alertas graves</div><div class="kpi-val red">${graves}</div><div class="kpi-sub">requieren acción</div></div>
-    <div class="kpi"><div class="kpi-label">Alertas medias</div><div class="kpi-val amber">${medias}</div><div class="kpi-sub">preventivas</div></div>
-    <div class="kpi"><div class="kpi-label">Sin carpeta Drive</div><div class="kpi-val ${sinDrive?'red':''}">${sinDrive}</div><div class="kpi-sub">aprobadas</div></div>
-    <div class="kpi"><div class="kpi-label">Prod. vencida</div><div class="kpi-val ${prodVenc?'red':''}">${prodVenc}</div><div class="kpi-sub">sin fecha real</div></div>`;
-  const tbody=document.getElementById('alertas-tbody');
-  if(!tbody) return;
-  tbody.innerHTML = data.length ? data.slice(0,120).map(({obra:o,r})=>`
-    <tr>
-      <td><span class="risk-pill ${r.nivel==='danger'?'risk-danger':'risk-warn'}">${r.nivel==='danger'?'🔴 Grave':'🟡 Media'}</span></td>
-      <td class="strong">${o.ot||o.nro||'—'}</td>
-      <td>${o.cliente||'—'}</td><td class="strong">${o.desc||''}</td><td>${o.sector||''}</td>
-      <td>${r.problemas.map(p=>`<div>• ${p}</div>`).join('')}</td>
-      <td>${o.id?`<button class="btn btn-ghost btn-sm" onclick="editObra('${o.id}')">Abrir</button>`:''}</td>
-    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Sin alertas. Todo ordenado.</td></tr>';
-};
-window.crearTareasAutomaticasV58 = async function(obra){
-  const ot = obra.ot || obra.nro || 'SIN OT';
-  const base = { obraId: obra.id||'', ot, cliente: obra.cliente||'', obraDesc: obra.desc||'', automatica:true, completada:false, fecha:new Date().toLocaleDateString('es-AR') };
-  const tareas = [
-    {sector:'Ventas', desc:'Confirmar OC / seña / condición de pago'},
-    {sector:'Diseño', desc:'Preparar y validar archivos finales'},
-    {sector:'Compras', desc:'Revisar materiales faltantes y compras'},
-    {sector:'Producción', desc:'Planificar fabricación y tiempos'},
-    {sector:'Colocaciones', desc:'Coordinar instalación, permisos y recursos'}
-  ];
-  const existentes = (window.DB.tareas||[]).filter(t=>t.automatica && (t.obraId===obra.id || t.ot===ot));
-  for (const t of tareas) {
-    if (existentes.some(e=>e.sector===t.sector && e.desc===t.desc)) continue;
-    await window.addDoc_('tareas', {...base, sector:t.sector, desc:t.desc, notas:`Automática al aprobar OT ${ot}`});
-  }
-};
-const oldRenderDashboardV58 = renderDashboard;
-renderDashboard = function(){
-  oldRenderDashboardV58();
-  const cont = document.getElementById('dash-kpis');
-  if (!cont) return;
-  const alertas = (window.DB.obras||[]).map(o=>window.analizaObraV58(o)).filter(r=>r.nivel!=='ok');
-  const graves = alertas.filter(r=>r.nivel==='danger').length;
-  cont.insertAdjacentHTML('beforeend', `<div class="kpi"><div class="kpi-label">Alertas inteligentes</div><div class="kpi-val ${graves?'red':alertas.length?'amber':'green'}">${alertas.length}</div><div class="kpi-sub">${graves} graves</div></div>`);
-};
-
-
-// ============================================================
-// V7.2 post-init wrappers — guardar validación y advertir al aprobar
-// ============================================================
-(function(){
-  const install = () => {
-    if (!window.saveObra || window.saveObra._v72Wrapped) return;
-    const original = window.saveObra;
-    window.saveObra = async function(){
-      try {
-        if (window.renderValidacionCotizacionTIZ) window.renderValidacionCotizacionTIZ();
-        const preview = window.buildObraDataPreviewTIZ ? window.buildObraDataPreviewTIZ() : {};
-        const v = window.analizaCotizacionMinimaTIZ ? window.analizaCotizacionMinimaTIZ(preview) : null;
-        if (v && String(preview.estado||'').toLowerCase()==='aprobado' && v.problemas.some(p=>p.level==='grave')) {
-          const msg = 'La cotización tiene datos clave incompletos para Producción/IA:\n\n' + v.problemas.filter(p=>p.level==='grave').slice(0,6).map(p=>'• '+p.msg).join('\n') + '\n\n¿Guardar igual?';
-          if (!confirm(msg)) return;
-        }
-      } catch(e) { console.warn('Validación previa no bloqueante falló:', e); }
-      return original.apply(this, arguments);
-    };
-    window.saveObra._v72Wrapped = true;
-  };
-  install();
-  setTimeout(install, 800);
-  setTimeout(install, 2000);
-})();
-
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
-
-// ============================================================
-// V7.1 — Clemen IA / ERP de anticipación
-// ============================================================
-function safeLower(v){ return String(v||'').toLowerCase(); }
-function safeMoney(v){ return Number(v||0) || 0; }
-function fechaToDateERP(v){
-  if(!v) return null;
-  if (v instanceof Date && !isNaN(v)) return v;
-  if (typeof parseFecha === 'function') { try { const d=parseFecha(v); if(d && !isNaN(d)) return d; } catch(_){} }
-  if (typeof parseDate === 'function') { try { const d=parseDate(v); if(d && !isNaN(d)) return d; } catch(_){} }
-  const m=String(v).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if(m){ const yy=Number(m[3].length===2?'20'+m[3]:m[3]); return new Date(yy, Number(m[2])-1, Number(m[1])); }
-  const d=new Date(v); return isNaN(d)?null:d;
-}
-function diasHastaERP(v){ const d=fechaToDateERP(v); if(!d) return null; const hoy=new Date(); hoy.setHours(0,0,0,0); d.setHours(0,0,0,0); return Math.round((d-hoy)/86400000); }
-function riesgoBadgeERP(nivel){
-  const map={alto:'red',medio:'amber',bajo:'blue',ok:'green'};
-  const txt={alto:'Alto',medio:'Medio',bajo:'Bajo',ok:'OK'};
-  return `<span class="badge badge-${map[nivel]||'gray'}">${txt[nivel]||nivel}</span>`;
-}
-function evaluarObraERP(o){
-  const problemas=[];
-  const estado=safeLower(o.estado);
-  const neto=safeMoney(o.neto || o.importe || o.totalItems);
-  const gastos=safeMoney(o.gastos);
-  const aprobada=['aprobado','en producción','entregado','facturado','cobrado'].includes(estado);
-  const activa=!['rechazado','vencido','cobrado','cerrado'].includes(estado);
-  
-  if(aprobada && !o.fprod_c) problemas.push(['medio','Aprobada sin fecha compromiso de producción','Asignar fecha producción']);
-  if(aprobada && !o.fcol_c && ['entregado','facturado','cobrado'].indexOf(estado)<0) problemas.push(['bajo','Sin fecha tentativa de colocación','Pedir disponibilidad a Colocaciones']);
-  if(!o.cliente) problemas.push(['alto','Falta cliente','Completar ficha cliente']);
-  if(aprobada && !neto) problemas.push(['alto','Aprobada sin importe','Revisar cotización antes de producir']);
-  if(aprobada && (!o.itemsCotizados || !o.itemsCotizados.length)) problemas.push(['medio','No tiene ítems cotizados cargados','Cargar renglones para que Producción vea alcance']);
-  if(neto && gastos && (neto-gastos)/neto < 0.18) problemas.push(['alto','Margen estimado bajo','Revisar gastos/costos antes de fabricar']);
-  const dp=diasHastaERP(o.fprod_c); if(activa && o.fprod_c && !o.fprod_r && dp!==null && dp<0) problemas.push(['alto',`Producción vencida hace ${Math.abs(dp)} días`,'Reprogramar o destrabar sector']);
-  const dc=diasHastaERP(o.fcol_c); if(activa && o.fcol_c && !o.fcol_r && dc!==null && dc<0) problemas.push(['alto',`Colocación vencida hace ${Math.abs(dc)} días`,'Revisar con Colocaciones']);
-  if(['entregado','cobrado'].includes(estado) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))) problemas.push(['medio','Entregada sin factura preparada','Preparar factura desde OT']);
-  if(['facturado'].includes(estado) && safeLower(o.cobr)!=='cobrado') problemas.push(['medio','Facturada pero pendiente de cobro','Crear/actualizar cobranza']);
-  const score=problemas.some(p=>p[0]==='alto')?'alto':problemas.some(p=>p[0]==='medio')?'medio':problemas.length?'bajo':'ok';
-  return {obra:o, score, problemas};
-}
-function detectarComprasERP(){
-  const reglas=[
-    ['Acrílico',['acrilico','acrílico','opalino']], ['Vinilo / impresión',['vinilo','lona','backlight','impresion','impresión']],
-    ['LED / fuentes',['led','modulo','módulo','neon','neón','fuente']], ['Chapa / estructura',['chapa','hierro','caño','estructura','herrería']],
-    ['MDF / carpintería',['mdf','melamina','madera','carpintería']], ['ACM / aluminio',['acm','alucobond','aluminio']]
-  ];
-  const activas=(window.DB.obras||[]).filter(o=>['aprobado','en producción','presupuestado'].includes(safeLower(o.estado)));
-  return reglas.map(([nombre,keys])=>{
-    const obras=activas.filter(o=>keys.some(k=>safeLower((o.desc||'')+' '+(o.comentarios||'')).includes(k)));
-    return {nombre, obras};
-  }).filter(x=>x.obras.length);
-}
-window.generarAnalisisERP=function(){
-  const obras=(window.DB.obras||[]).map(evaluarObraERP);
-  const riesgos=obras.filter(r=>r.score!=='ok').sort((a,b)=>({alto:0,medio:1,bajo:2}[a.score]-{alto:0,medio:1,bajo:2}[b.score]));
-  const facturas=window.DB.facturas||[];
-  const cobranzas=window.DB.cobranzas||[];
-  const facPend=facturas.filter(f=>f.estado!=='Emitida');
-  const facSinCuit=facPend.filter(f=>!f.cuit);
-  const cobVenc=cobranzas.filter(c=>safeLower(c.estado)!=='cobrado' && diasHastaERP(c.venc)<0);
-  return {obras, riesgos, facturas, facPend, facSinCuit, cobVenc, compras:detectarComprasERP()};
-};
-window.renderIAERP=function(){
-  const a=window.generarAnalisisERP();
-  const totalObras=(window.DB.obras||[]).length;
-  const activas=(window.DB.obras||[]).filter(o=>!['cobrado','rechazado','vencido','cerrado'].includes(safeLower(o.estado))).length;
-  const graves=a.riesgos.filter(r=>r.score==='alto').length;
-  const medio=a.riesgos.filter(r=>r.score==='medio').length;
-  const listoFact=(window.DB.obras||[]).filter(o=>['entregado'].includes(safeLower(o.estado)) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))).length;
-  const k=document.getElementById('ia-kpis');
-  if(k) k.innerHTML=`<div class="kpi"><div class="kpi-label">Obras activas</div><div class="kpi-val">${activas}</div><div class="kpi-sub">sobre ${totalObras} totales</div></div><div class="kpi"><div class="kpi-label">Riesgo alto</div><div class="kpi-val ${graves?'red':'green'}">${graves}</div><div class="kpi-sub">requieren decisión</div></div><div class="kpi"><div class="kpi-label">Riesgo medio</div><div class="kpi-val ${medio?'amber':'green'}">${medio}</div></div><div class="kpi"><div class="kpi-label">Listas para facturar</div><div class="kpi-val ${listoFact?'amber':'green'}">${listoFact}</div></div>`;
-  const resumen=[];
-  if(graves) resumen.push(`🔴 Hay <b>${graves}</b> obra(s) con riesgo alto. Prioridad: fechas vencidas o importes faltantes.`);
-  if(medio) resumen.push(`🟡 Hay <b>${medio}</b> alerta(s) medias: fechas pendientes, ítems faltantes o facturación por preparar.`);
-  if(a.cobVenc.length) resumen.push(`💰 Hay <b>${a.cobVenc.length}</b> cobranza(s) vencida(s). Revisar antes de tomar nuevos compromisos.`);
-  if(a.compras.length) resumen.push(`🛒 Detecté necesidades probables de compras en <b>${a.compras.length}</b> rubro(s).`);
-  if(!resumen.length) resumen.push('🟢 No detecto problemas fuertes con la información cargada. Mantener actualizadas fechas, ítems y costos para mejorar las predicciones.');
-  const resEl=document.getElementById('ia-resumen'); if(resEl) resEl.innerHTML=resumen.join('<br>');
-  const tb=document.getElementById('ia-obras-tbody');
-  if(tb) tb.innerHTML=a.riesgos.slice(0,30).map(r=>{const p=r.problemas[0]||['ok','Sin problema','']; const o=r.obra; return `<tr><td>${riesgoBadgeERP(r.score)}</td><td class="strong">${o.ot||o.nro||'—'}</td><td>${o.cliente||'—'}</td><td>${o.desc||''}</td><td>${p[1]}</td><td>${p[2]}</td><td><button class="btn-icon" onclick="window.editingId.obra='${o.id}';openModal('obra')"><i class="ti ti-edit" style="font-size:13px"></i></button></td></tr>`}).join('') || '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">Sin obras críticas.</td></tr>';
-  const tf=document.getElementById('ia-fac-tbody');
-  const rows=[];
-  (window.DB.obras||[]).filter(o=>['entregado'].includes(safeLower(o.estado)) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))).forEach(o=>rows.push(['Preparar factura',o.cliente,o.ot||o.nro,fmtM(o.neto||o.importe),'Entregada sin pre-factura',`<button class="btn btn-ghost btn-sm" onclick="prepararFacturaDesdeObra('${o.id}')">Preparar</button>`]));
-  a.facSinCuit.forEach(f=>rows.push(['Dato faltante',f.cliente,f.nro||f.ot,fmtM(f.total||f.neto),'Pre-factura sin CUIT','Completar ficha fiscal']));
-  a.cobVenc.forEach(c=>rows.push(['Cobranza',c.cliente,c.nrfc||c.ot,fmtM(c.importe),'Vencida','Reclamar / reprogramar']));
-  if(tf) tf.innerHTML=rows.slice(0,25).map(r=>`<tr><td>${r[0]}</td><td>${r[1]||''}</td><td>${r[2]||''}</td><td>${r[3]||''}</td><td>${r[4]||''}</td><td>${r[5]||''}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text3)">Sin alertas de facturación/cobranza.</td></tr>';
-  const comp=document.getElementById('ia-compras');
-  if(comp) comp.innerHTML=a.compras.map(c=>`<div style="margin-bottom:8px"><b style="color:var(--accent)">${c.nombre}</b>: ${c.obras.length} obra(s) posibles — ${c.obras.slice(0,5).map(o=>'OT '+(o.ot||o.nro||'—')+' '+(o.cliente||'')).join(' · ')}</div>`).join('') || 'No detecté compras probables por descripción. Cargar ítems/cálculos auxiliares mejora esta lectura.';
-  const bia=document.getElementById('badge-ia'); if(bia){ const n=graves+medio; bia.textContent=n||''; bia.style.display=n?'':'none'; }
-};
-window.exportarResumenIA=function(){
-  const a=window.generarAnalisisERP();
-  const rows=[['Tipo','Nivel','OT/FC','Cliente','Descripción','Problema','Acción']];
-  a.riesgos.forEach(r=>{const o=r.obra; r.problemas.forEach(p=>rows.push(['Obra',p[0],o.ot||o.nro||'',o.cliente||'',o.desc||'',p[1],p[2]]));});
-  descargarCSV('clemen_ia_resumen_tiz.csv', rows);
-};
-const oldUpdateBadgesV71 = window.updateBadges;
-window.updateBadges = function(){ if(oldUpdateBadgesV71) oldUpdateBadgesV71(); try{ const a=window.generarAnalisisERP(); const n=a.riesgos.filter(r=>r.score!=='ok').length; const bia=document.getElementById('badge-ia'); if(bia){ bia.textContent=n||''; bia.style.display=n?'':'none'; } }catch(e){} };
-
-
-
-// V6 — Datos de facturación desde cotización/OT
-// Descarga un CSV con los datos que se pueden copiar/importar al sistema de facturación.
-// ============================================================
-window.exportarDatosFacturaActual = function(){
-  try {
-    const items = (typeof collectObraItems === 'function') ? collectObraItems() : [];
-    const totalItems = items.reduce((a,i)=>a+(Number(i.subtotal)||0),0);
-    const data = {
-      ot: getValue('f-ot'),
-      cliente: getValue('f-cliente'),
-      descripcion: getValue('f-desc'),
-      oc_op: getValue('f-oc'),
-      nro_factura: getValue('f-nrfc'),
-      fecha_factura: getValue('f-ffc'),
-      condicion_pago_dias: getValue('f-dias-pago'),
-      neto: Number(getValue('f-neto')) || totalItems || 0,
-      bruto: Number(getValue('f-bruto')) || 0,
-      total_items: totalItems,
-      estado_cobranza: getValue('f-cobr') || 'Pendiente'
-    };
-    const rows = [['Campo','Valor'], ...Object.entries(data), [], ['Items','Cantidad','Unitario','Subtotal','Observaciones']];
-    items.forEach(i => rows.push([i.descripcion||i.desc||'', i.cantidad||i.cant||'', i.unitario||i.precio||'', i.subtotal||'', i.observaciones||'']));
-    const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `TIZ_Datos_Factura_OT_${data.ot || 'SIN_OT'}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    showToast('Datos de factura descargados');
-  } catch(e) { console.error(e); showToast('No se pudo exportar datos de factura'); }
-};
-
-
-
-// V8 — asegurar render de Clemen IA sin tocar el resto de navegación
-(function(){
-  const _refreshV8 = window.refreshCurrent;
-  window.refreshCurrent = function(){
-    if (typeof _refreshV8 === 'function') _refreshV8.apply(this, arguments);
-    if (window.currentPage === 'ia' && typeof window.renderIAERP === 'function') window.renderIAERP();
-  };
-})();
-
 </script>
 </body>
 </html>

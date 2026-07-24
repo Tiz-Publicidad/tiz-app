@@ -1,0 +1,21 @@
+TIZ ERP - RESTAURACION SIN DRIVE
+
+Esta version elimina/desactiva la integracion de carpetas Drive y Google Sheets.
+El ERP conserva el guardado principal en Firebase.
+
+ARCHIVOS A SUBIR A GITHUB:
+- index.html
+- carpeta src completa
+- el resto de archivos del paquete puede reemplazarse completo
+
+PRUEBAS DESPUES DE PUBLICAR:
+1. Iniciar sesion.
+2. Verificar Dashboard y Obras.
+3. Crear una obra de prueba.
+4. Editar una obra.
+5. Cambiar estado a Aprobado.
+6. Confirmar que no aparecen llamadas a script.google.com en Network.
+
+APPS SCRIPT:
+No es necesario borrarlo inmediatamente. Primero validar que el ERP funciona.
+Luego se puede archivar o eliminar la implementacion vieja antes de reconstruirla.
