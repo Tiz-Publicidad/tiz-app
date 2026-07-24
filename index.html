@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TIZ V20 — Gestión Operativa</title>
+<title>TIZ V20.1 — Gestión Operativa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -1367,12 +1367,77 @@ function renderDashboard() {
 // DRIVE / OT — integración desactivada temporalmente
 // Estas funciones quedan como compatibilidad para que el resto del ERP siga funcionando.
 function isObraAprobadaParaDrive(o){ return false; }
-function driveStatusV9(o){ return 'none'; }
-window.renderDriveButtonsV9 = function(){ return ''; };
-async function queueDriveSyncV9(){ return null; }
+function driveStatusV9(o){
+  if (o?.driveFolderUrl) return 'ready';
+  if (String(o?.estado || '').toLowerCase() === 'aprobado') return 'pending';
+  return 'none';
+}
+
+window.openDriveFolderV201 = function(url, event){
+  if (event) event.stopPropagation();
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+window.renderDriveButtonsV9 = function(o){
+  const status = driveStatusV9(o);
+  if (status === 'ready') {
+    const safeUrl = String(o.driveFolderUrl || '').replace(/'/g, '&#39;');
+    return `<button class="btn-icon drive-folder-ready"
+      title="Abrir carpeta OT en Google Drive"
+      onclick="openDriveFolderV201('${safeUrl}', event)"
+      style="margin-right:4px;color:var(--green);border-color:rgba(76,175,125,.45);background:rgba(76,175,125,.08)">
+      <i class="ti ti-brand-google-drive" style="font-size:15px"></i>
+    </button>`;
+  }
+  if (status === 'pending') {
+    return `<button class="btn-icon drive-folder-pending"
+      title="Crear o recuperar carpeta OT"
+      onclick="requestDriveSyncForObra('${o.id}', event)"
+      style="margin-right:4px;color:var(--amber);border-color:rgba(232,160,32,.4);background:rgba(232,160,32,.06)">
+      <i class="ti ti-folder-plus" style="font-size:15px"></i>
+    </button>`;
+  }
+  return '';
+};
+
+async function queueDriveSyncV9(o){
+  if (!o?.id) return null;
+  return window.requestDriveSyncForObra(o.id);
+}
 window.queueDriveSyncV9 = queueDriveSyncV9;
-window.requestDriveSyncForObra = async function(){
-  showToast('Integración con Drive temporalmente desactivada');
+
+window.requestDriveSyncForObra = async function(id, event){
+  if (event) event.stopPropagation();
+  const obra = (window.DB.obras || []).find(x => x.id === id);
+  if (!obra) {
+    showToast('No se encontró la obra');
+    return null;
+  }
+  if (!obra.ot) {
+    showToast('La obra no tiene número de OT');
+    return null;
+  }
+  try {
+    showToast('Creando o recuperando carpeta OT...');
+    const result = await syncToSheets({...obra, estado:'Aprobado', firestoreId:id});
+    if (!result?.driveFolderUrl) throw new Error(result?.error || 'Apps Script no devolvió el enlace');
+    const links = {
+      driveFolderId: result.folderId || result.driveFolderId || '',
+      driveFolderUrl: result.driveFolderUrl,
+      driveSyncedAt: new Date().toISOString()
+    };
+    await updateDoc_('obras', id, links);
+    const local = (window.DB.obras || []).find(x => x.id === id);
+    if (local) Object.assign(local, links);
+    renderObras();
+    showToast(result.created ? 'Carpeta OT creada ✓' : 'Carpeta OT recuperada ✓');
+    return result;
+  } catch (e) {
+    console.error('[Drive OT]', e);
+    showToast('Error al vincular Drive: ' + (e?.message || e));
+    return null;
+  }
 };
 
 // OBRAS
@@ -1868,7 +1933,12 @@ window.quickChangeEstado = async (id, val) => {
     showToast('Actualizando estado...');
     const syncResult = await syncToSheets(data);
     if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-      await updateDoc_('obras', id, { driveFolderUrl: syncResult.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || '', driveSyncedAt: new Date().toISOString() });
+      await updateDoc_('obras', id, {
+        driveFolderId: syncResult.folderId || syncResult.driveFolderId || '',
+        driveFolderUrl: syncResult.driveFolderUrl || '',
+        otSheetUrl: syncResult.otSheetUrl || '',
+        driveSyncedAt: new Date().toISOString()
+      });
       showToast('Carpeta de OT creada ✓');
     } else {
       showToast('Estado actualizado: Aprobado');
@@ -2157,7 +2227,12 @@ window.saveObra = async () => {
   try {
     const syncResult = await syncToSheets({...data, firestoreId: docRefId});
     if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-      const links = { driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '', driveSyncedAt: new Date().toISOString() };
+      const links = {
+          driveFolderId: syncResult.folderId || syncResult.driveFolderId || data.driveFolderId || '',
+          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
+          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+          driveSyncedAt: new Date().toISOString()
+        };
       if (docRefId) await updateDoc_('obras', docRefId, links);
       if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Obra aprobada: carpeta Drive creada ✓');
     } else if (String(data.estado || '').toLowerCase() === 'aprobado') {
@@ -3797,7 +3872,12 @@ window.refreshCurrent = function() {
     try {
       const syncResult = await syncToSheets({...data, firestoreId: docRefId});
       if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-        const links = { driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '', driveSyncedAt: new Date().toISOString() };
+        const links = {
+          driveFolderId: syncResult.folderId || syncResult.driveFolderId || data.driveFolderId || '',
+          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
+          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+          driveSyncedAt: new Date().toISOString()
+        };
         if (docRefId) await window.updateDoc_('obras', docRefId, links);
         if (window._obraModalOrigen === 'presupuestos' && window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, links);
         if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Aprobado: carpeta Drive creada ✓');
@@ -4255,7 +4335,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V20 · BASE RECUPERADA · 24/07/2026';
+  badge.textContent = 'TIZ V20.1 · DRIVE VISIBLE · 24/07/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
