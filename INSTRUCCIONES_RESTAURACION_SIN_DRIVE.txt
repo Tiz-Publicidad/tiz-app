@@ -1,21 +1,15 @@
-TIZ ERP - RESTAURACION SIN DRIVE
+TIZ App V5.6 — Fix definitivo Drive/Apps Script
 
-Esta version elimina/desactiva la integracion de carpetas Drive y Google Sheets.
-El ERP conserva el guardado principal en Firebase.
+1) Subir TODO el contenido de este ZIP a GitHub, reemplazando archivos.
+2) En Apps Script > TIZ - Automatizacion OT, reemplazar TODO el código por apps_script_drive_sheets_v4.gs de este ZIP.
+3) Guardar.
+4) Implementar > Administrar implementaciones > lápiz > Implementar.
+   - Ejecutar como: Yo (info@tizpublicidad.com)
+   - Acceso: Cualquier usuario de TIZ Publicidad / con enlace según permita Workspace.
+5) Abrir la app con Ctrl+Shift+R.
+6) Probar una obra o presupuesto: cambiar estado a Aprobado y guardar.
 
-ARCHIVOS A SUBIR A GITHUB:
-- index.html
-- carpeta src completa
-- el resto de archivos del paquete puede reemplazarse completo
-
-PRUEBAS DESPUES DE PUBLICAR:
-1. Iniciar sesion.
-2. Verificar Dashboard y Obras.
-3. Crear una obra de prueba.
-4. Editar una obra.
-5. Cambiar estado a Aprobado.
-6. Confirmar que no aparecen llamadas a script.google.com en Network.
-
-APPS SCRIPT:
-No es necesario borrarlo inmediatamente. Primero validar que el ERP funciona.
-Luego se puede archivar o eliminar la implementacion vieja antes de reconstruirla.
+Notas técnicas:
+- La app ya tiene pegada la URL /exec de tu Apps Script.
+- El Apps Script usa JSONP/doGet para evitar el error 405/CORS desde GitHub Pages.
+- La carpeta madre configurada es Producción > OT 2026: 1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh

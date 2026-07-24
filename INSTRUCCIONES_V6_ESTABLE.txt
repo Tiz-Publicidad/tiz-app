@@ -1,17 +1,17 @@
-TIZ V6 estable - instrucciones rápidas
+TIZ App V5.8 — Alertas y flujo dinámico
 
-1) Subir todo este paquete a GitHub, reemplazando archivos.
-2) Copiar apps_script_drive_sheets_v4.gs completo en Apps Script.
-3) Guardar y reimplementar: Implementar > Administrar implementaciones > lápiz > Implementar.
+Qué agrega:
+- Nueva pantalla: Alertas inteligentes.
+- Semáforo por obra en la tabla de Obras.
+- Checklist dentro de Nueva obra / Nuevo presupuesto.
+- Historial básico de cambios de estado.
+- Tareas automáticas al aprobar una OT/presupuesto.
+- Mantiene JSONP para Apps Script / Drive.
+- Mantiene URL /exec y carpeta OT 2026 configuradas.
+
+Pasos:
+1) Subir todos los archivos y carpetas a GitHub.
+2) Copiar apps_script_drive_sheets_v4.gs en Apps Script.
+3) Guardar y reimplementar Apps Script.
 4) Abrir la app con Ctrl + Shift + R.
-5) Probar una OT/presupuesto en estado Aprobado.
-
-Qué hace el respaldo de producción:
-- Al aprobar una OT crea carpeta en Drive dentro de Producción / OT 2026.
-- Dentro crea un Google Sheet con estas hojas:
-  Orden de Trabajo, Datos obra, Items cotizados, Calculos auxiliares, Notas por sector, Datos Facturacion.
-- Producción puede entrar a la carpeta OT y abrir el Sheet para ver exactamente qué consideró Ventas.
-
-Facturación:
-- La hoja Datos Facturacion deja preparados cliente, OT, OC/OP, descripción e importes.
-- En la app, dentro de Nueva obra/Nuevo presupuesto, el botón Datos factura descarga un CSV listo para copiar/importar.
+5) Probar: crear presupuesto/obra -> aprobar -> revisar carpeta Drive y tareas automáticas.

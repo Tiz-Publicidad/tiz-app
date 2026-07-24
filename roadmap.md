@@ -1,3 +1,881 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIZ — Gestión Operativa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #222222;
+  --surface3: #2a2a2a;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --text: #f0ede8;
+  --text2: #a09e9a;
+  --text3: #5a5856;
+  --accent: #e8b84b;
+  --accent2: #c49a30;
+  --green: #4caf7d;
+  --red: #e05c5c;
+  --amber: #e8a020;
+  --blue: #5b9cf6;
+  --purple: #9b7ff4;
+  --teal: #3dbfa0;
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; }
+
+/* Layout */
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.main { flex: 1; overflow-x: hidden; }
+
+/* Sidebar */
+.logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+.logo-mark { font-size: 18px; font-weight: 600; color: var(--accent); letter-spacing: -0.5px; }
+.logo-sub { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+.nav { padding: 10px 8px; flex: 1; }
+.nav-section { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; padding: 12px 10px 4px; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--text2); font-size: 13px; cursor: pointer; transition: all .15s; border: none; background: none; width: 100%; text-align: left; }
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--surface3); color: var(--accent); }
+.nav-item i { font-size: 16px; width: 18px; }
+.nav-badge { margin-left: auto; background: var(--red); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; }
+
+/* Header */
+.page-header { padding: 20px 28px 0; display: flex; align-items: center; justify-content: space-between; }
+.page-title { font-size: 20px; font-weight: 600; color: var(--text); }
+.page-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+/* Content */
+.page { padding: 20px 28px 40px; display: none; }
+.page.active { display: block; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: none; transition: all .15s; }
+.btn-primary { background: var(--accent); color: #0f0f0f; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+.btn-sm { padding: 4px 10px; font-size: 11px; border-radius: 6px; }
+.btn-icon { padding: 6px; border-radius: 7px; background: transparent; border: 1px solid var(--border); color: var(--text2); }
+.btn-icon:hover { background: var(--surface2); color: var(--text); }
+
+/* KPI grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.kpi-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.kpi-val { font-size: 26px; font-weight: 600; color: var(--text); font-family: 'DM Mono', monospace; }
+.kpi-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.kpi-val.green { color: var(--green); }
+.kpi-val.amber { color: var(--amber); }
+.kpi-val.red { color: var(--red); }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 16px; }
+.card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.card-body { padding: 16px 18px; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { padding: 9px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+td.strong { color: var(--text); font-weight: 500; }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 3px 8px; border-radius: 20px; font-weight: 500; }
+.badge-green { background: rgba(76,175,125,.15); color: var(--green); }
+.badge-red { background: rgba(224,92,92,.15); color: var(--red); }
+.badge-amber { background: rgba(232,160,32,.15); color: var(--amber); }
+.badge-blue { background: rgba(91,156,246,.15); color: var(--blue); }
+.badge-gray { background: rgba(160,158,154,.1); color: var(--text2); }
+.badge-purple { background: rgba(155,127,244,.15); color: var(--purple); }
+.badge-teal { background: rgba(61,191,160,.15); color: var(--teal); }
+
+/* Dot */
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.dot-green { background: var(--green); }
+.dot-amber { background: var(--amber); }
+.dot-red { background: var(--red); }
+.dot-gray { background: var(--text3); }
+
+/* Forms */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: flex-start; justify-content: center; padding-top: 40px; overflow-y: auto; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 580px; }
+.modal-title { font-size: 15px; font-weight: 600; margin-bottom: 18px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+.form-group input, .form-group select, .form-group textarea { background: var(--surface2); border: 1px solid var(--border2); border-radius: 7px; padding: 8px 10px; color: var(--text); font-size: 13px; outline: none; transition: border .15s; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+.form-group select option { background: var(--surface2); }
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-section { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); grid-column: 1/-1; padding-top: 8px; border-top: 1px solid var(--border); margin-top: 4px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+/* Filters */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.filters select, .filters input { background: var(--surface); border: 1px solid var(--border2); border-radius: 7px; padding: 6px 10px; color: var(--text2); font-size: 12px; outline: none; }
+.filter-count { font-size: 11px; color: var(--text3); margin-left: auto; }
+
+/* Sector tabs */
+.sector-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.sector-tab { padding: 5px 14px; border-radius: 20px; font-size: 12px; border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; transition: all .15s; }
+.sector-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(232,184,75,.08); }
+
+/* Progress bar */
+.progress { height: 3px; background: var(--border); border-radius: 2px; }
+.progress-fill { height: 3px; border-radius: 2px; transition: width .3s; }
+
+/* Semana selector */
+.week-nav { display: flex; align-items: center; gap: 10px; }
+.week-nav button { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text2); padding: 4px 10px; font-size: 12px; }
+.week-nav span { font-size: 13px; font-weight: 500; color: var(--text); min-width: 80px; text-align: center; }
+
+/* Sector cards */
+.sector-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.sector-card { background: var(--surface2); border-radius: var(--radius); padding: 14px; border: 1px solid var(--border); }
+.sector-card-name { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; font-weight: 500; }
+.sector-card-num { font-size: 28px; font-weight: 600; font-family: 'DM Mono', monospace; }
+.sector-card-money { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.sector-card-sub { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+/* Firebase sync indicator */
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.sync-status { font-size: 11px; color: var(--text3); display: flex; align-items: center; }
+
+/* Empty state */
+.empty { text-align: center; padding: 48px 20px; color: var(--text3); }
+.empty i { font-size: 36px; margin-bottom: 10px; display: block; }
+.empty p { font-size: 13px; }
+
+/* Cobranza alerta */
+.alerta-row { background: rgba(224,92,92,.06); }
+.alerta-row td { border-color: rgba(224,92,92,.15); }
+
+/* Tabs dentro de página */
+.page-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.page-tab { padding: 10px 16px; font-size: 13px; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-left: none; border-right: none; border-top: none; }
+.page-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Annotations panel */
+.notas-panel { display: flex; flex-direction: column; gap: 8px; }
+.nota-item { background: var(--surface3); border-radius: 8px; padding: 10px 12px; }
+.nota-sector-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.nota-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.nota-ts { font-size: 10px; color: var(--text3); margin-top: 3px; }
+
+/* Quick status selector inline */
+.quick-estado { font-size: 11px; padding: 3px 7px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); cursor: pointer; }
+.quick-estado:focus { outline: none; border-color: var(--accent); }
+
+/* Autocomplete cliente */
+.cli-option { padding: 8px 12px; font-size: 13px; color: var(--text2); cursor: pointer; display: flex; flex-direction: column; gap: 1px; border-bottom: 0.5px solid var(--border); }
+.cli-option:last-child { border-bottom: none; }
+.cli-option:hover, .cli-option.selected { background: var(--surface2); color: var(--text); }
+.cli-option-sub { font-size: 10px; color: var(--text3); }
+
+/* Presupuesto PDF */
+.pp-item-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+.pp-item-row input { background:var(--surface2); border:1px solid var(--border2); border-radius:6px; padding:5px 8px; color:var(--text); font-size:12px; }
+.pp-item-row input:first-child { flex:1; }
+@media print {
+  body * { visibility:hidden; }
+  #print-area, #print-area * { visibility:visible; }
+  #print-area { position:fixed; left:0; top:0; width:100%; }
+}
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface3); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 18px; font-size: 13px; color: var(--text); z-index: 200; transform: translateY(80px); opacity: 0; transition: all .25s; pointer-events: none; }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">TIZ</div>
+      <div class="logo-sub">Gestión operativa</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Principal</div>
+      <button class="nav-item active" onclick="goTo('dashboard')">
+        <i class="ti ti-layout-dashboard"></i> Dashboard
+      </button>
+      <button class="nav-item" onclick="goTo('obras')">
+        <i class="ti ti-list-check"></i> Obras
+      </button>
+      <button class="nav-item" onclick="goTo('semana')">
+        <i class="ti ti-calendar-week"></i> Semana
+      </button>
+      <div class="nav-section">Seguimiento</div>
+      <button class="nav-item" onclick="goTo('produccion')">
+        <i class="ti ti-hammer"></i> Producción
+      </button>
+      <button class="nav-item" onclick="goTo('colocaciones')">
+        <i class="ti ti-truck"></i> Colocaciones
+      </button>
+      <button class="nav-item" onclick="goTo('diseno')">
+        <i class="ti ti-pencil"></i> Diseño
+      </button>
+      <div class="nav-section">Comercial</div>
+      <button class="nav-item" onclick="goTo('cobranzas')">
+        <i class="ti ti-cash"></i> Cobranzas
+        <span class="nav-badge" id="badge-cobr">0</span>
+      </button>
+      <button class="nav-item" onclick="goTo('presupuestos')">
+        <i class="ti ti-file-invoice"></i> Presupuestos
+      </button>
+      <button class="nav-item" onclick="goTo('clientes')">
+        <i class="ti ti-users"></i> Clientes
+      </button>
+      <div class="nav-section">Operaciones</div>
+      <button class="nav-item" onclick="goTo('tareas')">
+        <i class="ti ti-checkbox"></i> Mis tareas
+      </button>
+      <div class="nav-section admin-only">Finanzas</div>
+      <button class="nav-item admin-only" onclick="goTo('retenciones')">
+        <i class="ti ti-receipt-tax"></i> Retenciones
+      </button>
+      <button class="nav-item" onclick="goTo('vendedores')">
+        <i class="ti ti-award"></i> Vendedores
+      </button>
+      <button class="nav-item admin-only" onclick="goTo('estadistica')">
+        <i class="ti ti-chart-line"></i> Estadística
+      </button>
+    </nav>
+    <div style="padding:14px 18px;border-top:1px solid var(--border)">
+      <!-- User info -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <img id="user-avatar" src="" style="display:none;width:28px;height:28px;border-radius:50%;object-fit:cover">
+        <div>
+          <div id="user-name" style="font-size:12px;font-weight:500;color:var(--text)">—</div>
+          <div id="user-sector" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:500"></div>
+        </div>
+      </div>
+      <div class="sync-status"><span class="sync-dot"></span><span id="sync-text">Conectando...</span></div>
+      <button onclick="doLogout()" style="margin-top:8px;background:transparent;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:0">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div><div class="page-title">Dashboard</div><div class="page-subtitle" id="dash-date"></div></div>
+        <div class="header-actions">
+          <div class="week-nav">
+            <button onclick="moveSem(-1)">&#8592;</button>
+            <span id="dash-sem">Sem 22</span>
+            <button onclick="moveSem(1)">&#8594;</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:20px 28px 0">
+        <div class="kpi-grid" id="dash-kpis"></div>
+        <div class="sector-cards" id="dash-sectors"></div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Obras con alertas</span></div>
+          <div class="card-body">
+            <div class="table-wrap"><table>
+              <thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>Alerta</th><th>Días</th></tr></thead>
+              <tbody id="dash-alertas"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OBRAS -->
+    <div id="page-obras" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Obras</div><div class="page-subtitle">Pipeline completo</div></div>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" onclick="exportarExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportarCSV()"><i class="ti ti-download"></i> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="window.editingId.obra=null;openModal('obra')"><i class="ti ti-plus"></i> Nueva obra</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="sector-tabs" id="obras-sectors"></div>
+        <div class="filters">
+          <input type="text" id="filter-ot" placeholder="🔍 OT o descripción..." oninput="renderObras()" style="width:180px">
+          <select id="filter-estado" onchange="renderObras()">
+            <option value="">Todos los estados</option>
+            <option>Presupuestado</option><option>Aprobado</option><option>En producción</option>
+            <option>Entregado</option><option>Facturado</option><option>Cobrado</option>
+          </select>
+          <input type="text" id="filter-cliente" placeholder="Cliente..." oninput="renderObras()" style="width:140px">
+          <input type="number" id="filter-semana-desde" placeholder="Sem desde" oninput="renderObras()" style="width:90px">
+          <input type="number" id="filter-semana-hasta" placeholder="Sem hasta" oninput="renderObras()" style="width:90px">
+          <button class="btn btn-ghost btn-sm" onclick="limpiarFiltros()">Limpiar</button>
+          <span class="filter-count" id="obras-count"></span>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>Estado</th><th>F.Prod.Comp</th><th>F.Prod.Real</th><th>F.Col.Comp</th><th>F.Col.Real</th><th>Días</th><th>Precio venta</th><th></th></tr></thead>
+            <tbody id="obras-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEMANA -->
+    <div id="page-semana" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Planificación semanal</div><div class="page-subtitle">Obras a trabajar esta semana</div></div>
+        <div class="header-actions">
+          <div class="week-nav">
+            <button onclick="moveSem(-1)">&#8592;</button>
+            <span id="sem-label">Sem 22</span>
+            <button onclick="moveSem(1)">&#8594;</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Obras seleccionadas para la semana</span>
+            <button class="btn btn-ghost btn-sm" onclick="exportCalendar()"><i class="ti ti-calendar-plus"></i> Agregar a Google Calendar</button>
+          </div>
+          <div class="card-body" id="semana-body"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Todas las obras activas — tildá las de esta semana</span></div>
+          <div class="card-body" id="semana-picker"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCCION -->
+    <div id="page-produccion" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Seguimiento de producción</div></div>
+        <div class="header-actions">
+          <div class="week-nav">
+            <button onclick="moveSem(-1)">&#8592;</button>
+            <span id="prod-sem">Sem 22</span>
+            <button onclick="moveSem(1)">&#8594;</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="prod-kpis"></div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Obras en producción</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>F. compromiso</th><th>F. real</th><th>Cumplimiento</th><th>Días tot.</th><th></th></tr></thead>
+            <tbody id="prod-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLOCACIONES -->
+    <div id="page-colocaciones" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Seguimiento de colocaciones</div></div>
+        <div class="header-actions">
+          <div class="week-nav">
+            <button onclick="moveSem(-1)">&#8592;</button>
+            <span id="col-sem">Sem 22</span>
+            <button onclick="moveSem(1)">&#8594;</button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="col-kpis"></div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Obras en colocación</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>F. compromiso</th><th>F. real</th><th>Cumplimiento</th><th>Días tot.</th><th></th></tr></thead>
+            <tbody id="col-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DISEÑO -->
+    <div id="page-diseno" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Seguimiento de diseño</div></div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="dis-kpis"></div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Obras en diseño</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>Diseñador</th><th>Estado</th><th>Precio venta</th><th></th></tr></thead>
+            <tbody id="dis-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COBRANZAS -->
+    <div id="page-cobranzas" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Gestión de cobranzas</div></div>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" onclick="cargarDesdeOTs()"><i class="ti ti-file-import"></i> Cargar desde OTs</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal('cobranza')"><i class="ti ti-plus"></i> Registrar cobro</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="cobr-kpis"></div>
+        <div class="page-tabs">
+          <button class="page-tab active" onclick="setCobTab('pendientes',this)">Pendientes</button>
+          <button class="page-tab" onclick="setCobTab('cobradas',this)">Cobradas</button>
+          <button class="page-tab" onclick="setCobTab('todas',this)">Todas</button>
+        </div>
+        <div class="filters">
+          <input type="text" id="cobr-filter-cliente" placeholder="Buscar cliente u OT..." oninput="renderCobranzas()" style="width:200px">
+          <select id="cobr-filter-estado" onchange="renderCobranzas()">
+            <option value="">Todos</option>
+            <option>Pendiente</option><option>Cobrado</option><option>Vencido</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cobr-filter-cliente').value='';document.getElementById('cobr-filter-estado').value='';renderCobranzas()">Limpiar</button>
+          <span class="filter-count" id="cobr-count"></span>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>OT</th><th>Cliente</th><th>Descripción</th><th>Nro FC</th><th>Importe</th><th>F. vencimiento</th><th>Estado</th><th>Días</th><th></th></tr></thead>
+            <tbody id="cobr-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESUPUESTOS -->
+    <div id="page-presupuestos" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Presupuestos</div></div>
+        <div class="header-actions">
+          <button class="btn btn-primary btn-sm" onclick="openModal('presupuesto')"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="pres-kpis"></div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Nro</th><th>Cliente</th><th>Descripción</th><th>Vendedor</th><th>Importe</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="pres-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div id="page-clientes" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Clientes</div></div>
+        <div class="header-actions">
+          <button class="btn btn-primary btn-sm" onclick="openModal('cliente')"><i class="ti ti-plus"></i> Nuevo cliente</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="filters">
+          <input type="text" id="filter-cliente2" placeholder="Buscar..." oninput="renderClientes()" style="width:200px">
+          <span class="filter-count" id="clientes-count"></span>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Cliente</th><th>CUIT</th><th>Contacto</th><th>Celular</th><th>Email</th><th>Obras</th><th></th></tr></thead>
+            <tbody id="clientes-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RETENCIONES -->
+    <div id="page-retenciones" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Retenciones</div></div>
+        <div class="header-actions">
+          <button class="btn btn-primary btn-sm" onclick="openModal('retencion')"><i class="ti ti-plus"></i> Nueva retención</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="ret-kpis"></div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Mes</th><th>Cliente</th><th>Nro FC</th><th>Bruto</th><th>R.SUSS</th><th>R.IIBB</th><th>R.Ganancias</th><th>R.IVA</th><th>Neto</th><th></th></tr></thead>
+            <tbody id="ret-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAREAS -->
+    <div id="page-tareas" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Mis tareas</div><div class="page-subtitle" id="tareas-subtitle"></div></div>
+        <div class="header-actions">
+          <button class="btn btn-primary btn-sm" onclick="openNuevaTarea()"><i class="ti ti-plus"></i> Nueva tarea</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="tareas-kpis"></div>
+        <div class="page-tabs">
+          <button class="page-tab active" onclick="setTareaTab('pendientes',this)">Pendientes</button>
+          <button class="page-tab" onclick="setTareaTab('todas',this)">Todas</button>
+          <button class="page-tab" onclick="setTareaTab('completadas',this)">Completadas</button>
+        </div>
+        <div id="tareas-list"></div>
+      </div>
+    </div>
+
+    <!-- VENDEDORES -->
+    <div id="page-vendedores" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Métricas de vendedores</div></div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="sector-cards" id="vend-cards"></div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Detalle por vendedor</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Vendedor</th><th>Obras totales</th><th>Ventas netas</th><th>Cobrado</th><th>% Cobrado</th><th>Cumpl. prod.</th><th>Cumpl. col.</th></tr></thead>
+            <tbody id="vend-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTADÍSTICA -->
+    <div id="page-estadistica" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Estadística TIZ 2026</div><div class="page-subtitle">Ventas · Producción · Colocaciones · Cobranzas por semana</div></div>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" onclick="exportarCSV()"><i class="ti ti-download"></i> Exportar CSV</button>
+        </div>
+      </div>
+      <div style="padding:16px 28px 0">
+        <div class="kpi-grid" id="est-kpis"></div>
+        <div class="page-tabs" style="margin-bottom:16px">
+          <button class="page-tab active" onclick="setEstTab('tabla',this)">Por semana</button>
+          <button class="page-tab" onclick="setEstTab('mensual',this)">Por mes</button>
+          <button class="page-tab" onclick="setEstTab('metas',this)">Metas</button>
+          <button class="page-tab" onclick="setEstTab('cumplimiento',this)">Cumplimiento</button>
+        </div>
+        <div id="est-content"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODALES -->
+<div class="modal-overlay" id="modal-obra">
+  <div class="modal">
+    <div class="modal-title" id="modal-obra-title">Nueva obra</div>
+    <input type="hidden" id="obra-id">
+    <div class="form-grid">
+      <div class="form-group"><label>OT</label><input id="f-ot" placeholder="ej. 4500"></div>
+      <div class="form-group"><label>Sector</label>
+        <select id="f-sector"><option>Producción</option><option>Colocaciones</option><option>Diseño</option><option>Ventas</option><option>Compras</option></select>
+      </div>
+      <div class="form-group full"><label>Descripción</label><input id="f-desc" placeholder="Descripción del trabajo"></div>
+      <div class="form-group" style="position:relative">
+        <label>Cliente</label>
+        <input id="f-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientes(this.value)" onblur="setTimeout(()=>cerrarSugerencias(),200)">
+        <div id="clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--border-radius-md);z-index:200;max-height:180px;overflow-y:auto;margin-top:2px"></div>
+      </div>
+      <div class="form-group"><label>Vendedor</label>
+        <select id="f-vendedor"><option>G</option><option>J</option><option>G/J</option></select>
+      </div>
+      <div class="form-group"><label>Estado</label>
+        <select id="f-estado"><option>Presupuestado</option><option>Aprobado</option><option>En producción</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
+      </div>
+      <div class="form-group"><label>Semana</label><input id="f-semana" type="number" placeholder="22"></div>
+      <div class="form-group"><label>Precio de venta (neto)</label><input id="f-neto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Precio de venta (bruto)</label><input id="f-bruto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Gastos</label><input id="f-gastos" type="number" placeholder="0"></div>
+      <div class="form-section">Producción</div>
+      <div class="form-group"><label>F. compromiso prod.</label><input id="f-fprod-c" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>F. real prod.</label><input id="f-fprod-r" placeholder="DD/MM/AAAA"></div>
+      <div class="form-section">Colocación</div>
+      <div class="form-group"><label>F. compromiso col.</label><input id="f-fcol-c" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>F. real col.</label><input id="f-fcol-r" placeholder="DD/MM/AAAA"></div>
+      <div class="form-section">Facturación</div>
+      <div class="form-group"><label>OC / OP</label><input id="f-oc" placeholder="Nro orden de compra"></div>
+      <div class="form-group"><label>Nro factura</label><input id="f-nrfc" placeholder="Nro factura"></div>
+      <div class="form-group"><label>F. factura</label><input id="f-ffc" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>Estado cobranza</label>
+        <select id="f-cobr"><option>Pendiente</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
+      </div>
+      <div class="form-group full"><label>Comentarios generales</label><textarea id="f-comentarios"></textarea></div>
+      <div class="form-section">Anotaciones por sector</div>
+      <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column">
+        <p style="font-size:11px;color:var(--text3);margin:0">Cada sector puede escribir sus propias notas. Se guarda con fecha y hora automáticamente.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--blue);margin:0">📦 Producción <span id="nota-ts-produccion" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Producción')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-produccion" placeholder="Notas del sector Producción..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--teal);margin:0">🚛 Colocaciones <span id="nota-ts-colocaciones" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Colocaciones')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-colocaciones" placeholder="Notas del sector Colocaciones..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--purple);margin:0">✏️ Diseño <span id="nota-ts-diseno" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Diseño')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-diseno" placeholder="Notas del sector Diseño..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--amber);margin:0">💰 Ventas <span id="nota-ts-ventas" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Ventas')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-ventas" placeholder="Notas del sector Ventas..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--accent);margin:0">🛒 Compras <span id="nota-ts-compras" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Compras')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-compras" placeholder="Notas del sector Compras..." style="min-height:60px"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('obra')">Cancelar</button>
+      <button class="btn btn-ghost" onclick="abrirPresupuestoPDF()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-file-invoice"></i> Generar presupuesto</button>
+      <button class="btn btn-primary" onclick="saveObra()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-prespdf" style="padding:20px">
+  <div class="modal" style="max-width:760px;max-height:90vh;overflow-y:auto">
+    <div class="modal-title">Generar presupuesto</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Nro presupuesto</label><input id="pp-nro" placeholder="0001"></div>
+      <div class="form-group"><label>Validez (días)</label><input id="pp-validez" type="number" value="7"></div>
+      <div class="form-group full" style="position:relative">
+        <label>Cliente</label>
+        <input id="pp-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientesPP(this.value)" onblur="setTimeout(()=>cerrarSugerenciasPP(),200)">
+        <div id="pp-clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--border-radius-md);z-index:300;max-height:160px;overflow-y:auto;margin-top:2px"></div>
+      </div>
+      <div class="form-group full"><label>Descripción general del presupuesto</label>
+        <input id="pp-desc" placeholder="Ej: Cartelería interna y externa sucursal Florida 441">
+      </div>
+      <div class="form-group full"><label>Nota al pie</label>
+        <input id="pp-nota" value="Los precios cotizados se encuentran a valores netos">
+      </div>
+      <div class="form-group full"><label>Condición de compra</label>
+        <input id="pp-condicion" value="Anticipo 50% Saldo a contraentrega">
+      </div>
+    </div>
+    <div style="margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Ítems a cotizar</div>
+    <div id="pp-items-wrap">
+      <div style="display:flex;gap:6px;margin-bottom:6px;padding:0 2px">
+        <span style="flex:1;font-size:10px;color:var(--text3);text-transform:uppercase">Descripción del ítem</span>
+        <span style="width:120px;font-size:10px;color:var(--text3);text-transform:uppercase">$ Unitario</span>
+        <span style="width:65px;font-size:10px;color:var(--text3);text-transform:uppercase">Cant</span>
+        <span style="width:120px;font-size:10px;color:var(--text3);text-transform:uppercase;text-align:right">Subtotal</span>
+        <span style="width:32px"></span>
+      </div>
+      <div id="pp-items" style="max-height:280px;overflow-y:auto;padding-right:2px"></div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="addItemPP()" style="margin-top:8px"><i class="ti ti-plus"></i> Agregar ítem</button>
+    <div style="text-align:right;margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:15px;font-weight:700;color:var(--accent)">
+      Total cotizado: <span id="pp-total">$0</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-prespdf').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="generarPDF()"><i class="ti ti-printer"></i> Generar PDF + Excel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-title">Nuevo cliente</div>
+    <input type="hidden" id="cli-id">
+    <div class="form-grid">
+      <div class="form-group full"><label>Nombre / Razón social</label><input id="fc-nombre"></div>
+      <div class="form-group"><label>CUIT</label><input id="fc-cuit"></div>
+      <div class="form-group"><label>Contacto</label><input id="fc-contacto"></div>
+      <div class="form-group"><label>Celular</label><input id="fc-cel"></div>
+      <div class="form-group full"><label>Email</label><input id="fc-email"></div>
+      <div class="form-group full"><label>Notas</label><textarea id="fc-notas"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cliente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-presupuesto">
+  <div class="modal">
+    <div class="modal-title">Nuevo presupuesto</div>
+    <input type="hidden" id="pre-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Nro presupuesto</label><input id="fp-nro"></div>
+      <div class="form-group"><label>Vendedor</label><select id="fp-vend"><option>G</option><option>J</option><option>G/J</option></select></div>
+      <div class="form-group full"><label>Cliente</label><input id="fp-cliente"></div>
+      <div class="form-group full"><label>Descripción</label><input id="fp-desc"></div>
+      <div class="form-group"><label>Importe</label><input id="fp-importe" type="number"></div>
+      <div class="form-group"><label>Fecha</label><input id="fp-fecha" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>Estado</label>
+        <select id="fp-estado"><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option></select>
+      </div>
+      <div class="form-group full"><label>Comentarios</label><textarea id="fp-comentarios"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('presupuesto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePresupuesto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-retencion">
+  <div class="modal">
+    <div class="modal-title">Nueva retención</div>
+    <input type="hidden" id="ret-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Mes</label><input id="fr-mes" placeholder="Enero"></div>
+      <div class="form-group"><label>Cliente</label><input id="fr-cliente"></div>
+      <div class="form-group"><label>Nro factura</label><input id="fr-nrfc"></div>
+      <div class="form-group"><label>Importe bruto</label><input id="fr-bruto" type="number"></div>
+      <div class="form-group"><label>R. SUSS</label><input id="fr-suss" type="number" placeholder="0"></div>
+      <div class="form-group"><label>R. IIBB</label><input id="fr-iibb" type="number" placeholder="0"></div>
+      <div class="form-group"><label>R. Ganancias</label><input id="fr-gan" type="number" placeholder="0"></div>
+      <div class="form-group"><label>R. IVA</label><input id="fr-iva" type="number" placeholder="0"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('retencion')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRetencion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cobranza">
+  <div class="modal">
+    <div class="modal-title">Registrar cobro</div>
+    <input type="hidden" id="cob-id">
+    <div class="form-grid">
+      <div class="form-group"><label>OT</label><input id="fcob-ot"></div>
+      <div class="form-group"><label>Cliente</label><input id="fcob-cliente"></div>
+      <div class="form-group full"><label>Descripción</label><input id="fcob-desc"></div>
+      <div class="form-group"><label>Nro factura</label><input id="fcob-nrfc"></div>
+      <div class="form-group"><label>Importe</label><input id="fcob-importe" type="number"></div>
+      <div class="form-group"><label>F. vencimiento</label><input id="fcob-venc" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>F. cobro real</label><input id="fcob-real" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>Estado</label>
+        <select id="fcob-estado"><option>Pendiente</option><option>Cobrado</option><option>Vencido</option></select>
+      </div>
+      <div class="form-group full"><label>Comentarios</label><textarea id="fcob-comentarios"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cobranza')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCobranza()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#0f0f0f;z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:20px">
+  <div style="text-align:center;max-width:340px">
+    <div style="font-size:32px;font-weight:700;color:#e8b84b;letter-spacing:-1px;margin-bottom:4px">TIZ</div>
+    <div style="font-size:12px;color:#5a5856;text-transform:uppercase;letter-spacing:.1em;margin-bottom:40px">Gestión operativa</div>
+    <button onclick="doLogin()" style="display:flex;align-items:center;gap:12px;padding:14px 24px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;width:100%;justify-content:center">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Entrar con Google corporativo
+    </button>
+    <p id="login-err" style="color:#e05c5c;font-size:12px;margin-top:12px"></p>
+    <p style="font-size:11px;color:#5a5856;margin-top:16px">Solo cuentas @tizpublicidad.com</p>
+  </div>
+</div>
+
+<!-- MODAL TAREA -->
+<div class="modal-overlay" id="modal-tarea">
+  <div class="modal">
+    <div class="modal-title">Nueva tarea</div>
+    <input type="hidden" id="tarea-id">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Buscar obra</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input id="ft-buscar-ot" placeholder="Buscar por OT, descripción o cliente..." oninput="filtrarObrasModal()" style="flex:1">
+          <select id="ft-filtro-estado" onchange="filtrarObrasModal()" style="width:160px">
+            <option value="">Todos los estados</option>
+            <option>Aprobado</option>
+            <option>En producción</option>
+            <option>Entregado</option>
+            <option>Facturado</option>
+            <option>Cobrado</option>
+          </select>
+        </div>
+        <select id="ft-obra-id" onchange="fillTareaObra(this.value)" size="5" style="width:100%;min-height:110px;border-radius:8px;padding:4px">
+          <option value="">— Seleccionar obra —</option>
+        </select>
+        <div id="ft-obras-count" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+      </div>
+      <div class="form-group full"><label>Descripción de la tarea</label>
+        <input id="ft-desc" placeholder="Ej: Imprimir lonas para Farmacity Florida 441">
+      </div>
+      <div class="form-group"><label>Fecha</label><input id="ft-fecha" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>Hora inicio</label><input id="ft-hora-ini" placeholder="09:00" type="time"></div>
+      <div class="form-group"><label>Hora fin</label><input id="ft-hora-fin" placeholder="11:00" type="time"></div>
+      <div class="form-group"><label>Sector responsable</label>
+        <select id="ft-sector">
+          <option>Producción</option><option>Colocaciones</option><option>Diseño</option><option>Ventas</option><option>Compras</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Notas adicionales</label><textarea id="ft-notas"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('tarea')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTarea()"><i class="ti ti-calendar-plus"></i> Guardar y enviar a Calendar</button>
+    </div>
+  </div>
+</div>
+
+<!-- AREA DE IMPRESIÓN PDF -->
+<div id="print-area" style="display:none"></div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -19,131 +897,49 @@ const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ hd: 'tizpublicidad.com' });
 
 // ============================================================
-// ROLES / PUESTOS OPERATIVOS
+// PERMISOS
 // ============================================================
-// La app valida por email, pero en pantalla y permisos trabaja por puesto.
-// Para sumar/quitar usuarios, modificar solo este mapa.
-const USER_ROLE_MAP = {
-  'info@tizpublicidad.com':              'Admin',
-  'giancarlo.pareja@gmail.com':          'Admin',
+const ADMIN_EMAIL = 'info@tizpublicidad.com';
+
+// Mapa email → sector. Completar con los emails reales del equipo.
+const USER_SECTOR_MAP = {
+  'info@tizpublicidad.com':              'Ventas',
   'pablo.aciar@tizpublicidad.com':       'Producción',
   'julieta.aguirre@tizpublicidad.com':   'Diseño',
   'carolina.flores@tizpublicidad.com':   'Compras',
   'arielbenitezpublicidad@gmail.com':    'Colocaciones',
-  // Agregar aquí el email real de cobranzas:
-  // 'cobranzas@tizpublicidad.com':      'Cobranzas',
-};
-
-const ROLE_LABELS = {
-  'Admin':'Admin','Ventas':'Ventas','Compras':'Compras','Producción':'Producción',
-  'Diseño':'Diseño','Colocaciones':'Colocaciones','Cobranzas':'Cobranzas'
-};
-
-const ROLE_HOME = {
-  'Admin':'dashboard',
-  'Ventas':'obras',
-  'Compras':'obras',
-  'Producción':'produccion',
-  'Diseño':'diseno',
-  'Colocaciones':'colocaciones',
-  'Cobranzas':'cobranzas'
-};
-
-const ROLE_PAGES = {
-  'Admin':['dashboard','obras','semana','produccion','colocaciones','diseno','cobranzas','presupuestos','clientes','tareas','retenciones','vendedores','estadistica'],
-  'Ventas':['dashboard','obras','semana','presupuestos','clientes','tareas','vendedores'],
-  'Compras':['dashboard','obras','semana','produccion','colocaciones','tareas'],
-  'Producción':['dashboard','obras','semana','produccion','diseno','tareas'],
-  'Diseño':['dashboard','obras','semana','diseno','tareas'],
-  'Colocaciones':['dashboard','obras','semana','colocaciones','tareas'],
-  'Cobranzas':['dashboard','obras','cobranzas','clientes','retenciones','tareas']
-};
-
-const ROLE_ACTIONS = {
-  'Admin':['obra:create','obra:edit','obra:delete','cliente:edit','presupuesto:edit','cobranza:edit','retencion:edit','tarea:edit','exportar'],
-  'Ventas':['obra:create','cliente:edit','presupuesto:edit','tarea:edit','exportar'],
-  'Compras':['obra:note','tarea:edit'],
-  'Producción':['obra:status','obra:note','tarea:edit'],
-  'Diseño':['obra:status','obra:note','tarea:edit'],
-  'Colocaciones':['obra:status','obra:note','tarea:edit'],
-  'Cobranzas':['cobranza:edit','retencion:edit','tarea:edit','exportar']
 };
 
 const SECTOR_COLORS = {
-  'Admin':'var(--accent)','Ventas':'var(--amber)','Producción':'var(--blue)',
-  'Colocaciones':'var(--teal)','Diseño':'var(--purple)','Compras':'var(--accent)',
-  'Cobranzas':'var(--green)'
+  'Ventas':'var(--amber)','Producción':'var(--blue)',
+  'Colocaciones':'var(--teal)','Diseño':'var(--purple)','Compras':'var(--accent)'
 };
 const SECTOR_EMOJI = {
-  'Admin':'🛡️','Ventas':'💰','Producción':'📦','Colocaciones':'🚛','Diseño':'✏️','Compras':'🛒','Cobranzas':'💵'
+  'Ventas':'💰','Producción':'📦','Colocaciones':'🚛','Diseño':'✏️','Compras':'🛒'
 };
 
 window.currentUser = null;
-window.USER_ROLE_MAP = USER_ROLE_MAP;
-window.ROLE_PAGES = ROLE_PAGES;
-window.ROLE_ACTIONS = ROLE_ACTIONS;
 
-function getUserRole(email) {
-  if (USER_ROLE_MAP[email]) return USER_ROLE_MAP[email];
+function getUserSector(email) {
+  if (USER_SECTOR_MAP[email]) return USER_SECTOR_MAP[email];
   const local = (email||'').split('@')[0].toLowerCase();
-  if (local.includes('admin') || local.includes('info')) return 'Admin';
-  if (local.includes('cob')) return 'Cobranzas';
-  if (local.includes('prod')) return 'Producción';
-  if (local.includes('col')) return 'Colocaciones';
+  if (local.includes('prod'))   return 'Producción';
+  if (local.includes('col'))    return 'Colocaciones';
   if (local.includes('dis') || local.includes('design')) return 'Diseño';
-  if (local.includes('comp')) return 'Compras';
-  if (local.includes('vent') || local.includes('comercial')) return 'Ventas';
+  if (local.includes('comp'))   return 'Compras';
   return 'Ventas';
 }
-
-function roleHasAction(action) {
-  const role = window.currentUser?.role || window.currentUser?.sector;
-  return !!role && (ROLE_ACTIONS[role] || []).includes(action);
-}
-
-window.canViewPage = page => {
-  const role = window.currentUser?.role || window.currentUser?.sector;
-  if (!role) return false;
-  return (ROLE_PAGES[role] || []).includes(page);
-};
-window.canAction = roleHasAction;
-window.canEditFechasCompromiso = () => roleHasAction('obra:edit') || roleHasAction('obra:status');
+window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
 window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
-  const role = window.currentUser.role || window.currentUser.sector;
-  if (role === 'Admin') return true;
-  if (role === s) return true;
-  if (role === 'Compras' && (s === 'Compras' || s === 'Colocaciones' || s === 'Producción')) return true;
-  if (role === 'Ventas' && s === 'Ventas') return true;
-  if (role === 'Cobranzas' && s === 'Ventas') return true;
+  if (window.currentUser.isAdmin) return true;
+  if (window.currentUser.sector === s) return true;
+  // Compras también puede anotar en Colocaciones
+  if (window.currentUser.sector === 'Compras' && s === 'Colocaciones') return true;
   return false;
 };
-window.canEditObra = () => roleHasAction('obra:edit') || roleHasAction('obra:create') || roleHasAction('obra:status') || roleHasAction('obra:note');
-window.isAdmin = () => (window.currentUser?.role || window.currentUser?.sector) === 'Admin';
-
-function getHomeForCurrentRole() {
-  const role = window.currentUser?.role || window.currentUser?.sector || 'Ventas';
-  return ROLE_HOME[role] || 'dashboard';
-}
-
-function applyRoleUI() {
-  const role = window.currentUser?.role || window.currentUser?.sector;
-  if (!role) return;
-  document.querySelectorAll('.nav-item[onclick^="goTo"]').forEach(btn => {
-    const m = btn.getAttribute('onclick')?.match(/goTo\('([^']+)'\)/);
-    if (!m) return;
-    btn.style.display = window.canViewPage(m[1]) ? 'flex' : 'none';
-  });
-  document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = role === 'Admin' ? '' : 'none';
-  });
-  // Botones de creación por rol
-  document.querySelectorAll('[onclick*="openModal(\'obra\')"]').forEach(el => el.style.display = roleHasAction('obra:create') || roleHasAction('obra:edit') ? '' : 'none');
-  document.querySelectorAll('[onclick*="openModal(\'presupuesto\')"]').forEach(el => el.style.display = roleHasAction('presupuesto:edit') ? '' : 'none');
-  document.querySelectorAll('[onclick*="openModal(\'cliente\')"]').forEach(el => el.style.display = roleHasAction('cliente:edit') ? '' : 'none');
-  document.querySelectorAll('[onclick*="openModal(\'cobranza\')"]').forEach(el => el.style.display = roleHasAction('cobranza:edit') ? '' : 'none');
-  document.querySelectorAll('[onclick*="openModal(\'retencion\')"]').forEach(el => el.style.display = roleHasAction('retencion:edit') ? '' : 'none');
-}
+window.canEditObra        = () => window.currentUser?.isAdmin;
+window.isAdmin            = () => window.currentUser?.isAdmin;
 
 // ============================================================
 // AUTH SCREEN
@@ -171,7 +967,7 @@ window.doLogout = async () => { await signOut(auth); };
 onAuthStateChanged(auth, async user => {
   if (user) {
     // Validar que el email esté en la lista autorizada
-    const allowed = Object.keys(USER_ROLE_MAP);
+    const allowed = Object.keys(USER_SECTOR_MAP);
     if (!allowed.includes(user.email)) {
       await signOut(auth);
       document.getElementById('login-err').textContent =
@@ -179,15 +975,13 @@ onAuthStateChanged(auth, async user => {
       showLoginScreen();
       return;
     }
-    const role = getUserRole(user.email);
+    const sector = getUserSector(user.email);
     window.currentUser = {
       email: user.email,
       name: user.displayName,
       photo: user.photoURL,
-      role,
-      // sector se mantiene por compatibilidad con funciones existentes
-      sector: role,
-      isAdmin: role === 'Admin',
+      sector,
+      isAdmin: user.email === ADMIN_EMAIL,
     };
     hideLoginScreen();
     updateUserUI();
@@ -201,21 +995,17 @@ onAuthStateChanged(auth, async user => {
 function updateUserUI() {
   const u = window.currentUser;
   if (!u) return;
-  const role = u.role || u.sector;
-  const color = SECTOR_COLORS[role] || 'var(--accent)';
-  const nameEl = document.getElementById('user-name');
-  const sectorEl = document.getElementById('user-sector');
-  if (nameEl) nameEl.textContent = `${SECTOR_EMOJI[role] || ''} ${ROLE_LABELS[role] || role}`;
-  if (sectorEl) {
-    sectorEl.textContent = 'Puesto operativo';
-    sectorEl.style.color = color;
+  const color = SECTOR_COLORS[u.sector] || 'var(--accent)';
+  document.getElementById('user-name').textContent   = u.name || u.email;
+  document.getElementById('user-sector').textContent = u.sector;
+  document.getElementById('user-sector').style.color = color;
+  if (u.photo) {
+    document.getElementById('user-avatar').src   = u.photo;
+    document.getElementById('user-avatar').style.display = 'block';
   }
-  const avatar = document.getElementById('user-avatar');
-  if (avatar) avatar.style.display = 'none';
-  applyRoleUI();
-  const home = getHomeForCurrentRole();
-  if (window.currentPage === 'dashboard' && home !== 'dashboard') {
-    setTimeout(() => window.goTo(home), 100);
+  // Ocultar secciones admin-only en sidebar
+  if (!u.isAdmin) {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
   }
 }
 
@@ -256,7 +1046,7 @@ function initListeners() {
 }
 
 // CRUD helpers
-window.addDoc_    = async (col_, data) => { const ref = await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); return ref; };
+window.addDoc_    = async (col_, data) => { await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); };
 window.updateDoc_ = async (col_, id, data) => { await updateDoc(doc(db, col_, id), data); };
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
 
@@ -694,7 +1484,6 @@ window.editCliente = id => {
   const c = window.DB.clientes.find(x=>x.id===id);
   if(!c) return;
   window.editingId.cliente = id;
-  document.getElementById('fc-numero').value=c.numeroCliente||c.numero||'';
   document.getElementById('fc-nombre').value=c.nombre||'';
   document.getElementById('fc-cuit').value=c.cuit||'';
   document.getElementById('fc-contacto').value=c.contacto||'';
@@ -795,10 +1584,6 @@ function renderVendedores() {
 
 // MODALES
 window.openModal = (type) => {
-  if (type==='cliente' && !window.editingId.cliente) {
-    const n = document.getElementById('fc-numero'); if(n) n.value = nextClienteNumero();
-    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
-  }
   if (type==='obra') {
     if (!window.editingId.obra) {
       ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
@@ -809,11 +1594,8 @@ window.openModal = (type) => {
       document.getElementById('f-semana').value = getSemanaActual();
       document.getElementById('f-sector').value = 'Producción';
       document.getElementById('f-vendedor').value = 'G';
-      document.getElementById('f-estado').value = 'Presupuestado';
+      document.getElementById('f-estado').value = 'Aprobado';
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
-      window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
-      window.calculosAuxiliares = [];
-      renderObraItems(); renderCalculosAux();
       ['Producción','Colocaciones','Diseño','Ventas','Compras'].forEach(s => {
         const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
         if(el) el.value = '';
@@ -837,7 +1619,7 @@ window.editObra = id => {
   document.getElementById('f-desc').value = o.desc||'';
   document.getElementById('f-cliente').value = o.cliente||'';
   document.getElementById('f-vendedor').value = o.vendedor||'G';
-  document.getElementById('f-estado').value = o.estado||'Presupuestado';
+  document.getElementById('f-estado').value = o.estado||'Aprobado';
   document.getElementById('f-semana').value = o.semana||'';
   document.getElementById('f-neto').value = o.neto||'';
   document.getElementById('f-bruto').value = o.bruto||'';
@@ -852,9 +1634,6 @@ window.editObra = id => {
   document.getElementById('f-cobr').value = o.cobr||'Pendiente';
   document.getElementById('f-comentarios').value = o.comentarios||'';
   document.getElementById('modal-obra-title').textContent = 'Editar obra — ' + (o.ot||o.desc||'');
-  window.obraItems = Array.isArray(o.itemsCotizados) && o.itemsCotizados.length ? o.itemsCotizados : [{descripcion:o.desc||'', cantidad:1, unitario:+o.neto||0, subtotal:+o.neto||0, observaciones:''}];
-  window.calculosAuxiliares = Array.isArray(o.calculosAuxiliares) ? o.calculosAuxiliares : [];
-  renderObraItems(); renderCalculosAux();
 
   // Cargar anotaciones por sector
   const notas = o.notas_sector || {};
@@ -988,183 +1767,69 @@ window.nuevoClienteDesdePresupuesto = nombre => {
   cerrarSugerenciasPP();
   document.getElementById('pp-cliente').value = nombre;
   window.editingId.cliente = null;
-  document.getElementById('fc-numero').value = nextClienteNumero();
   document.getElementById('fc-nombre').value = nombre;
-  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fc-cuit','fc-contacto','fc-cel','fc-email'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   // Al guardar el cliente, volver al presupuesto
   window._volvioDePresupuesto = true;
   document.getElementById('modal-cliente').classList.add('open');
 };
 
-
-// ============================================================
-// ÍTEMS DE OBRA + CÁLCULOS AUXILIARES
-// ============================================================
-window.obraItems = window.obraItems || [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
-window.calculosAuxiliares = window.calculosAuxiliares || [];
-
-function moneyInput(v){ return Number.isFinite(+v) ? +v : 0; }
-function fmtPesoObra(n){ return '$' + Math.round(+n || 0).toLocaleString('es-AR'); }
-
-window.addObraItem = () => {
-  window.obraItems = collectObraItems();
-  window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
-  renderObraItems();
-};
-window.removeObraItem = idx => {
-  window.obraItems = collectObraItems();
-  window.obraItems.splice(idx,1);
-  if (!window.obraItems.length) window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
-  renderObraItems();
-};
-window.renderObraItems = () => {
-  const wrap = document.getElementById('obra-items-list');
-  if (!wrap) return;
-  const items = window.obraItems || [];
-  wrap.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
-      <span>Descripción</span><span>Cant.</span><span>$ Unit.</span><span>Subtotal</span><span></span>
-    </div>
-    ${items.map((it,i)=>`
-      <div class="obra-item-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:6px;align-items:center">
-        <input class="oi-desc" value="${(it.descripcion||'').replace(/"/g,'&quot;')}" placeholder="Ej: letras, lona, vinilo, estructura..." oninput="updateObraTotals()">
-        <input class="oi-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateObraTotals()">
-        <input class="oi-unit" type="number" step="0.01" value="${it.unitario ?? 0}" oninput="updateObraTotals()">
-        <input class="oi-sub" type="number" step="0.01" value="${it.subtotal ?? ((+it.cantidad||0)*(+it.unitario||0))}" oninput="updateObraTotals(true)">
-        <button type="button" class="btn-icon" onclick="removeObraItem(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
-        <input class="oi-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas del ítem" style="grid-column:1 / -1">
-      </div>`).join('')}`;
-  updateObraTotals();
-};
-window.collectObraItems = () => {
-  return [...document.querySelectorAll('.obra-item-row')].map(row => {
-    const cantidad = moneyInput(row.querySelector('.oi-cant')?.value);
-    const unitario = moneyInput(row.querySelector('.oi-unit')?.value);
-    const subtotalManual = moneyInput(row.querySelector('.oi-sub')?.value);
-    const subtotal = subtotalManual || cantidad * unitario;
-    return { descripcion: row.querySelector('.oi-desc')?.value.trim() || '', cantidad, unitario, subtotal, observaciones: row.querySelector('.oi-obs')?.value.trim() || '' };
-  }).filter(it => it.descripcion || it.subtotal || it.unitario);
-};
-window.updateObraTotals = (manual=false) => {
-  document.querySelectorAll('.obra-item-row').forEach(row => {
-    const cant = moneyInput(row.querySelector('.oi-cant')?.value);
-    const unit = moneyInput(row.querySelector('.oi-unit')?.value);
-    const sub = row.querySelector('.oi-sub');
-    if (sub && !manual && document.activeElement !== sub) sub.value = Math.round(cant * unit * 100) / 100;
-  });
-  const total = collectObraItems().reduce((a,it)=>a+(+it.subtotal||0),0);
-  const totalEl = document.getElementById('obra-items-total');
-  if (totalEl) totalEl.textContent = fmtPesoObra(total);
-  const neto = document.getElementById('f-neto');
-  if (neto && total > 0 && (!neto.value || +neto.value===0)) neto.value = Math.round(total);
-};
-
-window.addCalculoAux = () => {
-  window.calculosAuxiliares = collectCalculosAux();
-  window.calculosAuxiliares.push({concepto:'', detalle:'', cantidad:1, unidad:'', precioUnitario:0, total:0, observaciones:''});
-  renderCalculosAux();
-};
-window.removeCalculoAux = idx => {
-  window.calculosAuxiliares = collectCalculosAux();
-  window.calculosAuxiliares.splice(idx,1);
-  renderCalculosAux();
-};
-window.renderCalculosAux = () => {
-  const wrap = document.getElementById('obra-calculos-list');
-  if (!wrap) return;
-  const items = window.calculosAuxiliares || [];
-  wrap.innerHTML = `
-    <div style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
-      <span>Concepto</span><span>Detalle</span><span>Cant.</span><span>Unidad</span><span>$ Unit.</span><span>Total</span><span></span>
-    </div>
-    ${items.map((it,i)=>`
-      <div class="calc-aux-row" data-idx="${i}" style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:6px;align-items:center">
-        <input class="ca-concepto" value="${(it.concepto||'').replace(/"/g,'&quot;')}" placeholder="Material/horas/etc" oninput="updateCalculosTotals()">
-        <input class="ca-detalle" value="${(it.detalle||'').replace(/"/g,'&quot;')}" placeholder="Detalle del cálculo" oninput="updateCalculosTotals()">
-        <input class="ca-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateCalculosTotals()">
-        <input class="ca-unidad" value="${(it.unidad||'').replace(/"/g,'&quot;')}" placeholder="m2/hs/u">
-        <input class="ca-unit" type="number" step="0.01" value="${it.precioUnitario ?? 0}" oninput="updateCalculosTotals()">
-        <input class="ca-total" type="number" step="0.01" value="${it.total ?? ((+it.cantidad||0)*(+it.precioUnitario||0))}" oninput="updateCalculosTotals(true)">
-        <button type="button" class="btn-icon" onclick="removeCalculoAux(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
-        <input class="ca-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas" style="grid-column:1 / -1">
-      </div>`).join('') || `<div style="font-size:12px;color:var(--text3);padding:8px 0">Sin cálculos auxiliares cargados todavía.</div>`}`;
-  updateCalculosTotals();
-};
-window.collectCalculosAux = () => {
-  return [...document.querySelectorAll('.calc-aux-row')].map(row => {
-    const cantidad = moneyInput(row.querySelector('.ca-cant')?.value);
-    const precioUnitario = moneyInput(row.querySelector('.ca-unit')?.value);
-    const totalManual = moneyInput(row.querySelector('.ca-total')?.value);
-    const total = totalManual || cantidad * precioUnitario;
-    return { concepto: row.querySelector('.ca-concepto')?.value.trim() || '', detalle: row.querySelector('.ca-detalle')?.value.trim() || '', cantidad, unidad: row.querySelector('.ca-unidad')?.value.trim() || '', precioUnitario, total, observaciones: row.querySelector('.ca-obs')?.value.trim() || '' };
-  }).filter(it => it.concepto || it.detalle || it.total || it.precioUnitario);
-};
-window.updateCalculosTotals = (manual=false) => {
-  document.querySelectorAll('.calc-aux-row').forEach(row => {
-    const cant = moneyInput(row.querySelector('.ca-cant')?.value);
-    const unit = moneyInput(row.querySelector('.ca-unit')?.value);
-    const total = row.querySelector('.ca-total');
-    if (total && !manual && document.activeElement !== total) total.value = Math.round(cant * unit * 100) / 100;
-  });
-  const total = collectCalculosAux().reduce((a,it)=>a+(+it.total||0),0);
-  const el = document.getElementById('obra-calculos-total');
-  if (el) el.textContent = fmtPesoObra(total);
-};
-
-function nextClienteNumero() {
-  const nums = window.DB.clientes.map(c => parseInt(String(c.numeroCliente || c.numero || '').replace(/\D/g,''),10)).filter(n => n>0);
-  return 'CLI-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4,'0');
-}
-
 window.saveObra = async () => {
-  const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
+  // Leer anotaciones por sector
+  const sectorKeys = {
+    'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'
+  };
   const notas_sector = {};
   const existingId = window.editingId.obra;
   const existing = existingId ? window.DB.obras.find(x=>x.id===existingId) : null;
   const existingNotas = existing?.notas_sector || {};
+
   Object.entries(sectorKeys).forEach(([sec, key]) => {
     const el = document.getElementById('nota-'+key);
     const newVal = el ? el.value.trim() : '';
     const oldVal = existingNotas[sec] || '';
     notas_sector[sec] = newVal;
-    notas_sector[sec+'_ts'] = (newVal !== oldVal && newVal) ? new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : (existingNotas[sec+'_ts'] || '');
+    // Si cambió, actualizar timestamp
+    if (newVal !== oldVal && newVal) {
+      notas_sector[sec+'_ts'] = new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    } else {
+      notas_sector[sec+'_ts'] = existingNotas[sec+'_ts'] || '';
+    }
   });
-  const itemsCotizados = collectObraItems();
-  const calculosAuxiliares = collectCalculosAux();
-  const totalItems = itemsCotizados.reduce((a,it)=>a+(+it.subtotal||0),0);
+
   const data = {
-    ot: document.getElementById('f-ot').value.trim(), sector: document.getElementById('f-sector').value,
-    desc: document.getElementById('f-desc').value.trim(), cliente: document.getElementById('f-cliente').value.trim(),
-    vendedor: document.getElementById('f-vendedor').value, estado: document.getElementById('f-estado').value,
-    semana: +document.getElementById('f-semana').value||0, neto: +document.getElementById('f-neto').value||totalItems||0,
-    bruto: +document.getElementById('f-bruto').value||0, gastos: +document.getElementById('f-gastos').value||0,
-    fprod_c: document.getElementById('f-fprod-c').value.trim(), fprod_r: document.getElementById('f-fprod-r').value.trim(),
-    fcol_c: document.getElementById('f-fcol-c').value.trim(), fcol_r: document.getElementById('f-fcol-r').value.trim(),
-    oc: document.getElementById('f-oc').value.trim(), nrfc: document.getElementById('f-nrfc').value.trim(), ffc: document.getElementById('f-ffc').value.trim(),
-    cobr: document.getElementById('f-cobr').value, diasPago: +document.getElementById('f-dias-pago').value||0,
-    comentarios: document.getElementById('f-comentarios').value.trim(), notas_sector,
-    itemsCotizados, calculosAuxiliares, totalItems,
-    totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
-    driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
+    ot: document.getElementById('f-ot').value.trim(),
+    sector: document.getElementById('f-sector').value,
+    desc: document.getElementById('f-desc').value.trim(),
+    cliente: document.getElementById('f-cliente').value.trim(),
+    vendedor: document.getElementById('f-vendedor').value,
+    estado: document.getElementById('f-estado').value,
+    semana: +document.getElementById('f-semana').value||0,
+    neto: +document.getElementById('f-neto').value||0,
+    bruto: +document.getElementById('f-bruto').value||0,
+    gastos: +document.getElementById('f-gastos').value||0,
+    fprod_c: document.getElementById('f-fprod-c').value.trim(),
+    fprod_r: document.getElementById('f-fprod-r').value.trim(),
+    fcol_c: document.getElementById('f-fcol-c').value.trim(),
+    fcol_r: document.getElementById('f-fcol-r').value.trim(),
+    oc: document.getElementById('f-oc').value.trim(),
+    nrfc: document.getElementById('f-nrfc').value.trim(),
+    ffc: document.getElementById('f-ffc').value.trim(),
+    cobr: document.getElementById('f-cobr').value,
+    comentarios: document.getElementById('f-comentarios').value.trim(),
+    notas_sector,
   };
   if (!data.desc) { showToast('Ingresá una descripción'); return; }
-  let docRefId = existingId;
   if (existingId) await updateDoc_('obras', existingId, data);
-  else { const ref = await addDoc_('obras', data); docRefId = ref?.id || null; }
-  try {
-    const syncResult = await syncToSheets({...data, firestoreId: docRefId});
-    if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-      const links = { driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '', otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '', driveSyncedAt: new Date().toISOString() };
-      if (docRefId) await updateDoc_('obras', docRefId, links);
-    }
-  } catch(e) { console.warn('No se pudo sincronizar Drive/Sheets:', e); }
-  closeModal('obra'); showToast(existingId ? 'Obra actualizada' : 'Obra guardada');
+  else await addDoc_('obras', data);
+  // Sync a Google Sheets
+  syncToSheets(data);
+  closeModal('obra');
+  showToast(existingId ? 'Obra actualizada ✓ Sheets' : 'Obra guardada ✓ Sheets');
 };
 
 window.saveCliente = async () => {
-  const numeroCliente = document.getElementById('fc-numero')?.value || nextClienteNumero();
   const data = {
-    numeroCliente,
     nombre: document.getElementById('fc-nombre').value.trim(),
     cuit: document.getElementById('fc-cuit').value.trim(),
     contacto: document.getElementById('fc-contacto').value.trim(),
@@ -1175,17 +1840,11 @@ window.saveCliente = async () => {
   if(!data.nombre){showToast('Ingresá un nombre');return;}
   const id = window.editingId.cliente;
   if(id) await updateDoc_('clientes',id,data); else await addDoc_('clientes',data);
-  const fCliente = document.getElementById('f-cliente');
-  if (fCliente && document.getElementById('modal-obra')?.classList.contains('open')) fCliente.value = data.nombre;
-  const ppCliente = document.getElementById('pp-cliente');
-  if (ppCliente && document.getElementById('modal-prespdf')?.classList.contains('open')) ppCliente.value = data.nombre;
   window.editingId.cliente=null;
-  closeModal('cliente'); showToast(`Cliente ${numeroCliente} guardado`);
+  closeModal('cliente'); showToast('Cliente guardado');
 };
 
 window.savePresupuesto = async () => {
-  const id = window.editingId.presupuesto;
-  const existing = id ? window.DB.presupuestos.find(x => x.id === id) : null;
   const data = {
     nro: document.getElementById('fp-nro').value.trim(),
     vendedor: document.getElementById('fp-vend').value,
@@ -1195,46 +1854,9 @@ window.savePresupuesto = async () => {
     fecha: document.getElementById('fp-fecha').value.trim(),
     estado: document.getElementById('fp-estado').value,
     comentarios: document.getElementById('fp-comentarios').value.trim(),
-    driveFolderUrl: existing?.driveFolderUrl || '',
-    otSheetUrl: existing?.otSheetUrl || '',
   };
-  if (!data.desc) { showToast('Ingresá una descripción'); return; }
-  let docRefId = id;
-  if(id) await updateDoc_('presupuestos',id,data); else { const ref = await addDoc_('presupuestos',data); docRefId = ref?.id || null; }
-
-  // Si el presupuesto queda Aprobado, también debe generar carpeta OT y respaldo.
-  // Lo enviamos al mismo backend que usa Obras, pero adaptando campos del presupuesto.
-  if (String(data.estado || '').toLowerCase() === 'aprobado') {
-    try {
-      const otPayload = {
-        ...data,
-        ot: data.nro,
-        neto: data.importe,
-        totalItems: data.importe,
-        sector: data.sector || 'Ventas',
-        itemsCotizados: data.itemsCotizados || [{ descripcion: data.desc, cantidad: 1, unidad: 'u', unitario: data.importe, subtotal: data.importe, observaciones: 'Generado desde Presupuestos' }],
-        calculosAuxiliares: data.calculosAuxiliares || [],
-        firestoreId: docRefId,
-        origen: 'presupuesto'
-      };
-      const syncResult = await syncToSheets(otPayload);
-      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-        const links = {
-          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
-          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
-          driveSyncedAt: new Date().toISOString()
-        };
-        if (docRefId) await updateDoc_('presupuestos', docRefId, links);
-        showToast('Presupuesto aprobado y guardado');
-      } else {
-        showToast('Presupuesto aprobado y guardado');
-      }
-    } catch(e) {
-      console.warn('No se pudo crear carpeta OT desde presupuesto:', e);
-      showToast('Presupuesto aprobado y guardado');
-    }
-  }
-
+  const id = window.editingId.presupuesto;
+  if(id) await updateDoc_('presupuestos',id,data); else await addDoc_('presupuestos',data);
   window.editingId.presupuesto=null;
   closeModal('presupuesto'); showToast('Presupuesto guardado');
 };
@@ -1952,12 +2574,22 @@ function renderEstCumplimiento() {
 }
 
 // ============================================================
-// SINCRONIZACIÓN DRIVE / SHEETS DESACTIVADA
+// SYNC CON GOOGLE SHEETS
 // ============================================================
+const SHEETS_WEBHOOK = 'https://script.google.com/a/macros/tizpublicidad.com/s/AKfycby87k25AigT3MVUWWhp1vWWoqT5ICiWtUiFip1rCKgVpbX8V9bXAORs-p1B9t_bwwDR1A/exec';
+
 async function syncToSheets(data) {
-  return { ok: true, skipped: true, reason: 'Integración Drive desactivada' };
+  try {
+    await fetch(SHEETS_WEBHOOK, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch(e) {
+    console.log('Sheets sync error (no crítico):', e.message);
+  }
 }
-window.syncToSheets = syncToSheets;
 
 window.exportarCSV = () => {
   const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
@@ -2337,125 +2969,6 @@ window.refreshCurrent = function() {
 
 // Init — la app arranca en el listener de auth
 // renderDashboard se llama cuando Firebase carga datos
-
-// ============================================================
-// V3 — ROLES POR PUESTO: navegación, permisos y acciones
-// ============================================================
-function showNoAccess(page) {
-  const home = getHomeForCurrentRole();
-  showToast(`Tu puesto no tiene acceso a ${page}. Redirigiendo a ${home}.`);
-  setTimeout(() => window.goTo(home), 50);
-}
-
-// Reforzar navegación por puesto
-const _v3GoTo = window.goTo;
-window.goTo = function(page) {
-  if (window.currentUser && !window.canViewPage(page)) {
-    showNoAccess(page);
-    return;
-  }
-  _v3GoTo(page);
-  applyRoleUI();
-};
-
-// Permisos de campos dentro de obra por puesto
-applyObraPermissions = function() {
-  const role = window.currentUser?.role || window.currentUser?.sector;
-  const isAdmin = role === 'Admin';
-  const isVentas = role === 'Ventas';
-  const canStatus = roleHasAction('obra:status');
-  const canCreateOrEdit = roleHasAction('obra:create') || roleHasAction('obra:edit');
-
-  // Campos base: ventas/admin pueden crear y completar datos comerciales.
-  ['f-ot','f-desc','f-cliente','f-sector','f-vendedor','f-estado','f-semana','f-comentarios'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.disabled = !(isAdmin || isVentas || canStatus);
-  });
-
-  // Fechas compromiso: admin y ventas definen; producción/colocaciones/diseño completan reales.
-  ['f-fprod-c','f-fcol-c'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.readOnly = !(isAdmin || isVentas); el.style.opacity = (isAdmin || isVentas) ? '1' : '0.55'; }
-  });
-  ['f-fprod-r','f-fcol-r'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.readOnly = !(isAdmin || canStatus); el.style.opacity = (isAdmin || canStatus) ? '1' : '0.55'; }
-  });
-
-  // Datos económicos/facturación: admin, ventas y cobranzas.
-  const canMoney = isAdmin || isVentas || role === 'Cobranzas';
-  ['f-neto','f-bruto','f-gastos','f-oc','f-nrfc','f-ffc','f-cobr'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.disabled = !canMoney;
-    el.readOnly = !canMoney;
-    el.style.opacity = canMoney ? '1' : '0.55';
-  });
-
-  // Notas por sector: cada puesto escribe su parte. Admin ve todo.
-  const sectors = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
-  const sectorKeys = {'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'};
-  sectors.forEach(sec => {
-    const key = sectorKeys[sec];
-    const textarea = document.getElementById('nota-'+key);
-    if (!textarea) return;
-    const canEdit = canAnnotateSector(sec);
-    textarea.readOnly = !canEdit;
-    textarea.style.opacity = canEdit ? '1' : '0.45';
-    textarea.title = canEdit ? `Puede editar notas de ${sec}` : `Solo lectura para puesto ${role}`;
-  });
-};
-
-// Reforzar apertura de modales por puesto
-const _v3OpenModal = window.openModal;
-window.openModal = function(type) {
-  const required = {
-    obra: 'obra:create',
-    cliente: 'cliente:edit',
-    presupuesto: 'presupuesto:edit',
-    cobranza: 'cobranza:edit',
-    retencion: 'retencion:edit',
-    tarea: 'tarea:edit'
-  }[type];
-  if (required && !roleHasAction(required) && !(type === 'obra' && (roleHasAction('obra:status') || roleHasAction('obra:note')))) {
-    showToast('Tu puesto no tiene permiso para crear/editar este módulo.');
-    return;
-  }
-  _v3OpenModal(type);
-  if (type === 'obra') setTimeout(applyObraPermissions, 50);
-};
-
-// Reforzar guardado por puesto
-const _v3SaveObra = window.saveObra;
-window.saveObra = async function() {
-  if (!window.canEditObra()) { showToast('Tu puesto no puede guardar obras.'); return; }
-  await _v3SaveObra();
-};
-const _v3SaveCliente = window.saveCliente;
-window.saveCliente = async function() {
-  if (!roleHasAction('cliente:edit')) { showToast('Tu puesto no puede guardar clientes.'); return; }
-  await _v3SaveCliente();
-};
-const _v3SavePresupuesto = window.savePresupuesto;
-window.savePresupuesto = async function() {
-  if (!roleHasAction('presupuesto:edit')) { showToast('Tu puesto no puede guardar presupuestos.'); return; }
-  await _v3SavePresupuesto();
-};
-const _v3SaveCobranza = window.saveCobranza;
-window.saveCobranza = async function() {
-  if (!roleHasAction('cobranza:edit')) { showToast('Tu puesto no puede guardar cobranzas.'); return; }
-  await _v3SaveCobranza();
-};
-const _v3SaveRetencion = window.saveRetencion;
-window.saveRetencion = async function() {
-  if (!roleHasAction('retencion:edit')) { showToast('Tu puesto no puede guardar retenciones.'); return; }
-  await _v3SaveRetencion();
-};
-
-// Refresco final: aplicar permisos después de cada render
-const _v3Refresh = window.refreshCurrent;
-window.refreshCurrent = function() {
-  _v3Refresh();
-  applyRoleUI();
-};
+</script>
+</body>
+</html>

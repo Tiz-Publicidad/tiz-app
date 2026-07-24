@@ -1,7 +1,8 @@
-// Generado desde: TIZ 2026 Base de Datos.xlsx
-// Obras cargadas: 290 | Con datos de facturación/OC/OP: 212
+// Pegar en la consola del navegador dentro de la app TIZ, o incluirlo temporalmente en index.html.
+// Actualiza datos de facturación desde Excel Madre sin borrar otros cambios existentes.
+// Generado desde TIZ 2026 Base de Datos.xlsx — 290 registros.
 
-export const OBRAS_MADRE_2026 = [
+const OBRAS_MADRE_FACTURACION = [
   {
     "id": "excel-2",
     "filaExcel": 2,
@@ -13344,4 +13345,91 @@ export const OBRAS_MADRE_2026 = [
   }
 ];
 
-export default OBRAS_MADRE_2026;
+function normalizarTexto(v) {
+  return String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function claveObra(o) {
+  return [
+    normalizarTexto(o.ot),
+    normalizarTexto(o.descripcion),
+    normalizarTexto(o.cliente)
+  ].join('|');
+}
+
+function buscarKeyLocalStorage() {
+  const candidatos = ['obras', 'tiz_obras', 'tizObras', 'obrasTiz', 'tiz_app_obras', 'tiz-data', 'tizAppData'];
+  for (const k of candidatos) {
+    try {
+      const v = JSON.parse(localStorage.getItem(k));
+      if (Array.isArray(v)) return k;
+      if (v && Array.isArray(v.obras)) return k;
+    } catch (e) {}
+  }
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    try {
+      const v = JSON.parse(localStorage.getItem(k));
+      if (Array.isArray(v) && v.some(x => x && ('ot' in x || 'OT' in x))) return k;
+      if (v && Array.isArray(v.obras)) return k;
+    } catch (e) {}
+  }
+  return null;
+}
+
+(function actualizarFacturacion() {
+  const key = buscarKeyLocalStorage();
+  if (!key) {
+    console.warn('No encontré automáticamente la base de obras en localStorage. Revisar el nombre de la key.');
+    window.OBRAS_MADRE_FACTURACION = OBRAS_MADRE_FACTURACION;
+    return;
+  }
+
+  const dataOriginal = JSON.parse(localStorage.getItem(key));
+  const esObjetoConObras = dataOriginal && !Array.isArray(dataOriginal) && Array.isArray(dataOriginal.obras);
+  const obrasActuales = esObjetoConObras ? dataOriginal.obras : dataOriginal;
+
+  const porClave = new Map(OBRAS_MADRE_FACTURACION.map(o => [claveObra(o), o]));
+  const porOT = new Map();
+  for (const o of OBRAS_MADRE_FACTURACION) {
+    if (o.ot && !porOT.has(String(o.ot))) porOT.set(String(o.ot), o);
+  }
+
+  let actualizadas = 0;
+  const nuevasObras = obrasActuales.map(o => {
+    const madre = porClave.get(claveObra(o)) || porOT.get(String(o.ot ?? o.OT ?? ''));
+    if (!madre) return o;
+
+    const fact = madre.facturacion || {};
+    if (!fact.ocOp && !fact.nroFactura && !fact.fechaFactura && !fact.estadoCobranza) return o;
+
+    actualizadas++;
+    return {
+      ...o,
+      oc: fact.oc || o.oc || '',
+      op: fact.op || o.op || '',
+      ocOp: fact.ocOp || o.ocOp || '',
+      nroFactura: fact.nroFactura || o.nroFactura || o.numeroFactura || '',
+      numeroFactura: fact.nroFactura || o.numeroFactura || o.nroFactura || '',
+      fechaFactura: fact.fechaFactura || o.fechaFactura || o.fFactura || '',
+      fFactura: fact.fechaFactura || o.fFactura || o.fechaFactura || '',
+      estadoCobranza: fact.estadoCobranza || o.estadoCobranza || '',
+      facturacion: {
+        ...(o.facturacion || {}),
+        oc: fact.oc || '',
+        op: fact.op || '',
+        ocOp: fact.ocOp || '',
+        nroFactura: fact.nroFactura || '',
+        fechaFactura: fact.fechaFactura || '',
+        estadoCobranza: fact.estadoCobranza || ''
+      }
+    };
+  });
+
+  const nuevoData = esObjetoConObras ? {...dataOriginal, obras: nuevasObras} : nuevasObras;
+  localStorage.setItem(key + '_backup_' + new Date().toISOString().slice(0,10), JSON.stringify(dataOriginal));
+  localStorage.setItem(key, JSON.stringify(nuevoData));
+
+  console.log(`Facturación actualizada en ${actualizadas} obras. Key usada: ${key}. Se creó backup: ${key}_backup_${new Date().toISOString().slice(0,10)}`);
+  alert(`Facturación actualizada en ${actualizadas} obras. Recargá la página.`);
+})();

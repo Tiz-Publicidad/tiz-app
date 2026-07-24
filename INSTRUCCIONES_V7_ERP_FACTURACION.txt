@@ -1,24 +1,25 @@
-TIZ ERP V7 — Facturación y alertas IA
+TIZ ERP V7.2 — Validación de cotización + carpetas OT pendientes
 
-Qué trae esta versión:
-1) Nuevo módulo ERP "Facturación" en el menú lateral.
-2) Resumen general de comprobantes: Factura A/B, Nota de Crédito/Débito, cliente, CUIT, OT, neto, IVA, total, CAE y estado.
-3) Botón "Preparar factura" desde Obras y Presupuestos.
-4) Exportación CSV para cargar/copiar datos rápido en ARCA.
-5) Alertas IA básicas de facturación:
-   - pre-facturas sin CUIT;
-   - comprobantes listos para emitir;
-   - obras entregadas sin factura preparada.
-6) La factura NO se guarda dentro de la carpeta OT. Queda registrada en el ERP en una colección separada "facturas".
+QUÉ AGREGA
+1) Clemen IA revisa la cotización antes de aprobar:
+   - detecta si falta cliente, medidas, materiales o ítems;
+   - si dice “estructura de hierro” pide tipo de perfil;
+   - si dice “letras corpóreas” pide alto/profundidad e iluminación;
+   - si menciona LED pide tipo de iluminación;
+   - si es marquesina/cartel pide medidas y frente/revestimiento.
 
-IMPORTANTE:
-- Esta versión NO emite todavía directamente en ARCA. Prepara la factura y deja los datos ordenados.
-- La integración real con ARCA requiere certificado digital, clave privada, punto de venta web service y definición del tipo de comprobantes.
-- El PDF/archivo oficial de factura deberá guardarse después en una carpeta Drive separada "Facturas" cuando integremos la etapa ARCA.
+2) No bloquea el trabajo. Advierte. Si se aprueba con datos graves incompletos, pide confirmación.
 
-Cómo subir:
-1) Subir todos los archivos y carpetas a GitHub, reemplazando los existentes.
-2) Reemplazar el código de Apps Script por apps_script_drive_sheets_v4.gs.
-3) Guardar e Implementar nuevamente Apps Script.
-4) Abrir la app con Ctrl + Shift + R.
-5) Probar: Obras > botón recibo / Presupuestos > botón recibo / menú Facturación.
+3) Guarda la validación dentro del respaldo de la OT, en la hoja “Validacion cotizacion”.
+
+4) En Alertas inteligentes agrega botón:
+   “Crear carpetas OT pendientes”
+   Sirve para crear/verificar carpetas de todas las obras aprobadas que no tengan link de Drive.
+
+PASOS
+1. Subir todos los archivos a GitHub.
+2. Copiar apps_script_drive_sheets_v4.gs en Apps Script.
+3. Guardar.
+4. Implementar > Administrar implementaciones > lápiz > Implementar.
+5. Abrir la app con Ctrl + Shift + R.
+6. Ir a Alertas > Crear carpetas OT pendientes.

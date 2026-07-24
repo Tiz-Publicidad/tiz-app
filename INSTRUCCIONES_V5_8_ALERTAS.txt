@@ -1,17 +1,11 @@
-TIZ App V5.8 — Alertas y flujo dinámico
+TIZ V5.7 - Reparación creación de carpetas OT
 
-Qué agrega:
-- Nueva pantalla: Alertas inteligentes.
-- Semáforo por obra en la tabla de Obras.
-- Checklist dentro de Nueva obra / Nuevo presupuesto.
-- Historial básico de cambios de estado.
-- Tareas automáticas al aprobar una OT/presupuesto.
-- Mantiene JSONP para Apps Script / Drive.
-- Mantiene URL /exec y carpeta OT 2026 configuradas.
+1) Subir TODO este ZIP a GitHub reemplazando archivos.
+2) En Apps Script, reemplazar TODO Código.gs con apps_script_drive_sheets_v4.gs de este ZIP.
+3) Guardar.
+4) Implementar > Administrar implementaciones > lápiz > Implementar.
+5) Abrir https://gianxr85.github.io/tiz-app/ con Ctrl+Shift+R.
+6) Crear o cambiar una obra/presupuesto a Aprobado. Debe crear carpeta en Producción / OT 2026.
 
-Pasos:
-1) Subir todos los archivos y carpetas a GitHub.
-2) Copiar apps_script_drive_sheets_v4.gs en Apps Script.
-3) Guardar y reimplementar Apps Script.
-4) Abrir la app con Ctrl + Shift + R.
-5) Probar: crear presupuesto/obra -> aprobar -> revisar carpeta Drive y tareas automáticas.
+Carpeta madre configurada:
+1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh
