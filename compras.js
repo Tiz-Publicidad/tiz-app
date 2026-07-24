@@ -13,7 +13,19 @@ let selectedFile = null;
 let currentTab = 'inicio';
 
 const money = n => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(Number(n)||0);
-const num = n => Number(String(n ?? '').replace(/\./g,'').replace(',','.')) || 0;
+const num = value => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  let s = String(value ?? '').trim().replace(/\s/g,'').replace(/\$/g,'');
+  if (!s) return 0;
+  if (s.includes(',') && s.includes('.')) {
+    // Formato argentino: 1.234,56
+    s = s.replace(/\./g,'').replace(',','.');
+  } else if (s.includes(',')) {
+    s = s.replace(',','.');
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const todayISO = () => new Date().toISOString().slice(0,10);
 const fmtDate = s => s ? new Date(s+'T12:00:00').toLocaleDateString('es-AR') : '—';
@@ -26,7 +38,9 @@ const weekKey = (d=new Date()) => {
 const toast = msg => window.showToast ? window.showToast(msg) : alert(msg);
 
 function injectStyles(){
+  if(document.getElementById('tiz-compras-v21-styles')) return;
   const st=document.createElement('style');
+  st.id='tiz-compras-v21-styles';
   st.textContent=`
   #page-compras{padding:18px 20px 70px;overflow:auto}
   .cp-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap}
@@ -47,6 +61,7 @@ function injectStyles(){
 }
 
 function injectUI(){
+  if(document.getElementById('page-compras')) return;
   const nav=document.querySelector('.nav');
   if(nav && !document.querySelector('[data-cp-nav]')){
     const b=document.createElement('button'); b.className='nav-item'; b.dataset.cpNav='1';
@@ -132,7 +147,8 @@ function priceAlerts(){
 
 function renderInicio(el){
   const month=todayISO().slice(0,7); const cm=C.compras.filter(x=>String(x.fecha||'').startsWith(month)); const total=cm.reduce((s,x)=>s+num(x.totalBruto),0); const nofc=cm.filter(x=>x.fc==='no'); const al=alerts();
-  el.innerHTML=`<div class="cp-grid"><div class="cp-card"><div class="cp-lbl">Compras del mes</div><div class="cp-kpi">${cm.length}</div><div class="cp-sub">${money(total)}</div></div><div class="cp-card"><div class="cp-lbl">Sin factura</div><div class="cp-kpi" style="color:var(--amber)">${nofc.length}</div><div class="cp-sub">${money(nofc.reduce((s,x)=>s+num(x.totalBruto),0))}</div></div><div class="cp-card"><div class="cp-lbl">Alertas activas</div><div class="cp-kpi" style="color:${al.length?'var(--red)':'var(--green)'}">${al.length}</div></div><div class="cp-card"><div class="cp-lbl">Artículos controlados</div><div class="cp-kpi">${C.articulos.length}</div></div></div>
+  const factA=cm.filter(x=>x.fc==='si'&&x.tipoComprobante==='Factura A');const ivaA=factA.reduce((s,x)=>s+num(x.ivaTotal),0);
+  el.innerHTML=`<div class="cp-grid"><div class="cp-card"><div class="cp-lbl">Compras del mes</div><div class="cp-kpi">${cm.length}</div><div class="cp-sub">${money(total)}</div></div><div class="cp-card"><div class="cp-lbl">Factura A</div><div class="cp-kpi" style="color:var(--green)">${factA.length}</div><div class="cp-sub">IVA informado ${money(ivaA)}</div></div><div class="cp-card"><div class="cp-lbl">Sin factura</div><div class="cp-kpi" style="color:var(--amber)">${nofc.length}</div><div class="cp-sub">${money(nofc.reduce((s,x)=>s+num(x.totalBruto),0))}</div></div><div class="cp-card"><div class="cp-lbl">Alertas activas</div><div class="cp-kpi" style="color:${al.length?'var(--red)':'var(--green)'}">${al.length}</div></div></div>
   <div class="cp-panel" style="margin-top:12px"><div style="display:flex;justify-content:space-between"><b>Prioridades de Caro</b><button class="cp-btn" onclick="cpTab('alertas')">Ver todas</button></div><div style="margin-top:10px">${al.slice(0,6).map(alertHTML).join('')||'<div class="cp-alert green">✅ No hay alertas críticas.</div>'}</div></div>
   <div class="cp-panel"><b>Clemen IA · lectura del período</b><div style="margin-top:10px;font-size:12px;color:var(--text2);line-height:1.8">${iaSummary(cm,al)}</div></div>`;
 }
@@ -166,15 +182,24 @@ function planCard(p){return `<div class="cp-panel"><div style="display:flex;just
 function renderAlertas(el){const al=alerts();el.innerHTML=`<div class="cp-panel"><b>Alertas visuales y avisos</b><p class="cp-sub">Se generan desde comprobantes, vencimientos, stock mínimo, planes de OT e historial de precios.</p></div>${al.map(alertHTML).join('')||'<div class="cp-alert green">✅ Sin alertas activas.</div>'}`}
 
 window.cpTab=t=>{currentTab=t;document.querySelectorAll('.cp-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));render();};
-window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');['cp-proveedor','cp-numero','cp-ot','cp-obs','cp-vencimiento'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
+window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');const file=document.getElementById('cp-file');if(file)file.value='';['cp-proveedor','cp-numero','cp-ot','cp-obs','cp-vencimiento'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
 window.cpCloseCompra=()=>document.getElementById('cp-modal-compra').classList.remove('open');
 window.cpAddItem=(data={})=>{
   const tr=document.createElement('tr'); tr.innerHTML=`<td><input class="i-desc" value="${esc(data.descripcion||'')}"></td><td><input class="i-code" value="${esc(data.codigo||'')}"></td><td><input class="i-rubro" value="${esc(data.rubro||'')}"></td><td><input class="i-qty" type="number" step="0.01" value="${data.cantidad??1}"></td><td><input class="i-unit" value="${esc(data.unidad||'unidad')}"></td><td><input class="i-price" type="number" step="0.01" value="${data.precioUnitarioNeto??0}"></td><td><input class="i-iva" type="number" step="0.01" value="${data.ivaPorcentaje??21}"></td><td class="i-total">${money(0)}</td><td><button class="cp-btn danger" onclick="this.closest('tr').remove();cpCalcTotals()">✕</button></td>`;
   tr.querySelectorAll('input').forEach(i=>i.addEventListener('input',calcTotals)); document.getElementById('cp-items-body').appendChild(tr); calcTotals();
 };
 window.cpCalcTotals=()=>calcTotals();
-function getItems(){return [...document.querySelectorAll('#cp-items-body tr')].map(tr=>{const q=num(tr.querySelector('.i-qty').value),p=num(tr.querySelector('.i-price').value),iva=num(tr.querySelector('.i-iva').value),net=q*p;return {descripcion:tr.querySelector('.i-desc').value.trim(),codigo:tr.querySelector('.i-code').value.trim(),rubro:tr.querySelector('.i-rubro').value.trim(),cantidad:q,unidad:tr.querySelector('.i-unit').value.trim(),precioUnitarioNeto:p,ivaPorcentaje:iva,totalNeto:net,ivaImporte:net*iva/100,totalBruto:net*(1+iva/100)};}).filter(i=>i.descripcion);}
-function calcTotals(){const items=getItems();document.querySelectorAll('#cp-items-body tr').forEach((tr,ix)=>{if(items[ix])tr.querySelector('.i-total').textContent=money(items[ix].totalBruto)});const net=items.reduce((s,i)=>s+i.totalNeto,0),iva=items.reduce((s,i)=>s+i.ivaImporte,0);const el=document.getElementById('cp-totales');if(el)el.textContent=`Neto ${money(net)} · IVA ${money(iva)} · TOTAL ${money(net+iva)}`;}
+function rowToItem(tr){
+  const q=num(tr.querySelector('.i-qty').value), p=num(tr.querySelector('.i-price').value), iva=num(tr.querySelector('.i-iva').value), net=q*p;
+  return {descripcion:tr.querySelector('.i-desc').value.trim(),codigo:tr.querySelector('.i-code').value.trim(),rubro:tr.querySelector('.i-rubro').value.trim(),cantidad:q,unidad:tr.querySelector('.i-unit').value.trim(),precioUnitarioNeto:p,ivaPorcentaje:iva,totalNeto:net,ivaImporte:net*iva/100,totalBruto:net*(1+iva/100)};
+}
+function getItems(){return [...document.querySelectorAll('#cp-items-body tr')].map(rowToItem).filter(i=>i.descripcion);}
+function calcTotals(){
+  const rows=[...document.querySelectorAll('#cp-items-body tr')];
+  rows.forEach(tr=>{const i=rowToItem(tr);tr.querySelector('.i-total').textContent=money(i.totalBruto);});
+  const items=rows.map(rowToItem).filter(i=>i.descripcion),net=items.reduce((s,i)=>s+i.totalNeto,0),iva=items.reduce((s,i)=>s+i.ivaImporte,0);
+  const el=document.getElementById('cp-totales');if(el)el.textContent=`Neto ${money(net)} · IVA ${money(iva)} · TOTAL ${money(net+iva)}`;
+}
 window.cpGuardarCompra=async()=>{
   const items=getItems(); if(!items.length)return toast('Agregá al menos un ítem.'); const fc=document.getElementById('cp-fc').value; const data={fecha:document.getElementById('cp-fecha').value,semana:weekKey(new Date(document.getElementById('cp-fecha').value+'T12:00:00')),proveedor:document.getElementById('cp-proveedor').value.trim(),fc,tipoComprobante:fc==='si'?document.getElementById('cp-tipo').value:'Sin comprobante',numeroComprobante:document.getElementById('cp-numero').value.trim(),medioPago:document.getElementById('cp-medio').value,vencimiento:document.getElementById('cp-vencimiento').value,destino:document.getElementById('cp-destino').value,ot:document.getElementById('cp-ot').value.trim(),observacion:document.getElementById('cp-obs').value.trim(),items,totalNeto:items.reduce((s,i)=>s+i.totalNeto,0),ivaTotal:items.reduce((s,i)=>s+i.ivaImporte,0),totalBruto:items.reduce((s,i)=>s+i.totalBruto,0),usuario:window.currentUser?.email||'',_ts:serverTimestamp()};
   if(!data.proveedor)return toast('Ingresá el proveedor.');
@@ -186,7 +211,7 @@ window.cpDeleteCompra=async id=>{if(confirm('¿Borrar esta compra?'))await delet
 window.cpAddArticulo=async()=>{const descripcion=document.getElementById('cp-a-desc').value.trim();if(!descripcion)return toast('Ingresá una descripción.');await addDoc(collection(db,'articulosCompra'),{descripcion,unidad:document.getElementById('cp-a-unit').value.trim(),control:document.getElementById('cp-a-control').value,stockMinimo:num(document.getElementById('cp-a-min').value),_ts:serverTimestamp()});toast('Artículo agregado.');};
 window.cpDeleteArticulo=async id=>{if(confirm('¿Borrar artículo?'))await deleteDoc(doc(db,'articulosCompra',id));};
 window.cpCalcCountRow=input=>{const tr=input.closest('tr'),final=num(input.value),cons=num(tr.dataset.inicial)+num(tr.dataset.compras)-final;tr.querySelector('.cp-consumo').textContent=isNaN(cons)?'—':cons;};
-window.cpSaveConteo=async()=>{const items=[...document.querySelectorAll('[data-count-row]')].map(tr=>{const cantidad=num(tr.querySelector('.cp-count-input').value);return {articuloId:tr.dataset.id,descripcion:tr.dataset.desc,cantidad,stockInicial:num(tr.dataset.inicial),comprasPeriodo:num(tr.dataset.compras),planificadoOT:num(tr.dataset.plan),consumoReal:num(tr.dataset.inicial)+num(tr.dataset.compras)-cantidad};});await addDoc(collection(db,'conteosStock'),{semana:document.getElementById('cp-count-week').value,fecha:document.getElementById('cp-count-date').value,items,usuario:window.currentUser?.email||'',_ts:serverTimestamp()});toast('Conteo guardado. Consumos calculados automáticamente.');};
+window.cpSaveConteo=async()=>{const items=[...document.querySelectorAll('[data-count-row]')].map(tr=>{const raw=tr.querySelector('.cp-count-input').value;if(raw==='')return null;const cantidad=num(raw);return {articuloId:tr.dataset.id,descripcion:tr.dataset.desc,cantidad,stockInicial:num(tr.dataset.inicial),comprasPeriodo:num(tr.dataset.compras),planificadoOT:num(tr.dataset.plan),consumoReal:num(tr.dataset.inicial)+num(tr.dataset.compras)-cantidad};}).filter(Boolean);if(!items.length)return toast('Ingresá al menos un conteo.');await addDoc(collection(db,'conteosStock'),{semana:document.getElementById('cp-count-week').value,fecha:document.getElementById('cp-count-date').value,items,usuario:window.currentUser?.email||'',_ts:serverTimestamp()});toast('Conteo guardado. Consumos calculados automáticamente.');};
 window.cpCreatePlan=async()=>{const ot=document.getElementById('cp-plan-ot').value;if(!ot)return toast('Seleccioná una OT.');await addDoc(collection(db,'planesMateriales'),{ot,descripcion:document.getElementById('cp-plan-desc').value.trim(),estado:document.getElementById('cp-plan-status').value,origen:document.getElementById('cp-plan-source').value,items:[],_ts:serverTimestamp()});toast('Plan creado.');};
 window.cpAddPlanItem=async id=>{const p=C.planes.find(x=>x.id===id);const desc=prompt('Material:');if(!desc)return;const art=C.articulos.find(a=>a.descripcion.toLowerCase()===desc.toLowerCase());const q=num(prompt('Cantidad sugerida:',1));const items=[...(p.items||[]),{articuloId:art?.id||'',descripcion:desc,unidad:art?.unidad||'',cantidadSugerida:q,cantidadPlanificada:q,confianza:art?80:50}];await updateDoc(doc(db,'planesMateriales',id),{items});};
 window.cpUpdatePlanQty=async(id,ix,val)=>{const p=C.planes.find(x=>x.id===id),items=[...(p.items||[])];items[ix]={...items[ix],cantidadPlanificada:num(val),modificadoManualmente:true};await updateDoc(doc(db,'planesMateriales',id),{items});};
@@ -200,11 +225,11 @@ window.cpAnalizarIA=async()=>{
 };
 function fileToBase64(f){return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(f);});}
 function applyAI(d){document.getElementById('cp-proveedor').value=d.proveedor||'';document.getElementById('cp-fecha').value=d.fecha||todayISO();document.getElementById('cp-fc').value=d.fc===false?'no':'si';document.getElementById('cp-tipo').value=d.tipoComprobante||'Factura A';document.getElementById('cp-numero').value=d.numeroComprobante||'';document.getElementById('cp-items-body').innerHTML='';(d.items||[]).forEach(cpAddItem);if(!(d.items||[]).length)cpAddItem();syncFC();calcTotals();}
-window.cpExportCSV=()=>{const h=['Fecha','Semana','Proveedor','FC','Tipo FC','Nro FC','Código','Descripción','Rubro','Cantidad','Unidad','P.Unit.Neto','Total Neto','IVA','Total Bruto','Medio Pago','OT'];const rows=C.compras.flatMap(c=>(c.items||[]).map(i=>[c.fecha,c.semana,c.proveedor,c.fc,c.tipoComprobante,c.numeroComprobante,i.codigo,i.descripcion,i.rubro,i.cantidad,i.unidad,i.precioUnitarioNeto,i.totalNeto,i.ivaImporte,i.totalBruto,c.medioPago,c.ot]));const csv=[h,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='compras_detalladas.csv';a.click();};
+window.cpExportCSV=()=>{const h=['Fecha','Semana','Proveedor','FC','Tipo FC','Nro FC','Código','Descripción','Rubro','Cantidad','Unidad','P.Unit.Neto','Total Neto','IVA','Total Bruto','Medio Pago','Vencimiento','Destino','OT'];const rows=C.compras.flatMap(c=>(c.items||[]).map(i=>[c.fecha,c.semana,c.proveedor,c.fc,c.tipoComprobante,c.numeroComprobante,i.codigo,i.descripcion,i.rubro,i.cantidad,i.unidad,i.precioUnitarioNeto,i.totalNeto,i.ivaImporte,i.totalBruto,c.medioPago,c.vencimiento,c.destino,c.ot]));const csv=[h,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download='compras_detalladas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
 
 // Integración con navegación existente
 const oldGoTo=window.goTo;
 window.goTo=function(page){if(oldGoTo)oldGoTo(page);if(page==='compras'){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-compras')?.classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.cpNav==='1'));window.currentPage='compras';render();}};
 
 injectStyles();injectUI();startListeners();
-console.info('[TIZ Compras V21] módulo cargado');
+console.info('[TIZ Compras V21 FINAL] módulo cargado y verificado');

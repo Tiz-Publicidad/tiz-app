@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TIZ V20.1 — Gestión Operativa</title>
+<title>TIZ V21 — Compras y Stock</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -2660,7 +2660,6 @@ window.generarPDF = async () => {
       XLSX.writeFile(wb, 'Presupuesto_' + String(NRO).padStart(4,'0') + '_' + CLIENTE.replace(/[^a-zA-Z0-9]/g,'_') + '.xlsx');
     }
     <\/script>
-    <script type="module" src="compras.js?v=TIZ-V21-20260724"></script>
 </body></html>`);
   printWin.document.close();
   showToast('Presupuesto guardado en Firebase ✓ — abrí la ventana para descargar PDF o Excel');
@@ -4336,16 +4335,17 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V21 · COMPRAS + STOCK · 24/07/2026';
+  badge.textContent = 'TIZ V21 FINAL · COMPRAS + STOCK · 24/07/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
   else mountBadge();
 
-  console.info('[TIZ V20] Estado inicial: Presupuestado. Drive OT: Apps Script V16.');
+  console.info('[TIZ V21 FINAL] Compras + stock integrados. Estado inicial: Presupuestado.');
 })();
 
 </script>
-<script type="module" src="compras.js?v=TIZ-V21-20260724"></script>
+
+<script type="module" src="compras.js?v=TIZ-V21-FINAL-20260724"></script>
 </body>
 </html>
