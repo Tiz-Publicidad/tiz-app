@@ -220,8 +220,66 @@ window.cpOpenConfigIA=()=>{document.getElementById('cp-ia-url').value=localStora
 window.cpCloseConfigIA=()=>document.getElementById('cp-modal-ia').classList.remove('open');
 window.cpSaveConfigIA=()=>{localStorage.setItem('tizComprasIaUrl',document.getElementById('cp-ia-url').value.trim());cpCloseConfigIA();toast('Configuración IA guardada.');};
 window.cpAnalizarIA=async()=>{
-  if(!selectedFile)return toast('Seleccioná una foto o PDF.'); const url=localStorage.getItem('tizComprasIaUrl');if(!url){cpOpenConfigIA();return toast('Primero configurá la URL del Apps Script IA.');}
-  try{toast('Analizando comprobante…');const base64=await fileToBase64(selectedFile);const res=await fetch(url,{method:'POST',body:JSON.stringify({action:'analyzeExpense',filename:selectedFile.name,mimeType:selectedFile.type,dataBase64:base64})});const json=await res.json();if(!json.ok)throw new Error(json.error||'No se pudo analizar');applyAI(json.data);toast('Lectura IA completa. Revisá y confirmá.');}catch(e){console.error(e);toast('Error IA: '+e.message);}
+  if(!selectedFile)return toast('Seleccioná una foto o PDF.');
+  const url=localStorage.getItem('tizComprasIaUrl');
+  if(!url){cpOpenConfigIA();return toast('Primero configurá la URL del Apps Script IA.');}
+
+  const requestId='tiz-ia-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+  let iframe=null, form=null, timer=null;
+
+  const cleanup=()=>{
+    window.removeEventListener('message',onMessage);
+    if(timer)clearTimeout(timer);
+    form?.remove();
+    setTimeout(()=>iframe?.remove(),500);
+  };
+
+  const onMessage=event=>{
+    const msg=event.data;
+    if(!msg || msg.source!=='tiz-ia-compras' || msg.requestId!==requestId)return;
+    cleanup();
+    if(!msg.ok){console.error(msg);return toast('Error IA: '+(msg.error||'No se pudo analizar'));}
+    applyAI(msg.data||{});
+    toast('Lectura IA completa. Revisá y confirmá.');
+  };
+
+  try{
+    toast('Analizando comprobante…');
+    const base64=await fileToBase64(selectedFile);
+    const frameName='tizIaFrame_'+requestId.replace(/[^a-zA-Z0-9_]/g,'');
+
+    iframe=document.createElement('iframe');
+    iframe.name=frameName;
+    iframe.style.display='none';
+    document.body.appendChild(iframe);
+
+    form=document.createElement('form');
+    form.method='POST';
+    form.action=url;
+    form.target=frameName;
+    form.style.display='none';
+
+    const input=document.createElement('input');
+    input.type='hidden';
+    input.name='payload';
+    input.value=JSON.stringify({
+      action:'analyzeExpense',
+      requestId,
+      filename:selectedFile.name,
+      mimeType:selectedFile.type||'application/octet-stream',
+      dataBase64:base64
+    });
+    form.appendChild(input);
+    document.body.appendChild(form);
+
+    window.addEventListener('message',onMessage);
+    timer=setTimeout(()=>{cleanup();toast('Error IA: tiempo de espera agotado.');},90000);
+    form.submit();
+  }catch(e){
+    cleanup();
+    console.error(e);
+    toast('Error IA: '+e.message);
+  }
 };
 function fileToBase64(f){return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(f);});}
 function applyAI(d){document.getElementById('cp-proveedor').value=d.proveedor||'';document.getElementById('cp-fecha').value=d.fecha||todayISO();document.getElementById('cp-fc').value=d.fc===false?'no':'si';document.getElementById('cp-tipo').value=d.tipoComprobante||'Factura A';document.getElementById('cp-numero').value=d.numeroComprobante||'';document.getElementById('cp-items-body').innerHTML='';(d.items||[]).forEach(cpAddItem);if(!(d.items||[]).length)cpAddItem();syncFC();calcTotals();}
