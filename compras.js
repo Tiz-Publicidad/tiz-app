@@ -11,6 +11,7 @@ const C = {
 let compraEditId = null;
 let selectedFile = null;
 let currentTab = 'inicio';
+let aiCleanupActive = null;
 
 const money = n => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(Number(n)||0);
 const num = value => {
@@ -183,7 +184,7 @@ function renderAlertas(el){const al=alerts();el.innerHTML=`<div class="cp-panel"
 
 window.cpTab=t=>{currentTab=t;document.querySelectorAll('.cp-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));render();};
 window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');const file=document.getElementById('cp-file');if(file)file.value='';['cp-proveedor','cp-numero','cp-ot','cp-obs','cp-vencimiento'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
-window.cpCloseCompra=()=>document.getElementById('cp-modal-compra').classList.remove('open');
+window.cpCloseCompra=()=>{ if(aiCleanupActive) aiCleanupActive('cancelled'); document.getElementById('cp-modal-compra').classList.remove('open'); };
 window.cpAddItem=(data={})=>{
   const tr=document.createElement('tr'); tr.innerHTML=`<td><input class="i-desc" value="${esc(data.descripcion||'')}"></td><td><input class="i-code" value="${esc(data.codigo||'')}"></td><td><input class="i-rubro" value="${esc(data.rubro||'')}"></td><td><input class="i-qty" type="number" step="0.01" value="${data.cantidad??1}"></td><td><input class="i-unit" value="${esc(data.unidad||'unidad')}"></td><td><input class="i-price" type="number" step="0.01" value="${data.precioUnitarioNeto??0}"></td><td><input class="i-iva" type="number" step="0.01" value="${data.ivaPorcentaje??21}"></td><td class="i-total">${money(0)}</td><td><button class="cp-btn danger" onclick="this.closest('tr').remove();cpCalcTotals()">✕</button></td>`;
   tr.querySelectorAll('input').forEach(i=>i.addEventListener('input',calcTotals)); document.getElementById('cp-items-body').appendChild(tr); calcTotals();
@@ -224,73 +225,57 @@ window.cpAnalizarIA=async()=>{
   const url=(localStorage.getItem('tizComprasIaUrl')||'').trim();
   if(!url){cpOpenConfigIA();return toast('Primero configurá la URL del Apps Script IA.');}
 
+  if(aiCleanupActive) aiCleanupActive('restart');
+
   const button=document.querySelector('[onclick="cpAnalizarIA()"]');
-  const originalText=button?.textContent||'✨ Analizar comprobante';
+  const originalText='✨ Analizar comprobante';
   if(button){button.disabled=true;button.textContent='⏳ Analizando…';}
 
-  let iframe,form,timer;
+  let iframe,form,timer,pollTimer,done=false;
   const requestId='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-  const cleanup=()=>{
+  const callbackName='__tizIaCb_'+requestId.replace(/[^a-zA-Z0-9_]/g,'_');
+
+  const cleanup=(reason='done')=>{
+    if(done)return;
+    done=true;
     clearTimeout(timer);
-    window.removeEventListener('message',onMessage);
-    setTimeout(()=>{iframe?.remove();form?.remove();},250);
+    clearTimeout(pollTimer);
+    try{delete window[callbackName];}catch{}
+    document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
+    setTimeout(()=>{iframe?.remove();form?.remove();},200);
     if(button){button.disabled=false;button.textContent=originalText;}
+    if(aiCleanupActive===cleanup)aiCleanupActive=null;
+    console.info('[TIZ IA] limpieza',reason,requestId);
   };
-  const onMessage = event => {
-  console.log('[TIZ IA] Mensaje recibido:', {
-    origin: event.origin,
-    data: event.data
-  });
+  aiCleanupActive=cleanup;
 
-  const origin = String(event.origin || '');
-
-  const allowed =
-    origin === 'null' ||
-    origin === 'https://script.google.com' ||
-    origin === 'https://script.googleusercontent.com' ||
-    origin.endsWith('.googleusercontent.com') ||
-    origin.endsWith('.google.com');
-
-  if (!allowed) {
-    console.warn('[TIZ IA] Origen descartado:', origin);
-    return;
-  }
-
-  let payload = event.data;
-
-  if (typeof payload === 'string') {
-    try {
-      payload = JSON.parse(payload);
-    } catch (error) {
-      console.warn('[TIZ IA] Mensaje no JSON:', payload);
+  const finish=(payload)=>{
+    if(done)return;
+    console.log('[TIZ IA] respuesta',payload);
+    cleanup('response');
+    if(!payload||!payload.ok){
+      console.error('[TIZ IA] Error del servicio:',payload);
+      toast('Error IA: '+(payload?.error||'No se pudo analizar'));
       return;
     }
-  }
+    applyAI(payload.data||{});
+    toast('Lectura IA completa. Revisá y confirmá.');
+  };
 
-  if (!payload || payload.source !== 'TIZ_IA_COMPRAS') {
-    console.warn('[TIZ IA] Respuesta sin identificador válido:', payload);
-    return;
-  }
+  const poll=()=>{
+    if(done)return;
+    const script=document.createElement('script');
+    script.dataset.tizIa=requestId;
+    script.onerror=()=>{script.remove();pollTimer=setTimeout(poll,2000);};
+    script.src=url+'?action=status&requestId='+encodeURIComponent(requestId)+'&callback='+encodeURIComponent(callbackName)+'&_='+Date.now();
+    document.body.appendChild(script);
+    pollTimer=setTimeout(()=>{script.remove();poll();},2500);
+  };
 
-  if (payload.requestId !== requestId) {
-    console.warn('[TIZ IA] Request ID distinto:', {
-      esperado: requestId,
-      recibido: payload.requestId
-    });
-    return;
-  }
-
-  cleanup();
-
-  if (!payload.ok) {
-    console.error('[TIZ IA] Error del servicio:', payload);
-    toast('Error IA: ' + (payload.error || 'No se pudo analizar'));
-    return;
-  }
-
-  applyAI(payload.data || {});
-  toast('Lectura IA completa. Revisá y confirmá.');
-};
+  window[callbackName]=(payload)=>{
+    document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
+    if(payload?.pending){pollTimer=setTimeout(poll,1500);return;}
+    finish(payload);
   };
 
   try{
@@ -309,11 +294,12 @@ window.cpAnalizarIA=async()=>{
     const fields={action:'analyzeExpense',requestId,filename:selectedFile.name,mimeType:selectedFile.type||'application/octet-stream',dataBase64:base64};
     Object.entries(fields).forEach(([name,value])=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);});
     document.body.appendChild(form);
-    window.addEventListener('message',onMessage);
-    timer=setTimeout(()=>{cleanup();toast('La IA tardó demasiado. Probá con una foto JPG o un PDF más liviano.');},90000);
+
+    timer=setTimeout(()=>{cleanup('timeout');toast('La IA tardó demasiado. Probá con una foto JPG o un PDF más liviano.');},120000);
     form.submit();
+    pollTimer=setTimeout(poll,1500);
   }catch(e){
-    cleanup();
+    cleanup('exception');
     console.error('[TIZ IA]',e);
     toast('Error IA: '+(e?.message||e));
   }
