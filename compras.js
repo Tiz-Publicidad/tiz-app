@@ -221,64 +221,56 @@ window.cpCloseConfigIA=()=>document.getElementById('cp-modal-ia').classList.remo
 window.cpSaveConfigIA=()=>{localStorage.setItem('tizComprasIaUrl',document.getElementById('cp-ia-url').value.trim());cpCloseConfigIA();toast('Configuración IA guardada.');};
 window.cpAnalizarIA=async()=>{
   if(!selectedFile)return toast('Seleccioná una foto o PDF.');
-  const url=localStorage.getItem('tizComprasIaUrl');
+  const url=(localStorage.getItem('tizComprasIaUrl')||'').trim();
   if(!url){cpOpenConfigIA();return toast('Primero configurá la URL del Apps Script IA.');}
 
-  const requestId='tiz-ia-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-  let iframe=null, form=null, timer=null;
+  const button=document.querySelector('[onclick="cpAnalizarIA()"]');
+  const originalText=button?.textContent||'✨ Analizar comprobante';
+  if(button){button.disabled=true;button.textContent='⏳ Analizando…';}
 
+  let iframe,form,timer;
+  const requestId='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   const cleanup=()=>{
+    clearTimeout(timer);
     window.removeEventListener('message',onMessage);
-    if(timer)clearTimeout(timer);
-    form?.remove();
-    setTimeout(()=>iframe?.remove(),500);
+    setTimeout(()=>{iframe?.remove();form?.remove();},250);
+    if(button){button.disabled=false;button.textContent=originalText;}
   };
-
   const onMessage=event=>{
-    const msg=event.data;
-    if(!msg || msg.source!=='tiz-ia-compras' || msg.requestId!==requestId)return;
+    const allowed=event.origin==='https://script.google.com'||event.origin==='https://script.googleusercontent.com';
+    if(!allowed)return;
+    let payload=event.data;
+    if(typeof payload==='string'){try{payload=JSON.parse(payload);}catch{return;}}
+    if(!payload||payload.source!=='TIZ_IA_COMPRAS'||payload.requestId!==requestId)return;
     cleanup();
-    if(!msg.ok){console.error(msg);return toast('Error IA: '+(msg.error||'No se pudo analizar'));}
-    applyAI(msg.data||{});
+    if(!payload.ok){console.error('[TIZ IA]',payload);return toast('Error IA: '+(payload.error||'No se pudo analizar'));}
+    applyAI(payload.data||{});
     toast('Lectura IA completa. Revisá y confirmá.');
   };
 
   try{
     toast('Analizando comprobante…');
     const base64=await fileToBase64(selectedFile);
-    const frameName='tizIaFrame_'+requestId.replace(/[^a-zA-Z0-9_]/g,'');
-
     iframe=document.createElement('iframe');
-    iframe.name=frameName;
+    iframe.name='cp-ia-frame-'+requestId;
     iframe.style.display='none';
     document.body.appendChild(iframe);
 
     form=document.createElement('form');
     form.method='POST';
     form.action=url;
-    form.target=frameName;
+    form.target=iframe.name;
     form.style.display='none';
-
-    const input=document.createElement('input');
-    input.type='hidden';
-    input.name='payload';
-    input.value=JSON.stringify({
-      action:'analyzeExpense',
-      requestId,
-      filename:selectedFile.name,
-      mimeType:selectedFile.type||'application/octet-stream',
-      dataBase64:base64
-    });
-    form.appendChild(input);
+    const fields={action:'analyzeExpense',requestId,filename:selectedFile.name,mimeType:selectedFile.type||'application/octet-stream',dataBase64:base64};
+    Object.entries(fields).forEach(([name,value])=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);});
     document.body.appendChild(form);
-
     window.addEventListener('message',onMessage);
-    timer=setTimeout(()=>{cleanup();toast('Error IA: tiempo de espera agotado.');},90000);
+    timer=setTimeout(()=>{cleanup();toast('La IA tardó demasiado. Probá con una foto JPG o un PDF más liviano.');},90000);
     form.submit();
   }catch(e){
     cleanup();
-    console.error(e);
-    toast('Error IA: '+e.message);
+    console.error('[TIZ IA]',e);
+    toast('Error IA: '+(e?.message||e));
   }
 };
 function fileToBase64(f){return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(f);});}
