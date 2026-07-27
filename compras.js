@@ -236,16 +236,61 @@ window.cpAnalizarIA=async()=>{
     setTimeout(()=>{iframe?.remove();form?.remove();},250);
     if(button){button.disabled=false;button.textContent=originalText;}
   };
-  const onMessage=event=>{
-    const allowed=event.origin==='https://script.google.com'||event.origin==='https://script.googleusercontent.com';
-    if(!allowed)return;
-    let payload=event.data;
-    if(typeof payload==='string'){try{payload=JSON.parse(payload);}catch{return;}}
-    if(!payload||payload.source!=='TIZ_IA_COMPRAS'||payload.requestId!==requestId)return;
-    cleanup();
-    if(!payload.ok){console.error('[TIZ IA]',payload);return toast('Error IA: '+(payload.error||'No se pudo analizar'));}
-    applyAI(payload.data||{});
-    toast('Lectura IA completa. Revisá y confirmá.');
+  const onMessage = event => {
+  console.log('[TIZ IA] Mensaje recibido:', {
+    origin: event.origin,
+    data: event.data
+  });
+
+  const origin = String(event.origin || '');
+
+  const allowed =
+    origin === 'null' ||
+    origin === 'https://script.google.com' ||
+    origin === 'https://script.googleusercontent.com' ||
+    origin.endsWith('.googleusercontent.com') ||
+    origin.endsWith('.google.com');
+
+  if (!allowed) {
+    console.warn('[TIZ IA] Origen descartado:', origin);
+    return;
+  }
+
+  let payload = event.data;
+
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch (error) {
+      console.warn('[TIZ IA] Mensaje no JSON:', payload);
+      return;
+    }
+  }
+
+  if (!payload || payload.source !== 'TIZ_IA_COMPRAS') {
+    console.warn('[TIZ IA] Respuesta sin identificador válido:', payload);
+    return;
+  }
+
+  if (payload.requestId !== requestId) {
+    console.warn('[TIZ IA] Request ID distinto:', {
+      esperado: requestId,
+      recibido: payload.requestId
+    });
+    return;
+  }
+
+  cleanup();
+
+  if (!payload.ok) {
+    console.error('[TIZ IA] Error del servicio:', payload);
+    toast('Error IA: ' + (payload.error || 'No se pudo analizar'));
+    return;
+  }
+
+  applyAI(payload.data || {});
+  toast('Lectura IA completa. Revisá y confirmá.');
+};
   };
 
   try{
