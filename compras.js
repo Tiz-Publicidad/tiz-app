@@ -6,7 +6,7 @@ import {
 
 const db = getFirestore(getApp());
 const C = {
-  compras: [], articulos: [], conteos: [], planes: []
+  compras: [], articulos: [], conteos: [], planes: [], pagos: []
 };
 let compraEditId = null;
 let selectedFile = null;
@@ -105,6 +105,35 @@ function injectStyles(){
   .cp-confidence{height:6px;background:var(--surface3);border-radius:99px;overflow:hidden}.cp-confidence>span{display:block;height:100%;background:var(--green)}
   .cp-filter-grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:8px}.cp-filter-summary{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:8px;margin-top:10px}.cp-filter-summary .cp-card{padding:10px}.cp-item-match{font-size:9px;margin-top:4px;color:var(--text3)}
   .cp-items{min-width:1500px}.cp-items th:nth-child(1),.cp-items td:nth-child(1){min-width:330px;width:330px}.cp-items th:nth-child(2),.cp-items td:nth-child(2){min-width:280px;width:280px}.cp-items textarea{width:100%;min-height:58px;resize:vertical;padding:7px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;line-height:1.3}.cp-original{opacity:.92}.cp-match-ok{color:var(--green)}.cp-match-warn{color:var(--amber)}
+
+  /* V25 · Panel financiero visual */
+  #page-compras{max-width:1700px;margin:0 auto}
+  #page-compras .cp-head{padding:2px 2px 0}
+  #page-compras .cp-tabs{border-bottom:1px solid var(--border);gap:26px;margin:4px 0 14px;padding:0 8px}
+  #page-compras .cp-tab{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:10px 2px;color:var(--text2)}
+  #page-compras .cp-tab.active{background:transparent;color:#3b82f6;border-bottom-color:#3b82f6}
+  .cp-pay-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .cp-pay-title{font-size:16px;font-weight:800}.cp-pay-buttons{display:flex;gap:8px;flex-wrap:wrap}
+  .cp-btn.blue{background:#1463d9;color:#fff}.cp-btn.outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .cp-pay-kpis{display:grid;grid-template-columns:repeat(5,minmax(170px,1fr));gap:10px;margin-bottom:10px}
+  .cp-pay-kpi{position:relative;overflow:hidden;background:linear-gradient(145deg,var(--surface),rgba(18,39,56,.78));border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-height:82px}
+  .cp-pay-kpi:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpi-color,#3b82f6)}
+  .cp-pay-kpi .cp-lbl{color:var(--kpi-color,#3b82f6);font-weight:800}.cp-pay-kpi .cp-kpi{font-size:19px;color:var(--kpi-color,#fff)}
+  .cp-pay-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(350px,.85fr);gap:10px;margin-bottom:10px}
+  .cp-pay-section{background:linear-gradient(145deg,var(--surface),rgba(13,31,45,.84));border:1px solid var(--border);border-radius:10px;padding:12px}
+  .cp-pay-section h3{font-size:13px;margin:0 0 10px}.cp-week-grid{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:8px}
+  .cp-week-card-v25{border:1px solid color-mix(in srgb,var(--week-color) 35%,var(--border));background:color-mix(in srgb,var(--week-color) 7%,var(--surface2));border-radius:8px;padding:10px;min-height:100px}
+  .cp-week-card-v25 .wk{font-size:11px;color:var(--week-color);font-weight:800}.cp-week-card-v25 .range{font-size:10px;color:var(--text3);margin:3px 0 8px}.cp-week-card-v25 .amount{font:800 18px 'DM Mono',monospace;color:var(--week-color)}.cp-week-card-v25 .count{font-size:10px;color:var(--text3);margin-top:5px}
+  .cp-bars{height:170px;display:flex;align-items:flex-end;gap:14px;padding:16px 12px 4px;border-left:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .cp-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:42px}.cp-bar-value{font-size:10px;margin-bottom:5px}.cp-bar{width:min(48px,75%);min-height:3px;border-radius:4px 4px 0 0;background:var(--bar-color)}.cp-bar-label{font-size:10px;color:var(--text3);margin-top:5px}
+  .cp-pay-table .cp-table{min-width:1180px}.cp-pay-table .cp-table th{font-size:9px}.cp-pay-table .cp-table td{padding:7px 8px}
+  .cp-status{display:inline-flex;border-radius:5px;padding:3px 7px;font-size:9px;font-weight:800}.cp-status.overdue{background:rgba(239,68,68,.18);color:#ff5a5a}.cp-status.due{background:rgba(245,158,11,.18);color:#ffb000}.cp-status.pending{background:rgba(59,130,246,.16);color:#5fa2ff}
+  .cp-icon-btn{width:27px;height:27px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text2);cursor:pointer;padding:0}.cp-icon-btn.ok{color:#23d784;background:rgba(35,215,132,.1)}.cp-icon-btn.edit{color:#4f9cff;background:rgba(79,156,255,.1)}.cp-icon-btn.delete{color:#ff5353;background:rgba(255,83,83,.1)}
+  .cp-pay-bottom{display:grid;grid-template-columns:minmax(440px,1.15fr) minmax(420px,1fr) minmax(240px,.58fr);gap:10px;margin-top:10px}.cp-info-row{display:flex;gap:9px;align-items:flex-start;margin:0 0 14px;font-size:11px;color:var(--text2)}.cp-info-icon{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;background:rgba(59,130,246,.13);color:#5fa2ff;flex:none}
+  .cp-empty-chart{display:grid;place-items:center;height:150px;color:var(--text3);font-size:11px}
+  @media(max-width:1250px){.cp-pay-kpis{grid-template-columns:repeat(3,1fr)}.cp-pay-layout,.cp-pay-bottom{grid-template-columns:1fr}.cp-week-grid{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:750px){.cp-pay-kpis,.cp-week-grid{grid-template-columns:1fr}.cp-pay-bottom{grid-template-columns:1fr}.cp-pay-section{padding:9px}}
+
   @media(max-width:1000px){.cp-grid{grid-template-columns:repeat(2,1fr)}.cp-row{grid-template-columns:repeat(2,1fr)}.cp-filter-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:650px){#page-compras{padding:12px}.cp-grid,.cp-row,.cp-filter-grid,.cp-filter-summary{grid-template-columns:1fr}.cp-modal-bg{padding:7px}.cp-title{font-size:19px}}
   `;
@@ -124,7 +153,7 @@ function injectUI(){
   page.innerHTML=`
     <div class="cp-head"><div><div class="cp-title">Compras y Stock Inteligente</div><div class="cp-sub">Carga por ítem, comprobantes, conteo semanal, planificación y alertas.</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpOpenConfigIA()">⚙ IA</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
     <div class="cp-tabs">
-      <button class="cp-tab active" data-tab="inicio">Inicio</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="conteo">Conteo semanal</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="alertas">Alertas</button>
+      <button class="cp-tab active" data-tab="inicio">Inicio</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="conteo">Conteo semanal</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="pagos">Pagos y previsiones</button><button class="cp-tab" data-tab="alertas">Alertas</button>
     </div><div id="cp-content"></div>`;
   document.querySelector('.main, main, .content')?.appendChild(page) || document.body.appendChild(page);
   page.querySelectorAll('.cp-tab').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;page.querySelectorAll('.cp-tab').forEach(x=>x.classList.toggle('active',x===b));render();});
@@ -140,7 +169,12 @@ function injectUI(){
       <div class="cp-field"><label>Tipo comprobante</label><select id="cp-tipo"><option>Factura A</option><option>Factura B</option><option>Factura C</option><option>Ticket fiscal</option><option>Remito</option><option>Otro</option><option>Sin comprobante</option></select></div>
       <div class="cp-field"><label>Número</label><input id="cp-numero" placeholder="0001-00001234"></div>
       <div class="cp-field"><label>Medio de pago</label><select id="cp-medio"><option>Transferencia</option><option>Efectivo</option><option>Tarjeta</option><option>Cheque</option><option>Cuenta corriente</option><option>Otro</option></select></div>
-      <div class="cp-field"><label>Vencimiento</label><input id="cp-vencimiento" type="date"></div>
+      <div class="cp-field"><label>Vencimiento general</label><input id="cp-vencimiento" type="date"></div>
+      <div class="cp-field"><label>Condición de pago</label><select id="cp-condicion"><option value="contado">Contado</option><option value="cuenta_corriente">Cuenta corriente</option><option value="cheques">Cheques</option><option value="cuotas">Cuotas / tarjeta</option><option value="otro">Otro</option></select></div>
+      <div class="cp-field"><label>Cantidad de pagos</label><input id="cp-cuotas" type="number" min="1" max="36" value="1"></div>
+      <div class="cp-field"><label>Primer vencimiento</label><input id="cp-primer-venc" type="date"></div>
+      <div class="cp-field"><label>Días entre pagos</label><input id="cp-dias-cuota" type="number" min="1" value="30"></div>
+      <div class="cp-field"><label>N.º cheque / referencia</label><input id="cp-ref-pago" placeholder="Opcional"></div>
       <div class="cp-field"><label>Destino</label><select id="cp-destino"><option>Stock</option><option>OT</option><option>Gasto general</option><option>Vehículo</option></select></div>
       <div class="cp-field"><label>OT asociada</label><input id="cp-ot" placeholder="Ej. 1568"></div>
       <div class="cp-field"><label>Observación</label><input id="cp-obs"></div>
@@ -151,6 +185,10 @@ function injectUI(){
   document.body.appendChild(modal);
   modal.querySelector('#cp-file').addEventListener('change',e=>selectedFile=e.target.files?.[0]||null);
   modal.querySelector('#cp-fc').addEventListener('change',syncFC);
+
+  const pay=document.createElement('div'); pay.id='cp-modal-pago'; pay.className='cp-modal-bg';
+  pay.innerHTML=`<div class="cp-modal" style="max-width:760px"><div style="display:flex;justify-content:space-between"><h2>Cargar compromiso de pago</h2><button class="cp-btn" onclick="cpClosePago()">✕</button></div><div class="cp-panel"><div class="cp-row"><div class="cp-field"><label>Proveedor / beneficiario</label><input id="cp-p-proveedor"></div><div class="cp-field"><label>Concepto</label><input id="cp-p-concepto"></div><div class="cp-field"><label>Importe</label><input id="cp-p-importe" type="number" step="0.01"></div><div class="cp-field"><label>Vencimiento</label><input id="cp-p-venc" type="date"></div><div class="cp-field"><label>Medio</label><select id="cp-p-medio"><option>Cuenta corriente</option><option>Cheque</option><option>Transferencia</option><option>Tarjeta</option><option>Efectivo</option><option>Otro</option></select></div><div class="cp-field"><label>N.º cheque / referencia</label><input id="cp-p-ref"></div><div class="cp-field"><label>OT</label><input id="cp-p-ot"></div><div class="cp-field"><label>Observación</label><input id="cp-p-obs"></div></div></div><div style="text-align:right"><button class="cp-btn primary" onclick="cpSavePagoManual()">Guardar compromiso</button></div></div>`;
+  document.body.appendChild(pay);
 
   const cfg=document.createElement('div'); cfg.id='cp-modal-ia'; cfg.className='cp-modal-bg';
   cfg.innerHTML=`<div class="cp-modal" style="max-width:650px"><div style="display:flex;justify-content:space-between"><h2>Configuración IA de comprobantes</h2><button class="cp-btn" onclick="cpCloseConfigIA()">✕</button></div><p style="font-size:12px;color:var(--text2)">Pegá la URL /exec del Apps Script incluido en la entrega. La clave de Gemini queda guardada en Apps Script, nunca en GitHub.</p><div class="cp-field"><label>URL Apps Script IA</label><input id="cp-ia-url" placeholder="https://script.google.com/macros/s/.../exec"></div><div style="margin-top:12px;text-align:right"><button class="cp-btn primary" onclick="cpSaveConfigIA()">Guardar</button></div></div>`;
@@ -168,13 +206,13 @@ function startListeners(){
   const listen=(name,key)=>onSnapshot(query(collection(db,name),orderBy('_ts','desc'),limit(1000)),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();},()=>{
     onSnapshot(collection(db,name),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();});
   });
-  listen('compras','compras'); listen('articulosCompra','articulos'); listen('conteosStock','conteos'); listen('planesMateriales','planes');
+  listen('compras','compras'); listen('articulosCompra','articulos'); listen('conteosStock','conteos'); listen('planesMateriales','planes'); listen('pagosCompra','pagos');
 }
 
 function render(){
   if(window.currentPage!=='compras') return;
   const el=document.getElementById('cp-content'); if(!el)return;
-  ({inicio:renderInicio,compras:renderCompras,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,alertas:renderAlertas}[currentTab]||renderInicio)(el);
+  ({inicio:renderInicio,compras:renderCompras,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,pagos:renderPagos,alertas:renderAlertas}[currentTab]||renderInicio)(el);
 }
 
 function purchaseItems(){ return C.compras.flatMap(c=>(c.items||[]).map(i=>({...i,compra:c}))); }
@@ -237,7 +275,7 @@ function planCard(p){return `<div class="cp-panel"><div style="display:flex;just
 function renderAlertas(el){const al=alerts();el.innerHTML=`<div class="cp-panel"><b>Alertas visuales y avisos</b><p class="cp-sub">Se generan desde comprobantes, vencimientos, stock mínimo, planes de OT e historial de precios.</p></div>${al.map(alertHTML).join('')||'<div class="cp-alert green">✅ Sin alertas activas.</div>'}`}
 
 window.cpTab=t=>{currentTab=t;document.querySelectorAll('.cp-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));render();};
-window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');const file=document.getElementById('cp-file');if(file)file.value='';['cp-proveedor','cp-numero','cp-ot','cp-obs','cp-vencimiento'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
+window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');const file=document.getElementById('cp-file');if(file)file.value='';['cp-proveedor','cp-numero','cp-ot','cp-obs','cp-vencimiento','cp-primer-venc','cp-ref-pago'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-condicion').value='contado';document.getElementById('cp-cuotas').value=1;document.getElementById('cp-dias-cuota').value=30;document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
 window.cpCloseCompra=()=>{ if(aiCleanupActive) aiCleanupActive('cancelled'); document.getElementById('cp-modal-compra').classList.remove('open'); };
 function refreshCatalogDatalist(){const dl=document.getElementById('cp-catalog-list');if(!dl)return;dl.innerHTML=C.articulos.map(a=>`<option value="${esc(a.descripcion)}">${esc(a.codigo||'')} · ${esc(a.familia||'')}${a.subfamilia?' / '+esc(a.subfamilia):''}</option>`).join('');}
 function applyArticleToRow(tr,a,score=1){if(!tr||!a)return;tr.dataset.articleId=a.id||'';tr.querySelector('.i-desc').value=a.descripcion||'';tr.querySelector('.i-code').value=a.codigo||'';tr.querySelector('.i-family').value=a.familia||a.rubro||'';tr.querySelector('.i-subfamily').value=a.subfamilia||'';if(a.unidad)tr.querySelector('.i-unit').value=a.unidad;const note=tr.querySelector('.cp-item-match');note.textContent=`Vinculado: ${a.codigo||'s/c'} · ${Math.round(score*100)}%`;note.className='cp-item-match cp-match-ok';}
@@ -253,13 +291,13 @@ function calcTotals(){
   const el=document.getElementById('cp-totales');if(el)el.textContent=`Neto ${money(net)} · IVA ${money(iva)} · TOTAL ${money(net+iva)}`;
 }
 window.cpGuardarCompra=async()=>{
-  const items=getItems(); if(!items.length)return toast('Agregá al menos un ítem.'); const fc=document.getElementById('cp-fc').value; const data={fecha:document.getElementById('cp-fecha').value,semana:weekKey(new Date(document.getElementById('cp-fecha').value+'T12:00:00')),proveedor:document.getElementById('cp-proveedor').value.trim(),fc,tipoComprobante:fc==='si'?document.getElementById('cp-tipo').value:'Sin comprobante',numeroComprobante:document.getElementById('cp-numero').value.trim(),medioPago:document.getElementById('cp-medio').value,vencimiento:document.getElementById('cp-vencimiento').value,destino:document.getElementById('cp-destino').value,ot:document.getElementById('cp-ot').value.trim(),observacion:document.getElementById('cp-obs').value.trim(),items,totalNeto:items.reduce((s,i)=>s+i.totalNeto,0),ivaTotal:items.reduce((s,i)=>s+i.ivaImporte,0),totalBruto:items.reduce((s,i)=>s+i.totalBruto,0),usuario:window.currentUser?.email||'',_ts:serverTimestamp()};
+  const items=getItems(); if(!items.length)return toast('Agregá al menos un ítem.'); const fc=document.getElementById('cp-fc').value; const data={fecha:document.getElementById('cp-fecha').value,semana:weekKey(new Date(document.getElementById('cp-fecha').value+'T12:00:00')),proveedor:document.getElementById('cp-proveedor').value.trim(),fc,tipoComprobante:fc==='si'?document.getElementById('cp-tipo').value:'Sin comprobante',numeroComprobante:document.getElementById('cp-numero').value.trim(),medioPago:document.getElementById('cp-medio').value,vencimiento:document.getElementById('cp-vencimiento').value,condicionPago:document.getElementById('cp-condicion').value,cantidadPagos:Math.max(1,num(document.getElementById('cp-cuotas').value)),primerVencimiento:document.getElementById('cp-primer-venc').value,diasEntrePagos:Math.max(1,num(document.getElementById('cp-dias-cuota').value)||30),referenciaPago:document.getElementById('cp-ref-pago').value.trim(),destino:document.getElementById('cp-destino').value,ot:document.getElementById('cp-ot').value.trim(),observacion:document.getElementById('cp-obs').value.trim(),items,totalNeto:items.reduce((s,i)=>s+i.totalNeto,0),ivaTotal:items.reduce((s,i)=>s+i.ivaImporte,0),totalBruto:items.reduce((s,i)=>s+i.totalBruto,0),usuario:window.currentUser?.email||'',_ts:serverTimestamp()};
   if(!data.proveedor)return toast('Ingresá el proveedor.');
-  if(compraEditId)await updateDoc(doc(db,'compras',compraEditId),data);else await addDoc(collection(db,'compras'),data);
-  cpCloseCompra();toast('Compra guardada por ítem.');
+  let savedId=compraEditId;if(compraEditId)await updateDoc(doc(db,'compras',compraEditId),data);else{const ref=await addDoc(collection(db,'compras'),data);savedId=ref.id;}await cpSyncPagosCompra(savedId,data);
+  cpCloseCompra();toast('Compra y previsión de pagos guardadas.');
 };
-window.cpEditCompra=id=>{const c=C.compras.find(x=>x.id===id);if(!c)return;cpNuevaCompra();compraEditId=id;document.getElementById('cp-fecha').value=c.fecha||todayISO();document.getElementById('cp-proveedor').value=c.proveedor||'';document.getElementById('cp-fc').value=c.fc||'si';document.getElementById('cp-tipo').value=c.tipoComprobante||'Factura A';document.getElementById('cp-numero').value=c.numeroComprobante||'';document.getElementById('cp-medio').value=c.medioPago||'Transferencia';document.getElementById('cp-vencimiento').value=c.vencimiento||'';document.getElementById('cp-destino').value=c.destino||'Stock';document.getElementById('cp-ot').value=c.ot||'';document.getElementById('cp-obs').value=c.observacion||'';document.getElementById('cp-items-body').innerHTML='';(c.items||[]).forEach(cpAddItem);syncFC();calcTotals();};
-window.cpDeleteCompra=async id=>{if(confirm('¿Borrar esta compra?'))await deleteDoc(doc(db,'compras',id));};
+window.cpEditCompra=id=>{const c=C.compras.find(x=>x.id===id);if(!c)return;cpNuevaCompra();compraEditId=id;document.getElementById('cp-fecha').value=c.fecha||todayISO();document.getElementById('cp-proveedor').value=c.proveedor||'';document.getElementById('cp-fc').value=c.fc||'si';document.getElementById('cp-tipo').value=c.tipoComprobante||'Factura A';document.getElementById('cp-numero').value=c.numeroComprobante||'';document.getElementById('cp-medio').value=c.medioPago||'Transferencia';document.getElementById('cp-vencimiento').value=c.vencimiento||'';document.getElementById('cp-condicion').value=c.condicionPago||'contado';document.getElementById('cp-cuotas').value=c.cantidadPagos||1;document.getElementById('cp-primer-venc').value=c.primerVencimiento||c.vencimiento||'';document.getElementById('cp-dias-cuota').value=c.diasEntrePagos||30;document.getElementById('cp-ref-pago').value=c.referenciaPago||'';document.getElementById('cp-destino').value=c.destino||'Stock';document.getElementById('cp-ot').value=c.ot||'';document.getElementById('cp-obs').value=c.observacion||'';document.getElementById('cp-items-body').innerHTML='';(c.items||[]).forEach(cpAddItem);syncFC();calcTotals();};
+window.cpDeleteCompra=async id=>{if(confirm('¿Borrar esta compra y sus pagos pendientes?')){for(const p of C.pagos.filter(x=>x.compraId===id&&x.estado!=='pagado'))await deleteDoc(doc(db,'pagosCompra',p.id));await deleteDoc(doc(db,'compras',id));}};
 window.cpAddArticulo=async()=>{const descripcion=document.getElementById('cp-a-desc').value.trim();if(!descripcion)return toast('Ingresá una descripción.');const codigo=document.getElementById('cp-a-code').value.trim();if(codigo&&C.articulos.some(a=>a.codigo===codigo))return toast('Ese código ya existe.');const familia=document.getElementById('cp-a-family').value.trim();const subfamilia=document.getElementById('cp-a-subfamily').value.trim();if(!familia)return toast('Elegí o escribí una familia.');await addDoc(collection(db,'articulosCompra'),{codigo,descripcion,unidad:document.getElementById('cp-a-unit').value.trim(),familia,subfamilia,control:document.getElementById('cp-a-control').value,stockMinimo:num(document.getElementById('cp-a-min').value),_ts:serverTimestamp()});toast('Artículo agregado.');};
 window.cpDeleteArticulo=async id=>{if(confirm('¿Borrar artículo?'))await deleteDoc(doc(db,'articulosCompra',id));};
 window.cpCalcCountRow=input=>{const tr=input.closest('tr'),final=num(input.value),cons=num(tr.dataset.inicial)+num(tr.dataset.compras)-final;tr.querySelector('.cp-consumo').textContent=isNaN(cons)?'—':cons;};
@@ -364,9 +402,59 @@ window.cpFilterPeriod=value=>{purchaseFilters.period=value;render();};window.cpF
 window.cpRenderArticleRows=()=>{const tbody=document.getElementById('cp-art-rows');if(!tbody)return;const search=normText(document.getElementById('cp-art-search')?.value||''),family=document.getElementById('cp-art-family')?.value||'';const list=C.articulos.filter(a=>(!family||a.familia===family)&&(!search||normText([a.codigo,a.descripcion,a.familia,a.subfamilia].join(' ')).includes(search)));tbody.innerHTML=list.map(a=>{const its=purchaseItems().filter(x=>x.articuloId===a.id||normText(x.descripcion)===normText(a.descripcion)).sort((x,y)=>String(y.compra.fecha).localeCompare(String(x.compra.fecha))),ct=latestCounts()[a.id]||latestCounts()[a.descripcion];return `<tr><td><b>${esc(a.codigo||'—')}</b></td><td title="${esc(a.descripcion)}"><b>${esc(a.descripcion)}</b></td><td>${esc(a.familia||'')}</td><td>${esc(a.subfamilia||'')}</td><td>${esc(a.unidad||'')}</td><td>${esc(a.control||'')}</td><td>${a.stockMinimo??0}</td><td>${its[0]?money(its[0].precioUnitarioNeto):'—'}</td><td>${ct?num(ct.cantidad):'—'}</td><td><button class="cp-btn danger" onclick="cpDeleteArticulo('${a.id}')">Borrar</button></td></tr>`;}).join('')||'<tr><td colspan="10">No hay artículos para este filtro.</td></tr>';};
 window.cpImportCatalogoBase=async()=>{const existing=new Set(C.articulos.map(a=>String(a.codigo||'').trim()).filter(Boolean)),pending=CATALOGO_TIZ_BASE.filter(a=>!existing.has(a.codigo));if(!pending.length)return toast('La base TIZ ya está importada.');if(!confirm(`Se importarán ${pending.length} artículos. ¿Continuar?`))return;for(let start=0;start<pending.length;start+=450){const batch=writeBatch(db);pending.slice(start,start+450).forEach(a=>{const ref=doc(collection(db,'articulosCompra'));batch.set(ref,{...a,control:['Hierros','Chapas','Acrilicos','Lonas y Vinilos','Iluminacion','Maderas y otros','Pai PVC y polyfan'].includes(a.familia)?'estrategico':['Servicios','Sueldos','Publicidad','Alquiler','Comisiones','Colocaciones Externas','Cortes / Impresiones Externas'].includes(a.familia)?'sin_stock':'consumible',stockMinimo:0,_ts:serverTimestamp()});});await batch.commit();}toast(`${pending.length} artículos importados.`);};
 
+
+function addDaysISO(iso,days){const d=new Date((iso||todayISO())+'T12:00:00');d.setDate(d.getDate()+Number(days||0));return d.toISOString().slice(0,10);}
+function paymentWeek(iso){return weekKey(new Date((iso||todayISO())+'T12:00:00'));}
+async function cpSyncPagosCompra(compraId,data){
+  if(!compraId)return;
+  for(const p of C.pagos.filter(x=>x.compraId===compraId&&x.estado!=='pagado'))await deleteDoc(doc(db,'pagosCompra',p.id));
+  const n=Math.max(1,Number(data.cantidadPagos)||1), total=num(data.totalBruto), first=data.primerVencimiento||data.vencimiento||data.fecha||todayISO();
+  if(data.condicionPago==='contado'&&!data.vencimiento&&!data.primerVencimiento)return;
+  const base=Math.floor((total/n)*100)/100;
+  for(let i=0;i<n;i++){
+    const importe=i===n-1?Math.round((total-base*(n-1))*100)/100:base;
+    const vencimiento=addDaysISO(first,i*(Number(data.diasEntrePagos)||30));
+    await addDoc(collection(db,'pagosCompra'),{compraId,proveedor:data.proveedor,concepto:`${data.tipoComprobante||'Compra'} ${data.numeroComprobante||''}`.trim(),importe,vencimiento,semana:paymentWeek(vencimiento),medio:data.medioPago||data.condicionPago,condicion:data.condicionPago||'',referencia:data.referenciaPago||'',ot:data.ot||'',cuota:i+1,totalCuotas:n,estado:'pendiente',origen:'compra',_ts:serverTimestamp()});
+  }
+}
+function weekRange(yearWeek){
+  const m=String(yearWeek||'').match(/(\d{4})-S(\d{1,2})/);if(!m)return null;const y=+m[1],w=+m[2];const jan4=new Date(Date.UTC(y,0,4));const day=jan4.getUTCDay()||7;const mon=new Date(jan4);mon.setUTCDate(jan4.getUTCDate()-day+1+(w-1)*7);const sun=new Date(mon);sun.setUTCDate(mon.getUTCDate()+6);return {from:mon.toISOString().slice(0,10),to:sun.toISOString().slice(0,10)};
+}
+function renderPagos(el){
+  const pending=C.pagos.filter(p=>p.estado!=='pagado').sort((a,b)=>String(a.vencimiento||'').localeCompare(String(b.vencimiento||'')));
+  const now=todayISO(),cur=weekKey(),weeks=[];
+  for(let i=0;i<5;i++){const wr=weekRange(cur);if(!wr)break;const start=addDaysISO(wr.from,i*7),wk=paymentWeek(start),range=weekRange(wk),arr=pending.filter(p=>p.semana===wk||((p.vencimiento||'')>=range.from&&(p.vencimiento||'')<=range.to));weeks.push({wk,range,arr,total:arr.reduce((s,p)=>s+num(p.importe),0)});}
+  const overdue=pending.filter(p=>p.vencimiento&&p.vencimiento<now), thisWeek=weeks[0], next4=weeks.slice(1).reduce((s,w)=>s+w.total,0);
+  const cc=pending.filter(p=>String(p.condicion||p.medio).toLowerCase().includes('cuenta')).reduce((s,p)=>s+num(p.importe),0);
+  const totalPending=pending.reduce((s,p)=>s+num(p.importe),0), totalAll=C.pagos.reduce((s,p)=>s+num(p.importe),0);
+  const colors=['#ff4d4d','#ffb000','#4f9cff','#2dd486','#a36cff'];
+  const weekCards=weeks.map((w,i)=>`<div class="cp-week-card-v25" style="--week-color:${colors[i]}"><div class="wk">SEMANA ${String(w.wk).split('S')[1]||w.wk}</div><div class="range">${fmtDate(w.range.from)} - ${fmtDate(w.range.to)}</div><div class="amount">${money(w.total)}</div><div class="count">${w.arr.length} compromiso${w.arr.length===1?'':'s'}</div></div>`).join('');
+  const max=Math.max(...weeks.map(w=>w.total),1);
+  const bars=weeks.map((w,i)=>`<div class="cp-bar-col"><div class="cp-bar-value">${w.total?money(w.total).replace('$','').replace(/,00$/,''):'$0'}</div><div class="cp-bar" style="height:${Math.max(3,Math.round((w.total/max)*118))}px;--bar-color:${colors[i]}"></div><div class="cp-bar-label">S${String(w.wk).split('S')[1]||''}</div></div>`).join('');
+  const rows=pending.map(p=>{const overdueFlag=p.vencimiento<now,dueFlag=p.semana===cur;const status=overdueFlag?'Vencido':dueFlag?'Por vencer':'Pendiente';const stClass=overdueFlag?'overdue':dueFlag?'due':'pending';return `<tr><td style="color:${overdueFlag?'#ff5656':dueFlag?'#ffb000':'inherit'};font-weight:700">${fmtDate(p.vencimiento)}</td><td><b>${esc(p.proveedor||'')}</b></td><td>${esc(p.concepto||'')}</td><td>${esc(p.ot||'—')}</td><td>${esc(p.medio||'')}</td><td>${esc(p.referencia||'—')}</td><td><b>${money(p.importe)}</b></td><td><span class="cp-status ${stClass}">${status}</span></td><td style="white-space:nowrap"><button title="Marcar pagado" class="cp-icon-btn ok" onclick="cpMarkPago('${p.id}')">✓</button> <button title="Editar" class="cp-icon-btn edit" onclick="cpEditPago('${p.id}')">✎</button> <button title="Borrar" class="cp-icon-btn delete" onclick="cpDeletePago('${p.id}')">🗑</button></td></tr>`}).join('');
+  el.innerHTML=`
+    <div class="cp-pay-toolbar"><div><div class="cp-pay-title">Pagos y previsiones</div><div class="cp-sub">Cuenta corriente, cheques, cuotas y compromisos futuros.</div></div><div class="cp-pay-buttons"><button class="cp-btn outline" onclick="cpNuevoPagoManual()">＋ Carga manual de pago</button><button class="cp-btn blue" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
+    <div class="cp-pay-kpis">
+      <div class="cp-pay-kpi" style="--kpi-color:#ff5050"><div class="cp-lbl">Vencido</div><div class="cp-kpi">${money(overdue.reduce((s,p)=>s+num(p.importe),0))}</div><div class="cp-sub">${overdue.length} compromisos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#ffb000"><div class="cp-lbl">A pagar esta semana</div><div class="cp-kpi">${money(thisWeek?.total||0)}</div><div class="cp-sub">${thisWeek?.arr.length||0} compromisos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#2dd486"><div class="cp-lbl">Próximas 4 semanas</div><div class="cp-kpi">${money(next4)}</div><div class="cp-sub">${weeks.slice(1).reduce((s,w)=>s+w.arr.length,0)} compromisos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#4f9cff"><div class="cp-lbl">Saldo cuenta corriente</div><div class="cp-kpi">${money(cc)}</div><div class="cp-sub">Total pendiente</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#a36cff"><div class="cp-lbl">Total compromisos</div><div class="cp-kpi">${money(totalPending)}</div><div class="cp-sub">${pending.length} compromisos abiertos</div></div>
+    </div>
+    <div class="cp-pay-layout"><section class="cp-pay-section"><h3>Previsiones por semana</h3><div class="cp-week-grid">${weekCards}</div></section><section class="cp-pay-section"><h3>Evolución próximas 5 semanas</h3>${weeks.length?`<div class="cp-bars">${bars}</div>`:'<div class="cp-empty-chart">Sin previsiones cargadas</div>'}</section></div>
+    <section class="cp-pay-section cp-pay-table"><h3>Compromisos a pagar</h3><div class="cp-table-wrap"><table class="cp-table"><thead><tr><th>Vencimiento</th><th>Proveedor</th><th>Concepto / factura</th><th>OT / compra</th><th>Medio de pago</th><th>N° cheque / ref.</th><th>Importe</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows||'<tr><td colspan="9">No hay compromisos pendientes.</td></tr>'}</tbody></table></div></section>
+    <div class="cp-pay-bottom"><section class="cp-pay-section"><h3>Cargar nuevo compromiso</h3><div class="cp-sub" style="margin-bottom:10px">Usá “Carga manual de pago” para alquileres, impuestos, cheques o gastos que no nacen de una factura.</div><button class="cp-btn blue" onclick="cpNuevoPagoManual()">＋ Abrir formulario de compromiso</button></section><section class="cp-pay-section"><h3>Resumen</h3><div class="cp-row"><div class="cp-card"><div class="cp-lbl">Pendiente</div><div class="cp-kpi" style="font-size:18px">${money(totalPending)}</div></div><div class="cp-card"><div class="cp-lbl">Histórico registrado</div><div class="cp-kpi" style="font-size:18px">${money(totalAll)}</div></div></div></section><section class="cp-pay-section"><h3>Información</h3><div class="cp-info-row"><span class="cp-info-icon">▣</span><span>Los importes se agrupan por la fecha de vencimiento de cada pago.</span></div><div class="cp-info-row"><span class="cp-info-icon">✓</span><span>Marcá cada compromiso como pagado cuando se cancele.</span></div><div class="cp-info-row"><span class="cp-info-icon">↗</span><span>La previsión semanal te ayuda a planificar la caja de TIZ.</span></div></section></div>`;
+}
+window.cpNuevoPagoManual=()=>{['cp-p-proveedor','cp-p-concepto','cp-p-importe','cp-p-ref','cp-p-ot','cp-p-obs'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-p-venc').value=todayISO();document.getElementById('cp-modal-pago').dataset.editId='';document.getElementById('cp-modal-pago').classList.add('open');};
+window.cpClosePago=()=>document.getElementById('cp-modal-pago').classList.remove('open');
+window.cpSavePagoManual=async()=>{const proveedor=document.getElementById('cp-p-proveedor').value.trim(),importe=num(document.getElementById('cp-p-importe').value),vencimiento=document.getElementById('cp-p-venc').value;if(!proveedor||!importe||!vencimiento)return toast('Completá proveedor, importe y vencimiento.');const data={proveedor,concepto:document.getElementById('cp-p-concepto').value.trim(),importe,vencimiento,semana:paymentWeek(vencimiento),medio:document.getElementById('cp-p-medio').value,condicion:document.getElementById('cp-p-medio').value,referencia:document.getElementById('cp-p-ref').value.trim(),ot:document.getElementById('cp-p-ot').value.trim(),observacion:document.getElementById('cp-p-obs').value.trim(),estado:'pendiente',origen:'manual',_ts:serverTimestamp()};const id=document.getElementById('cp-modal-pago').dataset.editId;if(id)await updateDoc(doc(db,'pagosCompra',id),data);else await addDoc(collection(db,'pagosCompra'),data);cpClosePago();toast('Compromiso guardado.');};
+window.cpMarkPago=async id=>{const fecha=prompt('Fecha de pago:',todayISO());if(!fecha)return;await updateDoc(doc(db,'pagosCompra',id),{estado:'pagado',fechaPago:fecha,_tsPago:serverTimestamp()});toast('Pago marcado como realizado.');};
+window.cpEditPago=id=>{const p=C.pagos.find(x=>x.id===id);if(!p)return;cpNuevoPagoManual();document.getElementById('cp-modal-pago').dataset.editId=id;document.getElementById('cp-p-proveedor').value=p.proveedor||'';document.getElementById('cp-p-concepto').value=p.concepto||'';document.getElementById('cp-p-importe').value=p.importe||0;document.getElementById('cp-p-venc').value=p.vencimiento||'';document.getElementById('cp-p-medio').value=p.medio||'Cuenta corriente';document.getElementById('cp-p-ref').value=p.referencia||'';document.getElementById('cp-p-ot').value=p.ot||'';document.getElementById('cp-p-obs').value=p.observacion||'';};
+window.cpDeletePago=async id=>{if(confirm('¿Borrar este compromiso?'))await deleteDoc(doc(db,'pagosCompra',id));};
+
 // Integración con navegación existente
 const oldGoTo=window.goTo;
 window.goTo=function(page){if(oldGoTo)oldGoTo(page);if(page==='compras'){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-compras')?.classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.cpNav==='1'));window.currentPage='compras';render();}};
 
 injectStyles();injectUI();startListeners();
-console.info('[TIZ Compras V22.3] módulo corregido y cargado');
+console.info('[TIZ Compras V25] panel financiero visual cargado');
