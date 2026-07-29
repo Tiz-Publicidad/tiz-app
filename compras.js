@@ -675,11 +675,28 @@ window.cpToggleOTCheck=async(obraId,key,on)=>{
   if(a)await updateDoc(doc(db,'analisisComprasOT',a.id),data);else await addDoc(collection(db,'analisisComprasOT'),data);
 };
 
+
+function colParseDate(v){
+  if(!v)return null;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)){const [y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d);}
+  if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)){const [d,m,y]=v.split('/').map(Number);return new Date(y,m-1,d);}
+  const dt=new Date(v);return Number.isNaN(dt.getTime())?null:dt;
+}
+function colSemaforo(fc,fr){
+  const c=colParseDate(fc),r=colParseDate(fr);
+  if(r&&c)return Math.round((r-c)/86400000)<=0?'g':'r';
+  if(!c)return 'n';
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const d=Math.round((hoy-c)/86400000);
+  return d<-3?'g':d<0?'a':'r';
+}
+
 window.colV281Tab=window.colV281Tab||'dashboard';
 window.colSetTab=(tab)=>{window.colV281Tab=tab;renderColocacionesV27();};
 function renderColocacionesV27(){
   const host=document.getElementById('page-colocaciones');if(!host||window.currentPage!=='colocaciones')return;
   const original=host.querySelector(':scope > div:nth-child(2)');
+  try{
   if(original)original.classList.add('col-legacy-wrap');
   let dash=document.getElementById('col-v281-dashboard');
   if(!dash){dash=document.createElement('div');dash.id='col-v281-dashboard';dash.className='col-dash';host.appendChild(dash);}
@@ -694,7 +711,7 @@ function renderColocacionesV27(){
   const q=normText(window.colV28Search||''),estado=window.colV28Estado||'pendientes';
   const all=(window.DB?.obras||[]).filter(o=>o.fcol_c||o.sector==='Colocaciones').filter(isActiveObra).sort((a,b)=>String(a.fcol_c||'9999-12-31').localeCompare(String(b.fcol_c||'9999-12-31')));
   const listas=all.filter(o=>pctChecks(COL_CHECKS,colFor(o))===100).length;
-  const vencidas=all.filter(o=>!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r').length;
+  const vencidas=all.filter(o=>!o.fcol_r&&colSemaforo(o.fcol_c,o.fcol_r)==='r').length;
   const sinFecha=all.filter(o=>!o.fcol_c).length;
   const hoy=todayISO();
   const proximas=all.filter(o=>o.fcol_c&&o.fcol_c>=hoy&&o.fcol_c<=addDaysISO(hoy,7)&&!o.fcol_r).length;
@@ -702,13 +719,13 @@ function renderColocacionesV27(){
   let obras=all.filter(o=>!q||normText([o.ot,o.cliente,o.desc].join(' ')).includes(q));
   if(estado==='pendientes')obras=obras.filter(o=>pctChecks(COL_CHECKS,colFor(o))<100);
   if(estado==='listas')obras=obras.filter(o=>pctChecks(COL_CHECKS,colFor(o))===100);
-  if(estado==='vencidas')obras=obras.filter(o=>!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r');
+  if(estado==='vencidas')obras=obras.filter(o=>!o.fcol_r&&colSemaforo(o.fcol_c,o.fcol_r)==='r');
   if(estado==='proximas')obras=obras.filter(o=>o.fcol_c&&o.fcol_c>=hoy&&o.fcol_c<=addDaysISO(hoy,7)&&!o.fcol_r);
 
   const stageDefs=[['info','Información del lugar'],['produccion','Producción terminada'],['calidad','Control de calidad'],['kit','Kit de colocación'],['equipo','Personal y vehículo'],['fecha','Fecha confirmada']];
   const stageRows=stageDefs.map(([key,label])=>{const done=all.filter(o=>colFor(o)?.checks?.[key]).length,p=all.length?Math.round(done/all.length*100):0;return `<div class="col-progress-row"><span>${label}</span><div class="col-progress-track"><span style="width:${p}%"></span></div><b>${p}%</b></div>`}).join('');
-  const alerts=all.filter(o=>!o.fcol_r&&(semaforo(o.fcol_c,o.fcol_r)==='r'||pctChecks(COL_CHECKS,colFor(o))<50)).slice(0,5).map(o=>`<div class="col-alert-item"><b>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</b><span>${semaforo(o.fcol_c,o.fcol_r)==='r'?'Fecha vencida':'Preparación incompleta'} · ${pctChecks(COL_CHECKS,colFor(o))}% listo</span></div>`).join('');
-  const cards=obras.map(o=>{const d=colFor(o),p=pctChecks(COL_CHECKS,d),checks=d?.checks||{},over=!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r';return `<div class="col-v27-card ${p===100?'ready':'pending'} ${over?'overdue':''}">
+  const alerts=all.filter(o=>!o.fcol_r&&(colSemaforo(o.fcol_c,o.fcol_r)==='r'||pctChecks(COL_CHECKS,colFor(o))<50)).slice(0,5).map(o=>`<div class="col-alert-item"><b>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</b><span>${colSemaforo(o.fcol_c,o.fcol_r)==='r'?'Fecha vencida':'Preparación incompleta'} · ${pctChecks(COL_CHECKS,colFor(o))}% listo</span></div>`).join('');
+  const cards=obras.map(o=>{const d=colFor(o),p=pctChecks(COL_CHECKS,d),checks=d?.checks||{},over=!o.fcol_r&&colSemaforo(o.fcol_c,o.fcol_r)==='r';return `<div class="col-v27-card ${p===100?'ready':'pending'} ${over?'overdue':''}">
     <div class="cp-ot-top"><div><div class="cp-ot-title">OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</div><div class="cp-ot-meta">${esc(o.desc||'')} · Colocación: ${esc(o.fcol_c||'sin fecha')}</div></div><span class="cp-pill ${p===100?'yes':over?'no':'warn'}">${p===100?'Lista':over?'Vencida':'Preparación '+p+'%'}</span></div>
     <div class="col-v27-checks">${COL_CHECKS.map(([k,l])=>`<label class="col-v27-check ${checks[k]?'done':''}"><input type="checkbox" ${checks[k]?'checked':''} onchange="colToggleCheck('${o.id}','${k}',this.checked)">${l}</label>`).join('')}</div>
     <div class="cp-progress-line"><span style="width:${p}%"></span></div>
@@ -718,6 +735,14 @@ function renderColocacionesV27(){
   <div class="col-kpis-v281"><div class="col-kpi-v281"><div class="label">Obras activas</div><div class="value">${all.length}</div><div class="sub">en seguimiento</div></div><div class="col-kpi-v281"><div class="label">Listas para colocar</div><div class="value" style="color:var(--green)">${listas}</div><div class="sub">100% preparadas</div></div><div class="col-kpi-v281"><div class="label">Vencidas</div><div class="value" style="color:var(--red)">${vencidas}</div><div class="sub">sin fecha real</div></div><div class="col-kpi-v281"><div class="label">Próximos 7 días</div><div class="value" style="color:var(--amber)">${proximas}</div><div class="sub">programadas</div></div><div class="col-kpi-v281"><div class="label">Preparación promedio</div><div class="value">${avg}%</div><div class="sub">avance global</div></div></div>
   <div class="col-panel-grid"><section class="col-panel"><div class="col-panel-title">Cumplimiento de controles</div><div class="col-progress-list">${stageRows}</div></section><aside class="col-panel"><div class="col-panel-title">Alertas prioritarias</div><div class="col-alert-list">${alerts||'<div class="empty">Sin alertas prioritarias.</div>'}</div></aside></div>
   <section class="col-panel"><div class="col-board-toolbar"><div><div class="col-panel-title" style="margin:0">Preparación por OT</div><div class="col-board-stats">${obras.length} obras visibles · ${sinFecha} sin fecha cargada</div></div></div><div class="col-v27-grid">${cards||'<div class="empty">No hay colocaciones para este filtro.</div>'}</div></section>`;
+  }catch(err){
+    console.error('[TIZ V28.2] Error dashboard colocaciones:',err);
+    const dash=document.getElementById('col-v281-dashboard');
+    if(dash)dash.innerHTML='<div class="card"><div class="card-body"><b>No se pudo cargar el dashboard nuevo.</b><div style="margin-top:6px;color:var(--text3)">Se mantiene disponible el listado general para no bloquear el sector.</div></div></div>';
+    if(original){original.classList.add('active');original.style.display='block';}
+    const nav=document.getElementById('col-v281-tabs');
+    if(nav)nav.innerHTML='<button class="col-tab active" onclick="colSetTab(\'detalle\')">Listado general</button>';
+  }
 }
 window.colToggleCheck=async(obraId,key,on)=>{const o=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!o)return;let d=colFor(o);const checks={...(d?.checks||{}),[key]:on};const data={obraId,ot:o.ot||'',cliente:o.cliente||'',checks,actualizado:todayISO(),_ts:serverTimestamp()};if(d)await updateDoc(doc(db,'preparacionColocaciones',d.id),data);else await addDoc(collection(db,'preparacionColocaciones'),data);setTimeout(renderColocacionesV27,100);};
 
@@ -728,4 +753,4 @@ const cpOldRefresh=window.refreshCurrent;window.refreshCurrent=function(){if(cpO
 const cpGoToV27=window.goTo;window.goTo=function(page){cpGoToV27(page);if(page==='colocaciones')setTimeout(renderColocacionesV27,20);};
 
 injectStyles();injectUI();startListeners();
-console.info('[TIZ V28.1] Dashboard de Colocaciones cargado');
+console.info('[TIZ V28.2] Hotfix Dashboard de Colocaciones cargado');
