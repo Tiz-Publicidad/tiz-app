@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TIZ V26.1 — Compras, Stock y Previsiones</title>
+<title>TIZ V27 — Compras y Colocaciones</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -4335,7 +4335,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V26.1 · COMPRAS + PAGOS + PREVISIONES · 29/07/2026';
+  badge.textContent = 'TIZ V27 · COMPRAS + COLOCACIONES · 29/07/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
@@ -4346,6 +4346,6 @@ window.exportarDatosFacturaActual = function(){
 
 </script>
 
-<script type="module" src="compras.js?v=TIZ-V26-1-VISUAL-20260729"></script>
+<script type="module" src="compras.js?v=TIZ-V27-CHECKS-20260729"></script>
 </body>
 </html>
