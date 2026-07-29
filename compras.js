@@ -133,6 +133,28 @@ function injectStyles(){
   .cp-empty-chart{display:grid;place-items:center;height:150px;color:var(--text3);font-size:11px}
   @media(max-width:1250px){.cp-pay-kpis{grid-template-columns:repeat(3,1fr)}.cp-pay-layout,.cp-pay-bottom{grid-template-columns:1fr}.cp-week-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:750px){.cp-pay-kpis,.cp-week-grid{grid-template-columns:1fr}.cp-pay-bottom{grid-template-columns:1fr}.cp-pay-section{padding:9px}}
+  /* V26.1 · Vista final aprobada */
+  .cp-pay-kpis{grid-template-columns:repeat(6,minmax(145px,1fr))}
+  .cp-pay-kpi{display:grid;grid-template-columns:42px 1fr;column-gap:10px;align-items:center;padding:13px;min-height:92px}
+  .cp-pay-kpi .cp-kpi-icon{grid-row:1/4;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--kpi-color);color:var(--kpi-color);font-size:19px;background:color-mix(in srgb,var(--kpi-color) 10%,transparent)}
+  .cp-pay-kpi .cp-lbl,.cp-pay-kpi .cp-kpi,.cp-pay-kpi .cp-sub{grid-column:2}
+  .cp-pay-kpi .cp-kpi{margin-top:1px}
+  .cp-pay-workspace{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;margin-top:10px}
+  .cp-pay-main{min-width:0}
+  .cp-payment-summary{display:flex;flex-direction:column;gap:0}
+  .cp-method-row{display:grid;grid-template-columns:34px 1fr auto;gap:9px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+  .cp-method-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-weight:900;background:color-mix(in srgb,var(--method-color) 18%,var(--surface2));color:var(--method-color)}
+  .cp-method-name{font-size:11px;font-weight:700}.cp-method-count{font-size:9px;color:var(--text3);margin-top:2px}.cp-method-amount{font:700 12px 'DM Mono',monospace;text-align:right}
+  .cp-pay-filters{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr)) auto auto;gap:8px;align-items:center;margin-bottom:10px}
+  .cp-pay-filters select,.cp-pay-filters input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px;font-size:11px}
+  .cp-quick-filters{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+  .cp-quick{border:1px solid var(--border);background:var(--surface2);color:var(--text2);padding:7px 9px;border-radius:7px;font-size:10px;cursor:pointer}.cp-quick.active{border-color:var(--accent);color:var(--accent);background:rgba(232,184,75,.08)}
+  .cp-empty-pay{text-align:center;padding:44px 20px;color:var(--text3)}.cp-empty-pay .icon{font-size:38px;margin-bottom:10px}.cp-empty-pay strong{display:block;color:var(--text2);font-size:13px;margin-bottom:4px}.cp-empty-actions{display:flex;gap:8px;justify-content:center;margin-top:15px;flex-wrap:wrap}
+  .cp-pay-footer{border:1px solid rgba(232,184,75,.28);background:rgba(232,184,75,.05);border-radius:9px;padding:12px;margin-top:10px;font-size:10px;color:var(--text2)}
+  @media(max-width:1450px){.cp-pay-kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:1100px){.cp-pay-workspace{grid-template-columns:1fr}.cp-pay-filters{grid-template-columns:1fr 1fr}.cp-quick-filters{grid-column:1/-1;justify-content:flex-start}}
+  @media(max-width:700px){.cp-pay-kpis{grid-template-columns:1fr}.cp-pay-filters{grid-template-columns:1fr}}
+
 
   @media(max-width:1000px){.cp-grid{grid-template-columns:repeat(2,1fr)}.cp-row{grid-template-columns:repeat(2,1fr)}.cp-filter-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:650px){#page-compras{padding:12px}.cp-grid,.cp-row,.cp-filter-grid,.cp-filter-summary{grid-template-columns:1fr}.cp-modal-bg{padding:7px}.cp-title{font-size:19px}}
@@ -420,31 +442,102 @@ async function cpSyncPagosCompra(compraId,data){
 function weekRange(yearWeek){
   const m=String(yearWeek||'').match(/(\d{4})-S(\d{1,2})/);if(!m)return null;const y=+m[1],w=+m[2];const jan4=new Date(Date.UTC(y,0,4));const day=jan4.getUTCDay()||7;const mon=new Date(jan4);mon.setUTCDate(jan4.getUTCDate()-day+1+(w-1)*7);const sun=new Date(mon);sun.setUTCDate(mon.getUTCDate()+6);return {from:mon.toISOString().slice(0,10),to:sun.toISOString().slice(0,10)};
 }
+
+window.cpPayFilters = window.cpPayFilters || {estado:'',medio:'',proveedor:'',search:'',quick:'all'};
+window.cpSetPayFilter = (key,value) => { window.cpPayFilters[key]=value; render(); };
+window.cpSetPayQuick = value => { window.cpPayFilters.quick=value; render(); };
+
 function renderPagos(el){
-  const pending=C.pagos.filter(p=>p.estado!=='pagado').sort((a,b)=>String(a.vencimiento||'').localeCompare(String(b.vencimiento||'')));
+  const allPending=C.pagos.filter(p=>p.estado!=='pagado').sort((a,b)=>String(a.vencimiento||'').localeCompare(String(b.vencimiento||'')));
   const now=todayISO(),cur=weekKey(),weeks=[];
-  for(let i=0;i<5;i++){const wr=weekRange(cur);if(!wr)break;const start=addDaysISO(wr.from,i*7),wk=paymentWeek(start),range=weekRange(wk),arr=pending.filter(p=>p.semana===wk||((p.vencimiento||'')>=range.from&&(p.vencimiento||'')<=range.to));weeks.push({wk,range,arr,total:arr.reduce((s,p)=>s+num(p.importe),0)});}
-  const overdue=pending.filter(p=>p.vencimiento&&p.vencimiento<now), thisWeek=weeks[0], next4=weeks.slice(1).reduce((s,w)=>s+w.total,0);
-  const cc=pending.filter(p=>String(p.condicion||p.medio).toLowerCase().includes('cuenta')).reduce((s,p)=>s+num(p.importe),0);
-  const totalPending=pending.reduce((s,p)=>s+num(p.importe),0), totalAll=C.pagos.reduce((s,p)=>s+num(p.importe),0);
-  const colors=['#ff4d4d','#ffb000','#4f9cff','#2dd486','#a36cff'];
+  for(let i=0;i<5;i++){
+    const wr=weekRange(cur); if(!wr) break;
+    const start=addDaysISO(wr.from,i*7),wk=paymentWeek(start),range=weekRange(wk);
+    const arr=allPending.filter(p=>p.semana===wk||((p.vencimiento||'')>=range.from&&(p.vencimiento||'')<=range.to));
+    weeks.push({wk,range,arr,total:arr.reduce((s,p)=>s+num(p.importe),0)});
+  }
+  const overdue=allPending.filter(p=>p.vencimiento&&p.vencimiento<now), thisWeek=weeks[0], next4=weeks.slice(1).reduce((s,w)=>s+w.total,0);
+  const isCC=p=>String(p.condicion||p.medio||'').toLowerCase().includes('cuenta');
+  const isCheque=p=>String(p.medio||'').toLowerCase().includes('cheque');
+  const cc=allPending.filter(isCC).reduce((s,p)=>s+num(p.importe),0);
+  const cheques=allPending.filter(isCheque);
+  const totalPending=allPending.reduce((s,p)=>s+num(p.importe),0);
+  const colors=['#ff4d4d','#ffb000','#4f9cff','#2dd486','#8b8f98'];
+
+  const f=window.cpPayFilters||{};
+  const providers=uniqueSorted(allPending.map(p=>p.proveedor));
+  const methods=uniqueSorted(allPending.map(p=>p.medio||p.condicion));
+  let pending=allPending.filter(p=>{
+    if(f.estado==='vencido' && !(p.vencimiento&&p.vencimiento<now)) return false;
+    if(f.estado==='semana' && p.semana!==cur) return false;
+    if(f.medio && (p.medio||p.condicion)!==f.medio) return false;
+    if(f.proveedor && p.proveedor!==f.proveedor) return false;
+    const hay=normText([p.proveedor,p.concepto,p.referencia,p.ot].join(' '));
+    if(f.search && !hay.includes(normText(f.search))) return false;
+    if(f.quick==='today' && p.vencimiento!==now) return false;
+    if(f.quick==='week' && p.semana!==cur) return false;
+    if(f.quick==='next4'){
+      const maxDate=weeks[4]?.range?.to||'9999-12-31';
+      if(!p.vencimiento || p.vencimiento<now || p.vencimiento>maxDate) return false;
+    }
+    return true;
+  });
+
   const weekCards=weeks.map((w,i)=>`<div class="cp-week-card-v25" style="--week-color:${colors[i]}"><div class="wk">SEMANA ${String(w.wk).split('S')[1]||w.wk}</div><div class="range">${fmtDate(w.range.from)} - ${fmtDate(w.range.to)}</div><div class="amount">${money(w.total)}</div><div class="count">${w.arr.length} compromiso${w.arr.length===1?'':'s'}</div></div>`).join('');
   const max=Math.max(...weeks.map(w=>w.total),1);
   const bars=weeks.map((w,i)=>`<div class="cp-bar-col"><div class="cp-bar-value">${w.total?money(w.total).replace('$','').replace(/,00$/,''):'$0'}</div><div class="cp-bar" style="height:${Math.max(3,Math.round((w.total/max)*118))}px;--bar-color:${colors[i]}"></div><div class="cp-bar-label">S${String(w.wk).split('S')[1]||''}</div></div>`).join('');
-  const rows=pending.map(p=>{const overdueFlag=p.vencimiento<now,dueFlag=p.semana===cur;const status=overdueFlag?'Vencido':dueFlag?'Por vencer':'Pendiente';const stClass=overdueFlag?'overdue':dueFlag?'due':'pending';return `<tr><td style="color:${overdueFlag?'#ff5656':dueFlag?'#ffb000':'inherit'};font-weight:700">${fmtDate(p.vencimiento)}</td><td><b>${esc(p.proveedor||'')}</b></td><td>${esc(p.concepto||'')}</td><td>${esc(p.ot||'—')}</td><td>${esc(p.medio||'')}</td><td>${esc(p.referencia||'—')}</td><td><b>${money(p.importe)}</b></td><td><span class="cp-status ${stClass}">${status}</span></td><td style="white-space:nowrap"><button title="Marcar pagado" class="cp-icon-btn ok" onclick="cpMarkPago('${p.id}')">✓</button> <button title="Editar" class="cp-icon-btn edit" onclick="cpEditPago('${p.id}')">✎</button> <button title="Borrar" class="cp-icon-btn delete" onclick="cpDeletePago('${p.id}')">🗑</button></td></tr>`}).join('');
+
+  const rows=pending.map(p=>{
+    const overdueFlag=p.vencimiento<now,dueFlag=p.semana===cur;
+    const status=overdueFlag?'Vencido':dueFlag?'Por vencer':'Pendiente';
+    const stClass=overdueFlag?'overdue':dueFlag?'due':'pending';
+    return `<tr><td style="color:${overdueFlag?'#ff5656':dueFlag?'#ffb000':'inherit'};font-weight:700">${fmtDate(p.vencimiento)}</td><td><b>${esc(p.proveedor||'')}</b></td><td>${esc(p.concepto||'')}</td><td>${esc(p.ot||'—')}</td><td>${esc(p.medio||'')}</td><td><b>${money(p.importe)}</b></td><td><span class="cp-status ${stClass}">${status}</span></td><td style="white-space:nowrap"><button title="Marcar pagado" class="cp-icon-btn ok" onclick="cpMarkPago('${p.id}')">✓</button> <button title="Editar" class="cp-icon-btn edit" onclick="cpEditPago('${p.id}')">✎</button> <button title="Borrar" class="cp-icon-btn delete" onclick="cpDeletePago('${p.id}')">🗑</button></td></tr>`;
+  }).join('');
+
+  const methodDefs=[
+    ['Cuenta corriente','👤','#ffb000',p=>isCC(p)],
+    ['Cheques','✓','#a36cff',p=>isCheque(p)],
+    ['Transferencia','↔','#4f9cff',p=>String(p.medio||'').toLowerCase().includes('transfer')],
+    ['Tarjeta de crédito','▣','#ff5656',p=>String(p.medio||'').toLowerCase().includes('tarjeta')],
+    ['Efectivo / Contado','▤','#2dd486',p=>/efectivo|contado/i.test(String(p.medio||p.condicion||''))],
+    ['Otros','•••','#8b8f98',p=>!/cuenta|cheque|transfer|tarjeta|efectivo|contado/i.test(String(p.medio||p.condicion||''))]
+  ];
+  const methodRows=methodDefs.map(([name,icon,color,test])=>{
+    const arr=allPending.filter(test),amount=arr.reduce((s,p)=>s+num(p.importe),0);
+    return `<div class="cp-method-row"><div class="cp-method-icon" style="--method-color:${color}">${icon}</div><div><div class="cp-method-name">${name}</div><div class="cp-method-count">${arr.length} compromiso${arr.length===1?'':'s'}</div></div><div class="cp-method-amount">${money(amount)}</div></div>`;
+  }).join('');
+
+  const empty=`<div class="cp-empty-pay"><div class="icon">▧</div><strong>No hay compromisos ni pagos programados</strong><div>Comenzá cargando una nueva compra o un pago manual.</div><div class="cp-empty-actions"><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button><button class="cp-btn outline" onclick="cpNuevoPagoManual()">＋ Carga manual de pago</button></div></div>`;
+
   el.innerHTML=`
-    <div class="cp-pay-toolbar"><div><div class="cp-pay-title">Pagos y previsiones</div><div class="cp-sub">Cuenta corriente, cheques, cuotas y compromisos futuros.</div></div><div class="cp-pay-buttons"><button class="cp-btn outline" onclick="cpNuevoPagoManual()">＋ Carga manual de pago</button><button class="cp-btn blue" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
+    <div class="cp-pay-toolbar"><div><div class="cp-pay-title">Pagos y previsiones</div><div class="cp-sub">Cuenta corriente, cheques, cuotas y compromisos futuros.</div></div><div class="cp-pay-buttons"><button class="cp-btn outline" onclick="cpNuevoPagoManual()">＋ Carga manual de pago</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
     <div class="cp-pay-kpis">
-      <div class="cp-pay-kpi" style="--kpi-color:#ff5050"><div class="cp-lbl">Vencido</div><div class="cp-kpi">${money(overdue.reduce((s,p)=>s+num(p.importe),0))}</div><div class="cp-sub">${overdue.length} compromisos</div></div>
-      <div class="cp-pay-kpi" style="--kpi-color:#ffb000"><div class="cp-lbl">A pagar esta semana</div><div class="cp-kpi">${money(thisWeek?.total||0)}</div><div class="cp-sub">${thisWeek?.arr.length||0} compromisos</div></div>
-      <div class="cp-pay-kpi" style="--kpi-color:#2dd486"><div class="cp-lbl">Próximas 4 semanas</div><div class="cp-kpi">${money(next4)}</div><div class="cp-sub">${weeks.slice(1).reduce((s,w)=>s+w.arr.length,0)} compromisos</div></div>
-      <div class="cp-pay-kpi" style="--kpi-color:#4f9cff"><div class="cp-lbl">Saldo cuenta corriente</div><div class="cp-kpi">${money(cc)}</div><div class="cp-sub">Total pendiente</div></div>
-      <div class="cp-pay-kpi" style="--kpi-color:#a36cff"><div class="cp-lbl">Total compromisos</div><div class="cp-kpi">${money(totalPending)}</div><div class="cp-sub">${pending.length} compromisos abiertos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#ff5050"><div class="cp-kpi-icon">◷</div><div class="cp-lbl">Vencido</div><div class="cp-kpi">${money(overdue.reduce((s,p)=>s+num(p.importe),0))}</div><div class="cp-sub">${overdue.length} compromisos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#ffb000"><div class="cp-kpi-icon">▣</div><div class="cp-lbl">A pagar esta semana</div><div class="cp-kpi">${money(thisWeek?.total||0)}</div><div class="cp-sub">${thisWeek?.arr.length||0} compromisos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#54d268"><div class="cp-kpi-icon">◔</div><div class="cp-lbl">Próximas 4 semanas</div><div class="cp-kpi">${money(next4)}</div><div class="cp-sub">${weeks.slice(1).reduce((s,w)=>s+w.arr.length,0)} compromisos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#4f9cff"><div class="cp-kpi-icon">↻</div><div class="cp-lbl">Saldo cuenta corriente</div><div class="cp-kpi">${money(cc)}</div><div class="cp-sub">${allPending.filter(isCC).length} compromisos</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#a36cff"><div class="cp-kpi-icon">✓</div><div class="cp-lbl">Cheques pendientes</div><div class="cp-kpi">${money(cheques.reduce((s,p)=>s+num(p.importe),0))}</div><div class="cp-sub">${cheques.length} cheques</div></div>
+      <div class="cp-pay-kpi" style="--kpi-color:#36cdb8"><div class="cp-kpi-icon">◴</div><div class="cp-lbl">Total compromisos</div><div class="cp-kpi">${money(totalPending)}</div><div class="cp-sub">${allPending.length} compromisos</div></div>
     </div>
-    <div class="cp-pay-layout"><section class="cp-pay-section"><h3>Previsiones por semana</h3><div class="cp-week-grid">${weekCards}</div></section><section class="cp-pay-section"><h3>Evolución próximas 5 semanas</h3>${weeks.length?`<div class="cp-bars">${bars}</div>`:'<div class="cp-empty-chart">Sin previsiones cargadas</div>'}</section></div>
-    <section class="cp-pay-section cp-pay-table"><h3>Compromisos a pagar</h3><div class="cp-table-wrap"><table class="cp-table"><thead><tr><th>Vencimiento</th><th>Proveedor</th><th>Concepto / factura</th><th>OT / compra</th><th>Medio de pago</th><th>N° cheque / ref.</th><th>Importe</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows||'<tr><td colspan="9">No hay compromisos pendientes.</td></tr>'}</tbody></table></div></section>
-    <div class="cp-pay-bottom"><section class="cp-pay-section"><h3>Cargar nuevo compromiso</h3><div class="cp-sub" style="margin-bottom:10px">Usá “Carga manual de pago” para alquileres, impuestos, cheques o gastos que no nacen de una factura.</div><button class="cp-btn blue" onclick="cpNuevoPagoManual()">＋ Abrir formulario de compromiso</button></section><section class="cp-pay-section"><h3>Resumen</h3><div class="cp-row"><div class="cp-card"><div class="cp-lbl">Pendiente</div><div class="cp-kpi" style="font-size:18px">${money(totalPending)}</div></div><div class="cp-card"><div class="cp-lbl">Histórico registrado</div><div class="cp-kpi" style="font-size:18px">${money(totalAll)}</div></div></div></section><section class="cp-pay-section"><h3>Información</h3><div class="cp-info-row"><span class="cp-info-icon">▣</span><span>Los importes se agrupan por la fecha de vencimiento de cada pago.</span></div><div class="cp-info-row"><span class="cp-info-icon">✓</span><span>Marcá cada compromiso como pagado cuando se cancele.</span></div><div class="cp-info-row"><span class="cp-info-icon">↗</span><span>La previsión semanal te ayuda a planificar la caja de TIZ.</span></div></section></div>`;
+    <div class="cp-pay-layout"><section class="cp-pay-section"><h3>Previsiones por semana</h3><div class="cp-week-grid">${weekCards}</div></section><section class="cp-pay-section"><h3>Evolución próximas 5 semanas</h3>${allPending.length?`<div class="cp-bars">${bars}</div>`:'<div class="cp-empty-pay" style="padding:32px 10px"><strong>Sin datos disponibles</strong><div>A medida que cargues pagos y compromisos verás el gráfico aquí.</div></div>'}</section></div>
+    <div class="cp-pay-workspace">
+      <section class="cp-pay-section cp-pay-main">
+        <h3>Compromisos y pagos programados</h3>
+        <div class="cp-pay-filters">
+          <select onchange="cpSetPayFilter('estado',this.value)"><option value="">Todos los estados</option><option value="vencido" ${f.estado==='vencido'?'selected':''}>Vencidos</option><option value="semana" ${f.estado==='semana'?'selected':''}>Esta semana</option></select>
+          <select onchange="cpSetPayFilter('medio',this.value)"><option value="">Todos los medios de pago</option>${methods.map(v=>`<option ${f.medio===v?'selected':''}>${esc(v)}</option>`).join('')}</select>
+          <select onchange="cpSetPayFilter('proveedor',this.value)"><option value="">Todos los proveedores</option>${providers.map(v=>`<option ${f.proveedor===v?'selected':''}>${esc(v)}</option>`).join('')}</select>
+          <div class="cp-quick-filters"><button class="cp-quick ${f.quick==='today'?'active':''}" onclick="cpSetPayQuick('today')">Hoy</button><button class="cp-quick ${f.quick==='week'?'active':''}" onclick="cpSetPayQuick('week')">Esta semana</button><button class="cp-quick ${f.quick==='next4'?'active':''}" onclick="cpSetPayQuick('next4')">Próximas 4 semanas</button></div>
+          <input placeholder="Buscar..." value="${esc(f.search||'')}" oninput="cpSetPayFilter('search',this.value)">
+        </div>
+        <div class="cp-table-wrap"><table class="cp-table"><thead><tr><th>Vencimiento</th><th>Proveedor</th><th>Concepto</th><th>Referencia</th><th>Medio de pago</th><th>Importe</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows||`<tr><td colspan="8">${empty}</td></tr>`}</tbody></table></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 2px 0;font-size:10px;color:var(--text3)"><span>Mostrando ${pending.length} de ${allPending.length} compromisos</span><strong style="color:var(--text)">Total: ${money(pending.reduce((s,p)=>s+num(p.importe),0))}</strong></div>
+      </section>
+      <aside class="cp-pay-section"><h3>Resumen de medios de pago</h3><div class="cp-payment-summary">${methodRows}<div class="cp-method-row" style="border-bottom:0;margin-top:4px"><div></div><div class="cp-method-name">Total general</div><div class="cp-method-amount">${money(totalPending)}</div></div></div></aside>
+    </div>
+    <div class="cp-pay-footer">ⓘ Los compromisos se agrupan por semana según la fecha de vencimiento. Los importes corresponden a los valores cargados en cada compra o compromiso manual.</div>`;
 }
+
 window.cpNuevoPagoManual=()=>{['cp-p-proveedor','cp-p-concepto','cp-p-importe','cp-p-ref','cp-p-ot','cp-p-obs'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-p-venc').value=todayISO();document.getElementById('cp-modal-pago').dataset.editId='';document.getElementById('cp-modal-pago').classList.add('open');};
 window.cpClosePago=()=>document.getElementById('cp-modal-pago').classList.remove('open');
 window.cpSavePagoManual=async()=>{const proveedor=document.getElementById('cp-p-proveedor').value.trim(),importe=num(document.getElementById('cp-p-importe').value),vencimiento=document.getElementById('cp-p-venc').value;if(!proveedor||!importe||!vencimiento)return toast('Completá proveedor, importe y vencimiento.');const data={proveedor,concepto:document.getElementById('cp-p-concepto').value.trim(),importe,vencimiento,semana:paymentWeek(vencimiento),medio:document.getElementById('cp-p-medio').value,condicion:document.getElementById('cp-p-medio').value,referencia:document.getElementById('cp-p-ref').value.trim(),ot:document.getElementById('cp-p-ot').value.trim(),observacion:document.getElementById('cp-p-obs').value.trim(),estado:'pendiente',origen:'manual',_ts:serverTimestamp()};const id=document.getElementById('cp-modal-pago').dataset.editId;if(id)await updateDoc(doc(db,'pagosCompra',id),data);else await addDoc(collection(db,'pagosCompra'),data);cpClosePago();toast('Compromiso guardado.');};
@@ -457,4 +550,4 @@ const oldGoTo=window.goTo;
 window.goTo=function(page){if(oldGoTo)oldGoTo(page);if(page==='compras'){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-compras')?.classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.cpNav==='1'));window.currentPage='compras';render();}};
 
 injectStyles();injectUI();startListeners();
-console.info('[TIZ Compras V25] panel financiero visual cargado');
+console.info('[TIZ Compras V26.1] panel financiero visual final cargado');
