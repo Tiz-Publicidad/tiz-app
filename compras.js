@@ -6,7 +6,7 @@ import {
 
 const db = getFirestore(getApp());
 const C = {
-  compras: [], articulos: [], conteos: [], planes: [], pagos: [], analisisOT: [], preparacionCol: []
+  compras: [], articulos: [], conteos: [], planes: [], pagos: [], analisisOT: [], preparacionCol: [], ayudamemorias: []
 };
 let compraEditId = null;
 let selectedFile = null;
@@ -167,6 +167,19 @@ function injectStyles(){
   @media(max-width:1100px){.cp-check-board{grid-template-columns:1fr 1fr}.col-v27-grid{grid-template-columns:1fr}.col-v27-checks{grid-template-columns:1fr 1fr}}
   @media(max-width:700px){.cp-check-board{grid-template-columns:1fr}.cp-mini-checks{grid-template-columns:1fr}.col-v27-checks{grid-template-columns:1fr}}
 
+  /* V28 · Ayudamemorias y operación simplificada */
+  .am-btn{border:1px solid rgba(232,184,75,.38);background:rgba(232,184,75,.08);color:var(--accent);border-radius:7px;padding:7px 9px;font-size:10px;font-weight:700;cursor:pointer}
+  .am-list{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+  .am-item{display:grid;grid-template-columns:22px 1fr auto;gap:7px;align-items:start;border:1px solid var(--border);background:var(--surface2);border-radius:8px;padding:8px}
+  .am-item.done{opacity:.58}.am-item.done .am-text{text-decoration:line-through}
+  .am-check{margin-top:2px;accent-color:var(--green)}.am-text{font-size:10px;line-height:1.35}.am-meta{font-size:9px;color:var(--text3);margin-top:3px}.am-badge{font-size:8px;border-radius:99px;padding:3px 6px;white-space:nowrap;background:rgba(79,156,255,.12);color:#6caaff}.am-badge.alerta{background:rgba(239,68,68,.14);color:#ff6464}.am-badge.tarea{background:rgba(245,158,11,.14);color:#ffb000}
+  .am-modal-card{width:min(520px,95vw);background:var(--surface);border:1px solid var(--border);border-radius:13px;box-shadow:0 20px 80px rgba(0,0,0,.55)}
+  .am-modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border)}.am-modal-body{padding:14px 16px}.am-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.am-field{display:flex;flex-direction:column;gap:5px}.am-field.full{grid-column:1/-1}.am-field label{font-size:9px;color:var(--text3);text-transform:uppercase}.am-field input,.am-field select,.am-field textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:9px;font-size:11px}.am-quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.am-quick button{border:1px solid var(--border);background:var(--surface2);color:var(--text2);border-radius:6px;padding:5px 7px;font-size:9px;cursor:pointer}
+  .col-v28-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.col-v28-filters{display:flex;gap:7px;flex-wrap:wrap}.col-v28-filters input,.col-v28-filters select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px;font-size:10px}
+  .col-v27-card{position:relative}.col-v27-card.overdue{border-left-color:var(--red)}.col-v27-card .cp-progress-line{margin-top:10px}
+  .col-status-row{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:8px}
+  @media(max-width:700px){.am-grid{grid-template-columns:1fr}.am-field.full{grid-column:auto}}
+
 
 
   @media(max-width:1000px){.cp-grid{grid-template-columns:repeat(2,1fr)}.cp-row{grid-template-columns:repeat(2,1fr)}.cp-filter-grid{grid-template-columns:repeat(3,1fr)}}
@@ -241,7 +254,7 @@ function startListeners(){
   const listen=(name,key)=>onSnapshot(query(collection(db,name),orderBy('_ts','desc'),limit(1000)),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();},()=>{
     onSnapshot(collection(db,name),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();});
   });
-  listen('compras','compras'); listen('articulosCompra','articulos'); listen('conteosStock','conteos'); listen('planesMateriales','planes'); listen('pagosCompra','pagos'); listen('analisisComprasOT','analisisOT'); listen('preparacionColocaciones','preparacionCol');
+  listen('compras','compras'); listen('articulosCompra','articulos'); listen('conteosStock','conteos'); listen('planesMateriales','planes'); listen('pagosCompra','pagos'); listen('analisisComprasOT','analisisOT'); listen('preparacionColocaciones','preparacionCol'); listen('ayudamemoriasOT','ayudamemorias');
 }
 
 function render(){
@@ -585,6 +598,54 @@ function elapsedHours(o){const d=obraCreatedDate(o);return d?Math.max(0,(Date.no
 function isActiveObra(o){return !['Cobrado','Rechazado','Vencido'].includes(o.estado||'');}
 function pctChecks(keys,data){const c=data?.checks||{};return Math.round(keys.filter(([k])=>!!c[k]).length/keys.length*100);}
 
+
+function memosFor(obraId,sector){
+  return (C.ayudamemorias||[]).filter(m=>m.obraId===obraId&&m.sector===sector).sort((a,b)=>{
+    if(!!a.resuelto!==!!b.resuelto)return a.resuelto?1:-1;
+    return String(a.fecha||'9999-12-31').localeCompare(String(b.fecha||'9999-12-31'));
+  });
+}
+function memoListHTML(obraId,sector){
+  const arr=memosFor(obraId,sector);
+  if(!arr.length)return '';
+  return `<div class="am-list">${arr.slice(0,4).map(m=>`<div class="am-item ${m.resuelto?'done':''}">
+    <input class="am-check" type="checkbox" ${m.resuelto?'checked':''} onchange="amToggle('${m.id}',this.checked)">
+    <div><div class="am-text">${esc(m.texto||'')}</div><div class="am-meta">${m.fecha?'Fecha: '+fmtDate(m.fecha):'Sin fecha'}${m.responsable?' · '+esc(m.responsable):''}</div></div>
+    <span class="am-badge ${esc(m.tipo||'nota').toLowerCase()}">${esc(m.tipo||'Nota')}</span>
+  </div>`).join('')}${arr.length>4?`<div class="am-meta">+ ${arr.length-4} ayudamemorias más</div>`:''}</div>`;
+}
+window.amOpen=(obraId,sector)=>{
+  const o=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!o)return;
+  let modal=document.getElementById('am-modal');
+  if(!modal){
+    modal=document.createElement('div');modal.id='am-modal';modal.className='cp-modal-bg';
+    modal.innerHTML=`<div class="am-modal-card"><div class="am-modal-head"><div><b>Nuevo ayudamemoria</b><div id="am-sub" class="am-meta"></div></div><button class="cp-icon-btn" onclick="amClose()">✕</button></div><div class="am-modal-body">
+      <div class="am-grid">
+        <div class="am-field full"><label>Recordar</label><textarea id="am-texto" rows="3" placeholder="Ej.: Confirmar horario con el cliente"></textarea></div>
+        <div class="am-field"><label>Tipo</label><select id="am-tipo"><option>Nota</option><option>Tarea</option><option>Alerta</option></select></div>
+        <div class="am-field"><label>Responsable</label><input id="am-resp" placeholder="Nombre o sector"></div>
+        <div class="am-field"><label>Fecha</label><input id="am-fecha" type="date"><div class="am-quick"><button onclick="amQuick(0)">Hoy</button><button onclick="amQuick(1)">Mañana</button><button onclick="amQuick(2)">48 h</button></div></div>
+        <div class="am-field"><label>Mostrar en tareas</label><select id="am-tareas"><option value="true">Sí</option><option value="false">No</option></select></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="cp-btn" onclick="amClose()">Cancelar</button><button class="cp-btn primary" onclick="amSave()">Guardar</button></div>
+    </div></div>`;
+    document.body.appendChild(modal);
+  }
+  modal.dataset.obraId=obraId;modal.dataset.sector=sector;
+  document.getElementById('am-sub').textContent=`OT ${o.ot||'—'} · ${o.cliente||''} · ${sector}`;
+  document.getElementById('am-texto').value='';document.getElementById('am-tipo').value='Nota';document.getElementById('am-resp').value='';document.getElementById('am-fecha').value='';document.getElementById('am-tareas').value='true';
+  modal.classList.add('show');
+};
+window.amClose=()=>document.getElementById('am-modal')?.classList.remove('show');
+window.amQuick=(days)=>{document.getElementById('am-fecha').value=addDaysISO(todayISO(),days);};
+window.amSave=async()=>{
+  const modal=document.getElementById('am-modal'),texto=document.getElementById('am-texto').value.trim();if(!texto){alert('Escribí el ayudamemoria.');return;}
+  const o=(window.DB?.obras||[]).find(x=>x.id===modal.dataset.obraId);if(!o)return;
+  await addDoc(collection(db,'ayudamemoriasOT'),{obraId:o.id,ot:o.ot||'',cliente:o.cliente||'',sector:modal.dataset.sector,texto,tipo:document.getElementById('am-tipo').value,responsable:document.getElementById('am-resp').value.trim(),fecha:document.getElementById('am-fecha').value,mostrarTareas:document.getElementById('am-tareas').value==='true',resuelto:false,creado:todayISO(),_ts:serverTimestamp()});
+  amClose();toast('Ayudamemoria guardado.');
+};
+window.amToggle=async(id,on)=>{await updateDoc(doc(db,'ayudamemoriasOT',id),{resuelto:on,resueltoFecha:on?todayISO():'',_tsResuelto:serverTimestamp()});};
+
 function renderControlOT(el){
   const obras=(window.DB?.obras||[]).filter(isActiveObra).sort((a,b)=>(elapsedHours(b)||0)-(elapsedHours(a)||0));
   const q=String(window.cpOTSearch||'').toLowerCase(),filter=window.cpOTFilter||'pendientes';
@@ -595,7 +656,7 @@ function renderControlOT(el){
   const late=obras.filter(o=>!analysisFor(o)&&elapsedHours(o)!==null&&elapsedHours(o)>=48).length;
   const complete=obras.filter(o=>pctChecks(ANALISIS_CHECKS,analysisFor(o))===100).length;
   const avgDays=(()=>{const vals=C.analisisOT.filter(a=>a.fechaCompleto&&a.fechaInicio).map(a=>(new Date(a.fechaCompleto)-new Date(a.fechaInicio))/86400000).filter(n=>n>=0&&n<100);return vals.length?(vals.reduce((s,n)=>s+n,0)/vals.length).toFixed(1):'—';})();
-  const cards=list.map(o=>{const a=analysisFor(o),p=pctChecks(ANALISIS_CHECKS,a),h=elapsedHours(o),cls=p===100?'ok':(!a&&h!==null&&h>=48?'late':'warn');const checks=a?.checks||{};return `<div class="cp-ot-card ${cls}"><div class="cp-ot-top"><div><div class="cp-ot-title">OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</div><div class="cp-ot-meta">${esc(o.desc||'')} · ${h===null?'sin fecha de alta':Math.floor(h)+' h desde el alta'}</div></div><span class="cp-pill ${p===100?'yes':cls==='late'?'no':'warn'}">${p}%</span></div><div class="cp-mini-checks">${ANALISIS_CHECKS.map(([k,l])=>`<label class="cp-mini-check ${checks[k]?'done':''}"><input type="checkbox" ${checks[k]?'checked':''} onchange="cpToggleOTCheck('${o.id}','${k}',this.checked)">${l}</label>`).join('')}</div><div class="cp-progress-line"><span style="width:${p}%"></span></div><div class="cp-ot-meta">${a?.fechaCompleto?'Insumos completos: '+fmtDate(a.fechaCompleto):p===100?'Completado':'Pendiente de Compras'}</div></div>`}).join('');
+  const cards=list.map(o=>{const a=analysisFor(o),p=pctChecks(ANALISIS_CHECKS,a),h=elapsedHours(o),cls=p===100?'ok':(!a&&h!==null&&h>=48?'late':'warn');const checks=a?.checks||{};return `<div class="cp-ot-card ${cls}"><div class="cp-ot-top"><div><div class="cp-ot-title">OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</div><div class="cp-ot-meta">${esc(o.desc||'')} · ${h===null?'sin fecha de alta':Math.floor(h)+' h desde el alta'}</div></div><span class="cp-pill ${p===100?'yes':cls==='late'?'no':'warn'}">${p}%</span></div><div class="cp-mini-checks">${ANALISIS_CHECKS.map(([k,l])=>`<label class="cp-mini-check ${checks[k]?'done':''}"><input type="checkbox" ${checks[k]?'checked':''} onchange="cpToggleOTCheck('${o.id}','${k}',this.checked)">${l}</label>`).join('')}</div><div class="cp-progress-line"><span style="width:${p}%"></span></div><div class="col-status-row"><div class="cp-ot-meta">${a?.fechaCompleto?'Insumos completos: '+fmtDate(a.fechaCompleto):p===100?'Completado':'Pendiente de Compras'}</div><button class="am-btn" onclick="amOpen('${o.id}','Compras')">＋ Ayudamemoria</button></div>${memoListHTML(o.id,'Compras')}</div>`}).join('');
   el.innerHTML=`<div class="cp-pay-toolbar"><div><div class="cp-pay-title">Control rápido de insumos por OT</div><div class="cp-sub">Se completa principalmente con checks. Las OTs sin análisis se alertan al superar 48 horas.</div></div></div><div class="cp-grid" style="margin-bottom:12px"><div class="cp-card"><div class="cp-lbl">OT activas</div><div class="cp-kpi">${obras.length}</div></div><div class="cp-card"><div class="cp-lbl">Análisis vencidos +48 h</div><div class="cp-kpi" style="color:var(--red)">${late}</div></div><div class="cp-card"><div class="cp-lbl">Insumos completos</div><div class="cp-kpi" style="color:var(--green)">${complete}</div></div><div class="cp-card"><div class="cp-lbl">Promedio abastecimiento</div><div class="cp-kpi">${avgDays}${avgDays==='—'?'':' d'}</div></div></div><div class="cp-panel"><div class="cp-actions"><input style="min-width:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px" placeholder="Buscar OT, cliente o trabajo" value="${esc(window.cpOTSearch||'')}" oninput="window.cpOTSearch=this.value;render()"><button class="cp-btn ${filter==='pendientes'?'primary':''}" onclick="window.cpOTFilter='pendientes';render()">Pendientes</button><button class="cp-btn ${filter==='vencidas'?'danger':''}" onclick="window.cpOTFilter='vencidas';render()">+48 h</button><button class="cp-btn ${filter==='completas'?'primary':''}" onclick="window.cpOTFilter='completas';render()">Completas</button><button class="cp-btn" onclick="window.cpOTFilter='todas';render()">Todas</button></div></div><div class="cp-check-board">${cards||'<div class="cp-panel">No hay OTs para este filtro.</div>'}</div>`;
 }
 window.cpToggleOTCheck=async(obraId,key,on)=>{
@@ -607,9 +668,26 @@ window.cpToggleOTCheck=async(obraId,key,on)=>{
 function renderColocacionesV27(){
   const host=document.getElementById('page-colocaciones');if(!host||window.currentPage!=='colocaciones')return;
   let wrap=document.getElementById('col-v27-board');if(!wrap){wrap=document.createElement('div');wrap.id='col-v27-board';wrap.className='col-v27-board';host.querySelector(':scope > div:last-child')?.appendChild(wrap);}
-  const obras=(window.DB?.obras||[]).filter(o=>o.fcol_c||o.sector==='Colocaciones').filter(isActiveObra).sort((a,b)=>(+b.semana||0)-(+a.semana||0));
-  const cards=obras.map(o=>{const d=colFor(o),p=pctChecks(COL_CHECKS,d),checks=d?.checks||{};return `<div class="col-v27-card ${p===100?'ready':'pending'}"><div class="cp-ot-top"><div><div class="cp-ot-title">OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</div><div class="cp-ot-meta">${esc(o.desc||'')} · Colocación: ${esc(o.fcol_c||'sin fecha')}</div></div><span class="cp-pill ${p===100?'yes':'warn'}">${p===100?'Lista':'Preparación '+p+'%'}</span></div><div class="col-v27-checks">${COL_CHECKS.map(([k,l])=>`<label class="col-v27-check ${checks[k]?'done':''}"><input type="checkbox" ${checks[k]?'checked':''} onchange="colToggleCheck('${o.id}','${k}',this.checked)">${l}</label>`).join('')}</div></div>`}).join('');
-  wrap.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Preparación rápida para colocaciones</span><span style="font-size:10px;color:var(--text3)">Solo checks · la IA usa esta información para detectar faltantes</span></div><div class="card-body"><div class="col-v27-grid">${cards||'<div class="empty">No hay colocaciones activas.</div>'}</div></div></div>`;
+  const q=normText(window.colV28Search||''),estado=window.colV28Estado||'pendientes';
+  let obras=(window.DB?.obras||[]).filter(o=>o.fcol_c||o.sector==='Colocaciones').filter(isActiveObra).sort((a,b)=>(+b.semana||0)-(+a.semana||0));
+  obras=obras.filter(o=>!q||normText([o.ot,o.cliente,o.desc].join(' ')).includes(q));
+  if(estado==='pendientes')obras=obras.filter(o=>pctChecks(COL_CHECKS,colFor(o))<100);
+  if(estado==='listas')obras=obras.filter(o=>pctChecks(COL_CHECKS,colFor(o))===100);
+  if(estado==='vencidas')obras=obras.filter(o=>!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r');
+  const cards=obras.map(o=>{const d=colFor(o),p=pctChecks(COL_CHECKS,d),checks=d?.checks||{},over=!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r';return `<div class="col-v27-card ${p===100?'ready':'pending'} ${over?'overdue':''}">
+    <div class="cp-ot-top"><div><div class="cp-ot-title">OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</div><div class="cp-ot-meta">${esc(o.desc||'')} · Colocación: ${esc(o.fcol_c||'sin fecha')}</div></div><span class="cp-pill ${p===100?'yes':over?'no':'warn'}">${p===100?'Lista':over?'Vencida':'Preparación '+p+'%'}</span></div>
+    <div class="col-v27-checks">${COL_CHECKS.map(([k,l])=>`<label class="col-v27-check ${checks[k]?'done':''}"><input type="checkbox" ${checks[k]?'checked':''} onchange="colToggleCheck('${o.id}','${k}',this.checked)">${l}</label>`).join('')}</div>
+    <div class="cp-progress-line"><span style="width:${p}%"></span></div>
+    <div class="col-status-row"><div class="cp-ot-meta">${p===100?'Lista para colocar':'Faltan '+(COL_CHECKS.length-Math.round(p/100*COL_CHECKS.length))+' controles'}</div><button class="am-btn" onclick="amOpen('${o.id}','Colocaciones')">＋ Ayudamemoria</button></div>
+    ${memoListHTML(o.id,'Colocaciones')}
+  </div>`}).join('');
+  const todas=(window.DB?.obras||[]).filter(o=>o.fcol_c||o.sector==='Colocaciones').filter(isActiveObra);
+  const listas=todas.filter(o=>pctChecks(COL_CHECKS,colFor(o))===100).length;
+  const vencidas=todas.filter(o=>!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r').length;
+  wrap.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Preparación de colocaciones</span><span style="font-size:10px;color:var(--text3)">Checks rápidos + ayudamemorias por OT</span></div><div class="card-body">
+    <div class="col-v28-toolbar"><div class="col-v28-filters"><input placeholder="Buscar OT, cliente o trabajo" value="${esc(window.colV28Search||'')}" oninput="window.colV28Search=this.value;renderColocacionesV27()"><select onchange="window.colV28Estado=this.value;renderColocacionesV27()"><option value="pendientes" ${estado==='pendientes'?'selected':''}>Pendientes</option><option value="listas" ${estado==='listas'?'selected':''}>Listas</option><option value="vencidas" ${estado==='vencidas'?'selected':''}>Vencidas</option><option value="todas" ${estado==='todas'?'selected':''}>Todas</option></select></div><div class="cp-ot-meta">${todas.length} activas · ${listas} listas · ${vencidas} vencidas</div></div>
+    <div class="col-v27-grid">${cards||'<div class="empty">No hay colocaciones para este filtro.</div>'}</div>
+  </div></div>`;
 }
 window.colToggleCheck=async(obraId,key,on)=>{const o=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!o)return;let d=colFor(o);const checks={...(d?.checks||{}),[key]:on};const data={obraId,ot:o.ot||'',cliente:o.cliente||'',checks,actualizado:todayISO(),_ts:serverTimestamp()};if(d)await updateDoc(doc(db,'preparacionColocaciones',d.id),data);else await addDoc(collection(db,'preparacionColocaciones'),data);setTimeout(renderColocacionesV27,100);};
 
@@ -620,4 +698,4 @@ const cpOldRefresh=window.refreshCurrent;window.refreshCurrent=function(){if(cpO
 const cpGoToV27=window.goTo;window.goTo=function(page){cpGoToV27(page);if(page==='colocaciones')setTimeout(renderColocacionesV27,20);};
 
 injectStyles();injectUI();startListeners();
-console.info('[TIZ V27] Compras + control OT + colocaciones por checks cargado');
+console.info('[TIZ V28] Compras + Colocaciones + ayudamemorias cargado');
