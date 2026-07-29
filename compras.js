@@ -179,6 +179,16 @@ function injectStyles(){
   .col-v27-card{position:relative}.col-v27-card.overdue{border-left-color:var(--red)}.col-v27-card .cp-progress-line{margin-top:10px}
   .col-status-row{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:8px}
   @media(max-width:700px){.am-grid{grid-template-columns:1fr}.am-field.full{grid-column:auto}}
+  /* V28.1 · Dashboard de Colocaciones */
+  .col-dash{padding:16px 28px 24px}.col-dash-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .col-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:13px}.col-tab{border:0;background:transparent;color:var(--text3);padding:10px 13px;font-size:10px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent}.col-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .col-kpis-v281{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px;margin-bottom:12px}.col-kpi-v281{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px;min-height:90px}.col-kpi-v281 .label{font-size:9px;text-transform:uppercase;color:var(--text3)}.col-kpi-v281 .value{font:800 25px 'DM Mono',monospace;margin-top:7px}.col-kpi-v281 .sub{font-size:9px;color:var(--text3);margin-top:5px}
+  .col-panel-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,.75fr);gap:10px;margin-bottom:12px}.col-panel{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px}.col-panel-title{font-size:11px;font-weight:800;margin-bottom:10px}.col-progress-list{display:flex;flex-direction:column;gap:10px}.col-progress-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) 42px;gap:9px;align-items:center;font-size:10px}.col-progress-track{height:7px;border-radius:99px;background:var(--surface2);overflow:hidden}.col-progress-track span{display:block;height:100%;background:var(--accent);border-radius:99px}.col-alert-list{display:flex;flex-direction:column;gap:7px}.col-alert-item{border:1px solid rgba(239,68,68,.22);background:rgba(239,68,68,.06);border-radius:8px;padding:9px;font-size:10px}.col-alert-item b{display:block;margin-bottom:3px}.col-alert-item span{color:var(--text3)}
+  .col-board-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.col-board-filters{display:flex;gap:7px;flex-wrap:wrap}.col-board-filters input,.col-board-filters select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px;font-size:10px}.col-board-stats{font-size:9px;color:var(--text3)}
+  #col-v27-board{margin-top:0}.col-v27-grid{grid-template-columns:repeat(2,minmax(360px,1fr))}.col-v27-card{background:var(--surface2)}
+  .col-legacy-wrap{display:none}.col-legacy-wrap.active{display:block}.col-dashboard-view.hidden{display:none}
+  @media(max-width:1200px){.col-kpis-v281{grid-template-columns:repeat(3,1fr)}.col-panel-grid{grid-template-columns:1fr}.col-v27-grid{grid-template-columns:1fr}}
+  @media(max-width:700px){.col-dash{padding:12px}.col-kpis-v281{grid-template-columns:1fr}.col-progress-row{grid-template-columns:1fr}.col-tabs{overflow:auto}}
 
 
 
@@ -665,29 +675,49 @@ window.cpToggleOTCheck=async(obraId,key,on)=>{
   if(a)await updateDoc(doc(db,'analisisComprasOT',a.id),data);else await addDoc(collection(db,'analisisComprasOT'),data);
 };
 
+window.colV281Tab=window.colV281Tab||'dashboard';
+window.colSetTab=(tab)=>{window.colV281Tab=tab;renderColocacionesV27();};
 function renderColocacionesV27(){
   const host=document.getElementById('page-colocaciones');if(!host||window.currentPage!=='colocaciones')return;
-  let wrap=document.getElementById('col-v27-board');if(!wrap){wrap=document.createElement('div');wrap.id='col-v27-board';wrap.className='col-v27-board';host.querySelector(':scope > div:last-child')?.appendChild(wrap);}
+  const original=host.querySelector(':scope > div:nth-child(2)');
+  if(original)original.classList.add('col-legacy-wrap');
+  let dash=document.getElementById('col-v281-dashboard');
+  if(!dash){dash=document.createElement('div');dash.id='col-v281-dashboard';dash.className='col-dash';host.appendChild(dash);}
+  const tab=window.colV281Tab||'dashboard';
+  if(original)original.classList.toggle('active',tab==='detalle');
+  dash.classList.toggle('hidden',tab==='detalle');
+  let nav=document.getElementById('col-v281-tabs');
+  if(!nav){nav=document.createElement('div');nav.id='col-v281-tabs';nav.className='col-tabs';host.querySelector('.page-header')?.after(nav);}
+  nav.innerHTML=`<button class="col-tab ${tab==='dashboard'?'active':''}" onclick="colSetTab('dashboard')">Dashboard operativo</button><button class="col-tab ${tab==='detalle'?'active':''}" onclick="colSetTab('detalle')">Listado general</button>`;
+  if(tab==='detalle')return;
+
   const q=normText(window.colV28Search||''),estado=window.colV28Estado||'pendientes';
-  let obras=(window.DB?.obras||[]).filter(o=>o.fcol_c||o.sector==='Colocaciones').filter(isActiveObra).sort((a,b)=>(+b.semana||0)-(+a.semana||0));
-  obras=obras.filter(o=>!q||normText([o.ot,o.cliente,o.desc].join(' ')).includes(q));
+  const all=(window.DB?.obras||[]).filter(o=>o.fcol_c||o.sector==='Colocaciones').filter(isActiveObra).sort((a,b)=>String(a.fcol_c||'9999-12-31').localeCompare(String(b.fcol_c||'9999-12-31')));
+  const listas=all.filter(o=>pctChecks(COL_CHECKS,colFor(o))===100).length;
+  const vencidas=all.filter(o=>!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r').length;
+  const sinFecha=all.filter(o=>!o.fcol_c).length;
+  const hoy=todayISO();
+  const proximas=all.filter(o=>o.fcol_c&&o.fcol_c>=hoy&&o.fcol_c<=addDaysISO(hoy,7)&&!o.fcol_r).length;
+  const avg=all.length?Math.round(all.reduce((s,o)=>s+pctChecks(COL_CHECKS,colFor(o)),0)/all.length):0;
+  let obras=all.filter(o=>!q||normText([o.ot,o.cliente,o.desc].join(' ')).includes(q));
   if(estado==='pendientes')obras=obras.filter(o=>pctChecks(COL_CHECKS,colFor(o))<100);
   if(estado==='listas')obras=obras.filter(o=>pctChecks(COL_CHECKS,colFor(o))===100);
   if(estado==='vencidas')obras=obras.filter(o=>!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r');
+  if(estado==='proximas')obras=obras.filter(o=>o.fcol_c&&o.fcol_c>=hoy&&o.fcol_c<=addDaysISO(hoy,7)&&!o.fcol_r);
+
+  const stageDefs=[['info','Información del lugar'],['produccion','Producción terminada'],['calidad','Control de calidad'],['kit','Kit de colocación'],['equipo','Personal y vehículo'],['fecha','Fecha confirmada']];
+  const stageRows=stageDefs.map(([key,label])=>{const done=all.filter(o=>colFor(o)?.checks?.[key]).length,p=all.length?Math.round(done/all.length*100):0;return `<div class="col-progress-row"><span>${label}</span><div class="col-progress-track"><span style="width:${p}%"></span></div><b>${p}%</b></div>`}).join('');
+  const alerts=all.filter(o=>!o.fcol_r&&(semaforo(o.fcol_c,o.fcol_r)==='r'||pctChecks(COL_CHECKS,colFor(o))<50)).slice(0,5).map(o=>`<div class="col-alert-item"><b>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</b><span>${semaforo(o.fcol_c,o.fcol_r)==='r'?'Fecha vencida':'Preparación incompleta'} · ${pctChecks(COL_CHECKS,colFor(o))}% listo</span></div>`).join('');
   const cards=obras.map(o=>{const d=colFor(o),p=pctChecks(COL_CHECKS,d),checks=d?.checks||{},over=!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r';return `<div class="col-v27-card ${p===100?'ready':'pending'} ${over?'overdue':''}">
     <div class="cp-ot-top"><div><div class="cp-ot-title">OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</div><div class="cp-ot-meta">${esc(o.desc||'')} · Colocación: ${esc(o.fcol_c||'sin fecha')}</div></div><span class="cp-pill ${p===100?'yes':over?'no':'warn'}">${p===100?'Lista':over?'Vencida':'Preparación '+p+'%'}</span></div>
     <div class="col-v27-checks">${COL_CHECKS.map(([k,l])=>`<label class="col-v27-check ${checks[k]?'done':''}"><input type="checkbox" ${checks[k]?'checked':''} onchange="colToggleCheck('${o.id}','${k}',this.checked)">${l}</label>`).join('')}</div>
     <div class="cp-progress-line"><span style="width:${p}%"></span></div>
-    <div class="col-status-row"><div class="cp-ot-meta">${p===100?'Lista para colocar':'Faltan '+(COL_CHECKS.length-Math.round(p/100*COL_CHECKS.length))+' controles'}</div><button class="am-btn" onclick="amOpen('${o.id}','Colocaciones')">＋ Ayudamemoria</button></div>
-    ${memoListHTML(o.id,'Colocaciones')}
-  </div>`}).join('');
-  const todas=(window.DB?.obras||[]).filter(o=>o.fcol_c||o.sector==='Colocaciones').filter(isActiveObra);
-  const listas=todas.filter(o=>pctChecks(COL_CHECKS,colFor(o))===100).length;
-  const vencidas=todas.filter(o=>!o.fcol_r&&semaforo(o.fcol_c,o.fcol_r)==='r').length;
-  wrap.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Preparación de colocaciones</span><span style="font-size:10px;color:var(--text3)">Checks rápidos + ayudamemorias por OT</span></div><div class="card-body">
-    <div class="col-v28-toolbar"><div class="col-v28-filters"><input placeholder="Buscar OT, cliente o trabajo" value="${esc(window.colV28Search||'')}" oninput="window.colV28Search=this.value;renderColocacionesV27()"><select onchange="window.colV28Estado=this.value;renderColocacionesV27()"><option value="pendientes" ${estado==='pendientes'?'selected':''}>Pendientes</option><option value="listas" ${estado==='listas'?'selected':''}>Listas</option><option value="vencidas" ${estado==='vencidas'?'selected':''}>Vencidas</option><option value="todas" ${estado==='todas'?'selected':''}>Todas</option></select></div><div class="cp-ot-meta">${todas.length} activas · ${listas} listas · ${vencidas} vencidas</div></div>
-    <div class="col-v27-grid">${cards||'<div class="empty">No hay colocaciones para este filtro.</div>'}</div>
-  </div></div>`;
+    <div class="col-status-row"><div class="cp-ot-meta">${p===100?'Lista para colocar':'Faltan '+(COL_CHECKS.length-Math.round(p/100*COL_CHECKS.length))+' controles'}</div><button class="am-btn" onclick="amOpen('${o.id}','Colocaciones')">＋ Ayudamemoria</button></div>${memoListHTML(o.id,'Colocaciones')}</div>`}).join('');
+
+  dash.innerHTML=`<div class="col-dash-head"><div><div class="cp-pay-title">Dashboard de Colocaciones</div><div class="cp-sub">Preparación, vencimientos, checks y ayudamemorias por OT.</div></div><div class="col-board-filters"><input placeholder="Buscar OT, cliente o trabajo" value="${esc(window.colV28Search||'')}" oninput="window.colV28Search=this.value;renderColocacionesV27()"><select onchange="window.colV28Estado=this.value;renderColocacionesV27()"><option value="pendientes" ${estado==='pendientes'?'selected':''}>Pendientes</option><option value="proximas" ${estado==='proximas'?'selected':''}>Próximos 7 días</option><option value="listas" ${estado==='listas'?'selected':''}>Listas</option><option value="vencidas" ${estado==='vencidas'?'selected':''}>Vencidas</option><option value="todas" ${estado==='todas'?'selected':''}>Todas</option></select></div></div>
+  <div class="col-kpis-v281"><div class="col-kpi-v281"><div class="label">Obras activas</div><div class="value">${all.length}</div><div class="sub">en seguimiento</div></div><div class="col-kpi-v281"><div class="label">Listas para colocar</div><div class="value" style="color:var(--green)">${listas}</div><div class="sub">100% preparadas</div></div><div class="col-kpi-v281"><div class="label">Vencidas</div><div class="value" style="color:var(--red)">${vencidas}</div><div class="sub">sin fecha real</div></div><div class="col-kpi-v281"><div class="label">Próximos 7 días</div><div class="value" style="color:var(--amber)">${proximas}</div><div class="sub">programadas</div></div><div class="col-kpi-v281"><div class="label">Preparación promedio</div><div class="value">${avg}%</div><div class="sub">avance global</div></div></div>
+  <div class="col-panel-grid"><section class="col-panel"><div class="col-panel-title">Cumplimiento de controles</div><div class="col-progress-list">${stageRows}</div></section><aside class="col-panel"><div class="col-panel-title">Alertas prioritarias</div><div class="col-alert-list">${alerts||'<div class="empty">Sin alertas prioritarias.</div>'}</div></aside></div>
+  <section class="col-panel"><div class="col-board-toolbar"><div><div class="col-panel-title" style="margin:0">Preparación por OT</div><div class="col-board-stats">${obras.length} obras visibles · ${sinFecha} sin fecha cargada</div></div></div><div class="col-v27-grid">${cards||'<div class="empty">No hay colocaciones para este filtro.</div>'}</div></section>`;
 }
 window.colToggleCheck=async(obraId,key,on)=>{const o=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!o)return;let d=colFor(o);const checks={...(d?.checks||{}),[key]:on};const data={obraId,ot:o.ot||'',cliente:o.cliente||'',checks,actualizado:todayISO(),_ts:serverTimestamp()};if(d)await updateDoc(doc(db,'preparacionColocaciones',d.id),data);else await addDoc(collection(db,'preparacionColocaciones'),data);setTimeout(renderColocacionesV27,100);};
 
@@ -698,4 +728,4 @@ const cpOldRefresh=window.refreshCurrent;window.refreshCurrent=function(){if(cpO
 const cpGoToV27=window.goTo;window.goTo=function(page){cpGoToV27(page);if(page==='colocaciones')setTimeout(renderColocacionesV27,20);};
 
 injectStyles();injectUI();startListeners();
-console.info('[TIZ V28] Compras + Colocaciones + ayudamemorias cargado');
+console.info('[TIZ V28.1] Dashboard de Colocaciones cargado');
