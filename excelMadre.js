@@ -1,8 +1,7 @@
-// Pegar en la consola del navegador dentro de la app TIZ, o incluirlo temporalmente en index.html.
-// Actualiza datos de facturación desde Excel Madre sin borrar otros cambios existentes.
-// Generado desde TIZ 2026 Base de Datos.xlsx — 290 registros.
-
-const OBRAS_MADRE_FACTURACION = [
+// TIZ ERP V29.1 — Base Madre actualizada
+// Fuente: TIZ 2026 Base de Datos (2).xlsx
+// Registros: 327. Este archivo NO ejecuta cambios automáticamente.
+window.OBRAS_MADRE_V291 = [
   {
     "id": "excel-2",
     "filaExcel": 2,
@@ -47,7 +46,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "TRANF. SE FC AL ENTREGAR -11/05 - En de que confirmen diseño - fin de noviembre",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-3",
@@ -60,7 +61,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 693911.48,
-    "precioVentaBruto": 839632.89,
+    "precioVentaBruto": 839632.8908,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -77,14 +78,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 8905",
       "op": "851478",
-      "ocOp": "OC ON 8905 / OP 851478",
+      "ocOp": "ON 8905 / 851478",
       "fechaFactura": "2025-11-27",
       "nroFactura": "1215",
       "estadoCobranza": "5"
     },
     "oc": "ON 8905",
     "op": "851478",
-    "ocOp": "OC ON 8905 / OP 851478",
+    "ocOp": "ON 8905 / 851478",
     "fechaFactura": "2025-11-27",
     "fFactura": "2025-11-27",
     "nroFactura": "1215",
@@ -93,7 +94,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "El pago entra el 01/01",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-4",
@@ -139,7 +142,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Gian - Pedir presupuesto y facturar 01/12",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-5",
@@ -185,7 +190,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "fc enviada",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-6",
@@ -198,7 +205,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Coppel",
     "vendedor": "G",
     "precioVentaNeto": 992273.9,
-    "precioVentaBruto": 1200651.42,
+    "precioVentaBruto": 1200651.419,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -231,7 +238,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "fc enviada",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-7",
@@ -244,7 +253,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 2133984.06,
-    "precioVentaBruto": 2582120.71,
+    "precioVentaBruto": 2582120.713,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -277,7 +286,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Se coloco el  paño 2, consultar a Caro cuando se coloca el Paño 1  01/12 - subir al portal",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-8",
@@ -290,7 +301,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Yale",
     "vendedor": "G",
     "precioVentaNeto": 349522.8,
-    "precioVentaBruto": 422922.59,
+    "precioVentaBruto": 422922.588,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -323,7 +334,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "saldo facturado",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "2"
+    "col": "2",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-9",
@@ -336,7 +349,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -369,10 +382,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado y cargado al portal",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-10",
+    "id": "excel-11",
     "filaExcel": 10,
     "fecha": "2025-11-28",
     "semana": "",
@@ -382,7 +397,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Coppel",
     "vendedor": "G",
     "precioVentaNeto": 455327.2,
-    "precioVentaBruto": 550945.91,
+    "precioVentaBruto": 550945.912,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -415,7 +430,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado, anticipo 50%",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-11",
@@ -428,7 +445,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Coppel",
     "vendedor": "G",
     "precioVentaNeto": 455327.2,
-    "precioVentaBruto": 550945.91,
+    "precioVentaBruto": 550945.912,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -461,7 +478,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Saldo facturado,  fc enviada",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-12",
@@ -507,7 +526,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Factura enviada, falta confirmar fecha de pago",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-13",
@@ -553,7 +574,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-14",
@@ -599,7 +622,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "FC enviada, consultar fecha de pago",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-15",
@@ -645,7 +670,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "2"
+    "col": "2",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-16",
@@ -691,7 +718,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "2"
+    "col": "2",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-17",
@@ -704,7 +733,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 3312686.32,
-    "precioVentaBruto": 4008350.45,
+    "precioVentaBruto": 4008350.447,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -737,7 +766,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque emitido",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-18",
@@ -750,7 +781,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 1474140.6,
-    "precioVentaBruto": 1783710.13,
+    "precioVentaBruto": 1783710.126,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -783,7 +814,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Se envio mail para u recepcion",
     "comentarioInterno": "",
     "prod": "6",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-19",
@@ -796,7 +829,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -829,7 +862,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado y cargado al portal",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "9"
+    "col": "9",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-20",
@@ -842,7 +877,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -875,7 +910,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado y cargado al portal",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-21",
@@ -921,7 +958,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturar",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-22",
@@ -967,7 +1006,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "FC enviada, consultar fecha de pago",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-23",
@@ -980,7 +1021,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -1013,7 +1054,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado y cargado al portal",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-24",
@@ -1026,7 +1069,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "MAP Administracion",
     "vendedor": "J",
     "precioVentaNeto": 135533.3,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -1059,7 +1102,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "2"
+    "col": "2",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-25",
@@ -1105,7 +1150,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "2"
+    "col": "2",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-26",
@@ -1151,7 +1198,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "1"
+    "col": "1",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-27",
@@ -1164,7 +1213,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacia del Aguila",
     "vendedor": "G",
     "precioVentaNeto": 163390.5,
-    "precioVentaBruto": 197702.51,
+    "precioVentaBruto": 197702.505,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -1197,7 +1246,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado, subir al portal",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-28",
@@ -1210,7 +1261,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 1258884.5,
-    "precioVentaBruto": 1523250.25,
+    "precioVentaBruto": 1523250.245,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -1243,10 +1294,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque emitido",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-29",
+    "id": "excel-33",
     "filaExcel": 29,
     "fecha": "2025-12-16",
     "semana": "",
@@ -1255,7 +1308,7 @@ const OBRAS_MADRE_FACTURACION = [
     "arquitecto": "Martin",
     "cliente": "Municipalidad de Jose C Paz",
     "vendedor": "G",
-    "precioVentaNeto": 5617858.68,
+    "precioVentaNeto": 5617858.677685951,
     "precioVentaBruto": 6797609.0,
     "gastos": 0,
     "sector": "Producción",
@@ -1289,10 +1342,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "0"
+    "col": "0",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-30",
+    "id": "excel-33",
     "filaExcel": 30,
     "fecha": "2025-12-16",
     "semana": "",
@@ -1301,7 +1356,7 @@ const OBRAS_MADRE_FACTURACION = [
     "arquitecto": "Martin",
     "cliente": "Municipalidad de Jose C Paz",
     "vendedor": "G",
-    "precioVentaNeto": 5617858.68,
+    "precioVentaNeto": 5617858.677685951,
     "precioVentaBruto": 6797609.0,
     "gastos": 0,
     "sector": "Producción",
@@ -1335,10 +1390,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "0"
+    "col": "0",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-31",
+    "id": "excel-33",
     "filaExcel": 31,
     "fecha": "2025-12-16",
     "semana": "",
@@ -1381,10 +1438,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "0"
+    "col": "0",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-32",
+    "id": "excel-33",
     "filaExcel": 32,
     "fecha": "2025-12-16",
     "semana": "",
@@ -1427,7 +1486,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "0"
+    "col": "0",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-33",
@@ -1473,7 +1534,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "1",
-    "col": "0"
+    "col": "0",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-34",
@@ -1519,7 +1582,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturada y cargada al portal",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "2"
+    "col": "2",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-35",
@@ -1565,7 +1630,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "cargada en el portal",
     "comentarioInterno": "Reclamada portl 13/04",
     "prod": "4",
-    "col": "8"
+    "col": "8",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-36",
@@ -1578,7 +1645,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -1611,7 +1678,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado y cargado al portal",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-37",
@@ -1657,7 +1726,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado, faltan diseños",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-38",
@@ -1670,7 +1741,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -1703,7 +1774,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado y cargado al portal",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-39",
@@ -1716,7 +1789,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 30436.22,
-    "precioVentaBruto": 36827.83,
+    "precioVentaBruto": 36827.8262,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -1749,7 +1822,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque emitido",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-40",
@@ -1795,7 +1870,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-41",
@@ -1841,7 +1918,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-42",
@@ -1887,7 +1966,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Fecha de Pago 16/01",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-43",
@@ -1933,7 +2014,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "falta facturar",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-44",
@@ -1979,10 +2062,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-45",
+    "id": "excel-46",
     "filaExcel": 45,
     "fecha": "2026-01-07",
     "semana": "2",
@@ -2025,7 +2110,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "consultar fecha de pago",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-46",
@@ -2071,10 +2158,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-47",
+    "id": "excel-48",
     "filaExcel": 47,
     "fecha": "2026-01-08",
     "semana": "2",
@@ -2117,7 +2206,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-48",
@@ -2163,7 +2254,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-49",
@@ -2209,7 +2302,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-50",
@@ -2255,7 +2350,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "factura enviada",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-51",
@@ -2301,7 +2398,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-52",
@@ -2347,7 +2446,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Factura enviada",
     "comentarioInterno": "",
     "prod": "2",
-    "col": "3"
+    "col": "3",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-53",
@@ -2393,7 +2494,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-54",
@@ -2439,7 +2542,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-55",
@@ -2452,7 +2557,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 30436.22,
-    "precioVentaBruto": 36827.83,
+    "precioVentaBruto": 36827.8262,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -2485,10 +2590,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque emitido",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-56",
+    "id": "excel-57",
     "filaExcel": 56,
     "fecha": "2026-01-14",
     "semana": "3",
@@ -2531,7 +2638,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-57",
@@ -2577,10 +2686,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturar",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-58",
+    "id": "excel-59",
     "filaExcel": 58,
     "fecha": "2026-01-14",
     "semana": "3",
@@ -2623,7 +2734,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-59",
@@ -2669,7 +2782,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "6",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-60",
@@ -2682,7 +2797,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 30436.22,
-    "precioVentaBruto": 36827.83,
+    "precioVentaBruto": 36827.8262,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -2715,7 +2830,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque emitido",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-61",
@@ -2761,7 +2878,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque emitido",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-62",
@@ -2807,7 +2926,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-63",
@@ -2820,7 +2941,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Hominis",
     "vendedor": "G",
     "precioVentaNeto": 1409868.55,
-    "precioVentaBruto": 1705940.95,
+    "precioVentaBruto": 1705940.946,
     "gastos": 0,
     "sector": "Producción",
     "estado": "cobrado",
@@ -2853,7 +2974,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-64",
@@ -2866,7 +2989,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Hominis",
     "vendedor": "G",
     "precioVentaNeto": 1409868.55,
-    "precioVentaBruto": 1705940.95,
+    "precioVentaBruto": 1705940.946,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -2899,10 +3022,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "falta facturar",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-65",
+    "id": "excel-66",
     "filaExcel": 65,
     "fecha": "2026-01-16",
     "semana": "3",
@@ -2945,7 +3070,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturar",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-66",
@@ -2991,7 +3118,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-67",
@@ -3004,7 +3133,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Jumbaly",
     "vendedor": "J",
     "precioVentaNeto": 722142.7,
-    "precioVentaBruto": 873792.67,
+    "precioVentaBruto": 873792.667,
     "gastos": 0,
     "sector": "Producción",
     "estado": "cobrado",
@@ -3037,7 +3166,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturado",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-68",
@@ -3083,7 +3214,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-69",
@@ -3129,7 +3262,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "factura enviada",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-70",
@@ -3175,7 +3310,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturar",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "8"
+    "col": "8",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-71",
@@ -3188,7 +3325,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 286798.81,
-    "precioVentaBruto": 347026.56,
+    "precioVentaBruto": 347026.5601,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -3221,7 +3358,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturar",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-72",
@@ -3267,7 +3406,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturar",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-73",
@@ -3313,7 +3454,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturardo",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-74",
@@ -3359,7 +3502,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Se paga con link de pago",
     "comentarioInterno": "",
     "prod": "4",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-75",
@@ -3405,7 +3550,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Facturada y cargada al portal",
     "comentarioInterno": "",
     "prod": "3",
-    "col": "4"
+    "col": "4",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-76",
@@ -3451,7 +3598,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "factura enviada",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-77",
@@ -3497,7 +3646,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-78",
@@ -3543,7 +3694,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-79",
@@ -3589,7 +3742,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-80",
@@ -3602,7 +3757,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Mercantil Andina",
     "vendedor": "G",
     "precioVentaNeto": 734365.8,
-    "precioVentaBruto": 888582.62,
+    "precioVentaBruto": 888582.618,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -3635,7 +3790,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "7",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-81",
@@ -3681,7 +3838,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-82",
@@ -3694,7 +3853,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Flecha carga",
     "vendedor": "J",
     "precioVentaNeto": 1360481.8,
-    "precioVentaBruto": 1646182.98,
+    "precioVentaBruto": 1646182.978,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -3727,7 +3886,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "facturado",
     "comentarioInterno": "",
     "prod": "6",
-    "col": "8"
+    "col": "8",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-83",
@@ -3773,7 +3934,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "factura enviada",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "11"
+    "col": "11",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-84",
@@ -3819,7 +3982,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Falta diseño",
     "comentarioInterno": "",
     "prod": "5",
-    "col": "5"
+    "col": "5",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-85",
@@ -3832,7 +3997,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -3865,10 +4030,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "cargada en el portal",
     "comentarioInterno": "",
     "prod": "6",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-86",
+    "id": "excel-87",
     "filaExcel": 86,
     "fecha": "2026-01-30",
     "semana": "5",
@@ -3878,7 +4045,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Bericap",
     "vendedor": "G",
     "precioVentaNeto": 624851.2,
-    "precioVentaBruto": 756069.95,
+    "precioVentaBruto": 756069.952,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -3911,7 +4078,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Fecha de pago 02/02",
     "comentarioInterno": "",
     "prod": "7",
-    "col": "8"
+    "col": "8",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-87",
@@ -3924,7 +4093,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Bericap",
     "vendedor": "G",
     "precioVentaNeto": 1166288.8,
-    "precioVentaBruto": 1411209.45,
+    "precioVentaBruto": 1411209.448,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -3957,7 +4126,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "8",
-    "col": "8"
+    "col": "8",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-88",
@@ -4003,7 +4174,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-89",
@@ -4016,7 +4189,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Transchemical",
     "vendedor": "G/J",
     "precioVentaNeto": 7939500.25,
-    "precioVentaBruto": 9606795.3,
+    "precioVentaBruto": 9606795.303,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4049,7 +4222,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-90",
@@ -4062,7 +4237,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Transchemical",
     "vendedor": "G/J",
     "precioVentaNeto": 7939500.25,
-    "precioVentaBruto": 9606795.3,
+    "precioVentaBruto": 9606795.303,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4095,7 +4270,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-91",
@@ -4108,7 +4285,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Jumbalay",
     "vendedor": "G",
     "precioVentaNeto": 294535.7,
-    "precioVentaBruto": 356388.2,
+    "precioVentaBruto": 356388.197,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4141,7 +4318,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "6",
-    "col": "6"
+    "col": "6",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-92",
@@ -4187,7 +4366,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-93",
@@ -4200,7 +4381,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 2632732.89,
-    "precioVentaBruto": 3185606.8,
+    "precioVentaBruto": 3185606.797,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4233,7 +4414,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "cargada en el portal",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-94",
@@ -4246,7 +4429,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 837113.63,
-    "precioVentaBruto": 1012907.49,
+    "precioVentaBruto": 1012907.492,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4279,7 +4462,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-95",
@@ -4292,7 +4477,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 928430.11,
-    "precioVentaBruto": 1123400.43,
+    "precioVentaBruto": 1123400.433,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4325,7 +4510,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "9"
+    "col": "9",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-96",
@@ -4371,7 +4558,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "9"
+    "col": "9",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-97",
@@ -4417,7 +4606,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-98",
@@ -4430,7 +4621,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 60556.93,
-    "precioVentaBruto": 73273.89,
+    "precioVentaBruto": 73273.8853,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4463,7 +4654,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "9"
+    "col": "9",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-99",
@@ -4509,7 +4702,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "7",
-    "col": "7"
+    "col": "7",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-100",
@@ -4522,7 +4717,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Netso",
     "vendedor": "J",
     "precioVentaNeto": 361970.5,
-    "precioVentaBruto": 437984.3,
+    "precioVentaBruto": 437984.305,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4555,7 +4750,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-101",
@@ -4568,7 +4765,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Netso",
     "vendedor": "J",
     "precioVentaNeto": 401978.5,
-    "precioVentaBruto": 486393.98,
+    "precioVentaBruto": 486393.985,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4601,7 +4798,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-102",
@@ -4647,7 +4846,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "8",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-103",
@@ -4693,10 +4894,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-104",
+    "id": "excel-105",
     "filaExcel": 104,
     "fecha": "2026-02-20",
     "semana": "8",
@@ -4739,7 +4942,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "11"
+    "col": "11",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-105",
@@ -4785,7 +4990,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "11"
+    "col": "11",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-106",
@@ -4798,7 +5005,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 29265.6,
-    "precioVentaBruto": 35411.38,
+    "precioVentaBruto": 35411.376,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4831,7 +5038,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "cargada en el portal",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "9"
+    "col": "9",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-107",
@@ -4877,7 +5086,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-108",
@@ -4923,7 +5134,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-109",
@@ -4936,7 +5149,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Mercantil Andina",
     "vendedor": "G",
     "precioVentaNeto": 3351014.5,
-    "precioVentaBruto": 4054727.54,
+    "precioVentaBruto": 4054727.545,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -4969,7 +5182,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "factura enviada",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "11"
+    "col": "11",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-110",
@@ -4982,7 +5197,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 91308.66,
-    "precioVentaBruto": 110483.48,
+    "precioVentaBruto": 110483.4786,
     "gastos": 0,
     "sector": "Producción",
     "estado": "entregado",
@@ -4997,25 +5212,27 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "OH23822",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "OH23822",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1414",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "OH23822",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "OH23822",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1414",
+    "numeroFactura": "1414",
     "estadoCobranza": "",
-    "comentarios": "Gian Pidio la OC el 11/06",
+    "comentarios": "Cheque emitido fecha 06/08",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "9"
+    "col": "9",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-111",
@@ -5061,7 +5278,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "9",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-112",
@@ -5073,8 +5292,8 @@ const OBRAS_MADRE_FACTURACION = [
     "arquitecto": "Lautaro",
     "cliente": "Farmacity",
     "vendedor": "G",
-    "precioVentaNeto": " ",
-    "precioVentaBruto": "#VALUE!",
+    "precioVentaNeto": 0,
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5091,14 +5310,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 9086",
       "op": "870209",
-      "ocOp": "OC ON 9086 / OP 870209",
+      "ocOp": "ON 9086 / 870209",
       "fechaFactura": "2026-03-01",
       "nroFactura": "1330",
       "estadoCobranza": "22"
     },
     "oc": "ON 9086",
     "op": "870209",
-    "ocOp": "OC ON 9086 / OP 870209",
+    "ocOp": "ON 9086 / 870209",
     "fechaFactura": "2026-03-01",
     "fFactura": "2026-03-01",
     "nroFactura": "1330",
@@ -5107,7 +5326,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Subida al portal 21/05",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-113",
@@ -5120,7 +5341,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacia del aguila",
     "vendedor": "G",
     "precioVentaNeto": 525181.4,
-    "precioVentaBruto": 635469.49,
+    "precioVentaBruto": 635469.494,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5153,7 +5374,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "pendiente de pago en tesoreria",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-114",
@@ -5166,7 +5389,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacia del aguila",
     "vendedor": "G",
     "precioVentaNeto": 287057.32,
-    "precioVentaBruto": 347339.36,
+    "precioVentaBruto": 347339.3572,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5199,7 +5422,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "pendiente de pago en tesoreria",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-115",
@@ -5245,7 +5470,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "pendiente de pago en tesoreria",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-116",
@@ -5258,7 +5485,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 236454.91,
-    "precioVentaBruto": 286110.44,
+    "precioVentaBruto": 286110.4411,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5291,7 +5518,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-117",
@@ -5321,14 +5550,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 9117",
       "op": "870209",
-      "ocOp": "OC ON 9117 / OP 870209",
+      "ocOp": "ON 9117 / 870209",
       "fechaFactura": "2026-03-20",
       "nroFactura": "134",
       "estadoCobranza": "22"
     },
     "oc": "ON 9117",
     "op": "870209",
-    "ocOp": "OC ON 9117 / OP 870209",
+    "ocOp": "ON 9117 / 870209",
     "fechaFactura": "2026-03-20",
     "fFactura": "2026-03-20",
     "nroFactura": "134",
@@ -5337,7 +5566,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-118",
@@ -5367,14 +5598,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 9117",
       "op": "870209",
-      "ocOp": "OC ON 9117 / OP 870209",
+      "ocOp": "ON 9117 / 870209",
       "fechaFactura": "2026-03-20",
       "nroFactura": "134",
       "estadoCobranza": "22"
     },
     "oc": "ON 9117",
     "op": "870209",
-    "ocOp": "OC ON 9117 / OP 870209",
+    "ocOp": "ON 9117 / 870209",
     "fechaFactura": "2026-03-20",
     "fFactura": "2026-03-20",
     "nroFactura": "134",
@@ -5383,7 +5614,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-119",
@@ -5408,19 +5641,19 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-22",
       "fechaReal": "",
-      "dias": 83
+      "dias": "83"
     },
     "facturacion": {
       "oc": "ON 9117",
       "op": "870209",
-      "ocOp": "OC ON 9117 / OP 870209",
+      "ocOp": "ON 9117 / 870209",
       "fechaFactura": "2026-03-20",
       "nroFactura": "134",
       "estadoCobranza": "22"
     },
     "oc": "ON 9117",
     "op": "870209",
-    "ocOp": "OC ON 9117 / OP 870209",
+    "ocOp": "ON 9117 / 870209",
     "fechaFactura": "2026-03-20",
     "fFactura": "2026-03-20",
     "nroFactura": "134",
@@ -5429,7 +5662,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-120",
@@ -5442,7 +5677,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 5669791.94,
-    "precioVentaBruto": 6860448.25,
+    "precioVentaBruto": 6860448.247,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5459,14 +5694,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 9117",
       "op": "870209",
-      "ocOp": "OC ON 9117 / OP 870209",
+      "ocOp": "ON 9117 / 870209",
       "fechaFactura": "2026-03-20",
       "nroFactura": "134",
       "estadoCobranza": "22"
     },
     "oc": "ON 9117",
     "op": "870209",
-    "ocOp": "OC ON 9117 / OP 870209",
+    "ocOp": "ON 9117 / 870209",
     "fechaFactura": "2026-03-20",
     "fFactura": "2026-03-20",
     "nroFactura": "134",
@@ -5475,7 +5710,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Subida al portal 21/05",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-121",
@@ -5500,19 +5737,19 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-22",
       "fechaReal": "",
-      "dias": 83
+      "dias": "83"
     },
     "facturacion": {
       "oc": "ON 9117",
       "op": "870209",
-      "ocOp": "OC ON 9117 / OP 870209",
+      "ocOp": "ON 9117 / 870209",
       "fechaFactura": "2026-03-20",
       "nroFactura": "134",
       "estadoCobranza": "22"
     },
     "oc": "ON 9117",
     "op": "870209",
-    "ocOp": "OC ON 9117 / OP 870209",
+    "ocOp": "ON 9117 / 870209",
     "fechaFactura": "2026-03-20",
     "fFactura": "2026-03-20",
     "nroFactura": "134",
@@ -5521,7 +5758,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Subida al portal 21/05",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-122",
@@ -5551,14 +5790,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 9107",
       "op": "870209",
-      "ocOp": "OC ON 9107 / OP 870209",
+      "ocOp": "ON 9107 / 870209",
       "fechaFactura": "2026-03-27",
       "nroFactura": "136",
       "estadoCobranza": "22"
     },
     "oc": "ON 9107",
     "op": "870209",
-    "ocOp": "OC ON 9107 / OP 870209",
+    "ocOp": "ON 9107 / 870209",
     "fechaFactura": "2026-03-27",
     "fFactura": "2026-03-27",
     "nroFactura": "136",
@@ -5567,7 +5806,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Subida al portal 21/05",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-123",
@@ -5597,14 +5838,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 9107",
       "op": "870209",
-      "ocOp": "OC ON 9107 / OP 870209",
+      "ocOp": "ON 9107 / 870209",
       "fechaFactura": "2026-03-27",
       "nroFactura": "136",
       "estadoCobranza": "22"
     },
     "oc": "ON 9107",
     "op": "870209",
-    "ocOp": "OC ON 9107 / OP 870209",
+    "ocOp": "ON 9107 / 870209",
     "fechaFactura": "2026-03-27",
     "fFactura": "2026-03-27",
     "nroFactura": "136",
@@ -5613,7 +5854,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Subida al portal 21/05",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-124",
@@ -5626,7 +5869,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Map administracion",
     "vendedor": "J",
     "precioVentaNeto": 1576666.66,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "cobrado",
@@ -5659,7 +5902,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-125",
@@ -5672,7 +5917,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Map administracion",
     "vendedor": "J",
     "precioVentaNeto": 1576666.66,
-    "precioVentaBruto": 1907766.66,
+    "precioVentaBruto": 1907766.659,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5705,7 +5950,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-126",
@@ -5718,7 +5965,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Map administracion",
     "vendedor": "J",
     "precioVentaNeto": 1576666.66,
-    "precioVentaBruto": 1907766.66,
+    "precioVentaBruto": 1907766.659,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5751,7 +5998,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-127",
@@ -5764,7 +6013,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Netso",
     "vendedor": "J",
     "precioVentaNeto": 16766.8,
-    "precioVentaBruto": 20287.83,
+    "precioVentaBruto": 20287.828,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5797,7 +6046,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "10"
+    "col": "10",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-128",
@@ -5843,7 +6094,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-129",
@@ -5889,10 +6142,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-130",
+    "id": "excel-131",
     "filaExcel": 130,
     "fecha": "2026-03-05",
     "semana": "10",
@@ -5935,7 +6190,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-131",
@@ -5948,7 +6205,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Club de polo",
     "vendedor": "J",
     "precioVentaNeto": 346500.0,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -5981,7 +6238,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-132",
@@ -6027,7 +6286,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-133",
@@ -6073,10 +6334,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "10",
-    "col": "11"
+    "col": "11",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-134",
+    "id": "excel-135",
     "filaExcel": 134,
     "fecha": "2026-03-10",
     "semana": "11",
@@ -6086,7 +6349,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Sol nails",
     "vendedor": "J",
     "precioVentaNeto": 143437.5,
-    "precioVentaBruto": 173559.38,
+    "precioVentaBruto": 173559.375,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -6119,7 +6382,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-135",
@@ -6132,7 +6397,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Sol nails",
     "vendedor": "J",
     "precioVentaNeto": 113316.0,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -6165,7 +6430,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-136",
@@ -6178,7 +6445,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Ceramica alberdi",
     "vendedor": "J",
     "precioVentaNeto": 120974.0,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -6211,7 +6478,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "11"
+    "col": "11",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-137",
@@ -6224,7 +6493,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 508283.76,
-    "precioVentaBruto": 615023.35,
+    "precioVentaBruto": 615023.3496,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -6257,7 +6526,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "cargada en el portal",
     "comentarioInterno": "",
     "prod": "11",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-138",
@@ -6303,7 +6574,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque el 18/06 $335230,62",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-139",
@@ -6333,14 +6606,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "ON 9069",
       "op": "870209",
-      "ocOp": "OC ON 9069 / OP 870209",
+      "ocOp": "ON 9069 / 870209",
       "fechaFactura": "2026-04-01",
       "nroFactura": "1329",
       "estadoCobranza": "22"
     },
     "oc": "ON 9069",
     "op": "870209",
-    "ocOp": "OC ON 9069 / OP 870209",
+    "ocOp": "ON 9069 / 870209",
     "fechaFactura": "2026-04-01",
     "fFactura": "2026-04-01",
     "nroFactura": "1329",
@@ -6349,7 +6622,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cargada al portal 21/05",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-140",
@@ -6395,7 +6670,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Faltan diseños",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-141",
@@ -6441,7 +6718,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Faltan diseños",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-142",
@@ -6487,7 +6766,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-143",
@@ -6533,7 +6814,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-144",
@@ -6579,7 +6862,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Faltan diseños",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-145",
@@ -6625,7 +6910,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "pendiente de pago",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-146",
@@ -6671,7 +6958,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-147",
@@ -6717,7 +7006,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-148",
@@ -6763,7 +7054,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-149",
@@ -6809,7 +7102,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Gian Pidio la OC el 11/06",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-150",
@@ -6855,7 +7150,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "13",
-    "col": "13"
+    "col": "13",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-151",
@@ -6883,25 +7180,27 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "OH23822",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "OH23822",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1414",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "OH23822",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "OH23822",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1414",
+    "numeroFactura": "1414",
     "estadoCobranza": "",
-    "comentarios": "Gian Pidio la OC el 11/06",
+    "comentarios": "Cheque emitido fecha 06/08",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-152",
@@ -6947,7 +7246,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-153",
@@ -6993,7 +7294,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-154",
@@ -7039,7 +7342,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-155",
@@ -7085,10 +7390,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "12",
-    "col": "12"
+    "col": "12",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-156",
+    "id": "excel-157",
     "filaExcel": 156,
     "fecha": "2026-03-25",
     "semana": "13",
@@ -7098,7 +7405,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "MAP",
     "vendedor": "J",
     "precioVentaNeto": 256776.4,
-    "precioVentaBruto": 310699.44,
+    "precioVentaBruto": 310699.444,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -7131,7 +7438,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-157",
@@ -7144,7 +7453,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "MAP",
     "vendedor": "J",
     "precioVentaNeto": 256776.4,
-    "precioVentaBruto": 310699.44,
+    "precioVentaBruto": 310699.444,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -7177,7 +7486,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-158",
@@ -7190,7 +7501,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacia del aguila",
     "vendedor": "G",
     "precioVentaNeto": 2956014.5,
-    "precioVentaBruto": 3576777.54,
+    "precioVentaBruto": 3576777.545,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -7223,7 +7534,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cargar en el portal",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "16"
+    "col": "16",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-159",
@@ -7236,7 +7549,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacia del aguila",
     "vendedor": "G",
     "precioVentaNeto": 1025594.12,
-    "precioVentaBruto": 1240968.89,
+    "precioVentaBruto": 1240968.885,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -7269,7 +7582,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cargar en el portal",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "16"
+    "col": "16",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-160",
@@ -7282,7 +7597,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacia del aguila",
     "vendedor": "G",
     "precioVentaNeto": 1905938.33,
-    "precioVentaBruto": 2306185.38,
+    "precioVentaBruto": 2306185.379,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -7315,7 +7630,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cargar en el portal",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "16"
+    "col": "16",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-161",
@@ -7361,10 +7678,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-162",
+    "id": "excel-163",
     "filaExcel": 162,
     "fecha": "2026-03-26",
     "semana": "13",
@@ -7407,7 +7726,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-163",
@@ -7453,7 +7774,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-164",
@@ -7499,10 +7822,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-165",
+    "id": "excel-166",
     "filaExcel": 165,
     "fecha": "2026-03-27",
     "semana": "13",
@@ -7545,7 +7870,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "16"
+    "col": "16",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-166",
@@ -7591,7 +7918,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "16"
+    "col": "16",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-167",
@@ -7604,7 +7933,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Kinebs",
     "vendedor": "G",
     "precioVentaNeto": 967743.2,
-    "precioVentaBruto": 1170969.27,
+    "precioVentaBruto": 1170969.272,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -7637,10 +7966,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-168",
+    "id": "excel-169",
     "filaExcel": 168,
     "fecha": "2026-03-27",
     "semana": "13",
@@ -7648,9 +7979,9 @@ const OBRAS_MADRE_FACTURACION = [
     "descripcion": "Ploteos en vinilo laminado",
     "arquitecto": "Blanca Bologna",
     "cliente": "El Tasador",
-    "vendedor": "",
+    "vendedor": "G",
     "precioVentaNeto": 700000.0,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -7683,7 +8014,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "16"
+    "col": "16",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-169",
@@ -7716,7 +8049,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "N/A",
-      "estadoCobranza": ""
+      "estadoCobranza": "22"
     },
     "oc": "",
     "op": "",
@@ -7725,11 +8058,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "N/A",
     "numeroFactura": "N/A",
-    "estadoCobranza": "",
+    "estadoCobranza": "22",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-170",
@@ -7775,7 +8110,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "14"
+    "col": "14",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-171",
@@ -7803,28 +8140,30 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "OH23822",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "OH23822",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1414",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "OH23822",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "OH23822",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1414",
+    "numeroFactura": "1414",
     "estadoCobranza": "",
-    "comentarios": "Gian Pidio la OC el 11/06",
+    "comentarios": "Cheque emitido fecha 06/08",
     "comentarioInterno": "",
     "prod": "14",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-172",
+    "id": "excel-173",
     "filaExcel": 172,
     "fecha": "2026-04-01",
     "semana": "14",
@@ -7867,7 +8206,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-173",
@@ -7913,10 +8254,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-174",
+    "id": "excel-175",
     "filaExcel": 174,
     "fecha": "2026-03-27",
     "semana": "13",
@@ -7959,7 +8302,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-175",
@@ -8005,10 +8350,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-176",
+    "id": "excel-177",
     "filaExcel": 176,
     "fecha": "2026-03-31",
     "semana": "14",
@@ -8018,7 +8365,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Yonhoo",
     "vendedor": "G",
     "precioVentaNeto": 1000000.0,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -8051,7 +8398,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-177",
@@ -8064,7 +8413,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Yonhoo",
     "vendedor": "G",
     "precioVentaNeto": 1000000.0,
-    "precioVentaBruto": "EF",
+    "precioVentaBruto": 0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -8097,7 +8446,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-178",
@@ -8143,7 +8494,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-179",
@@ -8156,7 +8509,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Flecha carga",
     "vendedor": "J",
     "precioVentaNeto": 36346.8,
-    "precioVentaBruto": 43979.63,
+    "precioVentaBruto": 43979.628,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -8189,7 +8542,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "15"
+    "col": "15",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-180",
@@ -8217,25 +8572,27 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "OH23822",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "OH23822",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1414",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "OH23822",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "OH23822",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1414",
+    "numeroFactura": "1414",
     "estadoCobranza": "",
-    "comentarios": "Gian Pidio la OC el 11/06",
+    "comentarios": "Cheque emitido fecha 06/08",
     "comentarioInterno": "",
     "prod": "15",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-181",
@@ -8251,7 +8608,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 4673504.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -8281,7 +8638,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-182",
@@ -8327,7 +8686,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-183",
@@ -8373,10 +8734,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-184",
+    "id": "excel-185",
     "filaExcel": 184,
     "fecha": "2026-04-10",
     "semana": "15",
@@ -8419,7 +8782,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-185",
@@ -8465,7 +8830,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Envia fc",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-186",
@@ -8511,7 +8878,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-187",
@@ -8557,7 +8926,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-188",
@@ -8570,7 +8941,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 91308.7,
-    "precioVentaBruto": 110483.53,
+    "precioVentaBruto": 110483.527,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
@@ -8585,25 +8956,27 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "OH23822",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "OH23822",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1414",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "OH23822",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "OH23822",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1414",
+    "numeroFactura": "1414",
     "estadoCobranza": "",
-    "comentarios": "Gian Pidio la OC el 11/06",
+    "comentarios": "Cheque emitido fecha 06/08",
     "comentarioInterno": "",
     "prod": "16",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-189",
@@ -8649,7 +9022,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-190",
@@ -8695,10 +9070,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Echeck 29/05",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-191",
+    "id": "excel-192",
     "filaExcel": 191,
     "fecha": "2026-04-16",
     "semana": "16",
@@ -8741,7 +9118,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-192",
@@ -8787,7 +9166,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-193",
@@ -8833,7 +9214,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-194",
@@ -8866,7 +9249,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-04-23",
       "nroFactura": "137",
-      "estadoCobranza": ""
+      "estadoCobranza": "24"
     },
     "oc": "",
     "op": "",
@@ -8875,11 +9258,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-04-23",
     "nroFactura": "137",
     "numeroFactura": "137",
-    "estadoCobranza": "",
+    "estadoCobranza": "24",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-195",
@@ -8912,7 +9297,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-04-23",
       "nroFactura": "137",
-      "estadoCobranza": ""
+      "estadoCobranza": "24"
     },
     "oc": "",
     "op": "",
@@ -8921,14 +9306,16 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-04-23",
     "nroFactura": "137",
     "numeroFactura": "137",
-    "estadoCobranza": "",
+    "estadoCobranza": "24",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-196",
+    "id": "excel-197",
     "filaExcel": 196,
     "fecha": "2026-04-17",
     "semana": "16",
@@ -8971,7 +9358,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-197",
@@ -9017,10 +9406,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Envia fc",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-198",
+    "id": "excel-212",
     "filaExcel": 198,
     "fecha": "2026-04-17",
     "semana": "16",
@@ -9029,9 +9420,9 @@ const OBRAS_MADRE_FACTURACION = [
     "arquitecto": "",
     "cliente": "Municipalidad de Jose C Paz",
     "vendedor": "",
-    "precioVentaNeto": 5482849.59,
+    "precioVentaNeto": 5482849.587,
     "precioVentaBruto": 6634248.0,
-    "gastos": 4090000.0,
+    "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
     "produccion": {
@@ -9050,7 +9441,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-04-17",
       "nroFactura": "119/120",
-      "estadoCobranza": ""
+      "estadoCobranza": "22"
     },
     "oc": "",
     "op": "",
@@ -9059,14 +9450,16 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-04-17",
     "nroFactura": "119/120",
     "numeroFactura": "119/120",
-    "estadoCobranza": "",
+    "estadoCobranza": "22",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "",
-    "col": "21"
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-199",
+    "id": "excel-200",
     "filaExcel": 199,
     "fecha": "2026-04-17",
     "semana": "16",
@@ -9086,7 +9479,7 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "colocacion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "1900-01-05",
       "fechaReal": "",
       "dias": ""
     },
@@ -9107,9 +9500,11 @@ const OBRAS_MADRE_FACTURACION = [
     "numeroFactura": "1350",
     "estadoCobranza": "20",
     "comentarios": "",
-    "comentarioInterno": "",
+    "comentarioInterno": "Pago con un cheque x 1897225",
     "prod": "19",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-200",
@@ -9134,7 +9529,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-26",
       "fechaReal": "",
-      "dias": 39
+      "dias": "39"
     },
     "facturacion": {
       "oc": "",
@@ -9155,7 +9550,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Envia fc",
     "comentarioInterno": "Pago con un cheque x 1897225",
     "prod": "19",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-201",
@@ -9173,7 +9570,7 @@ const OBRAS_MADRE_FACTURACION = [
     "sector": "Producción",
     "estado": "Cobrado pendiente",
     "produccion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-10",
       "fechaReal": "",
       "dias": ""
     },
@@ -9188,7 +9585,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "",
-      "estadoCobranza": ""
+      "estadoCobranza": "6"
     },
     "oc": "",
     "op": "",
@@ -9197,14 +9594,16 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "",
     "numeroFactura": "",
-    "estadoCobranza": "",
+    "estadoCobranza": "6",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "",
-    "col": ""
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-202",
+    "id": "excel-203",
     "filaExcel": 202,
     "fecha": "2026-04-21",
     "semana": "17",
@@ -9247,7 +9646,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-203",
@@ -9293,7 +9694,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "17",
-    "col": "17"
+    "col": "17",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-204",
@@ -9339,10 +9742,12 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Fecha de pago 20/05",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-205",
+    "id": "excel-207",
     "filaExcel": 205,
     "fecha": "2026-04-22",
     "semana": "17",
@@ -9383,9 +9788,11 @@ const OBRAS_MADRE_FACTURACION = [
     "numeroFactura": "1351",
     "estadoCobranza": "19",
     "comentarios": "",
-    "comentarioInterno": "",
+    "comentarioInterno": "Pago con un cheque x 1897225",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-206",
@@ -9418,7 +9825,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-15",
       "nroFactura": "1378",
-      "estadoCobranza": ""
+      "estadoCobranza": "22"
     },
     "oc": "",
     "op": "",
@@ -9427,11 +9834,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-15",
     "nroFactura": "1378",
     "numeroFactura": "1378",
-    "estadoCobranza": "",
+    "estadoCobranza": "22",
     "comentarios": "E Check 18/6/2026",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-207",
@@ -9477,7 +9886,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Envia fc",
     "comentarioInterno": "Pago con un cheque x 1897225",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-208",
@@ -9490,7 +9901,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 6588920.77,
-    "precioVentaBruto": 7972594.13,
+    "precioVentaBruto": 7972594.132,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Cobrado",
@@ -9523,7 +9934,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque  18/06 $6602097,84",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-209",
@@ -9556,7 +9969,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "OH 23300",
       "fechaFactura": "2026-05-15",
       "nroFactura": "1379",
-      "estadoCobranza": ""
+      "estadoCobranza": "26"
     },
     "oc": "OH 23300",
     "op": "",
@@ -9565,11 +9978,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-15",
     "nroFactura": "1379",
     "numeroFactura": "1379",
-    "estadoCobranza": "",
+    "estadoCobranza": "26",
     "comentarios": "Fecha de pago  14/06 cheque por $5560160.54",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-210",
@@ -9602,7 +10017,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "OH 2283",
       "fechaFactura": "2026-05-15",
       "nroFactura": "1379",
-      "estadoCobranza": ""
+      "estadoCobranza": "26"
     },
     "oc": "OH 2283",
     "op": "",
@@ -9611,14 +10026,16 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-15",
     "nroFactura": "1379",
     "numeroFactura": "1379",
-    "estadoCobranza": "",
+    "estadoCobranza": "26",
     "comentarios": "Fecha de pago  14/06 cheque por $5560160.54",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-211",
+    "id": "excel-212",
     "filaExcel": 211,
     "fecha": "2026-05-26",
     "semana": "19",
@@ -9627,15 +10044,111 @@ const OBRAS_MADRE_FACTURACION = [
     "arquitecto": "Martin",
     "cliente": "Municipalidad de Jose C Paz",
     "vendedor": "",
-    "precioVentaNeto": 16448548.76,
-    "precioVentaBruto": 19902744.0,
-    "gastos": 16360000.0,
+    "precioVentaNeto": 10965699.17,
+    "precioVentaBruto": 13268496.0,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-10",
       "fechaReal": "",
-      "dias": 15
+      "dias": "15"
+    },
+    "colocacion": {
+      "fechaCompromiso": "2026-05-29",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "13/14/15/16",
+      "estadoCobranza": "27"
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "13/14/15/16",
+    "numeroFactura": "13/14/15/16",
+    "estadoCobranza": "27",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "25",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-212",
+    "filaExcel": 212,
+    "fecha": "2026-05-26",
+    "semana": "19",
+    "ot": "4159",
+    "descripcion": "Cajon formato baliza con leds lupa blanco y azul",
+    "arquitecto": "Martin",
+    "cliente": "Municipalidad de Jose C Paz",
+    "vendedor": "",
+    "precioVentaNeto": 5482849.587,
+    "precioVentaBruto": 6634248.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": "25"
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "25",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-212",
+    "filaExcel": 213,
+    "fecha": "2026-05-26",
+    "semana": "19",
+    "ot": "4159",
+    "descripcion": "Cajon formato baliza con leds lupa blanco y azul",
+    "arquitecto": "Martin",
+    "cliente": "Municipalidad de Jose C Paz",
+    "vendedor": "",
+    "precioVentaNeto": 5482849.587,
+    "precioVentaBruto": 6634248.0,
+    "gastos": 200000.0,
+    "sector": "Producción",
+    "estado": "Cobrado Pendiente",
+    "produccion": {
+      "fechaCompromiso": "2026-06-10",
+      "fechaReal": "",
+      "dias": "15"
     },
     "colocacion": {
       "fechaCompromiso": "2026-05-29",
@@ -9661,23 +10174,73 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "25",
-    "col": ""
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-212",
-    "filaExcel": 212,
-    "fecha": "2026-05-26",
-    "semana": "19",
-    "ot": "4159",
-    "descripcion": "Cajon formato baliza con leds lupa blanco y azul",
+    "id": "excel-213",
+    "filaExcel": 214,
+    "fecha": "2026-04-23",
+    "semana": "17",
+    "ot": "4368",
+    "descripcion": "Vinilo impreso",
     "arquitecto": "",
-    "cliente": "Municipalidad de Jose C Paz",
+    "cliente": "Amanda",
     "vendedor": "",
-    "precioVentaNeto": 5482849.59,
-    "precioVentaBruto": 6634248.0,
+    "precioVentaNeto": 418360.0,
+    "precioVentaBruto": 506215.6,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Cobrado",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "2026-05-25",
+      "fechaReal": "2026-05-25",
+      "dias": "32"
+    },
+    "colocacion": {
+      "fechaCompromiso": "2026-05-23",
+      "fechaReal": "",
+      "dias": "30"
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-22",
+      "nroFactura": "1426",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-22",
+    "fFactura": "2026-07-22",
+    "nroFactura": "1426",
+    "numeroFactura": "1426",
+    "estadoCobranza": "",
+    "comentarios": "Cargado al portal de amanda, 30 dias 22/08 F de pago estimada",
+    "comentarioInterno": "",
+    "prod": "20",
+    "col": "23",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-214",
+    "filaExcel": 215,
+    "fecha": "2026-04-23",
+    "semana": "17",
+    "ot": "4382",
+    "descripcion": "Extra farmacity suc la rioja rivadavia - vinilo gris elefante",
+    "arquitecto": "Sonia",
+    "cliente": "Flecha carga",
+    "vendedor": "",
+    "precioVentaNeto": 158505.0,
+    "precioVentaBruto": 191791.05,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -9704,148 +10267,12 @@ const OBRAS_MADRE_FACTURACION = [
     "nroFactura": "",
     "numeroFactura": "",
     "estadoCobranza": "",
-    "comentarios": "",
-    "comentarioInterno": "",
-    "prod": "",
-    "col": ""
-  },
-  {
-    "id": "excel-213",
-    "filaExcel": 213,
-    "fecha": "2026-04-23",
-    "semana": "17",
-    "ot": "4368",
-    "descripcion": "Vinilo impreso",
-    "arquitecto": "",
-    "cliente": "Amanda",
-    "vendedor": "",
-    "precioVentaNeto": 418360.0,
-    "precioVentaBruto": 506215.6,
-    "gastos": 100000.0,
-    "sector": "Producción",
-    "estado": "Entregado",
-    "produccion": {
-      "fechaCompromiso": "2026-05-25",
-      "fechaReal": "2026-05-25",
-      "dias": 32
-    },
-    "colocacion": {
-      "fechaCompromiso": "2026-05-23",
-      "fechaReal": "",
-      "dias": 30
-    },
-    "facturacion": {
-      "oc": "",
-      "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": "18"
-    },
-    "oc": "",
-    "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
-    "estadoCobranza": "18",
-    "comentarios": "",
-    "comentarioInterno": "",
-    "prod": "20",
-    "col": "23"
-  },
-  {
-    "id": "excel-214",
-    "filaExcel": 214,
-    "fecha": "2026-04-23",
-    "semana": "17",
-    "ot": "4382",
-    "descripcion": "Extra farmacity suc la rioja rivadavia - vinilo gris elefante",
-    "arquitecto": "Sonia",
-    "cliente": "Farmacity",
-    "vendedor": "",
-    "precioVentaNeto": 158505.0,
-    "precioVentaBruto": 191791.05,
-    "gastos": 0,
-    "sector": "Producción",
-    "estado": "Entregado",
-    "produccion": {
-      "fechaCompromiso": "",
-      "fechaReal": "",
-      "dias": ""
-    },
-    "colocacion": {
-      "fechaCompromiso": "",
-      "fechaReal": "",
-      "dias": ""
-    },
-    "facturacion": {
-      "oc": "",
-      "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": "19"
-    },
-    "oc": "",
-    "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
-    "estadoCobranza": "19",
-    "comentarios": "",
+    "comentarios": "Reclamar a Santiago recepcion",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "19"
-  },
-  {
-    "id": "excel-215",
-    "filaExcel": 215,
-    "fecha": "2026-04-24",
-    "semana": "17",
-    "ot": "4369",
-    "descripcion": "Letras corporeas",
-    "arquitecto": "Gerardo",
-    "cliente": "Helios pharma",
-    "vendedor": "",
-    "precioVentaNeto": 2544500.0,
-    "precioVentaBruto": 3078845.0,
-    "gastos": 0,
-    "sector": "Producción",
-    "estado": "Cobrado",
-    "produccion": {
-      "fechaCompromiso": "",
-      "fechaReal": "",
-      "dias": ""
-    },
-    "colocacion": {
-      "fechaCompromiso": "2026-05-21",
-      "fechaReal": "",
-      "dias": 27
-    },
-    "facturacion": {
-      "oc": "",
-      "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": "18"
-    },
-    "oc": "",
-    "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
-    "estadoCobranza": "18",
-    "comentarios": "",
-    "comentarioInterno": "",
-    "prod": "20",
-    "col": "21"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-216",
@@ -9870,7 +10297,55 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-21",
       "fechaReal": "",
-      "dias": 27
+      "dias": "27"
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": "18"
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "18",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "20",
+    "col": "21",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-216",
+    "filaExcel": 217,
+    "fecha": "2026-04-24",
+    "semana": "17",
+    "ot": "4369",
+    "descripcion": "Letras corporeas",
+    "arquitecto": "Gerardo",
+    "cliente": "Helios pharma",
+    "vendedor": "",
+    "precioVentaNeto": 2544500.0,
+    "precioVentaBruto": 3078845.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "2026-05-21",
+      "fechaReal": "",
+      "dias": "27"
     },
     "facturacion": {
       "oc": "",
@@ -9878,7 +10353,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-06-01",
       "nroFactura": "1393",
-      "estadoCobranza": ""
+      "estadoCobranza": "24"
     },
     "oc": "",
     "op": "",
@@ -9887,15 +10362,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-01",
     "nroFactura": "1393",
     "numeroFactura": "1393",
-    "estadoCobranza": "",
+    "estadoCobranza": "24",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "21"
+    "col": "21",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-217",
-    "filaExcel": 217,
+    "id": "excel-218",
+    "filaExcel": 218,
     "fecha": "2026-04-28",
     "semana": "18",
     "ot": "4291",
@@ -9916,7 +10393,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-21",
       "fechaReal": "",
-      "dias": 23
+      "dias": "23"
     },
     "facturacion": {
       "oc": "",
@@ -9937,11 +10414,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-218",
-    "filaExcel": 218,
+    "filaExcel": 219,
     "fecha": "2026-04-28",
     "semana": "18",
     "ot": "4291",
@@ -9962,7 +10441,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-21",
       "fechaReal": "",
-      "dias": 23
+      "dias": "23"
     },
     "facturacion": {
       "oc": "",
@@ -9983,11 +10462,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-219",
-    "filaExcel": 219,
+    "filaExcel": 220,
     "fecha": "2026-04-28",
     "semana": "18",
     "ot": "4386",
@@ -10016,7 +10497,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "",
-      "estadoCobranza": ""
+      "estadoCobranza": "20"
     },
     "oc": "",
     "op": "",
@@ -10025,21 +10506,23 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "",
     "numeroFactura": "",
-    "estadoCobranza": "",
+    "estadoCobranza": "20",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-220",
-    "filaExcel": 220,
+    "filaExcel": 221,
     "fecha": "2026-04-29",
     "semana": "18",
     "ot": "4387",
     "descripcion": "Lona impresa suc juan b justo",
     "arquitecto": "Marcelo",
-    "cliente": "Flecha carga",
+    "cliente": "",
     "vendedor": "J",
     "precioVentaNeto": 258500.0,
     "precioVentaBruto": 312785.0,
@@ -10075,11 +10558,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-221",
-    "filaExcel": 221,
+    "id": "excel-222",
+    "filaExcel": 222,
     "fecha": "2026-04-29",
     "semana": "18",
     "ot": "4389",
@@ -10100,7 +10585,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-15",
       "fechaReal": "",
-      "dias": 16
+      "dias": "16"
     },
     "facturacion": {
       "oc": "",
@@ -10121,11 +10606,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-222",
-    "filaExcel": 222,
+    "filaExcel": 223,
     "fecha": "2026-04-29",
     "semana": "18",
     "ot": "4389",
@@ -10154,7 +10641,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-15",
       "nroFactura": "1381",
-      "estadoCobranza": ""
+      "estadoCobranza": "21"
     },
     "oc": "",
     "op": "",
@@ -10163,15 +10650,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-15",
     "nroFactura": "1381",
     "numeroFactura": "1381",
-    "estadoCobranza": "",
+    "estadoCobranza": "21",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-223",
-    "filaExcel": 223,
+    "filaExcel": 224,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4414",
@@ -10200,7 +10689,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-15",
       "nroFactura": "1381",
-      "estadoCobranza": ""
+      "estadoCobranza": "21"
     },
     "oc": "",
     "op": "",
@@ -10209,15 +10698,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-15",
     "nroFactura": "1381",
     "numeroFactura": "1381",
-    "estadoCobranza": "",
+    "estadoCobranza": "21",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-224",
-    "filaExcel": 224,
+    "filaExcel": 225,
     "fecha": "2026-04-29",
     "semana": "18",
     "ot": "4393",
@@ -10229,7 +10720,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 36827.56,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "cobrado",
+    "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -10256,14 +10747,16 @@ const OBRAS_MADRE_FACTURACION = [
     "nroFactura": "",
     "numeroFactura": "",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "Cheque emitido fecha 06/08",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-225",
-    "filaExcel": 225,
+    "filaExcel": 226,
     "fecha": "2026-04-29",
     "semana": "18",
     "ot": "4298",
@@ -10305,11 +10798,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "18",
-    "col": "18"
+    "col": "18",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-226",
-    "filaExcel": 226,
+    "filaExcel": 227,
     "fecha": "2026-04-30",
     "semana": "18",
     "ot": "4335",
@@ -10351,11 +10846,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-227",
-    "filaExcel": 227,
+    "filaExcel": 228,
     "fecha": "2026-04-30",
     "semana": "18",
     "ot": "4335",
@@ -10384,7 +10881,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-14",
       "nroFactura": "1377",
-      "estadoCobranza": ""
+      "estadoCobranza": "24"
     },
     "oc": "",
     "op": "",
@@ -10393,15 +10890,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-14",
     "nroFactura": "1377",
     "numeroFactura": "1377",
-    "estadoCobranza": "",
+    "estadoCobranza": "24",
     "comentarios": "Transferencia 11/06",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-228",
-    "filaExcel": 228,
+    "filaExcel": 229,
     "fecha": "2026-04-30",
     "semana": "18",
     "ot": "4372",
@@ -10417,12 +10916,12 @@ const OBRAS_MADRE_FACTURACION = [
     "produccion": {
       "fechaCompromiso": "2026-05-21",
       "fechaReal": "",
-      "dias": 21
+      "dias": "21"
     },
     "colocacion": {
       "fechaCompromiso": "2026-05-29",
       "fechaReal": "",
-      "dias": 29
+      "dias": "29"
     },
     "facturacion": {
       "oc": "OH 2283",
@@ -10430,7 +10929,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "OH 2283",
       "fechaFactura": "2026-05-15",
       "nroFactura": "1379",
-      "estadoCobranza": ""
+      "estadoCobranza": "25"
     },
     "oc": "OH 2283",
     "op": "",
@@ -10439,15 +10938,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-15",
     "nroFactura": "1379",
     "numeroFactura": "1379",
-    "estadoCobranza": "",
+    "estadoCobranza": "25",
     "comentarios": "Fecha de pago  14/06 cheque por $5560160.54",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "23"
+    "col": "23",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-229",
-    "filaExcel": 229,
+    "filaExcel": 230,
     "fecha": "2026-05-04",
     "semana": "19",
     "ot": "4397",
@@ -10489,11 +10990,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-230",
-    "filaExcel": 230,
+    "filaExcel": 231,
     "fecha": "2026-05-04",
     "semana": "19",
     "ot": "4396",
@@ -10535,11 +11038,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-231",
-    "filaExcel": 231,
+    "filaExcel": 232,
     "fecha": "2026-05-04",
     "semana": "19",
     "ot": "4396",
@@ -10568,7 +11073,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-05",
       "nroFactura": "1364",
-      "estadoCobranza": ""
+      "estadoCobranza": "24"
     },
     "oc": "",
     "op": "",
@@ -10577,15 +11082,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-05",
     "nroFactura": "1364",
     "numeroFactura": "1364",
-    "estadoCobranza": "",
+    "estadoCobranza": "24",
     "comentarios": "Transferencia 04/06",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-232",
-    "filaExcel": 232,
+    "filaExcel": 233,
     "fecha": "2026-05-04",
     "semana": "19",
     "ot": "4396",
@@ -10614,7 +11121,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-05",
       "nroFactura": "1366",
-      "estadoCobranza": ""
+      "estadoCobranza": "24"
     },
     "oc": "",
     "op": "",
@@ -10623,15 +11130,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-05",
     "nroFactura": "1366",
     "numeroFactura": "1366",
-    "estadoCobranza": "",
+    "estadoCobranza": "24",
     "comentarios": "Transferencia 04/06",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-233",
-    "filaExcel": 233,
+    "filaExcel": 234,
     "fecha": "2026-05-05",
     "semana": "19",
     "ot": "4342",
@@ -10673,11 +11182,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-234",
-    "filaExcel": 234,
+    "filaExcel": 235,
     "fecha": "2026-05-05",
     "semana": "19",
     "ot": "4341",
@@ -10686,19 +11197,19 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Country el sociego",
     "vendedor": "J",
     "precioVentaNeto": 909437.5,
-    "precioVentaBruto": 1100419.38,
+    "precioVentaBruto": 1100419.375,
     "gastos": 450000.0,
     "sector": "Producción",
     "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-01",
       "fechaReal": "2026-06-02",
-      "dias": 27
+      "dias": "27"
     },
     "colocacion": {
       "fechaCompromiso": "2026-05-30",
       "fechaReal": "",
-      "dias": 25
+      "dias": "25"
     },
     "facturacion": {
       "oc": "",
@@ -10706,7 +11217,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "",
-      "estadoCobranza": ""
+      "estadoCobranza": "23"
     },
     "oc": "",
     "op": "",
@@ -10715,15 +11226,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "",
     "numeroFactura": "",
-    "estadoCobranza": "",
+    "estadoCobranza": "23",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": "23"
+    "col": "23",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-235",
-    "filaExcel": 235,
+    "filaExcel": 236,
     "fecha": "2026-05-06",
     "semana": "19",
     "ot": "4395",
@@ -10765,11 +11278,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-236",
-    "filaExcel": 236,
+    "filaExcel": 237,
     "fecha": "2026-05-06",
     "semana": "19",
     "ot": "4395",
@@ -10811,11 +11326,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-237",
-    "filaExcel": 237,
+    "filaExcel": 238,
     "fecha": "2026-05-06",
     "semana": "19",
     "ot": "",
@@ -10857,11 +11374,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "19",
-    "col": "19"
+    "col": "19",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-238",
-    "filaExcel": 238,
+    "filaExcel": 239,
     "fecha": "2026-05-07",
     "semana": "19",
     "ot": "4405",
@@ -10873,7 +11392,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 36827.56,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -10887,14 +11406,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "OH23393",
       "op": "870333",
-      "ocOp": "OC OH23393 / OP 870333",
+      "ocOp": "OH23393 / 870333",
       "fechaFactura": "2026-05-21",
       "nroFactura": "1385",
       "estadoCobranza": "22"
     },
     "oc": "OH23393",
     "op": "870333",
-    "ocOp": "OC OH23393 / OP 870333",
+    "ocOp": "OH23393 / 870333",
     "fechaFactura": "2026-05-21",
     "fFactura": "2026-05-21",
     "nroFactura": "1385",
@@ -10903,11 +11422,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque depositado 25/06",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-239",
-    "filaExcel": 239,
+    "filaExcel": 240,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4415",
@@ -10919,7 +11440,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 36827.56,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -10933,14 +11454,14 @@ const OBRAS_MADRE_FACTURACION = [
     "facturacion": {
       "oc": "OH23393",
       "op": "870333",
-      "ocOp": "OC OH23393 / OP 870333",
+      "ocOp": "OH23393 / 870333",
       "fechaFactura": "2026-05-21",
       "nroFactura": "1385",
       "estadoCobranza": "22"
     },
     "oc": "OH23393",
     "op": "870333",
-    "ocOp": "OC OH23393 / OP 870333",
+    "ocOp": "OH23393 / 870333",
     "fechaFactura": "2026-05-21",
     "fFactura": "2026-05-21",
     "nroFactura": "1385",
@@ -10949,11 +11470,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque depositado 25/06",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "20"
+    "col": "20",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-240",
-    "filaExcel": 240,
+    "filaExcel": 241,
     "fecha": "2026-05-14",
     "semana": "20",
     "ot": "4421",
@@ -10965,7 +11488,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 36827.56,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -10974,19 +11497,19 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-20",
       "fechaReal": "",
-      "dias": 6
+      "dias": "6"
     },
     "facturacion": {
       "oc": "OH23393",
       "op": "870333",
-      "ocOp": "OC OH23393 / OP 870333",
+      "ocOp": "OH23393 / 870333",
       "fechaFactura": "2026-05-21",
       "nroFactura": "1385",
       "estadoCobranza": "22"
     },
     "oc": "OH23393",
     "op": "870333",
-    "ocOp": "OC OH23393 / OP 870333",
+    "ocOp": "OH23393 / 870333",
     "fechaFactura": "2026-05-21",
     "fFactura": "2026-05-21",
     "nroFactura": "1385",
@@ -10995,11 +11518,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "Cheque depositado 25/06",
     "comentarioInterno": "",
     "prod": "20",
-    "col": "21"
+    "col": "21",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-241",
-    "filaExcel": 241,
+    "filaExcel": 242,
     "fecha": "",
     "semana": "",
     "ot": "4418",
@@ -11011,7 +11536,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 121000.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -11041,11 +11566,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "21",
-    "col": "21"
+    "col": "21",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-242",
-    "filaExcel": 242,
+    "filaExcel": 243,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4417",
@@ -11066,7 +11593,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-22",
       "fechaReal": "",
-      "dias": 9
+      "dias": "9"
     },
     "facturacion": {
       "oc": "",
@@ -11084,14 +11611,16 @@ const OBRAS_MADRE_FACTURACION = [
     "nroFactura": "",
     "numeroFactura": "",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "OC reclamada a eugenia el 22/07",
     "comentarioInterno": "",
     "prod": "21",
-    "col": "21"
+    "col": "21",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-243",
-    "filaExcel": 243,
+    "filaExcel": 244,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4345",
@@ -11112,7 +11641,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-26",
       "fechaReal": "",
-      "dias": 13
+      "dias": "13"
     },
     "facturacion": {
       "oc": "",
@@ -11120,7 +11649,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "",
-      "estadoCobranza": ""
+      "estadoCobranza": "25"
     },
     "oc": "",
     "op": "",
@@ -11129,15 +11658,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "",
     "numeroFactura": "",
-    "estadoCobranza": "",
+    "estadoCobranza": "25",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": "22"
+    "col": "22",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-244",
-    "filaExcel": 244,
+    "filaExcel": 245,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4412",
@@ -11146,19 +11677,19 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "kpl miniso",
     "vendedor": "",
     "precioVentaNeto": 3260239.5,
-    "precioVentaBruto": 3944889.79,
-    "gastos": 3000000.0,
+    "precioVentaBruto": 3944889.795,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Cobrado Pendiente",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-22",
       "fechaReal": "",
-      "dias": 40
+      "dias": "40"
     },
     "colocacion": {
       "fechaCompromiso": "2026-06-05",
       "fechaReal": "",
-      "dias": 23
+      "dias": "23"
     },
     "facturacion": {
       "oc": "",
@@ -11166,7 +11697,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-29",
       "nroFactura": "1388",
-      "estadoCobranza": ""
+      "estadoCobranza": "22"
     },
     "oc": "",
     "op": "",
@@ -11175,15 +11706,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-29",
     "nroFactura": "1388",
     "numeroFactura": "1388",
-    "estadoCobranza": "",
+    "estadoCobranza": "22",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "27",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-245",
-    "filaExcel": 245,
+    "id": "excel-246",
+    "filaExcel": 246,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4420",
@@ -11195,7 +11728,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 4673504.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -11204,7 +11737,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-20",
       "fechaReal": "",
-      "dias": 7
+      "dias": "7"
     },
     "facturacion": {
       "oc": "",
@@ -11225,11 +11758,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "21",
-    "col": "21"
+    "col": "21",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-246",
-    "filaExcel": 246,
+    "filaExcel": 247,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4420",
@@ -11241,7 +11776,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 4673504.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -11250,7 +11785,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-27",
       "fechaReal": "",
-      "dias": 14
+      "dias": "14"
     },
     "facturacion": {
       "oc": "",
@@ -11271,11 +11806,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": "22"
+    "col": "22",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-247",
-    "filaExcel": 247,
+    "filaExcel": 248,
     "fecha": "2026-05-13",
     "semana": "20",
     "ot": "4412",
@@ -11284,10 +11821,10 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "kpl miniso",
     "vendedor": "",
     "precioVentaNeto": 3260239.5,
-    "precioVentaBruto": 3944889.79,
+    "precioVentaBruto": 3944889.795,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -11302,26 +11839,28 @@ const OBRAS_MADRE_FACTURACION = [
       "oc": "",
       "op": "",
       "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "fechaFactura": "2026-07-21",
+      "nroFactura": "1419",
       "estadoCobranza": ""
     },
     "oc": "",
     "op": "",
     "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "fechaFactura": "2026-07-21",
+    "fFactura": "2026-07-21",
+    "nroFactura": "1419",
+    "numeroFactura": "1419",
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "27",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-248",
-    "filaExcel": 248,
+    "filaExcel": 249,
     "fecha": "2026-05-14",
     "semana": "20",
     "ot": "4399",
@@ -11331,18 +11870,18 @@ const OBRAS_MADRE_FACTURACION = [
     "vendedor": "J",
     "precioVentaNeto": 764000.0,
     "precioVentaBruto": 924440.0,
-    "gastos": 900000.0,
+    "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "2026-06-03",
       "fechaReal": "2026-06-04",
-      "dias": 20
+      "dias": "20"
     },
     "colocacion": {
       "fechaCompromiso": "2026-06-05",
       "fechaReal": "",
-      "dias": 22
+      "dias": "22"
     },
     "facturacion": {
       "oc": "",
@@ -11363,11 +11902,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": "23"
+    "col": "23",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-249",
-    "filaExcel": 249,
+    "filaExcel": 250,
     "fecha": "2026-05-14",
     "semana": "20",
     "ot": "4399",
@@ -11376,19 +11917,19 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Metropol",
     "vendedor": "J",
     "precioVentaNeto": 1146000.0,
-    "precioVentaBruto": 2311100.0,
+    "precioVentaBruto": 1386660.0,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "2026-06-03",
       "fechaReal": "2026-06-04",
-      "dias": 20
+      "dias": "20"
     },
     "colocacion": {
       "fechaCompromiso": "2026-06-05",
       "fechaReal": "",
-      "dias": 22
+      "dias": "22"
     },
     "facturacion": {
       "oc": "",
@@ -11409,11 +11950,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": "23"
+    "col": "23",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-250",
-    "filaExcel": 250,
+    "filaExcel": 251,
     "fecha": "2026-05-15",
     "semana": "20",
     "ot": "4408 1,3",
@@ -11434,7 +11977,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-27",
       "fechaReal": "",
-      "dias": 12
+      "dias": "12"
     },
     "facturacion": {
       "oc": "",
@@ -11455,11 +11998,13 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": "22"
+    "col": "22",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-251",
-    "filaExcel": 251,
+    "filaExcel": 252,
     "fecha": "2026-05-15",
     "semana": "20",
     "ot": "4408 1,3",
@@ -11480,7 +12025,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-27",
       "fechaReal": "",
-      "dias": 12
+      "dias": "12"
     },
     "facturacion": {
       "oc": "",
@@ -11488,7 +12033,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-06-01",
       "nroFactura": "1392",
-      "estadoCobranza": ""
+      "estadoCobranza": "23"
     },
     "oc": "",
     "op": "",
@@ -11497,15 +12042,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-01",
     "nroFactura": "1392",
     "numeroFactura": "1392",
-    "estadoCobranza": "",
+    "estadoCobranza": "23",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": "22"
+    "col": "22",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-252",
-    "filaExcel": 252,
+    "filaExcel": 253,
     "fecha": "2026-05-15",
     "semana": "20",
     "ot": "4425",
@@ -11521,12 +12068,12 @@ const OBRAS_MADRE_FACTURACION = [
     "produccion": {
       "fechaCompromiso": "2026-06-06",
       "fechaReal": "2026-06-09",
-      "dias": 22
+      "dias": "22"
     },
     "colocacion": {
       "fechaCompromiso": "2026-05-30",
       "fechaReal": "",
-      "dias": 15
+      "dias": "15"
     },
     "facturacion": {
       "oc": "",
@@ -11534,7 +12081,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-06-08",
       "nroFactura": "1402",
-      "estadoCobranza": ""
+      "estadoCobranza": "25"
     },
     "oc": "",
     "op": "",
@@ -11543,15 +12090,17 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-08",
     "nroFactura": "1402",
     "numeroFactura": "1402",
-    "estadoCobranza": "",
+    "estadoCobranza": "25",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": ""
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-253",
-    "filaExcel": 253,
+    "filaExcel": 254,
     "fecha": "2026-05-19",
     "semana": "21",
     "ot": "4427",
@@ -11572,7 +12121,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-22",
       "fechaReal": "",
-      "dias": 3
+      "dias": "3"
     },
     "facturacion": {
       "oc": "",
@@ -11593,53 +12142,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "21",
-    "col": "21"
-  },
-  {
-    "id": "excel-254",
-    "filaExcel": 254,
-    "fecha": "2026-05-19",
-    "semana": "21,",
-    "ot": "",
-    "descripcion": "Ploteo de piso Roots",
-    "arquitecto": "Pablo Aciar",
-    "cliente": "Roots",
-    "vendedor": "",
-    "precioVentaNeto": 0.0,
-    "precioVentaBruto": 0.0,
-    "gastos": 0,
-    "sector": "Producción",
-    "estado": "Entregado",
-    "produccion": {
-      "fechaCompromiso": "2026-06-01",
-      "fechaReal": "2026-06-03",
-      "dias": 13
-    },
-    "colocacion": {
-      "fechaCompromiso": "2026-05-23",
-      "fechaReal": "",
-      "dias": 4
-    },
-    "facturacion": {
-      "oc": "",
-      "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": ""
-    },
-    "oc": "",
-    "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
-    "estadoCobranza": "",
-    "comentarios": "",
-    "comentarioInterno": "",
-    "prod": "23",
-    "col": ""
+    "col": "21",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-255",
@@ -11664,7 +12169,7 @@ const OBRAS_MADRE_FACTURACION = [
     "colocacion": {
       "fechaCompromiso": "2026-05-22",
       "fechaReal": "",
-      "dias": 3
+      "dias": "3"
     },
     "facturacion": {
       "oc": "",
@@ -11672,7 +12177,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-06-01",
       "nroFactura": "1394",
-      "estadoCobranza": ""
+      "estadoCobranza": "23"
     },
     "oc": "",
     "op": "",
@@ -11681,11 +12186,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-01",
     "nroFactura": "1394",
     "numeroFactura": "1394",
-    "estadoCobranza": "",
+    "estadoCobranza": "23",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": "22"
+    "col": "22",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-256",
@@ -11695,7 +12202,7 @@ const OBRAS_MADRE_FACTURACION = [
     "ot": "4404",
     "descripcion": "Plastico corrugado impreso Anticipo",
     "arquitecto": "Mar",
-    "cliente": "Telered",
+    "cliente": "Tele Red",
     "vendedor": "J",
     "precioVentaNeto": 900000.0,
     "precioVentaBruto": 1089000.0,
@@ -11705,12 +12212,12 @@ const OBRAS_MADRE_FACTURACION = [
     "produccion": {
       "fechaCompromiso": "2026-06-02",
       "fechaReal": "2026-06-02",
-      "dias": 14
+      "dias": "14"
     },
     "colocacion": {
       "fechaCompromiso": "2026-06-01",
       "fechaReal": "",
-      "dias": 13
+      "dias": "13"
     },
     "facturacion": {
       "oc": "10909",
@@ -11718,7 +12225,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "10909",
       "fechaFactura": "2026-06-01",
       "nroFactura": "1391",
-      "estadoCobranza": ""
+      "estadoCobranza": "26"
     },
     "oc": "10909",
     "op": "",
@@ -11727,22 +12234,24 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-01",
     "nroFactura": "1391",
     "numeroFactura": "1391",
-    "estadoCobranza": "",
+    "estadoCobranza": "26",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": ""
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-257",
+    "id": "excel-256",
     "filaExcel": 257,
     "fecha": "2026-05-19",
     "semana": "21",
     "ot": "4404",
     "descripcion": "Plastico corrugado impreso Saldo",
     "arquitecto": "Mar",
-    "cliente": "Telered",
-    "vendedor": "",
+    "cliente": "Tele Red",
+    "vendedor": "J",
     "precioVentaNeto": 900000.0,
     "precioVentaBruto": 1089000.0,
     "gastos": 0,
@@ -11764,7 +12273,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "1391",
-      "estadoCobranza": ""
+      "estadoCobranza": "26"
     },
     "oc": "",
     "op": "",
@@ -11773,11 +12282,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "1391",
     "numeroFactura": "1391",
-    "estadoCobranza": "",
+    "estadoCobranza": "26",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": ""
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-258",
@@ -11797,12 +12308,12 @@ const OBRAS_MADRE_FACTURACION = [
     "produccion": {
       "fechaCompromiso": "2026-06-01",
       "fechaReal": "2026-06-02",
-      "dias": 13
+      "dias": "13"
     },
     "colocacion": {
       "fechaCompromiso": "2026-05-29",
       "fechaReal": "",
-      "dias": 10
+      "dias": "10"
     },
     "facturacion": {
       "oc": "",
@@ -11810,7 +12321,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-05-20",
       "nroFactura": "1383",
-      "estadoCobranza": ""
+      "estadoCobranza": "25"
     },
     "oc": "",
     "op": "",
@@ -11819,11 +12330,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-05-20",
     "nroFactura": "1383",
     "numeroFactura": "1383",
-    "estadoCobranza": "",
+    "estadoCobranza": "25",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": ""
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-259",
@@ -11837,18 +12350,18 @@ const OBRAS_MADRE_FACTURACION = [
     "vendedor": "",
     "precioVentaNeto": 3187500.0,
     "precioVentaBruto": 3856875.0,
-    "gastos": 2400000.0,
+    "gastos": 300000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
       "fechaCompromiso": "2026-06-06",
       "fechaReal": "2026-06-09",
-      "dias": 17
+      "dias": "17"
     },
     "colocacion": {
-      "fechaCompromiso": "2026-07-06",
+      "fechaCompromiso": "",
       "fechaReal": "",
-      "dias": 47
+      "dias": "-46162"
     },
     "facturacion": {
       "oc": "J0543",
@@ -11869,7 +12382,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": ""
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-260",
@@ -11883,13 +12398,13 @@ const OBRAS_MADRE_FACTURACION = [
     "vendedor": "",
     "precioVentaNeto": 2995511.38,
     "precioVentaBruto": 3624568.77,
-    "gastos": 1000000.0,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-16",
-      "fechaReal": "",
-      "dias": 25
+      "fechaReal": "2026-06-28",
+      "dias": "25"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -11897,25 +12412,27 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "ON9285",
       "op": "",
-      "ocOp": "",
+      "ocOp": "ON9285",
       "fechaFactura": "2026-06-17",
       "nroFactura": "1406",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "ON9285",
     "op": "",
-    "ocOp": "",
+    "ocOp": "ON9285",
     "fechaFactura": "2026-06-17",
     "fFactura": "2026-06-17",
     "nroFactura": "1406",
     "numeroFactura": "1406",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "Cargada en el portal",
     "comentarioInterno": "",
     "prod": "24",
-    "col": "24"
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-261",
@@ -11935,7 +12452,7 @@ const OBRAS_MADRE_FACTURACION = [
     "produccion": {
       "fechaCompromiso": "2026-06-02",
       "fechaReal": "2026-06-03",
-      "dias": 11
+      "dias": "11"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -11948,7 +12465,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-06-10",
       "nroFactura": "1403",
-      "estadoCobranza": ""
+      "estadoCobranza": "26"
     },
     "oc": "",
     "op": "",
@@ -11957,11 +12474,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-10",
     "nroFactura": "1403",
     "numeroFactura": "1403",
-    "estadoCobranza": "",
+    "estadoCobranza": "26",
     "comentarios": "Falta una impresion y una lona",
     "comentarioInterno": "",
     "prod": "23",
-    "col": ""
+    "col": "23",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-262",
@@ -11981,7 +12500,7 @@ const OBRAS_MADRE_FACTURACION = [
     "produccion": {
       "fechaCompromiso": "2026-06-02",
       "fechaReal": "2026-06-05",
-      "dias": 5
+      "dias": "5"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -11994,7 +12513,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-06-01",
       "nroFactura": "1390",
-      "estadoCobranza": ""
+      "estadoCobranza": "25"
     },
     "oc": "",
     "op": "",
@@ -12003,11 +12522,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-01",
     "nroFactura": "1390",
     "numeroFactura": "1390",
-    "estadoCobranza": "",
+    "estadoCobranza": "25",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "23",
-    "col": "24"
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-263",
@@ -12021,13 +12542,13 @@ const OBRAS_MADRE_FACTURACION = [
     "vendedor": "",
     "precioVentaNeto": 11150788.0,
     "precioVentaBruto": 13492453.48,
-    "gastos": 6000000.0,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "2026-06-09",
       "fechaReal": "",
-      "dias": 12
+      "dias": "12"
     },
     "colocacion": {
       "fechaCompromiso": "2026-06-24",
@@ -12038,22 +12559,24 @@ const OBRAS_MADRE_FACTURACION = [
       "oc": "",
       "op": "",
       "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "fechaFactura": "2026-06-27",
+      "nroFactura": "146",
       "estadoCobranza": ""
     },
     "oc": "",
     "op": "",
     "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "fechaFactura": "2026-06-27",
+    "fFactura": "2026-06-27",
+    "nroFactura": "146",
+    "numeroFactura": "146",
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "25",
+    "col": "27",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-264",
@@ -12065,7 +12588,7 @@ const OBRAS_MADRE_FACTURACION = [
     "arquitecto": "Noelia",
     "cliente": "Ases y reinas",
     "vendedor": "",
-    "precioVentaNeto": 165289.26,
+    "precioVentaNeto": 165289.2562,
     "precioVentaBruto": 200000.0,
     "gastos": 0,
     "sector": "Producción",
@@ -12086,7 +12609,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "",
-      "estadoCobranza": ""
+      "estadoCobranza": "23"
     },
     "oc": "",
     "op": "",
@@ -12095,11 +12618,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "",
     "numeroFactura": "",
-    "estadoCobranza": "",
+    "estadoCobranza": "23",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": "22"
+    "col": "22",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-265",
@@ -12112,17 +12637,17 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 4837449.47,
-    "precioVentaBruto": 5853313.86,
-    "gastos": 1500000.0,
+    "precioVentaBruto": 5853313.859,
+    "gastos": 200000.0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-20",
-      "fechaReal": "",
-      "dias": 23
+      "fechaReal": "2026-06-20",
+      "dias": "23"
     },
     "colocacion": {
-      "fechaCompromiso": "2026-06-18",
+      "fechaCompromiso": "",
       "fechaReal": "",
       "dias": ""
     },
@@ -12132,7 +12657,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "ON9270",
       "fechaFactura": "2026-06-14",
       "nroFactura": "145",
-      "estadoCobranza": ""
+      "estadoCobranza": "16/07"
     },
     "oc": "ON9270",
     "op": "",
@@ -12141,11 +12666,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-14",
     "nroFactura": "145",
     "numeroFactura": "145",
-    "estadoCobranza": "",
-    "comentarios": "",
+    "estadoCobranza": "16/07",
+    "comentarios": "Subida al portal el 01/07 $4,837,449,47",
     "comentarioInterno": "",
     "prod": "26",
-    "col": ""
+    "col": "29",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-266",
@@ -12191,7 +12718,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "22",
-    "col": "22"
+    "col": "22",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-267",
@@ -12204,17 +12733,17 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 3857897.84,
-    "precioVentaBruto": 4668056.39,
-    "gastos": 2000000.0,
+    "precioVentaBruto": 4668056.386,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "2026-06-20",
-      "fechaReal": "",
-      "dias": 22
+      "fechaReal": "2026-06-25",
+      "dias": "22"
     },
     "colocacion": {
-      "fechaCompromiso": "2026-06-18",
+      "fechaCompromiso": "",
       "fechaReal": "",
       "dias": ""
     },
@@ -12234,10 +12763,12 @@ const OBRAS_MADRE_FACTURACION = [
     "nroFactura": "1400",
     "numeroFactura": "1400",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "falta recepcion, reclamada a eugenia el 27/07",
     "comentarioInterno": "",
     "prod": "25",
-    "col": ""
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-268",
@@ -12250,17 +12781,17 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 4610569.61,
-    "precioVentaBruto": 5578789.23,
-    "gastos": 2000000.0,
+    "precioVentaBruto": 5578789.228,
+    "gastos": 500000.0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Cobrado Pendiente",
     "produccion": {
       "fechaCompromiso": "2026-06-20",
       "fechaReal": "",
-      "dias": 22
+      "dias": "22"
     },
     "colocacion": {
-      "fechaCompromiso": "2026-05-29",
+      "fechaCompromiso": "",
       "fechaReal": "",
       "dias": ""
     },
@@ -12282,8 +12813,10 @@ const OBRAS_MADRE_FACTURACION = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "25",
-    "col": ""
+    "prod": "28",
+    "col": "30",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-269",
@@ -12297,13 +12830,13 @@ const OBRAS_MADRE_FACTURACION = [
     "vendedor": "",
     "precioVentaNeto": 10386517.86,
     "precioVentaBruto": 12567686.61,
-    "gastos": 6000000.0,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-13",
       "fechaReal": "2026-06-13",
-      "dias": 15
+      "dias": "15"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -12316,7 +12849,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "AO 30144",
       "fechaFactura": "2026-06-06",
       "nroFactura": "144",
-      "estadoCobranza": ""
+      "estadoCobranza": "22/07"
     },
     "oc": "AO 30144",
     "op": "",
@@ -12325,11 +12858,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-06",
     "nroFactura": "144",
     "numeroFactura": "144",
-    "estadoCobranza": "",
-    "comentarios": "",
+    "estadoCobranza": "22/07",
+    "comentarios": "Ingresada al portal el 08/07",
     "comentarioInterno": "",
     "prod": "24",
-    "col": "26"
+    "col": "27",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-270",
@@ -12342,14 +12877,14 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 4268112.2,
-    "precioVentaBruto": 5164415.76,
-    "gastos": 2500000.0,
+    "precioVentaBruto": 5164415.762,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-13",
       "fechaReal": "2026-06-13",
-      "dias": 15
+      "dias": "15"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -12362,7 +12897,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "AO 30144",
       "fechaFactura": "2026-06-06",
       "nroFactura": "144",
-      "estadoCobranza": ""
+      "estadoCobranza": "22/07"
     },
     "oc": "AO 30144",
     "op": "",
@@ -12371,11 +12906,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-06",
     "nroFactura": "144",
     "numeroFactura": "144",
-    "estadoCobranza": "",
-    "comentarios": "",
+    "estadoCobranza": "22/07",
+    "comentarios": "Ingresada al portal el 08/07",
     "comentarioInterno": "",
     "prod": "24",
-    "col": "25"
+    "col": "25",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-271",
@@ -12389,13 +12926,13 @@ const OBRAS_MADRE_FACTURACION = [
     "vendedor": "",
     "precioVentaNeto": 52000.0,
     "precioVentaBruto": 62920.0,
-    "gastos": 30000.0,
+    "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "2026-06-03",
       "fechaReal": "",
-      "dias": 2
+      "dias": "2"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -12421,7 +12958,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "24",
-    "col": "24"
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-272",
@@ -12441,7 +12980,7 @@ const OBRAS_MADRE_FACTURACION = [
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
-      "dias": -46176
+      "dias": "-46176"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -12467,7 +13006,9 @@ const OBRAS_MADRE_FACTURACION = [
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "24",
-    "col": "24"
+    "col": "24",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-273",
@@ -12483,7 +13024,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 368880.6,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-18",
       "fechaReal": "2026-06-18",
@@ -12510,10 +13051,12 @@ const OBRAS_MADRE_FACTURACION = [
     "nroFactura": "1396",
     "numeroFactura": "1396",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "Reclamado a Valentina el 28/07",
     "comentarioInterno": "",
     "prod": "25",
-    "col": "25"
+    "col": "25",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-274",
@@ -12556,10 +13099,12 @@ const OBRAS_MADRE_FACTURACION = [
     "nroFactura": "1397",
     "numeroFactura": "1397",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "Reclamado a Valentina el 28/07",
     "comentarioInterno": "",
     "prod": "25",
-    "col": "25"
+    "col": "25",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-275",
@@ -12575,7 +13120,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 5389340.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-12",
       "fechaReal": "",
@@ -12592,7 +13137,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "2026-06-08",
       "nroFactura": "1401",
-      "estadoCobranza": ""
+      "estadoCobranza": "27"
     },
     "oc": "",
     "op": "",
@@ -12601,11 +13146,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-08",
     "nroFactura": "1401",
     "numeroFactura": "1401",
-    "estadoCobranza": "",
+    "estadoCobranza": "27",
     "comentarios": "",
     "comentarioInterno": "",
     "prod": "24",
-    "col": ""
+    "col": "25",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-276",
@@ -12618,7 +13165,7 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 60436.22,
-    "precioVentaBruto": 73127.83,
+    "precioVentaBruto": 73127.8262,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
@@ -12636,22 +13183,24 @@ const OBRAS_MADRE_FACTURACION = [
       "oc": "OH23694",
       "op": "",
       "ocOp": "OH23694",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": ""
+      "fechaFactura": "2026-06-25",
+      "nroFactura": "1410",
+      "estadoCobranza": "27/07"
     },
     "oc": "OH23694",
     "op": "",
     "ocOp": "OH23694",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
-    "estadoCobranza": "",
-    "comentarios": "Solicitu de recepcion y de OH",
+    "fechaFactura": "2026-06-25",
+    "fFactura": "2026-06-25",
+    "nroFactura": "1410",
+    "numeroFactura": "1410",
+    "estadoCobranza": "27/07",
+    "comentarios": "Cheque emitido fecha 30/07",
     "comentarioInterno": "",
     "prod": "25",
-    "col": "26"
+    "col": "26",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-277",
@@ -12664,14 +13213,14 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Jumbalay",
     "vendedor": "",
     "precioVentaNeto": 32748.8,
-    "precioVentaBruto": 39626.05,
+    "precioVentaBruto": 39626.048,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
-      "dias": -46178
+      "dias": "-46178"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -12696,8 +13245,10 @@ const OBRAS_MADRE_FACTURACION = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "26",
+    "col": "26",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-278",
@@ -12713,11 +13264,11 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 652190.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Entregado",
     "produccion": {
-      "fechaCompromiso": "",
-      "fechaReal": "",
-      "dias": ""
+      "fechaCompromiso": "2026-06-22",
+      "fechaReal": "2026-06-22",
+      "dias": "5"
     },
     "colocacion": {
       "fechaCompromiso": "",
@@ -12740,10 +13291,12 @@ const OBRAS_MADRE_FACTURACION = [
     "nroFactura": "",
     "numeroFactura": "",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "Pago parcial de 300,000",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "26",
+    "col": "27",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-279",
@@ -12776,7 +13329,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "",
       "fechaFactura": "",
       "nroFactura": "",
-      "estadoCobranza": ""
+      "estadoCobranza": "26"
     },
     "oc": "",
     "op": "",
@@ -12785,11 +13338,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "",
     "nroFactura": "",
     "numeroFactura": "",
-    "estadoCobranza": "",
+    "estadoCobranza": "26",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "26",
+    "col": "26",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-280",
@@ -12805,7 +13360,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 153912.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -12834,54 +13389,58 @@ const OBRAS_MADRE_FACTURACION = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "26",
+    "col": "26",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-281",
     "filaExcel": 281,
     "fecha": "2026-06-19",
     "semana": "25",
-    "ot": "4479",
+    "ot": "",
     "descripcion": "Carteleria interna + externa Suc 134 Salta",
     "arquitecto": "Santiago Pelecq",
     "cliente": "Farmacity",
-    "vendedor": "",
+    "vendedor": "G",
     "precioVentaNeto": 8282565.64,
     "precioVentaBruto": 10021904.42,
     "gastos": 0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-24",
       "fechaReal": "",
-      "dias": -46192
+      "dias": "35"
     },
     "colocacion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-08-04",
       "fechaReal": "",
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "ON9298",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "ON9298",
+      "fechaFactura": "2026-07-13",
+      "nroFactura": "149",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "ON9298",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "ON9298",
+    "fechaFactura": "2026-07-13",
+    "fFactura": "2026-07-13",
+    "nroFactura": "149",
+    "numeroFactura": "149",
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "30",
+    "col": "32",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-282",
@@ -12894,40 +13453,42 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 939016.64,
-    "precioVentaBruto": 1136210.13,
+    "precioVentaBruto": 1136210.134,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Entregado",
     "produccion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-01",
       "fechaReal": "",
-      "dias": ""
+      "dias": "12"
     },
     "colocacion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-07",
       "fechaReal": "",
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "ON9298",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "ON9298",
+      "fechaFactura": "2026-07-13",
+      "nroFactura": "149",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "ON9298",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "ON9298",
+    "fechaFactura": "2026-07-13",
+    "fFactura": "2026-07-13",
+    "nroFactura": "149",
+    "numeroFactura": "149",
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "26",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-283",
@@ -12940,40 +13501,42 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 6768945.04,
-    "precioVentaBruto": 8190423.5,
-    "gastos": 0,
+    "precioVentaBruto": 8190423.498,
+    "gastos": 2000000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-24",
       "fechaReal": "",
       "dias": ""
     },
     "colocacion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-08-28",
       "fechaReal": "",
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "ON9294",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "ON9294",
+      "fechaFactura": "2026-07-13",
+      "nroFactura": "150",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "ON9294",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "ON9294",
+    "fechaFactura": "2026-07-13",
+    "fFactura": "2026-07-13",
+    "nroFactura": "150",
+    "numeroFactura": "150",
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "30",
+    "col": "32",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-284",
@@ -12986,12 +13549,12 @@ const OBRAS_MADRE_FACTURACION = [
     "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 339307.49,
-    "precioVentaBruto": 410562.06,
+    "precioVentaBruto": 410562.0629,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Entregado",
     "produccion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-01",
       "fechaReal": "",
       "dias": ""
     },
@@ -13001,25 +13564,27 @@ const OBRAS_MADRE_FACTURACION = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "",
+      "oc": "ON9294",
       "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "ocOp": "ON9294",
+      "fechaFactura": "2026-07-13",
+      "nroFactura": "150",
       "estadoCobranza": ""
     },
-    "oc": "",
+    "oc": "ON9294",
     "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "ocOp": "ON9294",
+    "fechaFactura": "2026-07-13",
+    "fFactura": "2026-07-13",
+    "nroFactura": "150",
+    "numeroFactura": "150",
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "27",
+    "col": "29",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-285",
@@ -13033,39 +13598,41 @@ const OBRAS_MADRE_FACTURACION = [
     "vendedor": "",
     "precioVentaNeto": 13367520.0,
     "precioVentaBruto": 16174699.2,
-    "gastos": 0,
+    "gastos": 500000.0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Entregado",
     "produccion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-09",
       "fechaReal": "",
       "dias": ""
     },
     "colocacion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-11",
       "fechaReal": "",
-      "dias": ""
+      "dias": "40"
     },
     "facturacion": {
       "oc": "",
       "op": "",
       "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "fechaFactura": "2026-07-04",
+      "nroFactura": "147",
       "estadoCobranza": ""
     },
     "oc": "",
     "op": "",
     "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "fechaFactura": "2026-07-04",
+    "fFactura": "2026-07-04",
+    "nroFactura": "147",
+    "numeroFactura": "147",
     "estadoCobranza": "",
-    "comentarios": "",
+    "comentarios": "Sabado 11 se deberia terminar",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "27",
+    "col": "29",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-286",
@@ -13081,7 +13648,7 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 1535187.5,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -13098,7 +13665,7 @@ const OBRAS_MADRE_FACTURACION = [
       "ocOp": "6642",
       "fechaFactura": "2026-06-25",
       "nroFactura": "1409",
-      "estadoCobranza": ""
+      "estadoCobranza": "26"
     },
     "oc": "6642",
     "op": "",
@@ -13107,11 +13674,13 @@ const OBRAS_MADRE_FACTURACION = [
     "fFactura": "2026-06-25",
     "nroFactura": "1409",
     "numeroFactura": "1409",
-    "estadoCobranza": "",
+    "estadoCobranza": "26",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "27",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-287",
@@ -13127,9 +13696,9 @@ const OBRAS_MADRE_FACTURACION = [
     "precioVentaBruto": 1535187.5,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "cobrado",
     "produccion": {
-      "fechaCompromiso": "",
+      "fechaCompromiso": "2026-07-03",
       "fechaReal": "",
       "dias": ""
     },
@@ -13142,22 +13711,24 @@ const OBRAS_MADRE_FACTURACION = [
       "oc": "6642",
       "op": "",
       "ocOp": "6642",
-      "fechaFactura": "",
-      "nroFactura": "",
+      "fechaFactura": "2026-07-22",
+      "nroFactura": "1425",
       "estadoCobranza": ""
     },
     "oc": "6642",
     "op": "",
     "ocOp": "6642",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
+    "fechaFactura": "2026-07-22",
+    "fFactura": "2026-07-22",
+    "nroFactura": "1425",
+    "numeroFactura": "1425",
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "27",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-288",
@@ -13169,9 +13740,441 @@ const OBRAS_MADRE_FACTURACION = [
     "arquitecto": "Adrian",
     "cliente": "Ejercito Argentino",
     "vendedor": "",
-    "precioVentaNeto": 380165.29,
-    "precioVentaBruto": 460000.0,
+    "precioVentaNeto": 309917.3554,
+    "precioVentaBruto": 375000.0,
+    "gastos": 50000.0,
+    "sector": "Producción",
+    "estado": "Cobrado Pendiente",
+    "produccion": {
+      "fechaCompromiso": "2026-07-03",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "27",
+    "col": "30",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-289",
+    "filaExcel": 289,
+    "fecha": "2026-06-26",
+    "semana": "26",
+    "ot": "4467",
+    "descripcion": "PLaca DT Caraballo Suc 146",
+    "arquitecto": "Florencia Muñoz",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 30436.0,
+    "precioVentaBruto": 36827.56,
     "gastos": 0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "OH23822",
+      "op": "",
+      "ocOp": "OH23822",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1414",
+      "estadoCobranza": ""
+    },
+    "oc": "OH23822",
+    "op": "",
+    "ocOp": "OH23822",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1414",
+    "numeroFactura": "1414",
+    "estadoCobranza": "",
+    "comentarios": "Cheque emitido fecha 06/08",
+    "comentarioInterno": "",
+    "prod": "25",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-290",
+    "filaExcel": 290,
+    "fecha": "2026-06-27",
+    "semana": "26",
+    "ot": "4492",
+    "descripcion": "Corporeos salientes Anticipo 25%",
+    "arquitecto": "Mica Datri",
+    "cliente": "River Plate",
+    "vendedor": "G",
+    "precioVentaNeto": 4575000.0,
+    "precioVentaBruto": 5535750.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "28500",
+      "op": "",
+      "ocOp": "28500",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1412",
+      "estadoCobranza": ""
+    },
+    "oc": "28500",
+    "op": "",
+    "ocOp": "28500",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1412",
+    "numeroFactura": "1412",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "29",
+    "col": "31",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-291",
+    "filaExcel": 291,
+    "fecha": "2026-06-27",
+    "semana": "26",
+    "ot": "4492",
+    "descripcion": "Corporeos salientes Saldo 75%",
+    "arquitecto": "Mica Datri",
+    "cliente": "River Plate",
+    "vendedor": "G",
+    "precioVentaNeto": 13725000.0,
+    "precioVentaBruto": 16607250.0,
+    "gastos": 5500000.0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "2026-07-29",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "28500",
+      "op": "",
+      "ocOp": "28500",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "28500",
+    "op": "",
+    "ocOp": "28500",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "31",
+    "col": "31",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-292",
+    "filaExcel": 292,
+    "fecha": "2026-06-27",
+    "semana": "26",
+    "ot": "4472",
+    "descripcion": "Cambio de lona backlight en altura",
+    "arquitecto": "Mica Datri",
+    "cliente": "River Plate",
+    "vendedor": "G",
+    "precioVentaNeto": 2124000.0,
+    "precioVentaBruto": 2570040.0,
+    "gastos": 350000.0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "2026-07-29",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "28",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-293",
+    "filaExcel": 293,
+    "fecha": "2026-07-02",
+    "semana": "27",
+    "ot": "4442",
+    "descripcion": "Vinilo de corte + circulos",
+    "arquitecto": "Fiorela Monesiglio",
+    "cliente": "Ases y Reinas",
+    "vendedor": "G",
+    "precioVentaNeto": 777300.0,
+    "precioVentaBruto": 940533.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-21",
+      "nroFactura": "1422",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-21",
+    "fFactura": "2026-07-21",
+    "nroFactura": "1422",
+    "numeroFactura": "1422",
+    "estadoCobranza": "",
+    "comentarios": "Ingresa el pago e 29/07",
+    "comentarioInterno": "",
+    "prod": "28",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-294",
+    "filaExcel": 294,
+    "fecha": "2026-07-02",
+    "semana": "27",
+    "ot": "4497 1,4",
+    "descripcion": "Estructura dehierro + Lona Front",
+    "arquitecto": "Juan Ignacio Bari",
+    "cliente": "Aviaser - Cessna",
+    "vendedor": "G",
+    "precioVentaNeto": 550000.0,
+    "precioVentaBruto": 665500.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1413",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1413",
+    "numeroFactura": "1413",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "28",
+    "col": "28",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-295",
+    "filaExcel": 295,
+    "fecha": "2026-07-02",
+    "semana": "",
+    "ot": "",
+    "descripcion": "Riestra agregar 10cm de gris afuera +vinilo negro numeracion",
+    "arquitecto": "Agustin Gastaldi",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 0.0,
+    "precioVentaBruto": 0.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "28",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-296",
+    "filaExcel": 296,
+    "fecha": "2026-07-08",
+    "semana": "28",
+    "ot": "",
+    "descripcion": "Vinilo impreso etiquetas",
+    "arquitecto": "Paula Nuñez",
+    "cliente": "Ceramica Alberdi",
+    "vendedor": "G",
+    "precioVentaNeto": 65811.24,
+    "precioVentaBruto": 79631.6004,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "28",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-297",
+    "filaExcel": 297,
+    "fecha": "2026-07-09",
+    "semana": "28",
+    "ot": "4524",
+    "descripcion": "Carteleria interna + vidriera suc 61 Congreso",
+    "arquitecto": "Maggie Zucchi",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 1611818.19,
+    "precioVentaBruto": 1950300.01,
+    "gastos": 250000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -13202,24 +14205,26 @@ const OBRAS_MADRE_FACTURACION = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "29",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
-    "id": "excel-289",
-    "filaExcel": 289,
-    "fecha": "",
-    "semana": "",
-    "ot": "",
-    "descripcion": "Pendientes Moldes",
-    "arquitecto": "",
-    "cliente": "",
-    "vendedor": "",
-    "precioVentaNeto": 0,
-    "precioVentaBruto": 0,
+    "id": "excel-298",
+    "filaExcel": 298,
+    "fecha": "2026-07-09",
+    "semana": "28",
+    "ot": "4526",
+    "descripcion": "Telon de ajuste suc 51 Incas",
+    "arquitecto": "Florencia Muñoz",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 121021.17,
+    "precioVentaBruto": 146435.6157,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "",
+    "estado": "Entregado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -13248,12 +14253,110 @@ const OBRAS_MADRE_FACTURACION = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
-    "col": ""
+    "prod": "29",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-299",
+    "filaExcel": 299,
+    "fecha": "2026-07-09",
+    "semana": "28",
+    "ot": "4527",
+    "descripcion": "Carteleria interna + externa Suc 418 Godoy Cruz",
+    "arquitecto": "Victoria Pumarega",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 3670249.99,
+    "precioVentaBruto": 4441002.488,
+    "gastos": 1000000.0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "2026-09-28",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "ON30351",
+      "op": "",
+      "ocOp": "ON30351",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "ON30351",
+    "op": "",
+    "ocOp": "ON30351",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-300",
+    "filaExcel": 300,
+    "fecha": "",
+    "semana": "",
+    "ot": "",
+    "descripcion": "Placas DT x3 126-340-149",
+    "arquitecto": "Lautaro",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 89553.0,
+    "precioVentaBruto": 184137.8,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "OH23835",
+      "op": "",
+      "ocOp": "OH23835",
+      "fechaFactura": "2026-07-02",
+      "nroFactura": "1415",
+      "estadoCobranza": ""
+    },
+    "oc": "OH23835",
+    "op": "",
+    "ocOp": "OH23835",
+    "fechaFactura": "2026-07-02",
+    "fFactura": "2026-07-02",
+    "nroFactura": "1415",
+    "numeroFactura": "1415",
+    "estadoCobranza": "",
+    "comentarios": "Cheque emitido fecha 06/08",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-290",
-    "filaExcel": 290,
+    "filaExcel": 301,
     "fecha": "",
     "semana": "",
     "ot": "",
@@ -13280,26 +14383,28 @@ const OBRAS_MADRE_FACTURACION = [
       "oc": "OH23694",
       "op": "",
       "ocOp": "OH23694",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": ""
+      "fechaFactura": "2026-06-25",
+      "nroFactura": "1410",
+      "estadoCobranza": "27/07"
     },
     "oc": "OH23694",
     "op": "",
     "ocOp": "OH23694",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
-    "estadoCobranza": "",
-    "comentarios": "Solicitu de recepcion y de OH",
+    "fechaFactura": "2026-06-25",
+    "fFactura": "2026-06-25",
+    "nroFactura": "1410",
+    "numeroFactura": "1410",
+    "estadoCobranza": "27/07",
+    "comentarios": "Cheque emitido fecha 30/07",
     "comentarioInterno": "",
     "prod": "25",
-    "col": "26"
+    "col": "26",
+    "cobrador": "",
+    "extracostos": 0
   },
   {
     "id": "excel-291",
-    "filaExcel": 291,
+    "filaExcel": 302,
     "fecha": "",
     "semana": "",
     "ot": "",
@@ -13326,110 +14431,1271 @@ const OBRAS_MADRE_FACTURACION = [
       "oc": "OH23694",
       "op": "",
       "ocOp": "OH23694",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": ""
+      "fechaFactura": "2026-06-25",
+      "nroFactura": "1410",
+      "estadoCobranza": "27/07"
     },
     "oc": "OH23694",
     "op": "",
     "ocOp": "OH23694",
+    "fechaFactura": "2026-06-25",
+    "fFactura": "2026-06-25",
+    "nroFactura": "1410",
+    "numeroFactura": "1410",
+    "estadoCobranza": "27/07",
+    "comentarios": "Cheque emitido fecha 30/07",
+    "comentarioInterno": "",
+    "prod": "25",
+    "col": "26",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-303",
+    "filaExcel": 303,
+    "fecha": "2026-07-10",
+    "semana": "28",
+    "ot": "4484",
+    "descripcion": "Corporeos Ale Spa",
+    "arquitecto": "Fabian Valenzuela",
+    "cliente": "Coris",
+    "vendedor": "G",
+    "precioVentaNeto": 362500.0,
+    "precioVentaBruto": 438625.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
     "fechaFactura": "",
     "fFactura": "",
     "nroFactura": "",
     "numeroFactura": "",
     "estadoCobranza": "",
-    "comentarios": "Solicitu de recepcion y de OH",
+    "comentarios": "",
     "comentarioInterno": "",
-    "prod": "25",
-    "col": "26"
+    "prod": "29",
+    "col": "29",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-304",
+    "filaExcel": 304,
+    "fecha": "2026-07-10",
+    "semana": "28",
+    "ot": "4528",
+    "descripcion": "Impresion cuerina Pelotas",
+    "arquitecto": "Ruben Manzione",
+    "cliente": "Ruben Manzione",
+    "vendedor": "G",
+    "precioVentaNeto": 32500.0,
+    "precioVentaBruto": 0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-305",
+    "filaExcel": 305,
+    "fecha": "2026-07-13",
+    "semana": "29",
+    "ot": "4529",
+    "descripcion": "Estructura de hierro + Lona Front",
+    "arquitecto": "Matias Camozzi",
+    "cliente": "360 Lion",
+    "vendedor": "G",
+    "precioVentaNeto": 1812200.0,
+    "precioVentaBruto": 2192762.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "2026-07-18",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "29",
+    "col": "30",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-306",
+    "filaExcel": 306,
+    "fecha": "2026-07-13",
+    "semana": "29",
+    "ot": "4521",
+    "descripcion": "Carteleria Externa Florida 20",
+    "arquitecto": "Maggy Zucchi",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 8018816.2,
+    "precioVentaBruto": 9702767.602,
+    "gastos": 2750000.0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-190",
+    "filaExcel": 307,
+    "fecha": "2026-07-13",
+    "semana": "29",
+    "ot": "4525",
+    "descripcion": "Tanda 4 San justo - Avellaneda - jose C Paz - San justo",
+    "arquitecto": "Barbara Merenda",
+    "cliente": "Coppel",
+    "vendedor": "J/G",
+    "precioVentaNeto": 9287164.0,
+    "precioVentaBruto": 11237468.44,
+    "gastos": 5000000.0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "31",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-308",
+    "filaExcel": 308,
+    "fecha": "2026-07-17",
+    "semana": "29",
+    "ot": "4499",
+    "descripcion": "Cambio de Lona de 4 mts x 1,0 mts",
+    "arquitecto": "Noelia Zolorzano",
+    "cliente": "Tele Red",
+    "vendedor": "G",
+    "precioVentaNeto": 120000.0,
+    "precioVentaBruto": 145200.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "2026-07-21",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-309",
+    "filaExcel": 309,
+    "fecha": "",
+    "semana": "",
+    "ot": "",
+    "descripcion": "Carpeta medidas Coppel",
+    "arquitecto": "Juli/Caro",
+    "cliente": "",
+    "vendedor": "G",
+    "precioVentaNeto": 0,
+    "precioVentaBruto": 0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "2026-08-05",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-310",
+    "filaExcel": 310,
+    "fecha": "",
+    "semana": "",
+    "ot": "",
+    "descripcion": "Miniso Faltantes 18 perfiles + PVC",
+    "arquitecto": "",
+    "cliente": "",
+    "vendedor": "G",
+    "precioVentaNeto": 0,
+    "precioVentaBruto": 0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-311",
+    "filaExcel": 311,
+    "fecha": "2026-07-20",
+    "semana": "30",
+    "ot": "4540",
+    "descripcion": "Placa DT rivarola Andrea suc 183",
+    "arquitecto": "Lautaro",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 30436.0,
+    "precioVentaBruto": 36827.56,
+    "gastos": 0.0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-312",
+    "filaExcel": 312,
+    "fecha": "2026-07-20",
+    "semana": "30",
+    "ot": "4542",
+    "descripcion": "Anticipo 50% Darssa Lona Backlit 2da etapa",
+    "arquitecto": "Melu",
+    "cliente": "Tag Heuer",
+    "vendedor": "G",
+    "precioVentaNeto": 537040.8,
+    "precioVentaBruto": 649819.368,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-14",
+      "nroFactura": "1417",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-14",
+    "fFactura": "2026-07-14",
+    "nroFactura": "1417",
+    "numeroFactura": "1417",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-313",
+    "filaExcel": 313,
+    "fecha": "",
+    "semana": "30",
+    "ot": "4542",
+    "descripcion": "Saldo 50% Darssa Lona Backlit 2da etapa",
+    "arquitecto": "Melu",
+    "cliente": "Tag Heuer",
+    "vendedor": "G",
+    "precioVentaNeto": 537040.8,
+    "precioVentaBruto": 649819.368,
+    "gastos": 300000.0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-29",
+      "nroFactura": "1430",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-29",
+    "fFactura": "2026-07-29",
+    "nroFactura": "1430",
+    "numeroFactura": "1430",
+    "estadoCobranza": "",
+    "comentarios": "29/7/2026 se termina, facturado Caro envia FC por wapp y confirma fecha de4 pago",
+    "comentarioInterno": "",
+    "prod": "31",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-314",
+    "filaExcel": 314,
+    "fecha": "2026-07-21",
+    "semana": "30",
+    "ot": "4547",
+    "descripcion": "Anticipo 50% Patentes blancas y negras",
+    "arquitecto": "Valentina",
+    "cliente": "Guarniel",
+    "vendedor": "G",
+    "precioVentaNeto": 278500.0,
+    "precioVentaBruto": 336985.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-20",
+      "nroFactura": "1418",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-20",
+    "fFactura": "2026-07-20",
+    "nroFactura": "1418",
+    "numeroFactura": "1418",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-315",
+    "filaExcel": 315,
+    "fecha": "2026-07-21",
+    "semana": "30",
+    "ot": "4547",
+    "descripcion": "Saldo 50% Patentes blancas y negras",
+    "arquitecto": "Valentina",
+    "cliente": "Guarniel",
+    "vendedor": "G",
+    "precioVentaNeto": 278500.0,
+    "precioVentaBruto": 336985.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-22",
+      "nroFactura": "1427",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-22",
+    "fFactura": "2026-07-22",
+    "nroFactura": "1427",
+    "numeroFactura": "1427",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-316",
+    "filaExcel": 316,
+    "fecha": "2026-07-22",
+    "semana": "30",
+    "ot": "4519",
+    "descripcion": "Pulido Cartel acero inox",
+    "arquitecto": "Mica Datri",
+    "cliente": "River Plate",
+    "vendedor": "G",
+    "precioVentaNeto": 575000.0,
+    "precioVentaBruto": 695750.0,
+    "gastos": 350000.0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "pedir OC facturar y cargar al portal",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-317",
+    "filaExcel": 317,
+    "fecha": "2026-07-22",
+    "semana": "30",
+    "ot": "4530",
+    "descripcion": "Sticker QR",
+    "arquitecto": "Flor",
+    "cliente": "River Plate",
+    "vendedor": "G",
+    "precioVentaNeto": 397620.0,
+    "precioVentaBruto": 481120.2,
+    "gastos": 60000.0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "28727",
+      "op": "",
+      "ocOp": "28727",
+      "fechaFactura": "2026-07-21",
+      "nroFactura": "1421",
+      "estadoCobranza": ""
+    },
+    "oc": "28727",
+    "op": "",
+    "ocOp": "28727",
+    "fechaFactura": "2026-07-21",
+    "fFactura": "2026-07-21",
+    "nroFactura": "1421",
+    "numeroFactura": "1421",
+    "estadoCobranza": "",
+    "comentarios": "cargar rto en el portal de river y cobrar",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-318",
+    "filaExcel": 318,
+    "fecha": "2026-07-22",
+    "semana": "30",
+    "ot": "4538",
+    "descripcion": "Letras corporeas frente metalex",
+    "arquitecto": "Javier",
+    "cliente": "Grupo ITB",
+    "vendedor": "G",
+    "precioVentaNeto": 335000.0,
+    "precioVentaBruto": 405350.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Cobrado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-21",
+      "nroFactura": "1420",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-21",
+    "fFactura": "2026-07-21",
+    "nroFactura": "1420",
+    "numeroFactura": "1420",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-319",
+    "filaExcel": 319,
+    "fecha": "2026-07-22",
+    "semana": "30",
+    "ot": "4536",
+    "descripcion": "Banderas + Refresh Carteles",
+    "arquitecto": "Andres  Merino",
+    "cliente": "Peri",
+    "vendedor": "G",
+    "precioVentaNeto": 3143062.0,
+    "precioVentaBruto": 3803105.02,
+    "gastos": 900000.0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-22",
+      "nroFactura": "1424",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-22",
+    "fFactura": "2026-07-22",
+    "nroFactura": "1424",
+    "numeroFactura": "1424",
+    "estadoCobranza": "",
+    "comentarios": "Pablo averigua si el pago ingresa 30/07",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-320",
+    "filaExcel": 320,
+    "fecha": "2026-07-22",
+    "semana": "30",
+    "ot": "4556",
+    "descripcion": "PLaca DT Suc 342 Silveiro",
+    "arquitecto": "Florencia Muñoz",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 29256.6,
+    "precioVentaBruto": 35400.486,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Entregado",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "Ver si esta la OC y cobrar",
+    "comentarioInterno": "",
+    "prod": "30",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-321",
+    "filaExcel": 321,
+    "fecha": "2026-07-24",
+    "semana": "30",
+    "ot": "4533",
+    "descripcion": "Black Out Lonas",
+    "arquitecto": "Cami Villalva",
+    "cliente": "Black Out",
+    "vendedor": "G",
+    "precioVentaNeto": 3965000.0,
+    "precioVentaBruto": 4797650.0,
+    "gastos": 1500000.0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "Confirmar con Gian si la obra está aprobada",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-322",
+    "filaExcel": 322,
+    "fecha": "2026-07-28",
+    "semana": "31",
+    "ot": "4531",
+    "descripcion": "Acrilicos transparentes Display Antic 50%",
+    "arquitecto": "Tayanna",
+    "cliente": "Miniso",
+    "vendedor": "G",
+    "precioVentaNeto": 994208.6,
+    "precioVentaBruto": 1202992.406,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "2026-07-28",
+      "nroFactura": "1428",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "2026-07-28",
+    "fFactura": "2026-07-28",
+    "nroFactura": "1428",
+    "numeroFactura": "1428",
+    "estadoCobranza": "",
+    "comentarios": "envie la fc x el anticipo - JM, pago ingresa 30/07",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-323",
+    "filaExcel": 323,
+    "fecha": "2026-07-28",
+    "semana": "31",
+    "ot": "4531",
+    "descripcion": "Acrilicos transparentes Display",
+    "arquitecto": "Tayanna",
+    "cliente": "Miniso",
+    "vendedor": "G",
+    "precioVentaNeto": 994208.6,
+    "precioVentaBruto": 1202992.406,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "Esperar a fin de Agosto para facturar",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-324",
+    "filaExcel": 324,
+    "fecha": "2026-07-28",
+    "semana": "31",
+    "ot": "4566",
+    "descripcion": "Juncal II Cartreleria int + Ext",
+    "arquitecto": "Agustin",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 4877981.5,
+    "precioVentaBruto": 5902357.615,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "Aguardar OC",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-325",
+    "filaExcel": 325,
+    "fecha": "2026-07-28",
+    "semana": "31",
+    "ot": "4567",
+    "descripcion": "Telon de Ajuste Suc 216 Monroe",
+    "arquitecto": "Florencia Muñoz",
+    "cliente": "Farmacity",
+    "vendedor": "G",
+    "precioVentaNeto": 162082.73,
+    "precioVentaBruto": 196120.1033,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "Aguardar OC",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-327",
+    "filaExcel": 327,
+    "fecha": "2026-07-29",
+    "semana": "31",
+    "ot": "4570",
+    "descripcion": "Cambio de lona Backlight",
+    "arquitecto": "Juan Martin",
+    "cliente": "Mercantil Andina",
+    "vendedor": "G",
+    "precioVentaNeto": 2519200.0,
+    "precioVentaBruto": 3048232.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "Hacer FC y enviar",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "Jessy",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-328",
+    "filaExcel": 328,
+    "fecha": "2026-07-29",
+    "semana": "31",
+    "ot": "4574",
+    "descripcion": "Impresion de lona",
+    "arquitecto": "Noelia Solorzano",
+    "cliente": "TeleRed",
+    "vendedor": "G",
+    "precioVentaNeto": 0.0,
+    "precioVentaBruto": 0.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-329",
+    "filaExcel": 329,
+    "fecha": "2026-07-29",
+    "semana": "31",
+    "ot": "4575",
+    "descripcion": "Cerco de Obra Tom Shopping",
+    "arquitecto": "Flor Muñoz",
+    "cliente": "Get The Look",
+    "vendedor": "G",
+    "precioVentaNeto": 1707511.4,
+    "precioVentaBruto": 2066088.794,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "",
+      "op": "",
+      "ocOp": "",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "",
+    "op": "",
+    "ocOp": "",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
   }
 ];
-
-function normalizarTexto(v) {
-  return String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function claveObra(o) {
-  return [
-    normalizarTexto(o.ot),
-    normalizarTexto(o.descripcion),
-    normalizarTexto(o.cliente)
-  ].join('|');
-}
-
-function buscarKeyLocalStorage() {
-  const candidatos = ['obras', 'tiz_obras', 'tizObras', 'obrasTiz', 'tiz_app_obras', 'tiz-data', 'tizAppData'];
-  for (const k of candidatos) {
-    try {
-      const v = JSON.parse(localStorage.getItem(k));
-      if (Array.isArray(v)) return k;
-      if (v && Array.isArray(v.obras)) return k;
-    } catch (e) {}
-  }
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    try {
-      const v = JSON.parse(localStorage.getItem(k));
-      if (Array.isArray(v) && v.some(x => x && ('ot' in x || 'OT' in x))) return k;
-      if (v && Array.isArray(v.obras)) return k;
-    } catch (e) {}
-  }
-  return null;
-}
-
-(function actualizarFacturacion() {
-  const key = buscarKeyLocalStorage();
-  if (!key) {
-    console.warn('No encontré automáticamente la base de obras en localStorage. Revisar el nombre de la key.');
-    window.OBRAS_MADRE_FACTURACION = OBRAS_MADRE_FACTURACION;
-    return;
-  }
-
-  const dataOriginal = JSON.parse(localStorage.getItem(key));
-  const esObjetoConObras = dataOriginal && !Array.isArray(dataOriginal) && Array.isArray(dataOriginal.obras);
-  const obrasActuales = esObjetoConObras ? dataOriginal.obras : dataOriginal;
-
-  const porClave = new Map(OBRAS_MADRE_FACTURACION.map(o => [claveObra(o), o]));
-  const porOT = new Map();
-  for (const o of OBRAS_MADRE_FACTURACION) {
-    if (o.ot && !porOT.has(String(o.ot))) porOT.set(String(o.ot), o);
-  }
-
-  let actualizadas = 0;
-  const nuevasObras = obrasActuales.map(o => {
-    const madre = porClave.get(claveObra(o)) || porOT.get(String(o.ot ?? o.OT ?? ''));
-    if (!madre) return o;
-
-    const fact = madre.facturacion || {};
-    if (!fact.ocOp && !fact.nroFactura && !fact.fechaFactura && !fact.estadoCobranza) return o;
-
-    actualizadas++;
-    return {
-      ...o,
-      oc: fact.oc || o.oc || '',
-      op: fact.op || o.op || '',
-      ocOp: fact.ocOp || o.ocOp || '',
-      nroFactura: fact.nroFactura || o.nroFactura || o.numeroFactura || '',
-      numeroFactura: fact.nroFactura || o.numeroFactura || o.nroFactura || '',
-      fechaFactura: fact.fechaFactura || o.fechaFactura || o.fFactura || '',
-      fFactura: fact.fechaFactura || o.fFactura || o.fechaFactura || '',
-      estadoCobranza: fact.estadoCobranza || o.estadoCobranza || '',
-      facturacion: {
-        ...(o.facturacion || {}),
-        oc: fact.oc || '',
-        op: fact.op || '',
-        ocOp: fact.ocOp || '',
-        nroFactura: fact.nroFactura || '',
-        fechaFactura: fact.fechaFactura || '',
-        estadoCobranza: fact.estadoCobranza || ''
-      }
-    };
-  });
-
-  const nuevoData = esObjetoConObras ? {...dataOriginal, obras: nuevasObras} : nuevasObras;
-  localStorage.setItem(key + '_backup_' + new Date().toISOString().slice(0,10), JSON.stringify(dataOriginal));
-  localStorage.setItem(key, JSON.stringify(nuevoData));
-
-  console.log(`Facturación actualizada en ${actualizadas} obras. Key usada: ${key}. Se creó backup: ${key}_backup_${new Date().toISOString().slice(0,10)}`);
-  alert(`Facturación actualizada en ${actualizadas} obras. Recargá la página.`);
-})();
