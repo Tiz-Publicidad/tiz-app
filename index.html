@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TIZ V27 — Compras y Colocaciones</title>
+<title>TIZ V29 STABLE — Cotización Automática</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -3110,11 +3110,32 @@ async function syncToSheets(data) {
     obra: {
       firestoreId: String(data.firestoreId || ''),
       ot: String(data.ot || '').trim(),
+      nroPresupuesto: String(data.nroPresupuesto || data.presupuesto || data.ot || '').trim(),
       cliente: String(data.cliente || '').trim(),
       desc: String(data.desc || '').trim(),
       estado: String(data.estado || '').trim(),
       sector: String(data.sector || '').trim(),
-      vendedor: String(data.vendedor || '').trim()
+      vendedor: String(data.vendedor || '').trim(),
+      semana: Number(data.semana || 0),
+      neto: Number(data.neto || data.totalItems || 0),
+      fecha: String(data.fecha || ''),
+      fechaAprobacion: String(data.fechaAprobacion || new Date().toISOString()),
+      fprod_c: String(data.fprod_c || ''),
+      fcol_c: String(data.fcol_c || ''),
+      contacto: String(data.contacto || ''),
+      direccion: String(data.direccion || ''),
+      comentarios: String(data.comentarios || ''),
+      nota: String(data.nota || 'Los precios cotizados se encuentran a valores netos'),
+      condicion: String(data.condicion || data.cond || 'Anticipo 50% Saldo a contraentrega'),
+      validezDias: Number(data.validezDias || 7),
+      itemsCotizados: (Array.isArray(data.itemsCotizados) ? data.itemsCotizados : []).map(it => ({
+        descripcion: String(it.descripcion || it.desc || ''),
+        cantidad: Number(it.cantidad ?? it.cant ?? 1),
+        unidad: String(it.unidad || 'u'),
+        unitario: Number(it.unitario ?? it.precio ?? 0),
+        subtotal: Number(it.subtotal ?? ((it.cantidad ?? it.cant ?? 1) * (it.unitario ?? it.precio ?? 0))),
+        observaciones: String(it.observaciones || '')
+      }))
     }
   };
 
@@ -3816,6 +3837,9 @@ window.refreshCurrent = function() {
     const notas_sector = {};
     const existingId = window.editingId.obra;
     const existing = existingId ? (window.DB.obras||[]).find(x=>x.id===existingId) : null;
+    const presupuestoActual = window.editingId.presupuesto
+      ? (window.DB.presupuestos||[]).find(x=>x.id===window.editingId.presupuesto)
+      : null;
     const existingNotas = existing?.notas_sector || {};
     Object.entries(sectorKeys).forEach(([sec, key]) => {
       const newVal = getValue('nota-'+key);
@@ -3835,6 +3859,11 @@ window.refreshCurrent = function() {
       fprod_c: getValue('f-fprod-c'), fprod_r: getValue('f-fprod-r'), fcol_c: getValue('f-fcol-c'), fcol_r: getValue('f-fcol-r'),
       oc: getValue('f-oc'), nrfc: getValue('f-nrfc'), ffc: getValue('f-ffc'), cobr: getValue('f-cobr') || 'Pendiente', diasPago: +getValue('f-dias-pago')||0,
       comentarios: getValue('f-comentarios'), notas_sector, itemsCotizados, calculosAuxiliares, totalItems,
+      nroPresupuesto: presupuestoActual?.nro || existing?.nroPresupuesto || getValue('f-ot'),
+      nota: presupuestoActual?.nota || existing?.nota || 'Los precios cotizados se encuentran a valores netos',
+      condicion: presupuestoActual?.cond || presupuestoActual?.condicion || existing?.condicion || 'Anticipo 50% Saldo a contraentrega',
+      validezDias: +(presupuestoActual?.validezDias || existing?.validezDias || 7),
+      fecha: presupuestoActual?.fecha || existing?.fecha || '',
       totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
       checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
       historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
@@ -3858,7 +3887,8 @@ window.refreshCurrent = function() {
       const presData = {
         nro: data.ot || nextPresNumV52(), obraId: docRefId || '', vendedor: data.vendedor,
         cliente: data.cliente, desc: data.desc, importe: data.neto || totalItems || 0,
-        fecha: todayAR(), estado: data.estado, comentarios: data.comentarios,
+        fecha: presupuestoActual?.fecha || todayAR(), estado: data.estado, comentarios: data.comentarios,
+        nota: data.nota, cond: data.condicion, validezDias: data.validezDias,
         items: itemsCotizados.map(i=>({desc:i.descripcion, cant:i.cantidad, precio:i.unitario, subtotal:i.subtotal})),
         driveFolderUrl: data.driveFolderUrl || '', otSheetUrl: data.otSheetUrl || ''
       };
@@ -3876,11 +3906,13 @@ window.refreshCurrent = function() {
           driveFolderId: syncResult.folderId || syncResult.driveFolderId || data.driveFolderId || '',
           driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
           otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+          cotizacionExcelUrl: syncResult.cotizacionExcelUrl || data.cotizacionExcelUrl || '',
+          cotizacionPdfUrl: syncResult.cotizacionPdfUrl || data.cotizacionPdfUrl || '',
           driveSyncedAt: new Date().toISOString()
         };
         if (docRefId) await window.updateDoc_('obras', docRefId, links);
         if (window._obraModalOrigen === 'presupuestos' && window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, links);
-        if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Aprobado: carpeta Drive creada ✓');
+        if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Cotización guardada');
       } else if (String(data.estado || '').toLowerCase() === 'aprobado') {
         showToast('Aprobado y guardado');
       }
@@ -4335,7 +4367,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V28.2 · HOTFIX COLOCACIONES · 29/07/2026';
+  badge.textContent = 'TIZ V29 STABLE · COTIZACIÓN AUTOMÁTICA · 29/07/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
@@ -4346,6 +4378,6 @@ window.exportarDatosFacturaActual = function(){
 
 </script>
 
-<script type="module" src="compras.js?v=TIZ-V28-2-HOTFIX-20260729"></script>
+<script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
 </body>
 </html>
