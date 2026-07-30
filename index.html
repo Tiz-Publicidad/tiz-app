@@ -2218,7 +2218,7 @@ window.saveObra = async () => {
     checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
       historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
       alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
-      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
+      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '', otExcelUrl: existing?.otExcelUrl || '',
   };
   if (!data.desc) { showToast('Ingresá una descripción'); return; }
   let docRefId = existingId;
@@ -3128,14 +3128,22 @@ async function syncToSheets(data) {
       nota: String(data.nota || 'Los precios cotizados se encuentran a valores netos'),
       condicion: String(data.condicion || data.cond || 'Anticipo 50% Saldo a contraentrega'),
       validezDias: Number(data.validezDias || 7),
-      itemsCotizados: (Array.isArray(data.itemsCotizados) ? data.itemsCotizados : []).map(it => ({
-        descripcion: String(it.descripcion || it.desc || ''),
-        cantidad: Number(it.cantidad ?? it.cant ?? 1),
-        unidad: String(it.unidad || 'u'),
-        unitario: Number(it.unitario ?? it.precio ?? 0),
-        subtotal: Number(it.subtotal ?? ((it.cantidad ?? it.cant ?? 1) * (it.unitario ?? it.precio ?? 0))),
-        observaciones: String(it.observaciones || '')
-      }))
+      itemsCotizados: (() => {
+        const items = (Array.isArray(data.itemsCotizados) ? data.itemsCotizados : []).map(it => ({
+          descripcion: String(it.descripcion || it.desc || ''),
+          cantidad: Number(it.cantidad ?? it.cant ?? 1) || 1,
+          unidad: String(it.unidad || 'u'),
+          unitario: Number(it.unitario ?? it.precio ?? it.precioUnitario ?? 0) || 0,
+          subtotal: Number(it.subtotal ?? it.total ?? ((it.cantidad ?? it.cant ?? 1) * (it.unitario ?? it.precio ?? 0))) || 0,
+          observaciones: String(it.observaciones || '')
+        }));
+        const total = Number(data.neto || data.totalItems || data.importe || 0) || 0;
+        if (items.length === 1 && !items[0].subtotal && total > 0) {
+          items[0].subtotal = total;
+          items[0].unitario = total / (items[0].cantidad || 1);
+        }
+        return items;
+      })()
     }
   };
 
@@ -3868,7 +3876,7 @@ window.refreshCurrent = function() {
       checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
       historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
       alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
-      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '',
+      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '', otExcelUrl: existing?.otExcelUrl || '',
       origen: window._obraModalOrigen || 'obras'
     };
     if (!data.desc) { showToast('Ingresá una descripción'); return; }
@@ -3906,6 +3914,7 @@ window.refreshCurrent = function() {
           driveFolderId: syncResult.folderId || syncResult.driveFolderId || data.driveFolderId || '',
           driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
           otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+          otExcelUrl: syncResult.otExcelUrl || data.otExcelUrl || '',
           cotizacionExcelUrl: syncResult.cotizacionExcelUrl || data.cotizacionExcelUrl || '',
           cotizacionPdfUrl: syncResult.cotizacionPdfUrl || data.cotizacionPdfUrl || '',
           driveSyncedAt: new Date().toISOString()
