@@ -7,7 +7,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'V31-BASE-20260801';
+  const VERSION = 'V31.1-HOTFIX-20260801';
   const WEBHOOK = 'https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
   const SECTOR_KEYS = { 'Producción':'produccion', 'Colocaciones':'colocaciones', 'Calidad':'calidad' };
   const CHECKS = {
@@ -77,10 +77,15 @@
   };
   const toast = msg => window.showToast ? window.showToast(msg) : alert(msg);
 
+  const otNumber = value => {
+    const digits = String(value || '').replace(/\D/g,'');
+    return digits ? Number(digits) : -1;
+  };
+
   function approvedWorks() {
-    return (window.DB?.obras || []).filter(o =>
-      ['aprobado','en producción','entregado','facturado'].includes(norm(o.estado))
-    );
+    return [...(window.DB?.obras || [])]
+      .filter(o => ['aprobado','en producción','entregado','facturado'].includes(norm(o.estado)))
+      .sort((a,b) => otNumber(b.ot) - otNumber(a.ot));
   }
 
   function driveButtons(o, sector) {
@@ -144,7 +149,7 @@
     const works = approvedWorks().filter(o => {
       if (sector === 'Colocaciones') return o.fcol_c || getGestion(o, sector).fechaPlan || ['aprobado','en producción','entregado'].includes(norm(o.estado));
       return ['aprobado','en producción'].includes(norm(o.estado));
-    });
+    }).sort((a,b) => otNumber(b.ot) - otNumber(a.ot));
     const query = norm(window[`v31Search${sector}`] || '');
     const status = window[`v31Status${sector}`] || 'todas';
     let filtered = works.filter(o => !query || norm([o.ot,o.cliente,o.desc].join(' ')).includes(query));
@@ -317,6 +322,61 @@
     }
   };
 
+  const autoSyncState = { running:false, attempted:new Set(), timer:null };
+
+  async function autoSyncProductionDocuments() {
+    if (autoSyncState.running || !window.DB?.obras?.length || typeof window.updateDoc_ !== 'function') return;
+    const candidates = approvedWorks()
+      .filter(o => ['aprobado','en producción'].includes(norm(o.estado)))
+      .filter(o => !getGestion(o,'Producción').sheetUrl)
+      .filter(o => !autoSyncState.attempted.has(o.id))
+      .slice(0,3);
+    if (!candidates.length) return;
+
+    autoSyncState.running = true;
+    try {
+      for (const o of candidates) {
+        autoSyncState.attempted.add(o.id);
+        const old = getGestion(o,'Producción');
+        const data = {
+          ...old,
+          estadoInterno: old.estadoInterno || 'Pendiente',
+          checks: old.checks || {},
+          materiales: old.materiales || [],
+          porcentaje: pct('Producción', old),
+          actualizadoPor: old.actualizadoPor || 'Sincronización automática',
+          actualizadoEn: new Date().toISOString()
+        };
+        try {
+          const result = await callWebhook({action:'syncSectorDocument',obra:{
+            firestoreId:o.id, ot:o.ot, cliente:o.cliente, desc:o.desc, estado:o.estado,
+            driveFolderId:o.driveFolderId||'', driveFolderUrl:o.driveFolderUrl||'',
+            sector:'Producción', data
+          }});
+          data.sheetUrl=result.sheetUrl||''; data.sheetId=result.sheetId||'';
+          data.pdfUrl=result.pdfUrl||''; data.pdfId=result.pdfId||'';
+          const gestionSectores={...(o.gestionSectores||{}),produccion:data};
+          const patch={gestionSectores};
+          if(result.driveFolderUrl){patch.driveFolderUrl=result.driveFolderUrl;patch.driveFolderId=result.driveFolderId||result.folderId||'';}
+          await window.updateDoc_('obras',o.id,patch);
+          Object.assign(o,patch);
+          console.info('[V31.1] Producción sincronizada automáticamente',o.ot);
+        } catch(err) {
+          autoSyncState.attempted.delete(o.id);
+          console.warn('[V31.1] No se pudo sincronizar automáticamente OT '+(o.ot||''),err);
+        }
+      }
+    } finally {
+      autoSyncState.running=false;
+      if(window.currentPage==='produccion') renderSector('Producción');
+    }
+  }
+
+  function scheduleAutoSync() {
+    clearTimeout(autoSyncState.timer);
+    autoSyncState.timer=setTimeout(autoSyncProductionDocuments,1200);
+  }
+
   function install() {
     style();modal();
     const previous=window.refreshCurrent;
@@ -325,11 +385,18 @@
       setTimeout(()=>{
         if(window.currentPage==='produccion')renderSector('Producción');
         if(window.currentPage==='colocaciones')renderSector('Colocaciones');
+        scheduleAutoSync();
       },0);
     };
     if(window.currentPage==='produccion')renderSector('Producción');
     if(window.currentPage==='colocaciones')renderSector('Colocaciones');
-    console.info('[CLEMEN ERP V31] Base operativa por sector cargada',VERSION);
+    scheduleAutoSync();
+    setInterval(()=>{
+      if(window.currentPage==='produccion')renderSector('Producción');
+      if(window.currentPage==='colocaciones')renderSector('Colocaciones');
+      autoSyncProductionDocuments();
+    },15000);
+    console.info('[CLEMEN ERP V31.1] Hotfix Drive y orden OT cargado',VERSION);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,500));
   else setTimeout(install,500);
