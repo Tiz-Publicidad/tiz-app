@@ -1,5 +1,5 @@
-// TIZ ERP V29.1 — Base Madre actualizada
-// Fuente: TIZ 2026 Base de Datos (2).xlsx
+// TIZ ERP V30.1 — Base Madre actualizada
+// Fuente: TIZ 2026 Base de Datos (3).xlsx
 // Registros: 327. Este archivo NO ejecuta cambios automáticamente.
 window.OBRAS_MADRE_V291 = [
   {
@@ -556,16 +556,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "690979",
+      "oc": "690979.0",
       "op": "",
-      "ocOp": "690979",
+      "ocOp": "690979.0",
       "fechaFactura": "2025-12-03",
       "nroFactura": "1231",
       "estadoCobranza": "3"
     },
-    "oc": "690979",
+    "oc": "690979.0",
     "op": "",
-    "ocOp": "690979",
+    "ocOp": "690979.0",
     "fechaFactura": "2025-12-03",
     "fFactura": "2025-12-03",
     "nroFactura": "1231",
@@ -1324,16 +1324,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "10755",
+      "oc": "10755.0",
       "op": "",
-      "ocOp": "10755",
+      "ocOp": "10755.0",
       "fechaFactura": "",
       "nroFactura": "115",
       "estadoCobranza": "8"
     },
-    "oc": "10755",
+    "oc": "10755.0",
     "op": "",
-    "ocOp": "10755",
+    "ocOp": "10755.0",
     "fechaFactura": "",
     "fFactura": "",
     "nroFactura": "115",
@@ -1372,16 +1372,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "10736",
+      "oc": "10736.0",
       "op": "",
-      "ocOp": "10736",
+      "ocOp": "10736.0",
       "fechaFactura": "",
       "nroFactura": "114",
       "estadoCobranza": "8"
     },
-    "oc": "10736",
+    "oc": "10736.0",
     "op": "",
-    "ocOp": "10736",
+    "ocOp": "10736.0",
     "fechaFactura": "",
     "fFactura": "",
     "nroFactura": "114",
@@ -1420,16 +1420,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "10752",
+      "oc": "10752.0",
       "op": "",
-      "ocOp": "10752",
+      "ocOp": "10752.0",
       "fechaFactura": "",
       "nroFactura": "111",
       "estadoCobranza": "1"
     },
-    "oc": "10752",
+    "oc": "10752.0",
     "op": "",
-    "ocOp": "10752",
+    "ocOp": "10752.0",
     "fechaFactura": "",
     "fFactura": "",
     "nroFactura": "111",
@@ -1468,16 +1468,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "10757",
+      "oc": "10757.0",
       "op": "",
-      "ocOp": "10757",
+      "ocOp": "10757.0",
       "fechaFactura": "",
       "nroFactura": "113",
       "estadoCobranza": "1"
     },
-    "oc": "10757",
+    "oc": "10757.0",
     "op": "",
-    "ocOp": "10757",
+    "ocOp": "10757.0",
     "fechaFactura": "",
     "fFactura": "",
     "nroFactura": "113",
@@ -1516,16 +1516,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "10681",
+      "oc": "10681.0",
       "op": "",
-      "ocOp": "10681",
+      "ocOp": "10681.0",
       "fechaFactura": "",
       "nroFactura": "110",
       "estadoCobranza": "1"
     },
-    "oc": "10681",
+    "oc": "10681.0",
     "op": "",
-    "ocOp": "10681",
+    "ocOp": "10681.0",
     "fechaFactura": "",
     "fFactura": "",
     "nroFactura": "110",
@@ -7372,16 +7372,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "27160",
+      "oc": "27160.0",
       "op": "",
-      "ocOp": "27160",
+      "ocOp": "27160.0",
       "fechaFactura": "2026-05-05",
       "nroFactura": "1365",
       "estadoCobranza": ""
     },
-    "oc": "27160",
+    "oc": "27160.0",
     "op": "",
-    "ocOp": "27160",
+    "ocOp": "27160.0",
     "fechaFactura": "2026-05-05",
     "fFactura": "2026-05-05",
     "nroFactura": "1365",
@@ -10142,7 +10142,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "",
     "precioVentaNeto": 5482849.587,
     "precioVentaBruto": 6634248.0,
-    "gastos": 200000.0,
+    "gastos": 2800000.0,
     "sector": "Producción",
     "estado": "Cobrado Pendiente",
     "produccion": {
@@ -10234,7 +10234,7 @@ window.OBRAS_MADRE_V291 = [
     "ot": "4382",
     "descripcion": "Extra farmacity suc la rioja rivadavia - vinilo gris elefante",
     "arquitecto": "Sonia",
-    "cliente": "Flecha carga",
+    "cliente": "Farmacity",
     "vendedor": "",
     "precioVentaNeto": 158505.0,
     "precioVentaBruto": 191791.05,
@@ -11872,7 +11872,7 @@ window.OBRAS_MADRE_V291 = [
     "precioVentaBruto": 924440.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-03",
       "fechaReal": "2026-06-04",
@@ -11920,7 +11920,7 @@ window.OBRAS_MADRE_V291 = [
     "precioVentaBruto": 1386660.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-03",
       "fechaReal": "2026-06-04",
@@ -12220,16 +12220,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": "13"
     },
     "facturacion": {
-      "oc": "10909",
+      "oc": "10909.0",
       "op": "",
-      "ocOp": "10909",
+      "ocOp": "10909.0",
       "fechaFactura": "2026-06-01",
       "nroFactura": "1391",
       "estadoCobranza": "26"
     },
-    "oc": "10909",
+    "oc": "10909.0",
     "op": "",
-    "ocOp": "10909",
+    "ocOp": "10909.0",
     "fechaFactura": "2026-06-01",
     "fFactura": "2026-06-01",
     "nroFactura": "1391",
@@ -13072,7 +13072,7 @@ window.OBRAS_MADRE_V291 = [
     "precioVentaBruto": 461857.0,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-06-18",
       "fechaReal": "2026-06-18",
@@ -13399,7 +13399,7 @@ window.OBRAS_MADRE_V291 = [
     "filaExcel": 281,
     "fecha": "2026-06-19",
     "semana": "25",
-    "ot": "",
+    "ot": "4479",
     "descripcion": "Carteleria interna + externa Suc 134 Salta",
     "arquitecto": "Santiago Pelecq",
     "cliente": "Farmacity",
@@ -13502,7 +13502,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "",
     "precioVentaNeto": 6768945.04,
     "precioVentaBruto": 8190423.498,
-    "gastos": 2000000.0,
+    "gastos": 1400000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -13533,7 +13533,7 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "30",
+    "prod": "31",
     "col": "32",
     "cobrador": "",
     "extracostos": 0
@@ -13598,7 +13598,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "",
     "precioVentaNeto": 13367520.0,
     "precioVentaBruto": 16174699.2,
-    "gastos": 500000.0,
+    "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
     "produccion": {
@@ -13609,7 +13609,7 @@ window.OBRAS_MADRE_V291 = [
     "colocacion": {
       "fechaCompromiso": "2026-07-11",
       "fechaReal": "",
-      "dias": "40"
+      "dias": "43"
     },
     "facturacion": {
       "oc": "",
@@ -13660,16 +13660,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "6642",
+      "oc": "6642.0",
       "op": "",
-      "ocOp": "6642",
+      "ocOp": "6642.0",
       "fechaFactura": "2026-06-25",
       "nroFactura": "1409",
       "estadoCobranza": "26"
     },
-    "oc": "6642",
+    "oc": "6642.0",
     "op": "",
-    "ocOp": "6642",
+    "ocOp": "6642.0",
     "fechaFactura": "2026-06-25",
     "fFactura": "2026-06-25",
     "nroFactura": "1409",
@@ -13708,16 +13708,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "6642",
+      "oc": "6642.0",
       "op": "",
-      "ocOp": "6642",
+      "ocOp": "6642.0",
       "fechaFactura": "2026-07-22",
       "nroFactura": "1425",
       "estadoCobranza": ""
     },
-    "oc": "6642",
+    "oc": "6642.0",
     "op": "",
-    "ocOp": "6642",
+    "ocOp": "6642.0",
     "fechaFactura": "2026-07-22",
     "fFactura": "2026-07-22",
     "nroFactura": "1425",
@@ -13744,7 +13744,7 @@ window.OBRAS_MADRE_V291 = [
     "precioVentaBruto": 375000.0,
     "gastos": 50000.0,
     "sector": "Producción",
-    "estado": "Cobrado Pendiente",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "2026-07-03",
       "fechaReal": "",
@@ -13852,16 +13852,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "28500",
+      "oc": "28500.0",
       "op": "",
-      "ocOp": "28500",
+      "ocOp": "28500.0",
       "fechaFactura": "2026-07-02",
       "nroFactura": "1412",
       "estadoCobranza": ""
     },
-    "oc": "28500",
+    "oc": "28500.0",
     "op": "",
-    "ocOp": "28500",
+    "ocOp": "28500.0",
     "fechaFactura": "2026-07-02",
     "fFactura": "2026-07-02",
     "nroFactura": "1412",
@@ -13886,7 +13886,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "G",
     "precioVentaNeto": 13725000.0,
     "precioVentaBruto": 16607250.0,
-    "gastos": 5500000.0,
+    "gastos": 4070000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -13900,16 +13900,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "28500",
+      "oc": "28500.0",
       "op": "",
-      "ocOp": "28500",
+      "ocOp": "28500.0",
       "fechaFactura": "",
       "nroFactura": "",
       "estadoCobranza": ""
     },
-    "oc": "28500",
+    "oc": "28500.0",
     "op": "",
-    "ocOp": "28500",
+    "ocOp": "28500.0",
     "fechaFactura": "",
     "fFactura": "",
     "nroFactura": "",
@@ -13917,7 +13917,7 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "31",
+    "prod": "",
     "col": "31",
     "cobrador": "",
     "extracostos": 0
@@ -14128,7 +14128,7 @@ window.OBRAS_MADRE_V291 = [
     "precioVentaBruto": 79631.6004,
     "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -14205,7 +14205,7 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "29",
+    "prod": "",
     "col": "",
     "cobrador": "",
     "extracostos": 0
@@ -14301,7 +14301,7 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "30",
+    "prod": "",
     "col": "",
     "cobrador": "",
     "extracostos": 0
@@ -14606,7 +14606,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "G",
     "precioVentaNeto": 8018816.2,
     "precioVentaBruto": 9702767.602,
-    "gastos": 2750000.0,
+    "gastos": 3000000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -14637,7 +14637,7 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "30",
+    "prod": "",
     "col": "",
     "cobrador": "",
     "extracostos": 0
@@ -14685,7 +14685,7 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "31",
+    "prod": "",
     "col": "",
     "cobrador": "",
     "extracostos": 0
@@ -14942,9 +14942,9 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "G",
     "precioVentaNeto": 537040.8,
     "precioVentaBruto": 649819.368,
-    "gastos": 300000.0,
+    "gastos": 0,
     "sector": "Producción",
-    "estado": "Entregado",
+    "estado": "Cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -15086,7 +15086,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "G",
     "precioVentaNeto": 575000.0,
     "precioVentaBruto": 695750.0,
-    "gastos": 350000.0,
+    "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
     "produccion": {
@@ -15117,7 +15117,7 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "pedir OC facturar y cargar al portal",
     "comentarioInterno": "",
-    "prod": "",
+    "prod": "29",
     "col": "",
     "cobrador": "Jessy",
     "extracostos": 0
@@ -15134,7 +15134,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "G",
     "precioVentaNeto": 397620.0,
     "precioVentaBruto": 481120.2,
-    "gastos": 60000.0,
+    "gastos": 0,
     "sector": "Producción",
     "estado": "Entregado",
     "produccion": {
@@ -15148,16 +15148,16 @@ window.OBRAS_MADRE_V291 = [
       "dias": ""
     },
     "facturacion": {
-      "oc": "28727",
+      "oc": "28727.0",
       "op": "",
-      "ocOp": "28727",
+      "ocOp": "28727.0",
       "fechaFactura": "2026-07-21",
       "nroFactura": "1421",
       "estadoCobranza": ""
     },
-    "oc": "28727",
+    "oc": "28727.0",
     "op": "",
-    "ocOp": "28727",
+    "ocOp": "28727.0",
     "fechaFactura": "2026-07-21",
     "fFactura": "2026-07-21",
     "nroFactura": "1421",
@@ -15232,7 +15232,7 @@ window.OBRAS_MADRE_V291 = [
     "precioVentaBruto": 3803105.02,
     "gastos": 900000.0,
     "sector": "Producción",
-    "estado": "Pendiente",
+    "estado": "Cobrado Pendiente",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
@@ -15259,7 +15259,7 @@ window.OBRAS_MADRE_V291 = [
     "nroFactura": "1424",
     "numeroFactura": "1424",
     "estadoCobranza": "",
-    "comentarios": "Pablo averigua si el pago ingresa 30/07",
+    "comentarios": "",
     "comentarioInterno": "",
     "prod": "",
     "col": "",
@@ -15315,56 +15315,8 @@ window.OBRAS_MADRE_V291 = [
     "extracostos": 0
   },
   {
-    "id": "excel-321",
-    "filaExcel": 321,
-    "fecha": "2026-07-24",
-    "semana": "30",
-    "ot": "4533",
-    "descripcion": "Black Out Lonas",
-    "arquitecto": "Cami Villalva",
-    "cliente": "Black Out",
-    "vendedor": "G",
-    "precioVentaNeto": 3965000.0,
-    "precioVentaBruto": 4797650.0,
-    "gastos": 1500000.0,
-    "sector": "Producción",
-    "estado": "Pendiente",
-    "produccion": {
-      "fechaCompromiso": "",
-      "fechaReal": "",
-      "dias": ""
-    },
-    "colocacion": {
-      "fechaCompromiso": "",
-      "fechaReal": "",
-      "dias": ""
-    },
-    "facturacion": {
-      "oc": "",
-      "op": "",
-      "ocOp": "",
-      "fechaFactura": "",
-      "nroFactura": "",
-      "estadoCobranza": ""
-    },
-    "oc": "",
-    "op": "",
-    "ocOp": "",
-    "fechaFactura": "",
-    "fFactura": "",
-    "nroFactura": "",
-    "numeroFactura": "",
-    "estadoCobranza": "",
-    "comentarios": "Confirmar con Gian si la obra está aprobada",
-    "comentarioInterno": "",
-    "prod": "",
-    "col": "",
-    "cobrador": "Jessy",
-    "extracostos": 0
-  },
-  {
     "id": "excel-322",
-    "filaExcel": 322,
+    "filaExcel": 321,
     "fecha": "2026-07-28",
     "semana": "31",
     "ot": "4531",
@@ -15374,7 +15326,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "G",
     "precioVentaNeto": 994208.6,
     "precioVentaBruto": 1202992.406,
-    "gastos": 0,
+    "gastos": 900000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -15412,7 +15364,7 @@ window.OBRAS_MADRE_V291 = [
   },
   {
     "id": "excel-323",
-    "filaExcel": 323,
+    "filaExcel": 322,
     "fecha": "2026-07-28",
     "semana": "31",
     "ot": "4531",
@@ -15460,17 +15412,17 @@ window.OBRAS_MADRE_V291 = [
   },
   {
     "id": "excel-324",
-    "filaExcel": 324,
+    "filaExcel": 323,
     "fecha": "2026-07-28",
     "semana": "31",
     "ot": "4566",
-    "descripcion": "Juncal II Cartreleria int + Ext",
+    "descripcion": "Juncal II Cartreleria int + Ext suc 369",
     "arquitecto": "Agustin",
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 4877981.5,
     "precioVentaBruto": 5902357.615,
-    "gastos": 0,
+    "gastos": 1250000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -15508,17 +15460,17 @@ window.OBRAS_MADRE_V291 = [
   },
   {
     "id": "excel-325",
-    "filaExcel": 325,
+    "filaExcel": 324,
     "fecha": "2026-07-28",
     "semana": "31",
     "ot": "4567",
-    "descripcion": "Telon de Ajuste Suc 216 Monroe",
+    "descripcion": "Telon de Ajuste Suc 216 Monroe por fuera",
     "arquitecto": "Florencia Muñoz",
     "cliente": "Farmacity",
     "vendedor": "G",
     "precioVentaNeto": 162082.73,
     "precioVentaBruto": 196120.1033,
-    "gastos": 0,
+    "gastos": 85000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -15549,14 +15501,14 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "Aguardar OC",
     "comentarioInterno": "",
-    "prod": "",
+    "prod": "31",
     "col": "",
     "cobrador": "Jessy",
     "extracostos": 0
   },
   {
     "id": "excel-327",
-    "filaExcel": 327,
+    "filaExcel": 325,
     "fecha": "2026-07-29",
     "semana": "31",
     "ot": "4570",
@@ -15566,7 +15518,7 @@ window.OBRAS_MADRE_V291 = [
     "vendedor": "G",
     "precioVentaNeto": 2519200.0,
     "precioVentaBruto": 3048232.0,
-    "gastos": 0,
+    "gastos": 1400000.0,
     "sector": "Producción",
     "estado": "Pendiente",
     "produccion": {
@@ -15604,7 +15556,7 @@ window.OBRAS_MADRE_V291 = [
   },
   {
     "id": "excel-328",
-    "filaExcel": 328,
+    "filaExcel": 326,
     "fecha": "2026-07-29",
     "semana": "31",
     "ot": "4574",
@@ -15645,14 +15597,14 @@ window.OBRAS_MADRE_V291 = [
     "estadoCobranza": "",
     "comentarios": "",
     "comentarioInterno": "",
-    "prod": "",
+    "prod": "31",
     "col": "",
     "cobrador": "",
     "extracostos": 0
   },
   {
     "id": "excel-329",
-    "filaExcel": 329,
+    "filaExcel": 327,
     "fecha": "2026-07-29",
     "semana": "31",
     "ot": "4575",
@@ -15660,11 +15612,59 @@ window.OBRAS_MADRE_V291 = [
     "arquitecto": "Flor Muñoz",
     "cliente": "Get The Look",
     "vendedor": "G",
-    "precioVentaNeto": 1707511.4,
-    "precioVentaBruto": 2066088.794,
-    "gastos": 0,
+    "precioVentaNeto": 1649411.4,
+    "precioVentaBruto": 1995787.794,
+    "gastos": 500000.0,
     "sector": "Producción",
     "estado": "Pendiente",
+    "produccion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "colocacion": {
+      "fechaCompromiso": "",
+      "fechaReal": "",
+      "dias": ""
+    },
+    "facturacion": {
+      "oc": "ON 9349",
+      "op": "",
+      "ocOp": "ON 9349",
+      "fechaFactura": "",
+      "nroFactura": "",
+      "estadoCobranza": ""
+    },
+    "oc": "ON 9349",
+    "op": "",
+    "ocOp": "ON 9349",
+    "fechaFactura": "",
+    "fFactura": "",
+    "nroFactura": "",
+    "numeroFactura": "",
+    "estadoCobranza": "",
+    "comentarios": "",
+    "comentarioInterno": "",
+    "prod": "31",
+    "col": "",
+    "cobrador": "",
+    "extracostos": 0
+  },
+  {
+    "id": "excel-333",
+    "filaExcel": 333,
+    "fecha": "2026-07-30",
+    "semana": "31",
+    "ot": "4584",
+    "descripcion": "Alquiler de gazebo para el ejercito",
+    "arquitecto": "Adrian",
+    "cliente": "Ejercito",
+    "vendedor": "G",
+    "precioVentaNeto": 250000.0,
+    "precioVentaBruto": 302500.0,
+    "gastos": 0,
+    "sector": "Producción",
+    "estado": "cobrado",
     "produccion": {
       "fechaCompromiso": "",
       "fechaReal": "",
