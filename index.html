@@ -4380,7 +4380,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V32 · COTIZADOR TÉCNICO Y COMERCIAL · 01/08/2026';
+  badge.textContent = 'TIZ V32.1 · HOTFIX CAMPOS COTIZADOR · 01/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
@@ -4395,6 +4395,6 @@ window.exportarDatosFacturaActual = function(){
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V30-1-BASE-20260801"></script>
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
-<script src="cotizadorV32.js?v=TIZ-V32-COTIZADOR-20260801"></script>
+<script src="cotizadorV32.js?v=TIZ-V32-1-FOCUS-20260801"></script>
 </body>
 </html>

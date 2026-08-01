@@ -6,7 +6,7 @@
 (() => {
 'use strict';
 
-const V='V32-COTIZADOR-20260801';
+const V='V32.1-COTIZADOR-FOCUS-20260801';
 let items=[];
 let selected=0;
 let currentTab='costos';
@@ -131,12 +131,12 @@ function render(){
    const margin=it.subtotal-it.costoTotal,pct=it.subtotal?margin/it.subtotal*100:0;
    const complete=!!it.descripcion && it.insumos.length>0 && it.unitario>0;
    return `<div class="v32-item"><div class="v32-item-row ${i===selected?'selected':''}" onclick="v32Select(${i})">
-    <input value="${esc(it.descripcion)}" placeholder="Descripción comercial del ítem" onclick="event.stopPropagation()" oninput="v32Set(${i},'descripcion',this.value)">
-    <input type="number" step=".01" value="${it.cantidad}" onclick="event.stopPropagation()" oninput="v32Set(${i},'cantidad',this.value)">
+    <input value="${esc(it.descripcion)}" placeholder="Descripción comercial del ítem" onclick="event.stopPropagation()" oninput="v32Set(${i},'descripcion',this.value)" onblur="v32Refresh()">
+    <input type="number" step=".01" value="${it.cantidad}" onclick="event.stopPropagation()" oninput="v32Set(${i},'cantidad',this.value)" onblur="v32Refresh()">
     <span class="v32-number">${money(it.costoTotal)}</span>
-    <input type="number" step=".01" value="${it.coeficiente}" onclick="event.stopPropagation()" oninput="v32Set(${i},'coeficiente',this.value)">
+    <input type="number" step=".01" value="${it.coeficiente}" onclick="event.stopPropagation()" oninput="v32Set(${i},'coeficiente',this.value)" onblur="v32Refresh()">
     <span class="v32-number v32-green">${money(it.precioSugerido)}</span>
-    <input type="number" step=".01" value="${it.unitario}" onclick="event.stopPropagation()" oninput="v32Set(${i},'unitario',this.value)">
+    <input type="number" step=".01" value="${it.unitario}" onclick="event.stopPropagation()" oninput="v32Set(${i},'unitario',this.value)" onblur="v32Refresh()">
     <span class="v32-number ${margin<0?'v32-red':'v32-green'}">${pct.toFixed(1)}%</span>
     <span class="v32-pill">${complete?'Completo':'Revisar'}</span>
    </div></div>`;
@@ -150,13 +150,13 @@ function renderEditor(){
  <div class="v32-tabs"><button class="v32-tab ${currentTab==='comercial'?'active':''}" onclick="v32Tab('comercial')">Comercial</button><button class="v32-tab ${currentTab==='costos'?'active':''}" onclick="v32Tab('costos')">Costos</button><button class="v32-tab ${currentTab==='ia'?'active':''}" onclick="v32Tab('ia')">IA</button><button class="v32-tab ${currentTab==='docs'?'active':''}" onclick="v32Tab('docs')">Documentación</button></div>
  <div id="v32-tab-body"></div>`;
  const body=document.getElementById('v32-tab-body');
- if(currentTab==='comercial') body.innerHTML=`<div class="v32-fields"><div class="v32-field full"><label>Descripción que verá el cliente</label><textarea rows="5" oninput="v32Set(${selected},'descripcion',this.value)">${esc(it.descripcion)}</textarea></div><div class="v32-field"><label>Cantidad comercial</label><input type="number" step=".01" value="${it.cantidad}" oninput="v32Set(${selected},'cantidad',this.value)"></div><div class="v32-field"><label>Unidad</label><input value="${esc(it.unidad)}" oninput="v32Set(${selected},'unidad',this.value)"></div><div class="v32-field full"><label>Observaciones del ítem</label><textarea rows="3" oninput="v32Set(${selected},'observaciones',this.value)">${esc(it.observaciones)}</textarea></div></div>`;
+ if(currentTab==='comercial') body.innerHTML=`<div class="v32-fields"><div class="v32-field full"><label>Descripción que verá el cliente</label><textarea rows="5" oninput="v32Set(${selected},'descripcion',this.value)" onblur="v32Refresh()">${esc(it.descripcion)}</textarea></div><div class="v32-field"><label>Cantidad comercial</label><input type="number" step=".01" value="${it.cantidad}" oninput="v32Set(${selected},'cantidad',this.value)" onblur="v32Refresh()"></div><div class="v32-field"><label>Unidad</label><input value="${esc(it.unidad)}" oninput="v32Set(${selected},'unidad',this.value)" onblur="v32Refresh()"></div><div class="v32-field full"><label>Observaciones del ítem</label><textarea rows="3" oninput="v32Set(${selected},'observaciones',this.value)" onblur="v32Refresh()">${esc(it.observaciones)}</textarea></div></div>`;
  if(currentTab==='costos') {
    body.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Insumos y materiales</b><div><button class="btn btn-ghost btn-sm" onclick="v32AddSupply()">＋ Agregar insumo</button></div></div>
    <div class="v32-supply-head"><span>Insumo</span><span>Unidad</span><span>Cálculo / fórmula</span><span>Cantidad</span><span>Último costo</span><span>Costo total</span><span>Proveedor</span><span>Fecha</span><span></span></div>
    <div id="v32-supplies">${it.insumos.map((x,j)=>supplyHTML(x,j)).join('')||'<div class="v32-alert">Todavía no cargaste insumos para este ítem.</div>'}</div>
    <datalist id="v32-catalog-list">${catalog.map(x=>`<option value="${esc(x.descripcion)}">${esc(x.codigo+' · '+x.unidad+' · '+money(x.ultimoCosto))}</option>`).join('')}</datalist>
-   <div class="v32-fields" style="margin-top:12px"><div class="v32-field"><label>Coeficiente de este ítem</label><input type="number" step=".01" value="${it.coeficiente}" oninput="v32Set(${selected},'coeficiente',this.value)"></div><div class="v32-field"><label>Precio final definido</label><input type="number" step=".01" value="${it.unitario}" oninput="v32Set(${selected},'unitario',this.value)"></div></div>`;
+   <div class="v32-fields" style="margin-top:12px"><div class="v32-field"><label>Coeficiente de este ítem</label><input type="number" step=".01" value="${it.coeficiente}" oninput="v32Set(${selected},'coeficiente',this.value)" onblur="v32Refresh()"></div><div class="v32-field"><label>Precio final definido</label><input type="number" step=".01" value="${it.unitario}" oninput="v32Set(${selected},'unitario',this.value)" onblur="v32Refresh()"></div></div>`;
  }
  if(currentTab==='ia'){
    const alerts=[];
@@ -165,17 +165,17 @@ function renderEditor(){
    if(it.coeficiente<1.8)alerts.push('El coeficiente está por debajo de 1,80.');
    if(it.unitario<it.costoTotal)alerts.push('El precio de venta es menor al costo.');
    if(!it.unitario)alerts.push('Falta definir el precio final.');
-   body.innerHTML=(alerts.length?alerts.map((a,i)=>`<div class="v32-alert ${i===0?'red':''}">${esc(a)}</div>`).join(''):'<div class="v32-alert">✓ Ítem listo para cotizar.</div>')+`<div class="v32-field full" style="margin-top:10px"><label>Notas internas</label><textarea rows="4" oninput="v32Set(${selected},'notasInternas',this.value)">${esc(it.notasInternas)}</textarea></div>`;
+   body.innerHTML=(alerts.length?alerts.map((a,i)=>`<div class="v32-alert ${i===0?'red':''}">${esc(a)}</div>`).join(''):'<div class="v32-alert">✓ Ítem listo para cotizar.</div>')+`<div class="v32-field full" style="margin-top:10px"><label>Notas internas</label><textarea rows="4" oninput="v32Set(${selected},'notasInternas',this.value)" onblur="v32Refresh()">${esc(it.notasInternas)}</textarea></div>`;
  }
  if(currentTab==='docs') body.innerHTML=`<div class="v32-alert">En esta etapa, la documentación continúa gestionándose desde la OT y su carpeta de Drive. Los costos internos no aparecerán en el PDF comercial.</div>`;
 }
 function supplyHTML(x,j){
  return `<div class="v32-supply">
  <input list="v32-catalog-list" value="${esc(x.descripcion)}" placeholder="Buscar en Compras…" onchange="v32ChooseSupply(${j},this.value)">
- <input value="${esc(x.unidad)}" oninput="v32SupplySet(${j},'unidad',this.value)">
- <input value="${esc(x.formula)}" placeholder="1,20 × 2,40 × 2" oninput="v32SupplySet(${j},'formula',this.value)">
+ <input value="${esc(x.unidad)}" oninput="v32SupplySet(${j},'unidad',this.value)" onblur="v32Refresh()">
+ <input value="${esc(x.formula)}" placeholder="1,20 × 2,40 × 2" oninput="v32SupplySet(${j},'formula',this.value)" onblur="v32Refresh()">
  <input value="${Number.isFinite(x.cantidadCalculada)?x.cantidadCalculada:''}" disabled>
- <input type="number" step=".01" value="${x.costoUnitario}" oninput="v32SupplySet(${j},'costoUnitario',this.value)">
+ <input type="number" step=".01" value="${x.costoUnitario}" oninput="v32SupplySet(${j},'costoUnitario',this.value)" onblur="v32Refresh()">
  <span class="v32-number">${money(x.costoTotal)}</span>
  <small>${esc(x.proveedor||'—')}</small><small>${esc(x.fechaCosto||'—')}</small>
  <button class="btn-icon" onclick="v32RemoveSupply(${j})">×</button></div>`;
@@ -190,12 +190,13 @@ function renderGeneral(){
 }
 window.v32Select=i=>{selected=i;render()};
 window.v32Tab=t=>{currentTab=t;renderEditor()};
-window.v32Set=(i,k,v)=>{if(['cantidad','coeficiente','unitario'].includes(k))v=num(v);items[i][k]=v;recalcItem(items[i]);render()};
+window.v32Set=(i,k,v)=>{if(['cantidad','coeficiente','unitario'].includes(k))v=num(v);items[i][k]=v;recalcItem(items[i]);renderGeneral()};
+window.v32Refresh=()=>render();
 window.v32AddItem=()=>{items.push(blankItem());selected=items.length-1;currentTab='costos';render()};
 window.v32DuplicateItem=()=>{const copy=JSON.parse(JSON.stringify(items[selected]||blankItem()));copy._v32id=uid();copy.descripcion=(copy.descripcion||'')+' (copia)';copy.insumos=(copy.insumos||[]).map(x=>({...x,_id:uid()}));items.splice(selected+1,0,copy);selected++;render()};
 window.v32AddSupply=()=>{items[selected].insumos.push(normalizeSupply({formula:'1'}));renderEditor();renderGeneral()};
 window.v32RemoveSupply=j=>{items[selected].insumos.splice(j,1);render()};
-window.v32SupplySet=(j,k,v)=>{const x=items[selected].insumos[j];x[k]=k==='costoUnitario'?num(v):v;const q=formulaValue(x.formula);x.cantidadCalculada=Number.isFinite(q)?q:0;x.costoTotal=x.cantidadCalculada*num(x.costoUnitario);recalcItem(items[selected]);renderEditor();renderGeneral()};
+window.v32SupplySet=(j,k,v)=>{const x=items[selected].insumos[j];x[k]=k==='costoUnitario'?num(v):v;const q=formulaValue(x.formula);x.cantidadCalculada=Number.isFinite(q)?q:0;x.costoTotal=x.cantidadCalculada*num(x.costoUnitario);recalcItem(items[selected]);renderGeneral()};
 window.v32ChooseSupply=(j,description)=>{
  const found=catalog.find(x=>String(x.descripcion).toLowerCase()===String(description).toLowerCase());
  const s=items[selected].insumos[j];s.descripcion=description;
@@ -238,7 +239,7 @@ function install(){
  const oldEditP=window.editPres;
  if(oldEditP)window.editPres=function(id){const p=(window.DB?.presupuestos||[]).find(x=>x.id===id);const o=p?.obraId?(window.DB?.obras||[]).find(x=>x.id===p.obraId):null;const r=oldEditP(id);setTimeout(()=>{const source=o?.itemsCotizados||p?.itemsCotizados||p?.items;if(source?.length){window.obraItems=source.map(normalizeItem);window.renderObraItems()}},0);return r};
 
- console.info('[CLEMEN ERP V32] Cotizador completo cargado',V);
+ console.info('[CLEMEN ERP V32.1] Hotfix campos cotizador cargado',V);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,800));else setTimeout(install,800);
 })();
