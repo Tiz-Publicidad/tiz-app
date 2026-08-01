@@ -3156,14 +3156,17 @@ async function syncToSheets(data) {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
-      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      // Apps Script puede responder tarde cuando está creando Excel/PDF.
+      // Dejamos un callback inocuo por unos minutos para evitar ReferenceError.
+      window[callback] = () => {};
+      setTimeout(() => { try { delete window[callback]; } catch (_) {} }, 300000);
       script.remove();
       err ? reject(err) : resolve(value);
     };
 
     const timer = setTimeout(
-      () => cleanup(new Error('Apps Script no respondió en 25 segundos')),
-      25000
+      () => cleanup(new Error('Apps Script no respondió en 120 segundos')),
+      120000
     );
 
     window[callback] = result => {
@@ -3191,10 +3194,11 @@ window.testDriveOtConnection = async function() {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     const timer = setTimeout(() => {
-      try { delete window[callback]; } catch (_) {}
+      window[callback] = () => {};
+      setTimeout(() => { try { delete window[callback]; } catch (_) {} }, 120000);
       script.remove();
       reject(new Error('Sin respuesta de Apps Script'));
-    }, 15000);
+    }, 30000);
     window[callback] = result => {
       clearTimeout(timer);
       try { delete window[callback]; } catch (_) {}
@@ -4376,7 +4380,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V31.1 · DRIVE AUTOMÁTICO + ORDEN OT · 01/08/2026';
+  badge.textContent = 'TIZ V31.2 · HOTFIX SINCRONIZACIÓN DRIVE · 01/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
@@ -4390,6 +4394,6 @@ window.exportarDatosFacturaActual = function(){
 <script src="excelMadre.js?v=TIZ-V30-1-BASE-20260801"></script>
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V30-1-BASE-20260801"></script>
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
-<script src="operacionesV31.js?v=TIZ-V31-1-HOTFIX-20260801"></script>
+<script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 </body>
 </html>

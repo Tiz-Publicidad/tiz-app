@@ -7,7 +7,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'V31.1-HOTFIX-20260801';
+  const VERSION = 'V31.2-DRIVE-20260801';
   const WEBHOOK = 'https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec';
   const SECTOR_KEYS = { 'Producción':'produccion', 'Colocaciones':'colocaciones', 'Calidad':'calidad' };
   const CHECKS = {
@@ -291,8 +291,8 @@
   async function callWebhook(payload) {
     return new Promise((resolve,reject)=>{
       const callback='__tizSectorV31_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script');
-      let done=false;const finish=(err,val)=>{if(done)return;done=true;clearTimeout(timer);try{delete window[callback]}catch(_){ }script.remove();err?reject(err):resolve(val)};
-      const timer=setTimeout(()=>finish(new Error('Apps Script no respondió en 30 segundos')),30000);
+      let done=false;const finish=(err,val)=>{if(done)return;done=true;clearTimeout(timer);window[callback]=()=>{};setTimeout(()=>{try{delete window[callback]}catch(_){}},300000);script.remove();err?reject(err):resolve(val)};
+      const timer=setTimeout(()=>finish(new Error('Apps Script no respondió en 120 segundos')),120000);
       window[callback]=result=>result?.ok?finish(null,result):finish(new Error(result?.error||'Apps Script devolvió un error'));
       script.onerror=()=>finish(new Error('No se pudo conectar con Apps Script'));
       script.src=WEBHOOK+'?'+new URLSearchParams({callback,payload:JSON.stringify(payload),_t:String(Date.now())});document.head.appendChild(script);
@@ -330,7 +330,7 @@
       .filter(o => ['aprobado','en producción'].includes(norm(o.estado)))
       .filter(o => !getGestion(o,'Producción').sheetUrl)
       .filter(o => !autoSyncState.attempted.has(o.id))
-      .slice(0,3);
+      .slice(0,1);
     if (!candidates.length) return;
 
     autoSyncState.running = true;
@@ -374,7 +374,8 @@
 
   function scheduleAutoSync() {
     clearTimeout(autoSyncState.timer);
-    autoSyncState.timer=setTimeout(autoSyncProductionDocuments,1200);
+    if(window.currentPage!=='produccion') return;
+    autoSyncState.timer=setTimeout(autoSyncProductionDocuments,1800);
   }
 
   function install() {
@@ -392,11 +393,13 @@
     if(window.currentPage==='colocaciones')renderSector('Colocaciones');
     scheduleAutoSync();
     setInterval(()=>{
-      if(window.currentPage==='produccion')renderSector('Producción');
+      if(window.currentPage==='produccion'){
+        renderSector('Producción');
+        autoSyncProductionDocuments();
+      }
       if(window.currentPage==='colocaciones')renderSector('Colocaciones');
-      autoSyncProductionDocuments();
-    },15000);
-    console.info('[CLEMEN ERP V31.1] Hotfix Drive y orden OT cargado',VERSION);
+    },45000);
+    console.info('[CLEMEN ERP V31.2] Hotfix sincronización Drive cargado',VERSION);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,500));
   else setTimeout(install,500);
