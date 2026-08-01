@@ -754,3 +754,34 @@ const cpGoToV27=window.goTo;window.goTo=function(page){cpGoToV27(page);if(page==
 
 injectStyles();injectUI();startListeners();
 console.info('[TIZ V28.2] Hotfix Dashboard de Colocaciones cargado');
+
+
+// ============================================================
+// TIZ V32 — API de catálogo y último costo para Cotizador
+// ============================================================
+window.tizComprasCatalogoV32 = function(){
+  try {
+    const allItems = typeof purchaseItems === 'function' ? purchaseItems() : [];
+    return (C.articulos || []).map(a => {
+      const matches = allItems
+        .filter(x => x.articuloId === a.id || normText(x.descripcion) === normText(a.descripcion))
+        .sort((x,y) => String(y.compra?.fecha || '').localeCompare(String(x.compra?.fecha || '')));
+      const last = matches[0] || null;
+      return {
+        id: a.id || '',
+        codigo: a.codigo || '',
+        descripcion: a.descripcion || '',
+        unidad: a.unidad || 'UNID',
+        familia: a.familia || '',
+        subfamilia: a.subfamilia || '',
+        ultimoCosto: last ? Number(last.precioUnitarioNeto || 0) : 0,
+        proveedor: last?.compra?.proveedor || '',
+        fechaCosto: last?.compra?.fecha || '',
+        compraId: last?.compra?.id || ''
+      };
+    }).sort((a,b) => String(a.descripcion).localeCompare(String(b.descripcion),'es'));
+  } catch (err) {
+    console.warn('[V32 catálogo cotizador]', err);
+    return [];
+  }
+};
