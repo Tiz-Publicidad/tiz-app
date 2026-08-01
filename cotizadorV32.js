@@ -23,6 +23,29 @@ const num=v=>{
 };
 const money=v=>'$ '+Math.round(num(v)).toLocaleString('es-AR');
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const UNIT_OPTIONS = [
+  'UNID',
+  'MTS LINEALES',
+  'M²',
+  'KG',
+  'PLACA',
+  'LITRO',
+  'ROLLO',
+  'TUBO',
+  'HORA',
+  'JORNADA',
+  'SERVICIO',
+  'PAR',
+  'CAJA',
+  'PACK'
+];
+function unitOptions(selected){
+  const current=String(selected||'UNID').trim();
+  const values=[...UNIT_OPTIONS];
+  if(current && !values.some(x=>x.toLowerCase()===current.toLowerCase())) values.unshift(current);
+  return values.map(x=>`<option value="${esc(x)}" ${x.toLowerCase()===current.toLowerCase()?'selected':''}>${esc(x)}</option>`).join('');
+}
+
 
 function formulaValue(raw){
   let s=String(raw??'').trim().toLowerCase();
@@ -172,7 +195,7 @@ function renderEditor(){
 function supplyHTML(x,j){
  return `<div class="v32-supply">
  <input list="v32-catalog-list" value="${esc(x.descripcion)}" placeholder="Buscar en Compras…" onchange="v32ChooseSupply(${j},this.value)">
- <input value="${esc(x.unidad)}" oninput="v32SupplySet(${j},'unidad',this.value)" onblur="v32Refresh()">
+ <select onchange="v32SupplySet(${j},'unidad',this.value)">${unitOptions(x.unidad)}</select>
  <input value="${esc(x.formula)}" placeholder="1,20 × 2,40 × 2" oninput="v32SupplySet(${j},'formula',this.value)" onblur="v32Refresh()">
  <input value="${Number.isFinite(x.cantidadCalculada)?x.cantidadCalculada:''}" disabled>
  <input type="number" step=".01" value="${x.costoUnitario}" oninput="v32SupplySet(${j},'costoUnitario',this.value)" onblur="v32Refresh()">
