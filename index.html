@@ -3872,6 +3872,10 @@ window.refreshCurrent = function() {
       oc: getValue('f-oc'), nrfc: getValue('f-nrfc'), ffc: getValue('f-ffc'), cobr: getValue('f-cobr') || 'Pendiente', diasPago: +getValue('f-dias-pago')||0,
       comentarios: getValue('f-comentarios'), notas_sector, itemsCotizados, calculosAuxiliares, totalItems,
       nroPresupuesto: presupuestoActual?.nro || existing?.nroPresupuesto || getValue('f-ot'),
+      expedienteId: presupuestoActual?.expedienteId || existing?.expedienteId || String(presupuestoActual?.nro || getValue('f-ot') || '').replace(/\D/g,''),
+      revision: presupuestoActual?.revision || existing?.revisionAprobada || existing?.revision || '1.0',
+      revisionAprobada: estado === 'Aprobado' ? (presupuestoActual?.revision || existing?.revisionAprobada || '1.0') : (existing?.revisionAprobada || ''),
+      revisionEsUltimaAprobada: estado === 'Aprobado',
       nota: presupuestoActual?.nota || existing?.nota || 'Los precios cotizados se encuentran a valores netos',
       condicion: presupuestoActual?.cond || presupuestoActual?.condicion || existing?.condicion || 'Anticipo 50% Saldo a contraentrega',
       validezDias: +(presupuestoActual?.validezDias || existing?.validezDias || 7),
@@ -3901,6 +3905,11 @@ window.refreshCurrent = function() {
         cliente: data.cliente, desc: data.desc, importe: data.neto || totalItems || 0,
         fecha: presupuestoActual?.fecha || todayAR(), estado: data.estado, comentarios: data.comentarios,
         nota: data.nota, cond: data.condicion, validezDias: data.validezDias,
+        expedienteId: presupuestoActual?.expedienteId || String(data.ot || '').replace(/\D/g,''),
+        revision: presupuestoActual?.revision || '1.0',
+        revisionVigente: data.estado === 'Aprobado',
+        revisionEstado: data.estado === 'Aprobado' ? 'aprobada' : (presupuestoActual?.revisionEstado || 'borrador'),
+        motivoRevision: presupuestoActual?.motivoRevision || '',
         items: itemsCotizados.map(i=>({desc:i.descripcion, cant:i.cantidad, precio:i.unitario, subtotal:i.subtotal})),
         driveFolderUrl: data.driveFolderUrl || '', otSheetUrl: data.otSheetUrl || ''
       };
@@ -4380,7 +4389,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V32.2 · UNIDADES DESPLEGABLES · 01/08/2026';
+  badge.textContent = 'TIZ V33.1 · EXPEDIENTES + REVISIONES · 03/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
@@ -4396,5 +4405,6 @@ window.exportarDatosFacturaActual = function(){
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V32-2-UNIDADES-20260801"></script>
+<script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
 </body>
 </html>
