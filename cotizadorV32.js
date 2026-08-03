@@ -121,8 +121,8 @@ function ensureStyle(){
  .v32-bg{position:fixed;inset:0;background:rgba(0,0,0,.84);z-index:12000;display:none;padding:18px;overflow:auto}.v32-bg.show{display:block}
  .v32-modal{max-width:1510px;margin:auto;background:var(--bg);border:1px solid var(--border);border-radius:13px;min-height:calc(100vh - 36px);box-shadow:0 30px 120px #000;padding:15px;color:var(--text)}
  .v32-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:11px}.v32-title{font-size:20px;font-weight:800}.v32-sub{font-size:10px;color:var(--text3);margin-top:4px}.v32-actions{display:flex;gap:7px;flex-wrap:wrap}
- .v32-summary-head{display:grid;grid-template-columns:1fr 90px 115px 90px 115px 115px 95px 84px;gap:7px;padding:8px 10px;font-size:8px;text-transform:uppercase;color:var(--text3);background:var(--surface2);border-radius:7px 7px 0 0}
- .v32-item{border:1px solid var(--border);background:var(--surface);border-radius:8px;margin-top:7px;overflow:hidden}.v32-item-row{display:grid;grid-template-columns:1fr 90px 115px 90px 115px 115px 95px 84px;gap:7px;align-items:center;padding:9px;cursor:pointer}.v32-item-row.selected{background:rgba(238,46,122,.06);border-left:3px solid var(--accent)}
+ .v32-summary-head{display:grid;grid-template-columns:1fr 90px 115px 90px 115px 115px 95px 84px 38px;gap:7px;padding:8px 10px;font-size:8px;text-transform:uppercase;color:var(--text3);background:var(--surface2);border-radius:7px 7px 0 0}
+ .v32-item{border:1px solid var(--border);background:var(--surface);border-radius:8px;margin-top:7px;overflow:hidden}.v32-item-row{display:grid;grid-template-columns:1fr 90px 115px 90px 115px 115px 95px 84px 38px;gap:7px;align-items:center;padding:9px;cursor:pointer}.v32-item-row.selected{background:rgba(238,46,122,.06);border-left:3px solid var(--accent)}
  .v32-item-row input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px;border-radius:6px;font-size:10px}.v32-number{text-align:right;font:600 10px 'DM Mono',monospace}.v32-green{color:var(--green)}.v32-red{color:var(--red)}
  .v32-work{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:10px;margin-top:12px}.v32-panel{border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:11px}.v32-tabs{display:flex;gap:18px;border-bottom:1px solid var(--border);margin-bottom:10px}.v32-tab{border:0;background:transparent;color:var(--text3);padding:8px 1px;border-bottom:2px solid transparent;cursor:pointer}.v32-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
  .v32-supply-head,.v32-supply{display:grid;grid-template-columns:minmax(220px,1.4fr) 75px 120px 85px 110px 110px 130px 80px 31px;gap:6px;align-items:center}.v32-supply-head{font-size:8px;text-transform:uppercase;color:var(--text3);padding:5px}.v32-supply{margin-bottom:6px}.v32-supply input,.v32-supply select{min-width:0;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px;border-radius:6px;font-size:9px}.v32-supply small{font-size:8px;color:var(--text3)}
@@ -136,7 +136,7 @@ function ensureModal(){
  ensureStyle();let root=document.getElementById('v32-root');if(root)return root;
  root=document.createElement('div');root.id='v32-root';root.className='v32-bg';
  root.innerHTML=`<div class="v32-modal">
- <div class="v32-head"><div><div class="v32-title">Cotizador técnico y comercial</div><div class="v32-sub">Cada ítem tiene sus propios insumos, costos y coeficiente. El cliente solo verá descripción, cantidad y precio.</div></div><div class="v32-actions"><button class="btn btn-ghost" onclick="v32DuplicateItem()">Duplicar ítem</button><button class="btn btn-primary" onclick="v32AddItem()">＋ Agregar ítem</button><button class="btn btn-ghost" onclick="v32Close()">✕</button></div></div>
+ <div class="v32-head"><div><div class="v32-title">Cotizador técnico y comercial</div><div class="v32-sub">Cada ítem tiene sus propios insumos, costos y coeficiente. El cliente solo verá descripción, cantidad y precio.</div></div><div class="v32-actions"><button class="btn btn-ghost" onclick="v32DuplicateItem()">Duplicar ítem</button><button class="btn btn-ghost" onclick="v32DeleteItem()" title="Eliminar el ítem seleccionado">🗑 Eliminar ítem</button><button class="btn btn-primary" onclick="v32AddItem()">＋ Agregar ítem</button><button class="btn btn-ghost" onclick="v32Close()">✕</button></div></div>
  <div id="v32-items"></div>
  <div class="v32-work"><div class="v32-panel"><div id="v32-editor"></div></div><aside class="v32-panel" id="v32-general"></aside></div>
  <div class="v32-footer"><span class="v32-sub">Los costos, coeficientes y márgenes son internos y no se exportan al PDF del cliente.</span><div><button class="btn btn-ghost" onclick="v32Close()">Cancelar</button> <button class="btn btn-primary" onclick="v32Apply()">Aplicar al presupuesto</button></div></div>
@@ -149,7 +149,7 @@ function refreshCatalog(){
 function render(){
  items.forEach(recalcItem);
  const host=document.getElementById('v32-items');
- host.innerHTML=`<div class="v32-summary-head"><span>Descripción del ítem</span><span>Cantidad</span><span>Costo total</span><span>Coef.</span><span>Precio sugerido</span><span>Precio de venta</span><span>Margen</span><span>Estado</span></div>`+
+ host.innerHTML=`<div class="v32-summary-head"><span>Descripción del ítem</span><span>Cantidad</span><span>Costo total</span><span>Coef.</span><span>Precio sugerido</span><span>Precio de venta</span><span>Margen</span><span>Estado</span><span></span></div>`+
  items.map((it,i)=>{
    const margin=it.subtotal-it.costoTotal,pct=it.subtotal?margin/it.subtotal*100:0;
    const complete=!!it.descripcion && it.insumos.length>0 && it.unitario>0;
@@ -162,6 +162,7 @@ function render(){
     <input type="number" step=".01" value="${it.unitario}" onclick="event.stopPropagation()" oninput="v32Set(${i},'unitario',this.value)" onblur="v32Refresh()">
     <span class="v32-number ${margin<0?'v32-red':'v32-green'}">${pct.toFixed(1)}%</span>
     <span class="v32-pill">${complete?'Completo':'Revisar'}</span>
+    <button type="button" class="btn-icon" title="Eliminar ítem" onclick="event.stopPropagation();v32DeleteItem(${i})">🗑</button>
    </div></div>`;
  }).join('');
  renderEditor();renderGeneral();
@@ -217,6 +218,21 @@ window.v32Set=(i,k,v)=>{if(['cantidad','coeficiente','unitario'].includes(k))v=n
 window.v32Refresh=()=>render();
 window.v32AddItem=()=>{items.push(blankItem());selected=items.length-1;currentTab='costos';render()};
 window.v32DuplicateItem=()=>{const copy=JSON.parse(JSON.stringify(items[selected]||blankItem()));copy._v32id=uid();copy.descripcion=(copy.descripcion||'')+' (copia)';copy.insumos=(copy.insumos||[]).map(x=>({...x,_id:uid()}));items.splice(selected+1,0,copy);selected++;render()};
+window.v32DeleteItem=(index=selected)=>{
+ const i=Number.isInteger(index)?index:selected;
+ if(items.length<=1){
+   if(window.showToast)window.showToast('El presupuesto debe conservar al menos un ítem.');
+   else alert('El presupuesto debe conservar al menos un ítem.');
+   return;
+ }
+ const item=items[i]||{};
+ const label=item.descripcion?`“${item.descripcion}”`:`Ítem ${i+1}`;
+ if(!confirm(`¿Eliminar ${label} del presupuesto?\n\nEsta acción quita también sus insumos, costos y coeficiente.`))return;
+ items.splice(i,1);
+ selected=Math.max(0,Math.min(i,items.length-1));
+ currentTab='costos';
+ render();
+};
 window.v32AddSupply=()=>{items[selected].insumos.push(normalizeSupply({formula:'1'}));renderEditor();renderGeneral()};
 window.v32RemoveSupply=j=>{items[selected].insumos.splice(j,1);render()};
 window.v32SupplySet=(j,k,v)=>{const x=items[selected].insumos[j];x[k]=k==='costoUnitario'?num(v):v;const q=formulaValue(x.formula);x.cantidadCalculada=Number.isFinite(q)?q:0;x.costoTotal=x.cantidadCalculada*num(x.costoUnitario);recalcItem(items[selected]);renderGeneral()};
