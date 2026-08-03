@@ -368,10 +368,7 @@
       }
     } finally {
       autoSyncState.running=false;
-      if(window.currentPage==='produccion'){
-        if(typeof window.renderProduccionV34==='function') window.renderProduccionV34();
-        else renderSector('Producción');
-      }
+      if(window.currentPage==='produccion') renderSector('Producción');
     }
   }
 
@@ -387,29 +384,22 @@
     window.refreshCurrent=function(){
       if(typeof previous==='function')previous.apply(this,arguments);
       setTimeout(()=>{
-        if(window.currentPage==='produccion'){
-          if(typeof window.renderProduccionV34==='function') window.renderProduccionV34();
-          else renderSector('Producción');
-        }
+        if(window.currentPage==='produccion' && !window.__TIZ_PRODUCCION_V34__)renderSector('Producción');
         if(window.currentPage==='colocaciones')renderSector('Colocaciones');
         scheduleAutoSync();
       },0);
     };
-    if(window.currentPage==='produccion'){
-      if(typeof window.renderProduccionV34==='function') window.renderProduccionV34();
-      else renderSector('Producción');
-    }
+    if(window.currentPage==='produccion' && !window.__TIZ_PRODUCCION_V34__)renderSector('Producción');
     if(window.currentPage==='colocaciones')renderSector('Colocaciones');
     scheduleAutoSync();
     setInterval(()=>{
       if(window.currentPage==='produccion'){
-        if(typeof window.renderProduccionV34==='function') window.renderProduccionV34();
-        else renderSector('Producción');
+        if(!window.__TIZ_PRODUCCION_V34__) renderSector('Producción');
         autoSyncProductionDocuments();
       }
       if(window.currentPage==='colocaciones')renderSector('Colocaciones');
     },45000);
-    console.info('[CLEMEN ERP V34.1] Compatibilidad Producción Integral cargada',VERSION);
+    console.info('[CLEMEN ERP V31.2] Hotfix sincronización Drive cargado',VERSION);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,500));
   else setTimeout(install,500);

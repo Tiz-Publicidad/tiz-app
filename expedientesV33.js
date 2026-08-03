@@ -238,11 +238,7 @@
     style();
     try{await normalizeExisting();}catch(e){console.warn('[V33 normalización]',e)}
     if(window.currentPage==='presupuestos')renderPresupuestosV33();
-    const badge=document.getElementById('tiz-build-v20');
-    if(badge && !/TIZ V34/i.test(badge.textContent||'')) {
-      badge.textContent='TIZ V33.1 · EXPEDIENTES + REVISIONES · 03/08/2026';
-    }
-    console.info('[CLEMEN ERP V33.1] Expedientes y revisiones cargados',VERSION);
+    console.info('[CLEMEN ERP V33.1] Expedientes y revisiones cargados (sin sobrescribir versión global)',VERSION);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,1200));else setTimeout(install,1200);
 })();
