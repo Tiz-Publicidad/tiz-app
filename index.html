@@ -4389,7 +4389,7 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V34 · PRODUCCIÓN INTEGRAL · 03/08/2026';
+  badge.textContent = 'TIZ V34.1 · PRODUCCIÓN INTEGRAL ESTABLE · 03/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
@@ -4403,9 +4403,9 @@ window.exportarDatosFacturaActual = function(){
 <script src="excelMadre.js?v=TIZ-V30-1-BASE-20260801"></script>
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V30-1-BASE-20260801"></script>
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
-<script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
+<script src="operacionesV31.js?v=TIZ-V34-1-COMPAT-20260803"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
-<script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="produccionV34.js?v=TIZ-V34-PRODUCCION-20260803"></script>
+<script src="expedientesV33.js?v=TIZ-V34-1-BADGE-20260803"></script>
+<script src="produccionV34.js?v=TIZ-V34-1-ESTABLE-20260803"></script>
 </body>
 </html>
