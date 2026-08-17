@@ -2283,35 +2283,53 @@ window.savePresupuesto = async () => {
   let docRefId = id;
   if(id) await updateDoc_('presupuestos',id,data); else { const ref = await addDoc_('presupuestos',data); docRefId = ref?.id || null; }
 
-  // Si el presupuesto queda Aprobado, también debe generar carpeta OT y respaldo.
-  // Lo enviamos al mismo backend que usa Obras, pero adaptando campos del presupuesto.
+  // V35.2: cada cotización tiene su carpeta en ANÁLISIS DE COTIZACIONES.
+  // Si luego se aprueba, se crea otra carpeta independiente en ÓRDENES DE TRABAJO.
+  // Ambas usan el mismo criterio: N° Cotización - Cliente - Descripción.
+  try {
+    const cotResult = await syncDriveFolder({
+      ...data,
+      firestoreId: docRefId,
+      ot: data.nro,
+      nroCotizacion: data.nro,
+      origen: 'presupuesto'
+    }, 'cotizacion');
+    if (cotResult?.driveFolderUrl && docRefId) {
+      await updateDoc_('presupuestos', docRefId, {
+        cotizacionFolderUrl: cotResult.driveFolderUrl,
+        cotizacionFolderId: cotResult.folderId || cotResult.driveFolderId || '',
+        cotizacionFolderName: cotResult.folderName || buildTizFolderName(data.nro, data.cliente, data.desc),
+        cotizacionDriveSyncedAt: new Date().toISOString()
+      });
+    }
+  } catch(e) {
+    console.warn('[TIZ V35.2] No se pudo crear carpeta de Análisis de Cotizaciones:', e);
+  }
+
   if (String(data.estado || '').toLowerCase() === 'aprobado') {
     try {
       const otPayload = {
         ...data,
         ot: data.nro,
+        nroCotizacion: data.nro,
         neto: data.importe,
         totalItems: data.importe,
         sector: data.sector || 'Ventas',
-        itemsCotizados: data.itemsCotizados || [{ descripcion: data.desc, cantidad: 1, unidad: 'u', unitario: data.importe, subtotal: data.importe, observaciones: 'Generado desde Presupuestos' }],
-        calculosAuxiliares: data.calculosAuxiliares || [],
         firestoreId: docRefId,
         origen: 'presupuesto'
       };
-      const syncResult = await syncToSheets(otPayload);
-      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-        const links = {
-          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
-          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+      const syncResult = await syncDriveFolder(otPayload, 'ot');
+      if (syncResult?.driveFolderUrl && docRefId) {
+        await updateDoc_('presupuestos', docRefId, {
+          driveFolderUrl: syncResult.driveFolderUrl,
+          driveFolderId: syncResult.folderId || syncResult.driveFolderId || '',
+          otFolderName: syncResult.folderName || buildTizFolderName(data.nro, data.cliente, data.desc),
           driveSyncedAt: new Date().toISOString()
-        };
-        if (docRefId) await updateDoc_('presupuestos', docRefId, links);
+        });
         showToast('Presupuesto aprobado: carpeta OT creada');
-      } else {
-        showToast('Presupuesto aprobado y guardado');
       }
     } catch(e) {
-      console.warn('No se pudo crear carpeta OT desde presupuesto:', e);
+      console.warn('[TIZ V35.2] No se pudo crear carpeta OT:', e);
       showToast('Presupuesto aprobado y guardado');
     }
   }
@@ -3099,1260 +3117,71 @@ function renderEstCumplimiento() {
 // ============================================================
 const TIZ_DRIVE_OT_WEBHOOK = "https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec";
 
-async function syncToSheets(data) {
-  if (!data || String(data.estado || '').trim().toLowerCase() !== 'aprobado') {
-    return { ok:true, skipped:true, reason:'Estado distinto de Aprobado' };
-  }
-  if (!String(data.ot || '').trim()) throw new Error('La obra aprobada no tiene número de OT');
-  if (!TIZ_DRIVE_OT_WEBHOOK.includes('/exec')) throw new Error('URL /exec de Apps Script no configurada');
+function sanitizeTizFolderPart(value) {
+  return String(value || '')
+    .replace(/[\\/:*?"<>|#%{}~]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
+function buildTizFolderName(nroCotizacion, cliente, descripcion) {
+  const partes = [nroCotizacion, cliente, descripcion].map(sanitizeTizFolderPart).filter(Boolean);
+  return partes.join(' - ').slice(0, 180) || 'SIN NOMBRE';
+}
+window.buildTizFolderName = buildTizFolderName;
+
+async function syncDriveFolder(data, tipoCarpeta) {
+  if (!TIZ_DRIVE_OT_WEBHOOK.includes('/exec')) throw new Error('URL /exec de Apps Script no configurada');
+  const tipo = tipoCarpeta === 'cotizacion' ? 'cotizacion' : 'ot';
+  const nroCotizacion = String(data.nroCotizacion || data.nroPresupuesto || data.presupuesto || data.ot || '').trim();
+  if (!nroCotizacion) throw new Error('Falta el número de cotización');
+  const folderName = buildTizFolderName(nroCotizacion, data.cliente, data.desc);
   const compact = {
-    action: 'ensureOtFolder',
+    action: 'ensureTizFolder',
+    tipoCarpeta: tipo,
+    folderName,
     obra: {
       firestoreId: String(data.firestoreId || ''),
-      ot: String(data.ot || '').trim(),
-      nroPresupuesto: String(data.nroPresupuesto || data.presupuesto || data.ot || '').trim(),
+      ot: String(data.ot || nroCotizacion).trim(),
+      nroCotizacion,
       cliente: String(data.cliente || '').trim(),
       desc: String(data.desc || '').trim(),
       estado: String(data.estado || '').trim(),
       sector: String(data.sector || '').trim(),
       vendedor: String(data.vendedor || '').trim(),
-      semana: Number(data.semana || 0),
-      neto: Number(data.neto || data.totalItems || 0),
-      fecha: String(data.fecha || ''),
-      fechaAprobacion: String(data.fechaAprobacion || new Date().toISOString()),
-      fprod_c: String(data.fprod_c || ''),
-      fcol_c: String(data.fcol_c || ''),
-      contacto: String(data.contacto || ''),
-      direccion: String(data.direccion || ''),
-      comentarios: String(data.comentarios || ''),
-      nota: String(data.nota || 'Los precios cotizados se encuentran a valores netos'),
-      condicion: String(data.condicion || data.cond || 'Anticipo 50% Saldo a contraentrega'),
-      validezDias: Number(data.validezDias || 7),
-      itemsCotizados: (() => {
-        const items = (Array.isArray(data.itemsCotizados) ? data.itemsCotizados : []).map(it => ({
-          descripcion: String(it.descripcion || it.desc || ''),
-          cantidad: Number(it.cantidad ?? it.cant ?? 1) || 1,
-          unidad: String(it.unidad || 'u'),
-          unitario: Number(it.unitario ?? it.precio ?? it.precioUnitario ?? 0) || 0,
-          subtotal: Number(it.subtotal ?? it.total ?? ((it.cantidad ?? it.cant ?? 1) * (it.unitario ?? it.precio ?? 0))) || 0,
-          observaciones: String(it.observaciones || '')
-        }));
-        const total = Number(data.neto || data.totalItems || data.importe || 0) || 0;
-        if (items.length === 1 && !items[0].subtotal && total > 0) {
-          items[0].subtotal = total;
-          items[0].unitario = total / (items[0].cantidad || 1);
-        }
-        return items;
-      })()
+      folderName,
+      tipoCarpeta: tipo
     }
   };
 
-  return new Promise((resolve, reject) => {
-    const callback = '__tizDriveV20_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  return await new Promise((resolve, reject) => {
+    const callback = '__tizDriveCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     const script = document.createElement('script');
-    let finished = false;
-
-    const cleanup = (err, value) => {
-      if (finished) return;
-      finished = true;
+    const timer = setTimeout(() => cleanup(new Error('Apps Script no respondió en 20 segundos')), 20000);
+    function cleanup(err, value) {
       clearTimeout(timer);
-      // Apps Script puede responder tarde cuando está creando Excel/PDF.
-      // Dejamos un callback inocuo por unos minutos para evitar ReferenceError.
-      window[callback] = () => {};
-      setTimeout(() => { try { delete window[callback]; } catch (_) {} }, 300000);
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
       script.remove();
-      err ? reject(err) : resolve(value);
-    };
-
-    const timer = setTimeout(
-      () => cleanup(new Error('Apps Script no respondió en 120 segundos')),
-      120000
-    );
-
+      if (err) reject(err); else resolve(value);
+    }
     window[callback] = result => {
-      if (!result || result.ok !== true) {
-        cleanup(new Error(result?.error || 'Apps Script devolvió un error'));
-      } else {
-        cleanup(null, result);
-      }
+      if (!result || result.ok !== true) cleanup(new Error(result?.error || 'Error desconocido de Apps Script'));
+      else cleanup(null, result);
     };
-
     script.onerror = () => cleanup(new Error('No se pudo conectar con Apps Script'));
-    const qs = new URLSearchParams({
-      callback,
-      payload: JSON.stringify(compact),
-      _t: String(Date.now())
-    });
+    const qs = new URLSearchParams({ callback, payload: JSON.stringify(compact) });
     script.src = TIZ_DRIVE_OT_WEBHOOK + '?' + qs.toString();
     document.head.appendChild(script);
   });
 }
-window.syncToSheets = syncToSheets;
+window.syncDriveFolder = syncDriveFolder;
 
-window.testDriveOtConnection = async function() {
-  const callback = '__tizPingV20_' + Date.now();
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    const timer = setTimeout(() => {
-      window[callback] = () => {};
-      setTimeout(() => { try { delete window[callback]; } catch (_) {} }, 120000);
-      script.remove();
-      reject(new Error('Sin respuesta de Apps Script'));
-    }, 30000);
-    window[callback] = result => {
-      clearTimeout(timer);
-      try { delete window[callback]; } catch (_) {}
-      script.remove();
-      result?.ok ? resolve(result) : reject(new Error(result?.error || 'Error de conexión'));
-    };
-    script.onerror = () => {
-      clearTimeout(timer);
-      try { delete window[callback]; } catch (_) {}
-      script.remove();
-      reject(new Error('No se pudo abrir Apps Script'));
-    };
-    script.src = TIZ_DRIVE_OT_WEBHOOK + '?' + new URLSearchParams({
-      callback,
-      payload: JSON.stringify({action:'ping'}),
-      _t: String(Date.now())
-    });
-    document.head.appendChild(script);
-  });
-};
-
-window.exportarCSV = () => {
-  const obras = [...window.DB.obras].sort((a,b) => (+b.semana||0) - (+a.semana||0));
-  if (!obras.length) { showToast('No hay obras para exportar'); return; }
-
-  const cols = [
-    'Fecha','Semana','OT','Descripción','Arquitecto/Contacto','Cliente','Sector','Vendedor',
-    'Estado','Neto','Bruto','Gastos',
-    'F.Prod.Compromiso','F.Prod.Real',
-    'F.Col.Compromiso','F.Col.Real',
-    'OC/OP','Nro Factura','F.Factura','Estado Cobranza',
-    'Comentarios',
-    'Nota Producción','Nota Colocaciones','Nota Diseño','Nota Ventas','Nota Compras'
-  ];
-
-  const esc = v => {
-    if (v === null || v === undefined) return '';
-    const s = String(v).replace(/"/g, '""');
-    return s.includes(',') || s.includes('\n') || s.includes('"') ? `"${s}"` : s;
-  };
-
-  const rows = obras.map(o => {
-    const n = o.notas_sector || {};
-    return [
-      esc(o.fecha||''), esc(o.semana||''), esc(o.ot||''), esc(o.desc||''),
-      esc(o.arquitecto||''), esc(o.cliente||''), esc(o.sector||''), esc(o.vendedor||''),
-      esc(o.estado||''), esc(o.neto||0), esc(o.bruto||0), esc(o.gastos||0),
-      esc(o.fprod_c||''), esc(o.fprod_r||''),
-      esc(o.fcol_c||''), esc(o.fcol_r||''),
-      esc(o.oc||''), esc(o.nrfc||''), esc(o.ffc||''), esc(o.cobr||''),
-      esc(o.comentarios||''),
-      esc(n['Producción']||''), esc(n['Colocaciones']||''),
-      esc(n['Diseño']||''), esc(n['Ventas']||''), esc(n['Compras']||'')
-    ].join(',');
-  });
-
-  const csv = '\uFEFF' + cols.join(',') + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
-  a.href = url;
-  a.download = `TIZ_Obras_${fecha}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast(`${obras.length} obras exportadas`);
-};
-window.sugerirClientes = (q) => {
-  const dd = document.getElementById('clientes-dropdown');
-  if (!q || q.length < 1) { dd.style.display = 'none'; return; }
-
-  const clientesDB = window.DB.clientes.map(c => ({ nombre: c.nombre, cuit: c.cuit, fuente: 'db' }));
-  const clientesObras = [...new Set(window.DB.obras.map(o => o.cliente).filter(Boolean))]
-    .filter(n => !clientesDB.find(c => c.nombre?.toLowerCase() === n.toLowerCase()))
-    .map(n => ({ nombre: n, cuit: '', fuente: 'obras' }));
-
-  const todos = [...clientesDB, ...clientesObras];
-  const ql = q.toLowerCase();
-  const matches = todos.filter(c => c.nombre && c.nombre.toLowerCase().includes(ql)).slice(0, 8);
-
-  let html = matches.map(c => `
-    <div class="cli-option" onmousedown="elegirCliente('${c.nombre.replace(/'/g,"\\'")}')">
-      <span>${resaltar(c.nombre, q)}</span>
-      ${c.cuit ? `<span class="cli-option-sub">CUIT: ${c.cuit}</span>` : `<span class="cli-option-sub" style="color:var(--text3)">de obras anteriores</span>`}
-    </div>
-  `).join('');
-
-  // Botón para crear cliente nuevo
-  html += `<div class="cli-option" onmousedown="nuevoClienteDesdeObra('${q.replace(/'/g,"\\'")}'')" style="border-top:1px solid var(--border);color:var(--accent)">
-    <span>➕ Crear cliente "<strong>${q}</strong>"</span>
-    <span class="cli-option-sub" style="color:var(--accent)">Abre el formulario de nuevo cliente</span>
-  </div>`;
-
-  dd.innerHTML = html;
-  dd.style.display = 'block';
-};
-
-window.nuevoClienteDesdeObra = (nombre) => {
-  cerrarSugerencias();
-  const nombreLimpio = (nombre || '').trim();
-  if (document.getElementById('f-cliente')) document.getElementById('f-cliente').value = nombreLimpio;
-  window.editingId.cliente = null;
-  const n = document.getElementById('fc-numero'); if (n) n.value = nextClienteNumero();
-  document.getElementById('fc-nombre').value = nombreLimpio;
-  document.getElementById('fc-cuit').value = '';
-  document.getElementById('fc-contacto').value = '';
-  document.getElementById('fc-cel').value = '';
-  document.getElementById('fc-email').value = '';
-  document.getElementById('fc-notas').value = '';
-  document.getElementById('modal-cliente').classList.add('open');
-  setTimeout(()=>document.getElementById('fc-nombre')?.focus(), 80);
-};
-
-window.resaltar = (texto, q) => {
-  if (!q) return texto;
-  const idx = texto.toLowerCase().indexOf(q.toLowerCase());
-  if (idx === -1) return texto;
-  return texto.substring(0, idx) +
-    `<strong style="color:var(--accent)">${texto.substring(idx, idx + q.length)}</strong>` +
-    texto.substring(idx + q.length);
-};
-
-window.elegirCliente = (nombre) => {
-  document.getElementById('f-cliente').value = nombre;
-  document.getElementById('clientes-dropdown').style.display = 'none';
-};
-
-window.cerrarSugerencias = () => {
-  const dd = document.getElementById('clientes-dropdown');
-  if (dd) dd.style.display = 'none';
-};
-
-window.crearTareaDesdeNota = (sector) => {
-  const sectorKeys = {'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'};
-  const nota = document.getElementById('nota-'+sectorKeys[sector])?.value.trim();
-  const obraId = window.editingId.obra;
-  const obra = obraId ? window.DB.obras.find(x => x.id === obraId) : null;
-
-  // Cerrar modal de obra y abrir modal de tarea precargado
-  closeModal('obra');
-
-  setTimeout(() => {
-    window.editingId.tarea = null;
-    // Limpiar filtros y cargar todas las obras
-    const buscarEl = document.getElementById('ft-buscar-ot');
-    if (buscarEl) buscarEl.value = '';
-    const estadoEl = document.getElementById('ft-filtro-estado');
-    if (estadoEl) estadoEl.value = '';
-    filtrarObrasModal();
-    // Seleccionar la obra actual
-    const sel = document.getElementById('ft-obra-id');
-    if (sel && obraId) sel.value = obraId;
-
-    // Precargar campos
-    document.getElementById('ft-desc').value = nota || (obra ? `${obra.desc||''} — ${obra.cliente||''}` : '');
-    document.getElementById('ft-sector').value = sector;
-    document.getElementById('ft-notas').value = nota || '';
-    const fecha = document.getElementById('ft-fecha');
-    if (obra?.fprod_c) fecha.value = obra.fprod_c;
-    else fecha.value = '';
-    document.getElementById('ft-hora-ini').value = '09:00';
-    document.getElementById('ft-hora-fin').value = '11:00';
-
-    document.getElementById('modal-tarea').classList.add('open');
-  }, 150);
-};
-window.filtrarObrasModal = () => {
-  const q = (document.getElementById('ft-buscar-ot')?.value || '').toLowerCase();
-  const estado = document.getElementById('ft-filtro-estado')?.value || '';
-  const sel = document.getElementById('ft-obra-id');
-  const current = sel?.value;
-  let obras = window.DB.obras;
-  if (estado) obras = obras.filter(o => o.estado === estado);
-  if (q) obras = obras.filter(o =>
-    (o.ot||'').toLowerCase().includes(q) ||
-    (o.desc||'').toLowerCase().includes(q) ||
-    (o.cliente||'').toLowerCase().includes(q)
-  );
-  obras = obras.sort((a,b) => (b.semana||0)-(a.semana||0));
-  if (sel) {
-    sel.innerHTML = '<option value="">— Seleccionar obra —</option>' +
-      obras.map(o => `<option value="${o.id}" ${o.id===current?'selected':''}>[Sem ${o.semana||'—'}] ${o.ot||'S/N'} — ${o.desc||''} · ${o.cliente||''} · ${o.estado||''}</option>`).join('');
+async function syncToSheets(data) {
+  if (!data || String(data.estado || '').trim().toLowerCase() !== 'aprobado') {
+    return { ok:true, skipped:true, reason:'Estado distinto de Aprobado' };
   }
-  const cnt = document.getElementById('ft-obras-count');
-  if (cnt) cnt.textContent = obras.length + ' obra' + (obras.length !== 1 ? 's' : '');
-};
-
-window.openNuevaTarea = () => {
-  window.editingId.tarea = null;
-  ['ft-desc','ft-fecha','ft-hora-ini','ft-hora-fin','ft-notas','ft-buscar-ot'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value = '';
-  });
-  const estadoEl = document.getElementById('ft-filtro-estado');
-  if (estadoEl) estadoEl.value = 'En producción';
-  filtrarObrasModal();
-  const sectorSel = document.getElementById('ft-sector');
-  if (window.currentUser && sectorSel) sectorSel.value = window.currentUser.sector;
-  document.getElementById('ft-hora-ini').value = '09:00';
-  document.getElementById('ft-hora-fin').value = '11:00';
-  openModal('tarea');
-};
-
-window.fillTareaObra = obraId => {
-  const o = window.DB.obras.find(x => x.id === obraId);
-  if (!o) return;
-  // Autocompletar descripción si está vacía
-  const desc = document.getElementById('ft-desc');
-  if (!desc.value) desc.value = `${o.desc||''} — ${o.cliente||''}`;
-  // Autocompletar fecha con fecha de producción compromiso si existe
-  const fecha = document.getElementById('ft-fecha');
-  if (!fecha.value && o.fprod_c) fecha.value = o.fprod_c;
-};
-
-window.saveTarea = async () => {
-  const obraId   = document.getElementById('ft-obra-id').value;
-  const desc     = document.getElementById('ft-desc').value.trim();
-  const fecha    = document.getElementById('ft-fecha').value.trim();
-  const horaIni  = document.getElementById('ft-hora-ini').value;
-  const horaFin  = document.getElementById('ft-hora-fin').value;
-  const sector   = document.getElementById('ft-sector').value;
-  const notas    = document.getElementById('ft-notas').value.trim();
-
-  if (!desc)  { showToast('Ingresá una descripción'); return; }
-  if (!fecha) { showToast('Ingresá una fecha'); return; }
-  if (!horaIni) { showToast('Ingresá la hora de inicio'); return; }
-
-  const obra = window.DB.obras.find(x => x.id === obraId);
-  const data = {
-    obraId, desc, fecha, horaIni, horaFin: horaFin||horaIni,
-    sector, notas,
-    obraDesc: obra?.desc || '',
-    obraOt:   obra?.ot   || '',
-    cliente:  obra?.cliente || '',
-    creadoPor: window.currentUser?.email || '',
-    creadoPorNombre: window.currentUser?.name || '',
-    completada: false,
-  };
-
-  await addDoc_('tareas', data);
-  closeModal('tarea');
-
-  // Enviar a Google Calendar
-  enviarACalendar(data);
-  showToast('Tarea guardada y enviada a Google Calendar');
-};
-
-function enviarACalendar(t) {
-  // Construir fecha en formato YYYYMMDDTHHMMSS
-  const [d, m, y] = t.fecha.split('/');
-  const ini = `${y}${m.padStart(2,'0')}${d.padStart(2,'0')}T${t.horaIni.replace(':','')}00`;
-  const fin = `${y}${m.padStart(2,'0')}${d.padStart(2,'0')}T${t.horaFin.replace(':','')}00`;
-  const title = encodeURIComponent(`[TIZ ${t.sector}] ${t.obraOt ? t.obraOt+' — ' : ''}${t.desc}`);
-  const details = encodeURIComponent(
-    `Sector: ${t.sector}\nObra: ${t.obraDesc||t.desc}\nCliente: ${t.cliente}\n${t.notas ? 'Notas: '+t.notas : ''}\nCargado por: ${t.creadoPorNombre}`
-  );
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${ini}/${fin}&details=${details}`;
-  window.open(url, '_blank');
+  return await syncDriveFolder(data, 'ot');
 }
-
-window.completarTarea = async id => {
-  await updateDoc_('tareas', id, { completada: true, completadaFecha: new Date().toLocaleDateString('es-AR') });
-  showToast('Tarea completada');
-};
-window.delTarea = async id => {
-  if (confirm('¿Eliminar esta tarea?')) await deleteDoc_('tareas', id);
-};
-window.reenviarCalendar = id => {
-  const t = window.DB.tareas.find(x => x.id === id);
-  if (t) { enviarACalendar(t); showToast('Reenviando a Google Calendar...'); }
-};
-
-function renderTareas() {
-  const u = window.currentUser;
-  if (!u) return;
-
-  document.getElementById('tareas-subtitle').textContent =
-    u.isAdmin ? 'Todas las tareas' : `Sector: ${u.sector}`;
-
-  let tareas = window.DB.tareas;
-  // Filtrar por sector si no es admin
-  if (!u.isAdmin) tareas = tareas.filter(t => t.sector === u.sector);
-  // Filtrar por tab
-  if (window.tareaTab === 'pendientes')  tareas = tareas.filter(t => !t.completada);
-  if (window.tareaTab === 'completadas') tareas = tareas.filter(t => t.completada);
-  // Ordenar por fecha
-  tareas = tareas.sort((a,b) => {
-    const pa = parseDate(a.fecha), pb = parseDate(b.fecha);
-    return (pa||0) - (pb||0);
-  });
-
-  const pend  = window.DB.tareas.filter(t => !t.completada && (u.isAdmin || t.sector===u.sector)).length;
-  const hoy   = window.DB.tareas.filter(t => !t.completada && t.fecha === new Date().toLocaleDateString('es-AR') && (u.isAdmin || t.sector===u.sector)).length;
-  const comp  = window.DB.tareas.filter(t => t.completada && (u.isAdmin || t.sector===u.sector)).length;
-
-  document.getElementById('tareas-kpis').innerHTML = `
-    <div class="kpi"><div class="kpi-label">Pendientes</div><div class="kpi-val ${pend>0?'amber':''}">${pend}</div></div>
-    <div class="kpi"><div class="kpi-label">Para hoy</div><div class="kpi-val ${hoy>0?'red':''}">${hoy}</div></div>
-    <div class="kpi"><div class="kpi-label">Completadas</div><div class="kpi-val green">${comp}</div></div>
-  `;
-
-  if (!tareas.length) {
-    document.getElementById('tareas-list').innerHTML =
-      `<div style="text-align:center;padding:48px;color:var(--text3)"><i class="ti ti-checkbox" style="font-size:36px;display:block;margin-bottom:10px"></i>No hay tareas ${window.tareaTab === 'pendientes' ? 'pendientes' : ''}</div>`;
-    return;
-  }
-
-  document.getElementById('tareas-list').innerHTML = tareas.map(t => {
-    const color = SECTOR_COLORS[t.sector] || 'var(--accent)';
-    const emoji = SECTOR_EMOJI[t.sector] || '📋';
-    const esHoy = t.fecha === new Date().toLocaleDateString('es-AR');
-    const vencida = !t.completada && parseDate(t.fecha) < new Date() && !esHoy;
-    return `
-    <div style="background:var(--surface);border:1px solid ${vencida?'rgba(224,92,92,.3)':esHoy?'rgba(232,184,75,.3)':'var(--border)'};border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px">
-      <input type="checkbox" ${t.completada?'checked':''} onchange="completarTarea('${t.id}')"
-        style="accent-color:var(--accent);width:16px;height:16px;margin-top:2px;flex-shrink:0;cursor:pointer"
-        ${t.completada?'disabled':''}>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:600;color:${color}">${emoji} ${t.sector}</span>
-          ${t.obraOt ? `<span style="font-size:11px;color:var(--text3)">OT ${t.obraOt}</span>` : ''}
-          ${esHoy ? `<span class="badge badge-amber">Hoy</span>` : ''}
-          ${vencida ? `<span class="badge badge-red">Vencida</span>` : ''}
-          ${t.completada ? `<span class="badge badge-green">Completada</span>` : ''}
-        </div>
-        <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;${t.completada?'text-decoration:line-through;color:var(--text3)':''}">${t.desc}</div>
-        ${t.cliente ? `<div style="font-size:11px;color:var(--text3);margin-bottom:2px">Cliente: ${t.cliente}</div>` : ''}
-        <div style="font-size:11px;color:var(--text2)">📅 ${t.fecha} &nbsp; 🕐 ${t.horaIni}${t.horaFin && t.horaFin!==t.horaIni ? ' — '+t.horaFin : ''}</div>
-        ${t.notas ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;font-style:italic">${t.notas}</div>` : ''}
-        ${u.isAdmin && t.creadoPorNombre ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">Cargado por ${t.creadoPorNombre}</div>` : ''}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-        <button class="btn-icon" title="Reenviar a Calendar" onclick="reenviarCalendar('${t.id}')"><i class="ti ti-calendar-plus" style="font-size:13px"></i></button>
-        <button class="btn-icon" title="Eliminar" onclick="delTarea('${t.id}')"><i class="ti ti-trash" style="font-size:13px"></i></button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// ============================================================
-// PERMISOS EN MODAL DE OBRA — mostrar/ocultar fechas compromiso
-// ============================================================
-function applyObraPermissions() {
-  const isAdmin = window.currentUser?.isAdmin;
-  // Fechas de compromiso: solo admin puede editarlas
-  ['f-fprod-c','f-fcol-c'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.readOnly = !isAdmin;
-  });
-  // Campos financieros: solo admin
-  ['f-neto','f-bruto','f-gastos','f-oc','f-nrfc','f-ffc'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.readOnly = !isAdmin; if (!isAdmin) el.style.opacity = '0.5'; }
-  });
-  // Anotaciones: mostrar solo las del sector propio (o todas si admin)
-  const sectors = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
-  const sectorKeys = {'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'};
-  sectors.forEach(sec => {
-    const key = sectorKeys[sec];
-    const wrapper = document.getElementById('nota-wrapper-'+key);
-    if (wrapper) {
-      const canEdit = canAnnotateSector(sec);
-      wrapper.style.opacity = canEdit ? '1' : '0.4';
-      const textarea = document.getElementById('nota-'+key);
-      if (textarea) textarea.readOnly = !canEdit;
-    }
-  });
-}
-
-// Llamar applyObraPermissions al abrir el modal de obra
-const _origOpenModal = window.openModal;
-window.openModal = type => {
-  _origOpenModal(type);
-  if (type === 'obra') setTimeout(applyObraPermissions, 50);
-};
-
-// ============================================================
-// NAVIGATION — agregar tareas
-// ============================================================
-const _origGoTo = window.goTo;
-window.goTo = function(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const pageEl = document.getElementById('page-'+page);
-  if (pageEl) pageEl.classList.add('active');
-  const navEl = document.querySelector(`[onclick="goTo('${page}')"]`);
-  if (navEl) navEl.classList.add('active');
-  window.currentPage = page;
-  refreshCurrent();
-};
-
-const _origRefresh = window.refreshCurrent;
-window.refreshCurrent = function() {
-  _origRefresh();
-  if (window.currentPage === 'tareas') renderTareas();
-  if (window.currentPage === 'estadistica') renderEstadistica();
-};
-
-
-// ============================================================
-// TIZ V5 — Ajustes finales: presupuesto unificado, cliente nuevo y Drive
-// ============================================================
-(function(){
-  window.TIZ_DRIVE_PARENT_FOLDER_ID = '1M2SnvFBaU4lVN2Jq9omHR8JjJIpargXh';
-
-  function escapeHtmlV5(s) {
-    return String(s || '').replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[ch]));
-  }
-  function normV5(s) { return String(s || '').trim().toLowerCase(); }
-  function nextPresupuestoNumeroV5() {
-    const presNros = (window.DB?.presupuestos || []).map(p=>parseInt(p.nro)||0).filter(n=>n>0);
-    const otNros = (window.DB?.obras || []).map(o=>parseInt(o.ot)||0).filter(n=>n>0);
-    return String(Math.max(0, ...presNros, ...otNros) + 1).padStart(4,'0');
-  }
-  function uniqueClientesV5() {
-    const byName = new Map();
-    (window.DB?.clientes || []).forEach(c => { if (c.nombre) byName.set(normV5(c.nombre), { nombre:c.nombre, cuit:c.cuit || '', numeroCliente:c.numeroCliente || c.numero || '', fuente:'clientes' }); });
-    (window.DB?.obras || []).forEach(o => { if (o.cliente && !byName.has(normV5(o.cliente))) byName.set(normV5(o.cliente), { nombre:o.cliente, cuit:'', numeroCliente:'', fuente:'obras' }); });
-    (window.DB?.presupuestos || []).forEach(p => { if (p.cliente && !byName.has(normV5(p.cliente))) byName.set(normV5(p.cliente), { nombre:p.cliente, cuit:'', numeroCliente:'', fuente:'presupuestos' }); });
-    return [...byName.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  }
-  function jsQuoteV5(s){ return String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' '); }
-  window._clienteReturnTarget = null;
-
-  window.openClienteNuevoV5 = function(nombre, target){
-    window._clienteReturnTarget = target || 'obra';
-    window.editingId.cliente = null;
-    const num = typeof nextClienteNumero === 'function' ? nextClienteNumero() : '';
-    const ids = ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'];
-    if (document.getElementById('fc-numero')) document.getElementById('fc-numero').value = num;
-    if (document.getElementById('fc-nombre')) document.getElementById('fc-nombre').value = nombre || '';
-    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    document.getElementById('modal-cliente')?.classList.add('open');
-  };
-
-  function renderClienteDropdownV5(q, inputId, ddId, target){
-    const dd = document.getElementById(ddId);
-    if (!dd) return;
-    if (!q || q.length < 1) { dd.style.display = 'none'; return; }
-    const ql = normV5(q);
-    const matches = uniqueClientesV5().filter(c => normV5(c.nombre).includes(ql)).slice(0, 10);
-    let html = matches.map(c => `
-      <div class="cli-option" onmousedown="document.getElementById('${inputId}').value='${jsQuoteV5(c.nombre)}';document.getElementById('${ddId}').style.display='none'">
-        <span>${escapeHtmlV5(c.nombre)}</span>
-        <span class="cli-option-sub">${c.numeroCliente ? 'Cliente ' + escapeHtmlV5(c.numeroCliente) + ' · ' : ''}${c.cuit ? 'CUIT: ' + escapeHtmlV5(c.cuit) : (c.fuente === 'clientes' ? 'Base de clientes' : 'Usado anteriormente')}</span>
-      </div>`).join('');
-    html += `<div class="cli-option" onmousedown="document.getElementById('${inputId}').value='${jsQuoteV5(q)}';document.getElementById('${ddId}').style.display='none';openClienteNuevoV5('${jsQuoteV5(q)}','${target}')" style="border-top:1px solid var(--border);color:var(--accent)">
-      <span>➕ Crear cliente nuevo: <strong>${escapeHtmlV5(q)}</strong></span>
-      <span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver a esta carga</span>
-    </div>`;
-    dd.innerHTML = html;
-    dd.style.display = 'block';
-  }
-
-  window.sugerirClientes = function(q){ renderClienteDropdownV5(q, 'f-cliente', 'clientes-dropdown', 'obra'); };
-  window.sugerirClientesPP = function(q){ renderClienteDropdownV5(q, 'pp-cliente', 'pp-clientes-dropdown', 'presupuesto'); };
-  window.nuevoClienteDesdeObra = nombre => openClienteNuevoV5(nombre, 'obra');
-  window.nuevoClienteDesdePresupuesto = nombre => openClienteNuevoV5(nombre, 'presupuesto');
-
-  const oldSaveClienteV5 = window.saveCliente;
-  window.saveCliente = async function(){
-    const nombre = document.getElementById('fc-nombre')?.value.trim() || '';
-    await oldSaveClienteV5();
-    if (!nombre) return;
-    if (window._clienteReturnTarget === 'presupuesto' && document.getElementById('pp-cliente')) {
-      document.getElementById('pp-cliente').value = nombre;
-      document.getElementById('modal-prespdf')?.classList.add('open');
-    }
-    if (window._clienteReturnTarget === 'obra' && document.getElementById('f-cliente')) {
-      document.getElementById('f-cliente').value = nombre;
-      document.getElementById('modal-obra')?.classList.add('open');
-    }
-    window._clienteReturnTarget = null;
-  };
-
-  window.abrirNuevoPresupuestoCompleto = function(){
-    window.editingId.presupuesto = null;
-    window.editingId.obra = null;
-    window._presupuestoOrigen = 'presupuestos';
-    document.getElementById('pp-nro').value = nextPresupuestoNumeroV5();
-    document.getElementById('pp-cliente').value = '';
-    document.getElementById('pp-desc').value = '';
-    document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
-    document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
-    document.getElementById('pp-validez').value = '7';
-    window.ppItems = [{desc:'', precio:0, cant:1}];
-    if (typeof renderPPItems === 'function') renderPPItems();
-    document.getElementById('modal-prespdf')?.classList.add('open');
-  };
-
-  window.abrirPresupuestoPDF = function(){
-    const obraId = window.editingId.obra;
-    const obra = obraId ? (window.DB.obras || []).find(x=>x.id===obraId) : null;
-    window._presupuestoOrigen = obra ? 'obra' : 'presupuestos';
-    document.getElementById('pp-nro').value = obra?.ot ? String(obra.ot).padStart(4,'0') : nextPresupuestoNumeroV5();
-    document.getElementById('pp-cliente').value = obra?.cliente || '';
-    document.getElementById('pp-desc').value = obra?.desc || '';
-    document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
-    document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
-    document.getElementById('pp-validez').value = '7';
-    const items = Array.isArray(obra?.itemsCotizados) && obra.itemsCotizados.length
-      ? obra.itemsCotizados.map(i => ({ desc:i.descripcion || i.desc || '', precio:+i.unitario || +i.precio || 0, cant:+i.cantidad || +i.cant || 1 }))
-      : [{ desc: obra?.desc || '', precio:+obra?.neto || 0, cant:1 }];
-    window.ppItems = items;
-    if (typeof renderPPItems === 'function') renderPPItems();
-    document.getElementById('modal-prespdf')?.classList.add('open');
-  };
-
-  window.editPres = function(id){
-    const p = (window.DB.presupuestos || []).find(x=>x.id===id);
-    if (!p) return;
-    window.editingId.presupuesto = id;
-    window.editingId.obra = p.obraId || null;
-    window._presupuestoOrigen = 'presupuestos';
-    document.getElementById('pp-nro').value = p.nro || '';
-    document.getElementById('pp-cliente').value = p.cliente || '';
-    document.getElementById('pp-desc').value = p.desc || '';
-    document.getElementById('pp-nota').value = p.nota || 'Los precios cotizados se encuentran a valores netos';
-    document.getElementById('pp-condicion').value = p.cond || 'Anticipo 50% Saldo a contraentrega';
-    document.getElementById('pp-validez').value = p.validezDias || 7;
-    window.ppItems = Array.isArray(p.items) && p.items.length ? p.items.map(i=>({ desc:i.desc || i.descripcion || '', precio:+i.precio || +i.unitario || 0, cant:+i.cant || +i.cantidad || 1 })) : [{desc:p.desc||'', precio:+p.importe||0, cant:1}];
-    if (typeof renderPPItems === 'function') renderPPItems();
-    document.getElementById('modal-prespdf')?.classList.add('open');
-  };
-  // Compatibilidad V5: el guardado en Firebase se conserva y Drive se ejecuta al aprobar.
-
-})();
-
-
-
-
-// ============================================================
-// V5.2 — Presupuestos usan el mismo formulario completo de Obra
-// ============================================================
-(function(){
-  const ESTADOS_FULL = ['Enviado','En revisión','Presupuestado','Aprobado','En producción','Entregado','Facturado','Cobrado','Rechazado','Vencido'];
-
-  function todayAR(){
-    const d = new Date();
-    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
-  }
-  function nextPresNumV52(){
-    const presNros = (window.DB?.presupuestos || []).map(p=>parseInt(p.nro)||0).filter(n=>n>0);
-    const otNros = (window.DB?.obras || []).map(o=>parseInt(o.ot)||0).filter(n=>n>0);
-    return String(Math.max(0, ...presNros, ...otNros) + 1).padStart(4,'0');
-  }
-  function setValue(id, val){ const el=document.getElementById(id); if(el) el.value = val ?? ''; }
-  function getValue(id){ return (document.getElementById(id)?.value || '').trim(); }
-
-  window.ensureEstadoOptionsV52 = function(selected){
-    const sel = document.getElementById('f-estado');
-    if (!sel) return;
-    const actual = selected || sel.value || 'Presupuestado';
-    sel.innerHTML = ESTADOS_FULL.map(e => `<option>${e}</option>`).join('');
-    sel.value = ESTADOS_FULL.includes(actual) ? actual : 'Presupuestado';
-  };
-
-  window.clearObraFormV52 = function(defaultEstado){
-    ['f-ot','f-desc','f-cliente','f-semana','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-dias-pago','f-comentarios'].forEach(id=>setValue(id,''));
-    ['nota-produccion','nota-colocaciones','nota-diseno','nota-ventas','nota-compras'].forEach(id=>setValue(id,''));
-    setValue('f-sector','Ventas'); setValue('f-vendedor','G'); setValue('f-cobr','Pendiente');
-    ensureEstadoOptionsV52(defaultEstado || 'Presupuestado');
-    window.obraItems = [{descripcion:'', cantidad:1, unidad:'u', unitario:0, subtotal:0, observaciones:''}];
-    window.calculosAuxiliares = [{concepto:'Materiales', detalle:'', cantidad:1, unidad:'u', precioUnitario:0, total:0, observaciones:''}];
-    if (typeof renderObraItems === 'function') renderObraItems();
-    if (typeof renderCalculosAux === 'function') renderCalculosAux();
-    if (window.setChecklistV58) window.setChecklistV58({});
-  };
-
-  window.abrirNuevaObraV52 = function(){
-    window._obraModalOrigen = 'obras';
-    window.editingId.obra = null;
-    window.editingId.presupuesto = null;
-    clearObraFormV52('Presupuestado');
-    const t=document.getElementById('modal-obra-title'); if(t) t.textContent='Nueva obra';
-    openModal('obra');
-  };
-
-  window.abrirNuevoPresupuestoCompleto = function(){
-    window._obraModalOrigen = 'presupuestos';
-    window.editingId.obra = null;
-    window.editingId.presupuesto = null;
-    clearObraFormV52('Presupuestado');
-    setValue('f-ot', nextPresNumV52());
-    setValue('f-sector','Ventas');
-    const t=document.getElementById('modal-obra-title'); if(t) t.textContent='Nuevo presupuesto';
-    openModal('obra');
-  };
-
-  function fillObraFormFromData(d, titulo){
-    ensureEstadoOptionsV52(d.estado || 'Presupuestado');
-    setValue('f-ot', d.ot || d.nro || '');
-    setValue('f-sector', d.sector || 'Ventas');
-    setValue('f-desc', d.desc || '');
-    setValue('f-cliente', d.cliente || '');
-    setValue('f-vendedor', d.vendedor || 'G');
-    setValue('f-estado', d.estado || 'Presupuestado');
-    setValue('f-semana', d.semana || '');
-    setValue('f-neto', d.neto || d.importe || 0);
-    setValue('f-bruto', d.bruto || 0);
-    setValue('f-gastos', d.gastos || 0);
-    setValue('f-fprod-c', d.fprod_c || ''); setValue('f-fprod-r', d.fprod_r || '');
-    setValue('f-fcol-c', d.fcol_c || ''); setValue('f-fcol-r', d.fcol_r || '');
-    setValue('f-oc', d.oc || ''); setValue('f-nrfc', d.nrfc || ''); setValue('f-ffc', d.ffc || '');
-    setValue('f-cobr', d.cobr || 'Pendiente'); setValue('f-dias-pago', d.diasPago || '');
-    setValue('f-comentarios', d.comentarios || '');
-    if (window.setChecklistV58) window.setChecklistV58(d.checklist || {});
-    const ns=d.notas_sector||{};
-    setValue('nota-produccion', ns['Producción'] || ''); setValue('nota-colocaciones', ns['Colocaciones'] || '');
-    setValue('nota-diseno', ns['Diseño'] || ''); setValue('nota-ventas', ns['Ventas'] || ''); setValue('nota-compras', ns['Compras'] || '');
-    const rawItems = d.itemsCotizados || d.items || [];
-    window.obraItems = rawItems.length ? rawItems.map(i=>({
-      descripcion: i.descripcion || i.desc || '',
-      cantidad: +i.cantidad || +i.cant || 1,
-      unidad: i.unidad || 'u',
-      unitario: +i.unitario || +i.precio || 0,
-      subtotal: +i.subtotal || ((+i.cantidad || +i.cant || 1) * (+i.unitario || +i.precio || 0)),
-      observaciones: i.observaciones || ''
-    })) : [{descripcion:d.desc||'', cantidad:1, unidad:'u', unitario:+(d.neto||d.importe||0), subtotal:+(d.neto||d.importe||0), observaciones:''}];
-    window.calculosAuxiliares = (d.calculosAuxiliares || []).length ? d.calculosAuxiliares : [{concepto:'Materiales', detalle:'', cantidad:1, unidad:'u', precioUnitario:0, total:0, observaciones:''}];
-    if (typeof renderObraItems === 'function') renderObraItems();
-    if (typeof renderCalculosAux === 'function') renderCalculosAux();
-    const t=document.getElementById('modal-obra-title'); if(t) t.textContent=titulo || 'Editar';
-  }
-
-  const oldEditObra = window.editObra;
-  window.editObra = function(id){
-    window._obraModalOrigen = 'obras';
-    const o=(window.DB.obras||[]).find(x=>x.id===id);
-    if(!o && oldEditObra) return oldEditObra(id);
-    window.editingId.obra=id; window.editingId.presupuesto=null;
-    fillObraFormFromData(o, 'Editar obra');
-    openModal('obra');
-  };
-
-  window.editPres = function(id){
-    const p=(window.DB.presupuestos||[]).find(x=>x.id===id);
-    if(!p) return;
-    window._obraModalOrigen = 'presupuestos';
-    window.editingId.presupuesto = id;
-    window.editingId.obra = p.obraId || null;
-    const obra = p.obraId ? (window.DB.obras||[]).find(o=>o.id===p.obraId) : null;
-    fillObraFormFromData(obra ? {...obra, ...p, ot: obra.ot || p.nro, estado: p.estado || obra.estado} : p, 'Editar presupuesto');
-    openModal('obra');
-  };
-
-  window.saveObra = async function(){
-    const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
-    const notas_sector = {};
-    const existingId = window.editingId.obra;
-    const existing = existingId ? (window.DB.obras||[]).find(x=>x.id===existingId) : null;
-    const presupuestoActual = window.editingId.presupuesto
-      ? (window.DB.presupuestos||[]).find(x=>x.id===window.editingId.presupuesto)
-      : null;
-    const existingNotas = existing?.notas_sector || {};
-    Object.entries(sectorKeys).forEach(([sec, key]) => {
-      const newVal = getValue('nota-'+key);
-      const oldVal = existingNotas[sec] || '';
-      notas_sector[sec] = newVal;
-      notas_sector[sec+'_ts'] = (newVal !== oldVal && newVal) ? new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : (existingNotas[sec+'_ts'] || '');
-    });
-    const itemsCotizados = typeof collectObraItems === 'function' ? collectObraItems() : [];
-    const calculosAuxiliares = typeof collectCalculosAux === 'function' ? collectCalculosAux() : [];
-    const totalItems = itemsCotizados.reduce((a,it)=>a+(+it.subtotal||0),0);
-    const estado = getValue('f-estado') || 'Enviado';
-    const data = {
-      ot: getValue('f-ot'), sector: getValue('f-sector') || 'Ventas', desc: getValue('f-desc'), cliente: getValue('f-cliente'),
-      vendedor: getValue('f-vendedor') || 'G', estado,
-      semana: +getValue('f-semana')||0, neto: +getValue('f-neto')||totalItems||0,
-      bruto: +getValue('f-bruto')||0, gastos: +getValue('f-gastos')||0,
-      fprod_c: getValue('f-fprod-c'), fprod_r: getValue('f-fprod-r'), fcol_c: getValue('f-fcol-c'), fcol_r: getValue('f-fcol-r'),
-      oc: getValue('f-oc'), nrfc: getValue('f-nrfc'), ffc: getValue('f-ffc'), cobr: getValue('f-cobr') || 'Pendiente', diasPago: +getValue('f-dias-pago')||0,
-      comentarios: getValue('f-comentarios'), notas_sector, itemsCotizados, calculosAuxiliares, totalItems,
-      nroPresupuesto: presupuestoActual?.nro || existing?.nroPresupuesto || getValue('f-ot'),
-      expedienteId: presupuestoActual?.expedienteId || existing?.expedienteId || String(presupuestoActual?.nro || getValue('f-ot') || '').replace(/\D/g,''),
-      revision: presupuestoActual?.revision || existing?.revisionAprobada || existing?.revision || '1.0',
-      revisionAprobada: estado === 'Aprobado' ? (presupuestoActual?.revision || existing?.revisionAprobada || '1.0') : (existing?.revisionAprobada || ''),
-      revisionEsUltimaAprobada: estado === 'Aprobado',
-      nota: presupuestoActual?.nota || existing?.nota || 'Los precios cotizados se encuentran a valores netos',
-      condicion: presupuestoActual?.cond || presupuestoActual?.condicion || existing?.condicion || 'Anticipo 50% Saldo a contraentrega',
-      validezDias: +(presupuestoActual?.validezDias || existing?.validezDias || 7),
-      fecha: presupuestoActual?.fecha || existing?.fecha || '',
-      totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
-      checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
-      historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
-      alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
-      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '', otExcelUrl: existing?.otExcelUrl || '',
-      origen: window._obraModalOrigen || 'obras'
-    };
-    if (!data.desc) { showToast('Ingresá una descripción'); return; }
-    if (!data.cliente) { showToast('Ingresá o creá un cliente'); return; }
-    let docRefId = existingId;
-    if (existingId) await window.updateDoc_('obras', existingId, data);
-    else { const ref = await window.addDoc_('obras', data); docRefId = ref?.id || null; }
-
-    if (String(data.estado||'').toLowerCase()==='aprobado' && !existing?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) {
-      await window.crearTareasAutomaticasV58({...data, id: docRefId});
-      if (docRefId) await window.updateDoc_('obras', docRefId, { autoTasksCreatedAt: new Date().toISOString() });
-    }
-
-    // Si vino desde Presupuestos, también se guarda/actualiza la ficha de presupuesto.
-    if (window._obraModalOrigen === 'presupuestos') {
-      const presData = {
-        nro: data.ot || nextPresNumV52(), obraId: docRefId || '', vendedor: data.vendedor,
-        cliente: data.cliente, desc: data.desc, importe: data.neto || totalItems || 0,
-        fecha: presupuestoActual?.fecha || todayAR(), estado: data.estado, comentarios: data.comentarios,
-        nota: data.nota, cond: data.condicion, validezDias: data.validezDias,
-        expedienteId: presupuestoActual?.expedienteId || String(data.ot || '').replace(/\D/g,''),
-        revision: presupuestoActual?.revision || '1.0',
-        revisionVigente: data.estado === 'Aprobado',
-        revisionEstado: data.estado === 'Aprobado' ? 'aprobada' : (presupuestoActual?.revisionEstado || 'borrador'),
-        motivoRevision: presupuestoActual?.motivoRevision || '',
-        items: itemsCotizados.map(i=>({desc:i.descripcion, cant:i.cantidad, precio:i.unitario, subtotal:i.subtotal})),
-        driveFolderUrl: data.driveFolderUrl || '', otSheetUrl: data.otSheetUrl || ''
-      };
-      if (window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, presData);
-      else {
-        const refP = await window.addDoc_('presupuestos', presData);
-        window.editingId.presupuesto = refP?.id || null;
-      }
-    }
-
-    try {
-      const syncResult = await syncToSheets({...data, firestoreId: docRefId});
-      if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
-        const links = {
-          driveFolderId: syncResult.folderId || syncResult.driveFolderId || data.driveFolderId || '',
-          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
-          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
-          otExcelUrl: syncResult.otExcelUrl || data.otExcelUrl || '',
-          cotizacionExcelUrl: syncResult.cotizacionExcelUrl || data.cotizacionExcelUrl || '',
-          cotizacionPdfUrl: syncResult.cotizacionPdfUrl || data.cotizacionPdfUrl || '',
-          driveSyncedAt: new Date().toISOString()
-        };
-        if (docRefId) await window.updateDoc_('obras', docRefId, links);
-        if (window._obraModalOrigen === 'presupuestos' && window.editingId.presupuesto) await window.updateDoc_('presupuestos', window.editingId.presupuesto, links);
-        if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Cotización guardada');
-      } else if (String(data.estado || '').toLowerCase() === 'aprobado') {
-        showToast('Aprobado y guardado');
-      }
-    } catch(e) { console.warn('No se pudo sincronizar Drive/Sheets:', e); }
-    closeModal('obra');
-    window.editingId.obra=null; window.editingId.presupuesto=null; window._obraModalOrigen='obras';
-    showToast('Guardado');
-  };
-
-  // Botones viejos que llamen openModal('presupuesto') quedan anulados: abren el formulario completo.
-  const oldOpenModal = window.openModal;
-  window.openModal = function(name){
-    if (name === 'presupuesto') return window.abrirNuevoPresupuestoCompleto();
-    return oldOpenModal ? oldOpenModal(name) : document.getElementById('modal-'+name)?.classList.add('open');
-  };
-})();
-
-
-
-
-
-// ============================================================
-// V7.2 — Calidad mínima de cotización + reparación masiva de carpetas OT
-// ============================================================
-(function(){
-  const SPECIFIC_IRON_RE = /(20x20|30x30|40x40|50x50|60x40|80x40|100x50|tubo|cañ[oó]n?|perfil|ipe|upn|angulo|ángulo|planchuela|calibre|espesor)/i;
-  const LED_TYPE_RE = /(m[oó]dulo|5050|5054|2835|ne[oó]n|tira led|pixel|lupa|fuente|driver|12v|24v|220v)/i;
-  const MATERIAL_RE = /(acr[ií]lico|pvc|chapa|aluminio|acm|mdf|hierro|lona|vinilo|polyfan|polifan|pintura|tela|backlight)/i;
-  const MEASURE_RE = /\b\d+(?:[\.,]\d+)?\s*(m|mt|mts|cm|mm|x)\b/i;
-  const ALTO_RE = /(alto|altura|h\s*:|h=|\b\d+(?:[\.,]\d+)?\s*(m|cm)\s*(de\s*)?alto)/i;
-  const PROF_RE = /(profundidad|prof\.|faja|lateral|espesor|canto|saliente|retorno)/i;
-  const COLOC_RE = /(colocaci[oó]n|instalaci[oó]n|montaje|retira|sin colocar|con colocar|incluye coloc)/i;
-  const PRINT_RE = /(vinilo|lona|impresi[oó]n|laminado|backlight|microperforado|electrost[aá]tico)/i;
-  const STAND_RE = /(stand|t[oó]tem|totem|corp[oó]reo|escenograf|pantalla|piso|dep[oó]sito|counter)/i;
-
-  function normTxt(v){ return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-  function allQuoteText(data){
-    const items = data.itemsCotizados || data.items || [];
-    const calcs = data.calculosAuxiliares || [];
-    return [data.desc, data.comentarios, data.sector, ...(items||[]).map(i=>[i.descripcion,i.desc,i.observaciones].join(' ')), ...(calcs||[]).map(c=>[c.concepto,c.detalle,c.observaciones].join(' '))].join(' ');
-  }
-  function add(level, campo, msg, sugerencia, arr){ arr.push({level, campo, msg, sugerencia}); }
-
-  window.analizaCotizacionMinimaTIZ = function(data){
-    const problemas=[];
-    const txtRaw = allQuoteText(data);
-    const txt = normTxt(txtRaw);
-    const items = data.itemsCotizados || data.items || [];
-    const calcs = data.calculosAuxiliares || [];
-    const hasItems = Array.isArray(items) && items.some(i => String(i.descripcion||i.desc||'').trim());
-    const hasCalcs = Array.isArray(calcs) && calcs.some(c => String(c.detalle||c.concepto||'').trim());
-
-    if (!String(data.cliente||'').trim()) add('grave','Cliente','Falta cliente.','Cargar cliente antes de aprobar.',problemas);
-    if (!String(data.desc||'').trim()) add('grave','Descripción','Falta descripción general.','Agregar qué se fabrica y para dónde.',problemas);
-    if (!hasItems) add('grave','Ítems','No hay ítems cotizados.','Agregar al menos un renglón con descripción e importe.',problemas);
-    if (!MEASURE_RE.test(txtRaw)) add('media','Medidas','No se detectaron medidas.','Indicar ancho x alto, y profundidad si corresponde.',problemas);
-    if (!MATERIAL_RE.test(txtRaw)) add('media','Materiales','No se detectó material principal.','Ej: hierro, chapa, PVC, acrílico, ACM, lona, vinilo, MDF.',problemas);
-
-    if (/estructura\s+de\s+hierro|hierro|herrer/i.test(txtRaw)) {
-      if (!SPECIFIC_IRON_RE.test(txtRaw)) add('grave','Hierro','Dice estructura/hierro, pero no especifica tipo de perfil.','Elegir base: 20x20, 30x30, 40x40, 60x40, chapa/calibre o “estimar por obra similar”.',problemas);
-    }
-    if (/letra|corp[oó]rea|corporea/i.test(txtRaw)) {
-      if (!ALTO_RE.test(txtRaw) && !MEASURE_RE.test(txtRaw)) add('grave','Letras','Dice letras corpóreas, pero no indica alto/medida.','Cargar alto de letra o medida total.',problemas);
-      if (!PROF_RE.test(txtRaw)) add('media','Letras','No se indica profundidad/faja/lateral.','Ej: faja 8 cm, lateral chapa, contraletra PVC.',problemas);
-      if (!/(retro|ilumin|sin\s+ilumin|no\s+ilumin|led)/i.test(txtRaw)) add('grave','Iluminación','No indica si las letras son iluminadas o sin iluminación.','Marcar: retroiluminadas por módulos LED, frente iluminado, neón flexible o sin iluminación.',problemas);
-    }
-    if (/(ilumin|led|retro|ne[oó]n)/i.test(txtRaw) && !LED_TYPE_RE.test(txtRaw)) {
-      add('media','LED','Menciona iluminación/LED, pero no el tipo.','Ej: módulos LED, tira 2835, neón flexible, fuente 12V/24V.',problemas);
-    }
-    if (/(marquesina|cartel iluminado|backlight|caj[oó]n)/i.test(txtRaw)) {
-      if (!MEASURE_RE.test(txtRaw)) add('grave','Marquesina/cartel','Faltan medidas principales.','Cargar ancho x alto y profundidad si es cajón.',problemas);
-      if (!/(frente|lona|backlight|acr[ií]lico|chapa|acm|vinilo|tela)/i.test(txtRaw)) add('media','Frente','No queda claro el frente/revestimiento.','Ej: lona backlight, acrílico, chapa, ACM, vinilo impreso.',problemas);
-    }
-    if (PRINT_RE.test(txtRaw) && !/(laminado|brillo|mate|backlight|alta\s*resoluci[oó]n|uv|eco|solvente)/i.test(txtRaw)) {
-      add('baja','Impresión','Hay impresión/vinilo/lona pero falta terminación.','Agregar si lleva laminado, backlight, UV, brillo/mate, etc.',problemas);
-    }
-    if (STAND_RE.test(txtRaw)) {
-      if (!MEASURE_RE.test(txtRaw)) add('media','Stand/tótems','Faltan medidas generales.','Cargar ancho, alto, profundidad y cantidad de piezas.',problemas);
-      if (/pantalla/i.test(txtRaw) && !/(led|tv|cliente|incluida|no\s+incluida|provista)/i.test(txtRaw)) add('media','Pantalla','Menciona pantalla, pero no aclara si la provee TIZ o cliente.','Indicar pantalla incluida/no incluida y medida.',problemas);
-    }
-    if (!COLOC_RE.test(txtRaw)) add('baja','Colocación','No se detecta si incluye colocación.','Indicar incluye colocación / retira cliente / cotizar aparte.',problemas);
-    if (!hasCalcs && (Number(data.neto||data.importe||0)>0)) add('baja','Cálculos auxiliares','No hay respaldo interno de cálculo.','Agregar al menos materiales/horas/flete/tercerizados estimados para que Producción entienda qué consideró Ventas.',problemas);
-
-    const graves = problemas.filter(p=>p.level==='grave').length;
-    const medias = problemas.filter(p=>p.level==='media').length;
-    const score = Math.max(0, 100 - graves*25 - medias*12 - problemas.filter(p=>p.level==='baja').length*5);
-    const estado = graves ? 'Insuficiente para producción' : medias ? 'Suficiente para enviar, revisar antes de producir' : 'Completa para generar OT';
-    return {ok: graves===0, score, estado, problemas};
-  };
-
-  window.renderValidacionCotizacionTIZ = function(data){
-    const box = document.getElementById('validacion-cotizacion-tiz');
-    if (!box || !window.analizaCotizacionMinimaTIZ) return;
-    const r = window.analizaCotizacionMinimaTIZ(data || window.buildObraDataPreviewTIZ?.() || {});
-    const color = r.problemas.some(p=>p.level==='grave') ? 'var(--red)' : r.problemas.length ? 'var(--amber)' : 'var(--green)';
-    box.style.display = 'block';
-    box.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:6px">
-      <strong style="color:${color}">${r.problemas.length?'⚠️ Cotización a revisar':'✅ Cotización completa'}</strong>
-      <span style="font-family:DM Mono,monospace;color:${color}">${r.score}/100</span>
-    </div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${r.estado}</div>
-    ${r.problemas.length ? `<div style="display:grid;gap:5px">${r.problemas.slice(0,8).map(p=>`<div style="font-size:11px;color:var(--text2)"><b style="color:${p.level==='grave'?'var(--red)':p.level==='media'?'var(--amber)':'var(--text3)'}">${p.level.toUpperCase()}</b> · ${p.msg}<br><span style="color:var(--text3)">${p.sugerencia}</span></div>`).join('')}</div>` : `<div style="font-size:11px;color:var(--text3)">Tiene los datos mínimos para que Producción, Compras y Clemen IA puedan avanzar.</div>`}`;
-  };
-
-  window.buildObraDataPreviewTIZ = function(){
-    const safe = id => document.getElementById(id)?.value || '';
-    return {cliente:safe('f-cliente'), desc:safe('f-desc'), comentarios:safe('f-comentarios'), sector:safe('f-sector'), estado:safe('f-estado'), neto:Number(safe('f-neto')||0), itemsCotizados:(typeof collectObraItems==='function'?collectObraItems():[]), calculosAuxiliares:(typeof collectCalculosAux==='function'?collectCalculosAux():[])};
-  };
-
-  function ensureValidationBox(){
-    if (document.getElementById('validacion-cotizacion-tiz')) return;
-    const modal = document.querySelector('#modal-obra .form-grid');
-    if (!modal) return;
-    const div = document.createElement('div');
-    div.className = 'form-group full';
-    div.innerHTML = `<label>Clemen IA — calidad de datos</label><div id="validacion-cotizacion-tiz" style="background:rgba(232,184,75,.08);border:1px solid var(--border2);border-radius:10px;padding:12px"></div>`;
-    const desc = document.getElementById('f-desc')?.closest('.form-group');
-    if (desc && desc.nextSibling) desc.parentNode.insertBefore(div, desc.nextSibling); else modal.insertBefore(div, modal.firstChild);
-    ['f-desc','f-cliente','f-sector','f-estado','f-comentarios','f-neto'].forEach(id => document.getElementById(id)?.addEventListener('input', () => window.renderValidacionCotizacionTIZ()));
-    document.getElementById('obra-items-list')?.addEventListener('input', () => window.renderValidacionCotizacionTIZ());
-    document.getElementById('obra-calculos-list')?.addEventListener('input', () => window.renderValidacionCotizacionTIZ());
-  }
-  const oldOpenModalQuality = window.openModal;
-  window.openModal = function(name){
-    const res = oldOpenModalQuality ? oldOpenModalQuality.apply(this, arguments) : undefined;
-    if (name === 'obra') setTimeout(()=>{ ensureValidationBox(); window.renderValidacionCotizacionTIZ(); }, 80);
-    return res;
-  };
-  const oldEditObraQuality = window.editObra;
-  window.editObra = function(id){
-    const res = oldEditObraQuality ? oldEditObraQuality.apply(this, arguments) : undefined;
-    setTimeout(()=>{ ensureValidationBox(); window.renderValidacionCotizacionTIZ(); }, 120);
-    return res;
-  };
-
-  window.repararCarpetasOTPendientes = async function(){ showToast('Integración con Drive temporalmente desactivada'); };
-
-  // En cada carga del dashboard/alertas agregamos el botón por si la vista fue regenerada.
-  setTimeout(()=>{ ensureValidationBox(); }, 1000);
-})();
-
-
-// ============================================================
-// V5.8 — Alertas inteligentes, checklist, historial y tareas automáticas
-// ============================================================
-window.collectChecklistV58 = function(){
-  const out = {};
-  document.querySelectorAll('#checklist-v58 input[data-check]').forEach(i => out[i.dataset.check] = !!i.checked);
-  return out;
-};
-window.setChecklistV58 = function(data){
-  document.querySelectorAll('#checklist-v58 input[data-check]').forEach(i => i.checked = !!(data && data[i.dataset.check]));
-};
-window.buildHistorialV58 = function(existing, nuevoEstado){
-  const h = Array.isArray(existing?.historial) ? [...existing.historial] : [];
-  const old = existing?.estado || '';
-  if (!existing) h.push({fecha:new Date().toISOString(), texto:'Obra/presupuesto creado', usuario:window.currentUser?.email||''});
-  if (old && old !== nuevoEstado) h.push({fecha:new Date().toISOString(), texto:`Estado cambió de ${old} a ${nuevoEstado}`, usuario:window.currentUser?.email||''});
-  if (!old && nuevoEstado) h.push({fecha:new Date().toISOString(), texto:`Estado inicial: ${nuevoEstado}`, usuario:window.currentUser?.email||''});
-  return h.slice(-40);
-};
-function fechaVencidaV58(f){
-  if (!f) return false;
-  const d = (typeof parseFecha === 'function' ? parseFecha(f) : parseDate(f));
-  if (!d) return false;
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  return d < hoy;
-}
-window.analizaObraV58 = function(o){
-  const problemas = [];
-  const estado = String(o.estado||'').toLowerCase();
-  const aprobada = ['aprobado','en producción','entregado','facturado','cobrado','cerrado'].includes(estado);
-  const activa = !['cobrado','cerrado','rechazado'].includes(estado);
-  
-  if (aprobada && !o.fprod_c) problemas.push('Falta fecha compromiso producción');
-  if (aprobada && !o.fcol_c && ['colocaciones','producción','ventas'].includes(String(o.sector||'').toLowerCase())) problemas.push('Falta fecha compromiso colocación');
-  if (!o.cliente) problemas.push('Falta cliente');
-  if ((+o.neto||+o.importe||0) > 0 && !(o.itemsCotizados||o.items||[]).length) problemas.push('Tiene precio pero no ítems cotizados');
-  if (fechaVencidaV58(o.fprod_c) && !o.fprod_r && activa) problemas.push('Producción vencida');
-  if (fechaVencidaV58(o.fcol_c) && !o.fcol_r && activa) problemas.push('Colocación vencida');
-  if (['facturado'].includes(estado) && String(o.cobr||'').toLowerCase() !== 'cobrado') problemas.push('Facturada pero pendiente de cobranza');
-  const chk = o.checklist || {};
-  if (aprobada && !chk.disenoAprobado && String(o.sector||'') !== 'Ventas') problemas.push('Falta marcar diseño aprobado');
-  if (aprobada && !chk.materialesCompletos && ['Producción','Compras'].includes(o.sector||'')) problemas.push('Falta marcar materiales completos');
-  if (window.analizaCotizacionMinimaTIZ) {
-    const q = window.analizaCotizacionMinimaTIZ(o);
-    (q.problemas||[]).filter(p=>p.level==='grave' || (aprobada && p.level==='media')).slice(0,6).forEach(p => problemas.push('Cotización incompleta: ' + p.msg));
-  }
-  let nivel = 'ok';
-  if (problemas.some(p=>/vencida|sin carpeta|Falta cliente/i.test(p))) nivel='danger';
-  else if (problemas.length) nivel='warn';
-  return {nivel, problemas};
-};
-window.renderAlertasV58 = function(){
-  const data = (window.DB.obras||[]).map(o=>({obra:o, r:window.analizaObraV58(o)})).filter(x=>x.r.nivel!=='ok');
-  const graves = data.filter(x=>x.r.nivel==='danger').length;
-  const medias = data.filter(x=>x.r.nivel==='warn').length;
-  const sinDrive = data.filter(x=>x.r.problemas.includes('OT aprobada sin carpeta Drive')).length;
-  const prodVenc = data.filter(x=>x.r.problemas.includes('Producción vencida')).length;
-  const k=document.getElementById('alertas-kpis');
-  if(k) k.innerHTML = `
-    <div class="kpi"><div class="kpi-label">Alertas graves</div><div class="kpi-val red">${graves}</div><div class="kpi-sub">requieren acción</div></div>
-    <div class="kpi"><div class="kpi-label">Alertas medias</div><div class="kpi-val amber">${medias}</div><div class="kpi-sub">preventivas</div></div>
-    <div class="kpi"><div class="kpi-label">Sin carpeta Drive</div><div class="kpi-val ${sinDrive?'red':''}">${sinDrive}</div><div class="kpi-sub">aprobadas</div></div>
-    <div class="kpi"><div class="kpi-label">Prod. vencida</div><div class="kpi-val ${prodVenc?'red':''}">${prodVenc}</div><div class="kpi-sub">sin fecha real</div></div>`;
-  const tbody=document.getElementById('alertas-tbody');
-  if(!tbody) return;
-  tbody.innerHTML = data.length ? data.slice(0,120).map(({obra:o,r})=>`
-    <tr>
-      <td><span class="risk-pill ${r.nivel==='danger'?'risk-danger':'risk-warn'}">${r.nivel==='danger'?'🔴 Grave':'🟡 Media'}</span></td>
-      <td class="strong">${o.ot||o.nro||'—'}</td>
-      <td>${o.cliente||'—'}</td><td class="strong">${o.desc||''}</td><td>${o.sector||''}</td>
-      <td>${r.problemas.map(p=>`<div>• ${p}</div>`).join('')}</td>
-      <td>${o.id?`<button class="btn btn-ghost btn-sm" onclick="editObra('${o.id}')">Abrir</button>`:''}</td>
-    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Sin alertas. Todo ordenado.</td></tr>';
-};
-window.crearTareasAutomaticasV58 = async function(obra){
-  const ot = obra.ot || obra.nro || 'SIN OT';
-  const base = { obraId: obra.id||'', ot, cliente: obra.cliente||'', obraDesc: obra.desc||'', automatica:true, completada:false, fecha:new Date().toLocaleDateString('es-AR') };
-  const tareas = [
-    {sector:'Ventas', desc:'Confirmar OC / seña / condición de pago'},
-    {sector:'Diseño', desc:'Preparar y validar archivos finales'},
-    {sector:'Compras', desc:'Revisar materiales faltantes y compras'},
-    {sector:'Producción', desc:'Planificar fabricación y tiempos'},
-    {sector:'Colocaciones', desc:'Coordinar instalación, permisos y recursos'}
-  ];
-  const existentes = (window.DB.tareas||[]).filter(t=>t.automatica && (t.obraId===obra.id || t.ot===ot));
-  for (const t of tareas) {
-    if (existentes.some(e=>e.sector===t.sector && e.desc===t.desc)) continue;
-    await window.addDoc_('tareas', {...base, sector:t.sector, desc:t.desc, notas:`Automática al aprobar OT ${ot}`});
-  }
-};
-const oldRenderDashboardV58 = renderDashboard;
-renderDashboard = function(){
-  oldRenderDashboardV58();
-  const cont = document.getElementById('dash-kpis');
-  if (!cont) return;
-  const alertas = (window.DB.obras||[]).map(o=>window.analizaObraV58(o)).filter(r=>r.nivel!=='ok');
-  const graves = alertas.filter(r=>r.nivel==='danger').length;
-  cont.insertAdjacentHTML('beforeend', `<div class="kpi"><div class="kpi-label">Alertas inteligentes</div><div class="kpi-val ${graves?'red':alertas.length?'amber':'green'}">${alertas.length}</div><div class="kpi-sub">${graves} graves</div></div>`);
-};
-
-
-// ============================================================
-// V7.2 post-init wrappers — guardar validación y advertir al aprobar
-// ============================================================
-(function(){
-  const install = () => {
-    if (!window.saveObra || window.saveObra._v72Wrapped) return;
-    const original = window.saveObra;
-    window.saveObra = async function(){
-      try {
-        if (window.renderValidacionCotizacionTIZ) window.renderValidacionCotizacionTIZ();
-        const preview = window.buildObraDataPreviewTIZ ? window.buildObraDataPreviewTIZ() : {};
-        const v = window.analizaCotizacionMinimaTIZ ? window.analizaCotizacionMinimaTIZ(preview) : null;
-        if (v && String(preview.estado||'').toLowerCase()==='aprobado' && v.problemas.some(p=>p.level==='grave')) {
-          const msg = 'La cotización tiene datos clave incompletos para Producción/IA:\n\n' + v.problemas.filter(p=>p.level==='grave').slice(0,6).map(p=>'• '+p.msg).join('\n') + '\n\n¿Guardar igual?';
-          if (!confirm(msg)) return;
-        }
-      } catch(e) { console.warn('Validación previa no bloqueante falló:', e); }
-      return original.apply(this, arguments);
-    };
-    window.saveObra._v72Wrapped = true;
-  };
-  install();
-  setTimeout(install, 800);
-  setTimeout(install, 2000);
-})();
-
-// Init — la app arranca en el listener de auth
-// renderDashboard se llama cuando Firebase carga datos
-
-// ============================================================
-// V7.1 — Clemen IA / ERP de anticipación
-// ============================================================
-function safeLower(v){ return String(v||'').toLowerCase(); }
-function safeMoney(v){ return Number(v||0) || 0; }
-function fechaToDateERP(v){
-  if(!v) return null;
-  if (v instanceof Date && !isNaN(v)) return v;
-  if (typeof parseFecha === 'function') { try { const d=parseFecha(v); if(d && !isNaN(d)) return d; } catch(_){} }
-  if (typeof parseDate === 'function') { try { const d=parseDate(v); if(d && !isNaN(d)) return d; } catch(_){} }
-  const m=String(v).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if(m){ const yy=Number(m[3].length===2?'20'+m[3]:m[3]); return new Date(yy, Number(m[2])-1, Number(m[1])); }
-  const d=new Date(v); return isNaN(d)?null:d;
-}
-function diasHastaERP(v){ const d=fechaToDateERP(v); if(!d) return null; const hoy=new Date(); hoy.setHours(0,0,0,0); d.setHours(0,0,0,0); return Math.round((d-hoy)/86400000); }
-function riesgoBadgeERP(nivel){
-  const map={alto:'red',medio:'amber',bajo:'blue',ok:'green'};
-  const txt={alto:'Alto',medio:'Medio',bajo:'Bajo',ok:'OK'};
-  return `<span class="badge badge-${map[nivel]||'gray'}">${txt[nivel]||nivel}</span>`;
-}
-function evaluarObraERP(o){
-  const problemas=[];
-  const estado=safeLower(o.estado);
-  const neto=safeMoney(o.neto || o.importe || o.totalItems);
-  const gastos=safeMoney(o.gastos);
-  const aprobada=['aprobado','en producción','entregado','facturado','cobrado'].includes(estado);
-  const activa=!['rechazado','vencido','cobrado','cerrado'].includes(estado);
-  
-  if(aprobada && !o.fprod_c) problemas.push(['medio','Aprobada sin fecha compromiso de producción','Asignar fecha producción']);
-  if(aprobada && !o.fcol_c && ['entregado','facturado','cobrado'].indexOf(estado)<0) problemas.push(['bajo','Sin fecha tentativa de colocación','Pedir disponibilidad a Colocaciones']);
-  if(!o.cliente) problemas.push(['alto','Falta cliente','Completar ficha cliente']);
-  if(aprobada && !neto) problemas.push(['alto','Aprobada sin importe','Revisar cotización antes de producir']);
-  if(aprobada && (!o.itemsCotizados || !o.itemsCotizados.length)) problemas.push(['medio','No tiene ítems cotizados cargados','Cargar renglones para que Producción vea alcance']);
-  if(neto && gastos && (neto-gastos)/neto < 0.18) problemas.push(['alto','Margen estimado bajo','Revisar gastos/costos antes de fabricar']);
-  const dp=diasHastaERP(o.fprod_c); if(activa && o.fprod_c && !o.fprod_r && dp!==null && dp<0) problemas.push(['alto',`Producción vencida hace ${Math.abs(dp)} días`,'Reprogramar o destrabar sector']);
-  const dc=diasHastaERP(o.fcol_c); if(activa && o.fcol_c && !o.fcol_r && dc!==null && dc<0) problemas.push(['alto',`Colocación vencida hace ${Math.abs(dc)} días`,'Revisar con Colocaciones']);
-  if(['entregado','cobrado'].includes(estado) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))) problemas.push(['medio','Entregada sin factura preparada','Preparar factura desde OT']);
-  if(['facturado'].includes(estado) && safeLower(o.cobr)!=='cobrado') problemas.push(['medio','Facturada pero pendiente de cobro','Crear/actualizar cobranza']);
-  const score=problemas.some(p=>p[0]==='alto')?'alto':problemas.some(p=>p[0]==='medio')?'medio':problemas.length?'bajo':'ok';
-  return {obra:o, score, problemas};
-}
-function detectarComprasERP(){
-  const reglas=[
-    ['Acrílico',['acrilico','acrílico','opalino']], ['Vinilo / impresión',['vinilo','lona','backlight','impresion','impresión']],
-    ['LED / fuentes',['led','modulo','módulo','neon','neón','fuente']], ['Chapa / estructura',['chapa','hierro','caño','estructura','herrería']],
-    ['MDF / carpintería',['mdf','melamina','madera','carpintería']], ['ACM / aluminio',['acm','alucobond','aluminio']]
-  ];
-  const activas=(window.DB.obras||[]).filter(o=>['aprobado','en producción','presupuestado'].includes(safeLower(o.estado)));
-  return reglas.map(([nombre,keys])=>{
-    const obras=activas.filter(o=>keys.some(k=>safeLower((o.desc||'')+' '+(o.comentarios||'')).includes(k)));
-    return {nombre, obras};
-  }).filter(x=>x.obras.length);
-}
-window.generarAnalisisERP=function(){
-  const obras=(window.DB.obras||[]).map(evaluarObraERP);
-  const riesgos=obras.filter(r=>r.score!=='ok').sort((a,b)=>({alto:0,medio:1,bajo:2}[a.score]-{alto:0,medio:1,bajo:2}[b.score]));
-  const facturas=window.DB.facturas||[];
-  const cobranzas=window.DB.cobranzas||[];
-  const facPend=facturas.filter(f=>f.estado!=='Emitida');
-  const facSinCuit=facPend.filter(f=>!f.cuit);
-  const cobVenc=cobranzas.filter(c=>safeLower(c.estado)!=='cobrado' && diasHastaERP(c.venc)<0);
-  return {obras, riesgos, facturas, facPend, facSinCuit, cobVenc, compras:detectarComprasERP()};
-};
-window.renderIAERP=function(){
-  const a=window.generarAnalisisERP();
-  const totalObras=(window.DB.obras||[]).length;
-  const activas=(window.DB.obras||[]).filter(o=>!['cobrado','rechazado','vencido','cerrado'].includes(safeLower(o.estado))).length;
-  const graves=a.riesgos.filter(r=>r.score==='alto').length;
-  const medio=a.riesgos.filter(r=>r.score==='medio').length;
-  const listoFact=(window.DB.obras||[]).filter(o=>['entregado'].includes(safeLower(o.estado)) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))).length;
-  const k=document.getElementById('ia-kpis');
-  if(k) k.innerHTML=`<div class="kpi"><div class="kpi-label">Obras activas</div><div class="kpi-val">${activas}</div><div class="kpi-sub">sobre ${totalObras} totales</div></div><div class="kpi"><div class="kpi-label">Riesgo alto</div><div class="kpi-val ${graves?'red':'green'}">${graves}</div><div class="kpi-sub">requieren decisión</div></div><div class="kpi"><div class="kpi-label">Riesgo medio</div><div class="kpi-val ${medio?'amber':'green'}">${medio}</div></div><div class="kpi"><div class="kpi-label">Listas para facturar</div><div class="kpi-val ${listoFact?'amber':'green'}">${listoFact}</div></div>`;
-  const resumen=[];
-  if(graves) resumen.push(`🔴 Hay <b>${graves}</b> obra(s) con riesgo alto. Prioridad: fechas vencidas o importes faltantes.`);
-  if(medio) resumen.push(`🟡 Hay <b>${medio}</b> alerta(s) medias: fechas pendientes, ítems faltantes o facturación por preparar.`);
-  if(a.cobVenc.length) resumen.push(`💰 Hay <b>${a.cobVenc.length}</b> cobranza(s) vencida(s). Revisar antes de tomar nuevos compromisos.`);
-  if(a.compras.length) resumen.push(`🛒 Detecté necesidades probables de compras en <b>${a.compras.length}</b> rubro(s).`);
-  if(!resumen.length) resumen.push('🟢 No detecto problemas fuertes con la información cargada. Mantener actualizadas fechas, ítems y costos para mejorar las predicciones.');
-  const resEl=document.getElementById('ia-resumen'); if(resEl) resEl.innerHTML=resumen.join('<br>');
-  const tb=document.getElementById('ia-obras-tbody');
-  if(tb) tb.innerHTML=a.riesgos.slice(0,30).map(r=>{const p=r.problemas[0]||['ok','Sin problema','']; const o=r.obra; return `<tr><td>${riesgoBadgeERP(r.score)}</td><td class="strong">${o.ot||o.nro||'—'}</td><td>${o.cliente||'—'}</td><td>${o.desc||''}</td><td>${p[1]}</td><td>${p[2]}</td><td><button class="btn-icon" onclick="window.editingId.obra='${o.id}';openModal('obra')"><i class="ti ti-edit" style="font-size:13px"></i></button></td></tr>`}).join('') || '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text3)">Sin obras críticas.</td></tr>';
-  const tf=document.getElementById('ia-fac-tbody');
-  const rows=[];
-  (window.DB.obras||[]).filter(o=>['entregado'].includes(safeLower(o.estado)) && !(window.DB.facturas||[]).some(f=>f.obraId===o.id || String(f.ot||'')===String(o.ot||''))).forEach(o=>rows.push(['Preparar factura',o.cliente,o.ot||o.nro,fmtM(o.neto||o.importe),'Entregada sin pre-factura',`<button class="btn btn-ghost btn-sm" onclick="prepararFacturaDesdeObra('${o.id}')">Preparar</button>`]));
-  a.facSinCuit.forEach(f=>rows.push(['Dato faltante',f.cliente,f.nro||f.ot,fmtM(f.total||f.neto),'Pre-factura sin CUIT','Completar ficha fiscal']));
-  a.cobVenc.forEach(c=>rows.push(['Cobranza',c.cliente,c.nrfc||c.ot,fmtM(c.importe),'Vencida','Reclamar / reprogramar']));
-  if(tf) tf.innerHTML=rows.slice(0,25).map(r=>`<tr><td>${r[0]}</td><td>${r[1]||''}</td><td>${r[2]||''}</td><td>${r[3]||''}</td><td>${r[4]||''}</td><td>${r[5]||''}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text3)">Sin alertas de facturación/cobranza.</td></tr>';
-  const comp=document.getElementById('ia-compras');
-  if(comp) comp.innerHTML=a.compras.map(c=>`<div style="margin-bottom:8px"><b style="color:var(--accent)">${c.nombre}</b>: ${c.obras.length} obra(s) posibles — ${c.obras.slice(0,5).map(o=>'OT '+(o.ot||o.nro||'—')+' '+(o.cliente||'')).join(' · ')}</div>`).join('') || 'No detecté compras probables por descripción. Cargar ítems/cálculos auxiliares mejora esta lectura.';
-  const bia=document.getElementById('badge-ia'); if(bia){ const n=graves+medio; bia.textContent=n||''; bia.style.display=n?'':'none'; }
-};
-window.exportarResumenIA=function(){
-  const a=window.generarAnalisisERP();
-  const rows=[['Tipo','Nivel','OT/FC','Cliente','Descripción','Problema','Acción']];
-  a.riesgos.forEach(r=>{const o=r.obra; r.problemas.forEach(p=>rows.push(['Obra',p[0],o.ot||o.nro||'',o.cliente||'',o.desc||'',p[1],p[2]]));});
-  descargarCSV('clemen_ia_resumen_tiz.csv', rows);
-};
-const oldUpdateBadgesV71 = window.updateBadges;
-window.updateBadges = function(){ if(oldUpdateBadgesV71) oldUpdateBadgesV71(); try{ const a=window.generarAnalisisERP(); const n=a.riesgos.filter(r=>r.score!=='ok').length; const bia=document.getElementById('badge-ia'); if(bia){ bia.textContent=n||''; bia.style.display=n?'':'none'; } }catch(e){} };
-
-
-
-// V6 — Datos de facturación desde cotización/OT
-// Descarga un CSV con los datos que se pueden copiar/importar al sistema de facturación.
-// ============================================================
-window.exportarDatosFacturaActual = function(){
-  try {
-    const items = (typeof collectObraItems === 'function') ? collectObraItems() : [];
-    const totalItems = items.reduce((a,i)=>a+(Number(i.subtotal)||0),0);
-    const data = {
-      ot: getValue('f-ot'),
-      cliente: getValue('f-cliente'),
-      descripcion: getValue('f-desc'),
-      oc_op: getValue('f-oc'),
-      nro_factura: getValue('f-nrfc'),
-      fecha_factura: getValue('f-ffc'),
-      condicion_pago_dias: getValue('f-dias-pago'),
-      neto: Number(getValue('f-neto')) || totalItems || 0,
-      bruto: Number(getValue('f-bruto')) || 0,
-      total_items: totalItems,
-      estado_cobranza: getValue('f-cobr') || 'Pendiente'
-    };
-    const rows = [['Campo','Valor'], ...Object.entries(data), [], ['Items','Cantidad','Unitario','Subtotal','Observaciones']];
-    items.forEach(i => rows.push([i.descripcion||i.desc||'', i.cantidad||i.cant||'', i.unitario||i.precio||'', i.subtotal||'', i.observaciones||'']));
-    const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `TIZ_Datos_Factura_OT_${data.ot || 'SIN_OT'}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    showToast('Datos de factura descargados');
-  } catch(e) { console.error(e); showToast('No se pudo exportar datos de factura'); }
-};
-
-
-
-// V8 — asegurar render de Clemen IA sin tocar el resto de navegación
-(function(){
-  const _refreshV8 = window.refreshCurrent;
-  window.refreshCurrent = function(){
-    if (typeof _refreshV8 === 'function') _refreshV8.apply(this, arguments);
-    if (window.currentPage === 'ia' && typeof window.renderIAERP === 'function') window.renderIAERP();
-  };
-})();
 
 // ============================================================
 // V20 — cierre de integración y estado inicial
@@ -4390,13 +3219,13 @@ window.exportarDatosFacturaActual = function(){
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V35.1 · FUENTE ÚNICA + COTIZADOR LIMPIO · 17/08/2026';
+  badge.textContent = 'TIZ V35.2 · CARPETAS COTIZACIÓN + OT · 17/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
   else mountBadge();
 
-  console.info('[TIZ V21 FINAL] Compras + stock integrados. Estado inicial: Presupuestado.');
+  console.info('[TIZ V35.2] Carpetas separadas de Cotización y OT + nombre normalizado.');
 })();
 
 </script>
@@ -4407,6 +3236,6 @@ window.exportarDatosFacturaActual = function(){
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-1-COTIZADOR-LIMPIO-20260817"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-2-DRIVE-COT-OT-20260817"></script>
 </body>
 </html>

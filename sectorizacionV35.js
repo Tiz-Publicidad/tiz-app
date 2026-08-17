@@ -1,5 +1,5 @@
 // ============================================================
-// TIZ V35.1 — FUENTE ÚNICA + COTIZADOR LIMPIO + TABLERO CONSOLIDADO
+// TIZ V35.2 — CARPETAS COTIZACIÓN + OT + FUENTE ÚNICA
 // 17/08/2026
 // Cada dato operativo tiene un único dueño. Obras sólo consolida.
 // ============================================================
@@ -362,7 +362,7 @@
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
     patchEditObra(); patchPresupuestoFunctions();
-    const VERSION_LABEL='TIZ V35.1 · FUENTE ÚNICA + COTIZADOR LIMPIO · 17/08/2026';
+    const VERSION_LABEL='TIZ V35.2 · CARPETAS COTIZACIÓN + OT · 17/08/2026';
     const forceVersionBadge=()=>{const badge=document.getElementById('tiz-build-v20'); if(badge)badge.textContent=VERSION_LABEL;};
     forceVersionBadge();
     // expedientesV33 actualiza el pie con retraso; lo reponemos después y además observamos
@@ -373,7 +373,7 @@
       window.__v351BadgeObserver=new MutationObserver(()=>{if(badge.textContent!==VERSION_LABEL)badge.textContent=VERSION_LABEL;});
       window.__v351BadgeObserver.observe(badge,{childList:true,characterData:true,subtree:true});
     }
-    console.info('[TIZ V35.1] Fuente única + cotizador limpio activos');
+    console.info('[TIZ V35.2] Carpetas Cotización + OT y fuente única activos');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })();
