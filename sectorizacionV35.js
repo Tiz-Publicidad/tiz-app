@@ -362,7 +362,7 @@
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
     patchEditObra(); patchPresupuestoFunctions();
-    const VERSION_LABEL='TIZ V35.5 · CLIENTES + AYUDAMEMORIA DE COTIZACIÓN · 17/08/2026';
+    const VERSION_LABEL='TIZ V35.6 · AUTOCOMPLETE CLIENTES CORREGIDO · 17/08/2026';
     const forceVersionBadge=()=>{const badge=document.getElementById('tiz-build-v20'); if(badge)badge.textContent=VERSION_LABEL;};
     forceVersionBadge();
     // expedientesV33 actualiza el pie con retraso; lo reponemos después y además observamos
@@ -373,7 +373,7 @@
       window.__v351BadgeObserver=new MutationObserver(()=>{if(badge.textContent!==VERSION_LABEL)badge.textContent=VERSION_LABEL;});
       window.__v351BadgeObserver.observe(badge,{childList:true,characterData:true,subtree:true});
     }
-    console.info('[TIZ V35.5] Clientes + ayudamemoria, revisiones, carpetas y fuente única activos');
+    console.info('[TIZ V35.6] Autocomplete de clientes + ayudamemoria, revisiones, carpetas y fuente única activos');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })();

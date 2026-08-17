@@ -829,7 +829,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-group"><label>Validez (días)</label><input id="pp-validez" type="number" value="7"></div>
       <div class="form-group full" style="position:relative">
         <label>Cliente</label>
-        <input id="pp-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientesPP(this.value)" onblur="setTimeout(()=>cerrarSugerenciasPP(),200)">
+        <input id="pp-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientesPP(this.value,false)" onfocus="sugerirClientesPP(this.value,true)" onblur="setTimeout(()=>cerrarSugerenciasPP(),200)">
         <div id="pp-clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--border-radius-md);z-index:300;max-height:160px;overflow-y:auto;margin-top:2px"></div>
       </div>
       <div class="form-group full"><label>Descripción general del presupuesto</label>
@@ -2036,26 +2036,73 @@ window.abrirPresupuestoPDF = () => {
   document.getElementById('modal-prespdf').classList.add('open');
 };
 
-// Autocomplete cliente para presupuesto
-window.sugerirClientesPP = (q) => {
+// Autocomplete cliente para presupuesto — V35.6
+// Fuente unificada: Clientes + Obras + Presupuestos + Base Madre histórica.
+// Así no dependemos de que el cliente haya sido cargado manualmente en la colección Clientes.
+window.sugerirClientesPP = (q='', mostrarAunqueVacio=false) => {
   const dd = document.getElementById('pp-clientes-dropdown');
-  if (!q || q.length < 1) { dd.style.display='none'; return; }
-  const clientesDB = window.DB.clientes.map(c=>({nombre:c.nombre,cuit:c.cuit}));
-  const clientesObras = [...new Set(window.DB.obras.map(o=>o.cliente).filter(Boolean))]
-    .filter(n=>!clientesDB.find(c=>c.nombre?.toLowerCase()===n.toLowerCase()))
-    .map(n=>({nombre:n,cuit:''}));
-  const todos = [...clientesDB,...clientesObras];
-  const matches = todos.filter(c=>c.nombre&&c.nombre.toLowerCase().includes(q.toLowerCase())).slice(0,8);
-  let html = matches.map(c=>`
-    <div class="cli-option" onmousedown="elegirClientePP('${c.nombre.replace(/'/g,"\\'")}')">
-      <span>${resaltar(c.nombre,q)}</span>
-      ${c.cuit?`<span class="cli-option-sub">CUIT: ${c.cuit}</span>`:`<span class="cli-option-sub">de obras anteriores</span>`}
-    </div>`).join('');
-  html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuesto('${q.replace(/'/g,"\\'")}'')" style="border-top:1px solid var(--border);color:var(--accent)">
-    <span>➕ Crear cliente "<strong>${q}</strong>"</span>
+  if (!dd) return;
+
+  const texto = String(q||'').trim();
+  const norm = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const mapa = new Map();
+
+  const agregar = (nombre, cuit='', fuente='', peso=1) => {
+    nombre = String(nombre||'').trim();
+    if (!nombre) return;
+    const k = norm(nombre);
+    if (!k) return;
+    const actual = mapa.get(k);
+    if (!actual) mapa.set(k,{nombre,cuit:cuit||'',fuentes:new Set(fuente?[fuente]:[]),peso});
+    else {
+      if (!actual.cuit && cuit) actual.cuit=cuit;
+      if (fuente) actual.fuentes.add(fuente);
+      actual.peso += peso;
+    }
+  };
+
+  // 1) Maestro de clientes de Firebase
+  (window.DB?.clientes||[]).forEach(c=>agregar(c.nombre,c.cuit,'Clientes',20));
+  // 2) Obras ya cargadas en Firebase
+  (window.DB?.obras||[]).forEach(o=>agregar(o.cliente,'','Obras',4));
+  // 3) Presupuestos/cotizaciones históricas de Firebase
+  (window.DB?.presupuestos||[]).forEach(p=>agregar(p.cliente,'','Cotizaciones',6));
+  // 4) Base Madre incluida en la app (contiene el histórico, ej. Farmacity)
+  (window.OBRAS_MADRE_V291||[]).forEach(o=>agregar(o.cliente,'','Base Madre',2));
+
+  let todos=[...mapa.values()];
+  const nq=norm(texto);
+  if (nq) todos=todos.filter(c=>norm(c.nombre).includes(nq));
+  else if (!mostrarAunqueVacio) { dd.style.display='none'; return; }
+
+  // Primero coincidencias que comienzan con lo escrito; luego frecuencia/relevancia.
+  todos.sort((a,b)=>{
+    if(nq){
+      const ai=norm(a.nombre).startsWith(nq)?0:1, bi=norm(b.nombre).startsWith(nq)?0:1;
+      if(ai!==bi) return ai-bi;
+    }
+    return b.peso-a.peso || a.nombre.localeCompare(b.nombre,'es');
+  });
+  const matches=todos.slice(0,12);
+
+  let html = matches.map(c=>{
+    const fuente=[...c.fuentes].join(' · ');
+    const sub=c.cuit?`CUIT: ${c.cuit}${fuente?' · '+fuente:''}`:(fuente||'Histórico');
+    return `<div class="cli-option" onmousedown="elegirClientePP('${c.nombre.replace(/'/g,"\\'")}')">
+      <span>${texto?resaltar(c.nombre,texto):c.nombre}</span>
+      <span class="cli-option-sub">${sub}</span>
+    </div>`;
+  }).join('');
+
+  if (!matches.length && texto) {
+    html = `<div class="cli-option" style="cursor:default;color:var(--text3)"><span>Sin coincidencias guardadas</span></div>`;
+  }
+  if (texto) html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuesto('${texto.replace(/'/g,"\\'")}')" style="border-top:1px solid var(--border);color:var(--accent)">
+    <span>➕ Crear cliente "<strong>${texto}</strong>"</span>
     <span class="cli-option-sub" style="color:var(--accent)">Abre el formulario de nuevo cliente</span>
   </div>`;
-  dd.innerHTML = html;
+
+  dd.innerHTML = html || '<div class="cli-option" style="cursor:default;color:var(--text3)">Todavía no hay clientes disponibles</div>';
   dd.style.display = 'block';
 };
 window.elegirClientePP = nombre => {
@@ -2073,11 +2120,9 @@ window.nuevoClienteDesdePresupuesto = nombre => {
   document.getElementById('fc-numero').value = nextClienteNumero();
   document.getElementById('fc-nombre').value = nombre;
   ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  // Al guardar el cliente, volver al presupuesto
   window._volvioDePresupuesto = true;
   document.getElementById('modal-cliente').classList.add('open');
 };
-
 
 // ============================================================
 // ÍTEMS DE OBRA + CÁLCULOS AUXILIARES
@@ -3248,13 +3293,13 @@ async function syncToSheets(data) {
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V35.5 · CLIENTES + AYUDAMEMORIA DE COTIZACIÓN · 17/08/2026';
+  badge.textContent = 'TIZ V35.6 · AUTOCOMPLETE CLIENTES CORREGIDO · 17/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
   else mountBadge();
 
-  console.info('[TIZ V35.5] Clientes precargados + ayudamemoria restaurados; revisiones e historial activos.');
+  console.info('[TIZ V35.6] Clientes precargados + ayudamemoria restaurados; revisiones e historial activos.');
 })();
 
 </script>
