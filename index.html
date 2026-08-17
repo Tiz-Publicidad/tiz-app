@@ -2660,6 +2660,7 @@ window.generarPDF = async () => {
       XLSX.writeFile(wb, 'Presupuesto_' + String(NRO).padStart(4,'0') + '_' + CLIENTE.replace(/[^a-zA-Z0-9]/g,'_') + '.xlsx');
     }
     <\/script>
+
 </body></html>`);
   printWin.document.close();
   showToast('Presupuesto guardado en Firebase ✓ — abrí la ventana para descargar PDF o Excel');
@@ -4406,5 +4407,6 @@ window.exportarDatosFacturaActual = function(){
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-SINGLE-SOURCE-20260817"></script>
 </body>
 </html>
