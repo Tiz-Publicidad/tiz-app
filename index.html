@@ -835,6 +835,10 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-group full"><label>Descripción general del presupuesto</label>
         <input id="pp-desc" placeholder="Ej: Cartelería interna y externa sucursal Florida 441">
       </div>
+      <div class="form-group full" id="pp-ayudamemoria-wrap">
+        <label>Ayudamemoria de cotización</label>
+        <div id="pp-ayudamemoria" style="background:rgba(232,184,75,.07);border:1px solid var(--border2);border-radius:10px;padding:12px;font-size:11px;color:var(--text2)"></div>
+      </div>
       <div class="form-group"><label>Revisión</label>
         <input id="pp-revision" value="1.1" readonly style="font-family:'DM Mono',monospace;font-weight:700">
       </div>
@@ -3244,15 +3248,107 @@ async function syncToSheets(data) {
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V35.4 · REVISIONES DE COTIZACIÓN + HISTORIAL · 17/08/2026';
+  badge.textContent = 'TIZ V35.5 · CLIENTES + AYUDAMEMORIA DE COTIZACIÓN · 17/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
   else mountBadge();
 
-  console.info('[TIZ V35.4] Revisiones de cotización con historial + PDF/Excel sin sobreescritura.');
+  console.info('[TIZ V35.5] Clientes precargados + ayudamemoria restaurados; revisiones e historial activos.');
 })();
 
+</script>
+
+
+<script>
+// ============================================================
+// TIZ V35.5 — Restauración de clientes + ayudamemoria comercial
+// ============================================================
+(function(){
+  const esc = v => String(v ?? '').replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const jsq = v => String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]+/g,' ');
+  const norm = v => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+  function clientesDisponibles(){
+    const mapa = new Map();
+    const add=(nombre,cuit='',numero='',fuente='')=>{
+      nombre=String(nombre||'').trim(); if(!nombre) return;
+      const k=norm(nombre);
+      const prev=mapa.get(k)||{};
+      mapa.set(k,{nombre:prev.nombre||nombre,cuit:prev.cuit||cuit||'',numero:prev.numero||numero||'',fuente:prev.fuente||fuente});
+    };
+    (window.DB?.clientes||[]).forEach(c=>add(c.nombre,c.cuit,c.numeroCliente||c.numero,'Base de clientes'));
+    (window.DB?.obras||[]).forEach(o=>add(o.cliente,'','','Obras anteriores'));
+    (window.DB?.presupuestos||[]).forEach(p=>add(p.cliente,'','','Cotizaciones anteriores'));
+    return [...mapa.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  }
+
+  window.sugerirClientesPP=function(q){
+    const dd=document.getElementById('pp-clientes-dropdown'); if(!dd) return;
+    const texto=String(q||'').trim();
+    const lista=clientesDisponibles();
+    const nq=norm(texto);
+    const matches=(nq?lista.filter(c=>norm(c.nombre).includes(nq)):lista).slice(0,12);
+    let html=matches.map(c=>`<div class="cli-option" onmousedown="document.getElementById('pp-cliente').value='${jsq(c.nombre)}';document.getElementById('pp-clientes-dropdown').style.display='none'"><span>${esc(c.nombre)}</span><span class="cli-option-sub">${c.numero?'Cliente '+esc(c.numero)+' · ':''}${c.cuit?'CUIT: '+esc(c.cuit):esc(c.fuente||'Cliente existente')}</span></div>`).join('');
+    if(texto){
+      html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuestoV355('${jsq(texto)}')" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente nuevo: <strong>${esc(texto)}</strong></span><span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver al presupuesto</span></div>`;
+    }
+    dd.innerHTML=html || '<div style="padding:10px;color:var(--text3)">Sin clientes cargados todavía.</div>';
+    dd.style.display='block';
+  };
+  window.nuevoClienteDesdePresupuestoV355=function(nombre){
+    document.getElementById('pp-clientes-dropdown')?.style && (document.getElementById('pp-clientes-dropdown').style.display='none');
+    window._clienteReturnTarget='presupuesto';
+    if(window.editingId) window.editingId.cliente=null;
+    if(document.getElementById('fc-numero') && typeof window.nextClienteNumero==='function') document.getElementById('fc-numero').value=window.nextClienteNumero();
+    if(document.getElementById('fc-nombre')) document.getElementById('fc-nombre').value=nombre||'';
+    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+    document.getElementById('modal-cliente')?.classList.add('open');
+  };
+
+  const MEASURE=/\b\d+(?:[\.,]\d+)?\s*(?:m|mt|mts|cm|mm)?\s*[x×]\s*\d+/i;
+  const MATERIAL=/(acr[ií]lico|pvc|chapa|aluminio|acm|mdf|hierro|cañ[oó]|perfil|lona|vinilo|polyfan|polifan|madera|pintura|tela|backlight)/i;
+  const COLOC=/(colocaci[oó]n|instalaci[oó]n|montaje|retira|retiro|sin colocar|incluye coloc)/i;
+  const ILUM=/(led|m[oó]dulo|tira|ne[oó]n|retroilumin|iluminad|sin iluminaci[oó]n|fuente|driver|12v|24v|220v)/i;
+  const FINISH=/(pintura|poliuret|sint[eé]tica|horno|powder|laminado|mate|brillo|uv|impresi[oó]n|vinilo|backlight)/i;
+  const DEPTH=/(profundidad|prof\.|faja|lateral|espesor|canto|retorno|cuerpo)/i;
+  function textoCotizacion(){
+    const desc=document.getElementById('pp-desc')?.value||'';
+    const items=(window.ppItems||[]).map(i=>[i.desc,i.descripcion,i.observaciones].filter(Boolean).join(' ')).join(' ');
+    return (desc+' '+items).trim();
+  }
+  function add(arr,ok,titulo,sugerencia){arr.push({ok,titulo,sugerencia});}
+  window.renderAyudamemoriaPPV355=function(){
+    const box=document.getElementById('pp-ayudamemoria'); if(!box) return;
+    const txt=textoCotizacion(); const low=norm(txt); const checks=[];
+    add(checks,MEASURE.test(txt),'Medidas','Indicá ancho × alto y, cuando corresponda, profundidad.');
+    add(checks,MATERIAL.test(txt),'Material principal','Aclarar material: hierro/caño, chapa, PVC, acrílico, ACM, MDF, lona, vinilo, etc.');
+    if(/letra|corporea|corpórea/.test(low)){
+      add(checks,DEPTH.test(txt),'Profundidad / faja de letras','Ej.: faja 8 cm, lateral chapa, contraletra PVC.');
+      add(checks,ILUM.test(txt),'Iluminación','Aclarar retroiluminada, frente iluminado, neón flexible o sin iluminación.');
+    } else if(/ilumin|led|neon|neón|backlight/.test(low)) add(checks,ILUM.test(txt),'Tipo de iluminación','Indicar módulo/tira/neón y tensión o fuente cuando corresponda.');
+    add(checks,COLOC.test(txt),'Colocación','Indicar si incluye colocación, retira cliente o se cotiza aparte.');
+    if(/vinilo|lona|impres|pintura|chapa|acm|mdf/.test(low)) add(checks,FINISH.test(txt),'Terminación','Aclarar pintura, laminado, UV, brillo/mate u otra terminación cuando aplique.');
+    const pendientes=checks.filter(x=>!x.ok);
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:8px"><strong>${pendientes.length?'📝 Antes de enviar, revisar':'✅ Datos técnicos básicos completos'}</strong><span style="color:${pendientes.length?'var(--amber)':'var(--green)'}">${checks.length-pendientes.length}/${checks.length}</span></div>`+
+      checks.map(x=>`<div style="display:flex;gap:7px;margin:4px 0;color:${x.ok?'var(--text3)':'var(--text2)'}"><span>${x.ok?'✓':'•'}</span><div><b>${esc(x.titulo)}</b>${x.ok?'':` — ${esc(x.sugerencia)}`}</div></div>`).join('')+
+      `<div style="margin-top:8px;color:var(--text3)">Es un ayudamemoria: no bloquea el presupuesto y se actualiza mientras escribís.</div>`;
+  };
+
+  function bind(){
+    const cli=document.getElementById('pp-cliente');
+    if(cli && !cli.dataset.v355){cli.dataset.v355='1';cli.addEventListener('focus',()=>window.sugerirClientesPP(cli.value));}
+    const desc=document.getElementById('pp-desc');
+    if(desc && !desc.dataset.v355){desc.dataset.v355='1';desc.addEventListener('input',window.renderAyudamemoriaPPV355);}
+    window.renderAyudamemoriaPPV355();
+  }
+  const oldRender=window.renderPPItems;
+  if(typeof oldRender==='function') window.renderPPItems=function(){const r=oldRender.apply(this,arguments);setTimeout(window.renderAyudamemoriaPPV355,0);return r;};
+  const oldOpen=window.abrirNuevoPresupuestoCompleto;
+  if(typeof oldOpen==='function') window.abrirNuevoPresupuestoCompleto=function(){const r=oldOpen.apply(this,arguments);setTimeout(bind,0);return r;};
+  document.addEventListener('input',e=>{if(e.target?.closest?.('#modal-prespdf') && (e.target.id==='pp-desc'||e.target.closest('#pp-items'))) window.renderAyudamemoriaPPV355();});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind); else bind();
+})();
 </script>
 
 <script src="excelMadre.js?v=TIZ-V30-1-BASE-20260801"></script>
@@ -3261,6 +3357,6 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-4-REVISIONES-20260817"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-5-CLIENTES-AYUDAMEMORIA-20260817"></script>
 </body>
 </html>
