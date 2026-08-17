@@ -825,7 +825,7 @@ td.strong { color: var(--text); font-weight: 500; }
   <div class="modal" style="max-width:1120px;width:calc(100vw - 80px);max-height:90vh;overflow-y:auto">
     <div class="modal-title">Generar presupuesto</div>
     <div class="form-grid">
-      <div class="form-group"><label>Nro presupuesto</label><input id="pp-nro" placeholder="0001"></div>
+      <div class="form-group"><label>Nro presupuesto</label><input id="pp-nro" oninput="actualizarIdentificacionCotizacionV354()" placeholder="0001"></div>
       <div class="form-group"><label>Validez (días)</label><input id="pp-validez" type="number" value="7"></div>
       <div class="form-group full" style="position:relative">
         <label>Cliente</label>
@@ -834,6 +834,12 @@ td.strong { color: var(--text); font-weight: 500; }
       </div>
       <div class="form-group full"><label>Descripción general del presupuesto</label>
         <input id="pp-desc" placeholder="Ej: Cartelería interna y externa sucursal Florida 441">
+      </div>
+      <div class="form-group"><label>Revisión</label>
+        <input id="pp-revision" value="1.1" readonly style="font-family:'DM Mono',monospace;font-weight:700">
+      </div>
+      <div class="form-group"><label>Identificación</label>
+        <input id="pp-identificacion" value="CT 0000000 1.1" readonly style="font-family:'DM Mono',monospace;color:var(--accent)">
       </div>
       <div class="form-group full"><label>Nota al pie</label>
         <input id="pp-nota" value="Los precios cotizados se encuentran a valores netos">
@@ -859,6 +865,7 @@ td.strong { color: var(--text); font-weight: 500; }
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modal-prespdf').classList.remove('open')">Cancelar</button>
+      <button id="pp-btn-nueva-revision" class="btn btn-ghost" onclick="crearNuevaRevisionDesdeCotizador()" style="display:none"><i class="ti ti-copy-plus"></i> Nueva revisión</button>
       <button class="btn btn-ghost" onclick="guardarPresupuestoCompleto()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-device-floppy"></i> Guardar presupuesto</button>
       <button class="btn btn-primary" onclick="generarPDF()"><i class="ti ti-printer"></i> Generar PDF + Excel</button>
     </div>
@@ -1689,13 +1696,15 @@ function renderPresupuestos() {
   `;
 
   const map={'Enviado':'blue','En revisión':'amber','Aprobado':'green','Rechazado':'red','Vencido':'gray'};
-  document.getElementById('pres-tbody').innerHTML = pres.map(p => `<tr>
-    <td class="strong">${p.nro||'—'}</td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
+  const ordenados=[...pres].sort((a,b)=>{ const na=parseInt(a.nro)||0, nb=parseInt(b.nro)||0; if(nb!==na)return nb-na; const ra=normalizarRevisionV354(a.revision||'1.1').split('.').map(Number), rb=normalizarRevisionV354(b.revision||'1.1').split('.').map(Number); return (rb[0]-ra[0])||(rb[1]-ra[1]); });
+  document.getElementById('pres-tbody').innerHTML = ordenados.map(p => `<tr>
+    <td class="strong" style="white-space:nowrap">CT ${String(p.nro||'').replace(/\D/g,'').padStart(7,'0')} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
     <td>${p.vendedor||''}</td><td style="font-weight:500">${fmtM(p.importe)}</td>
     <td>${p.fecha||'—'}</td><td><span class="badge badge-${map[p.estado]||'gray'}">${p.estado||''}</span></td>
-    <td>
-      <button class="btn-icon" onclick="editPres('${p.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button>
-      <button class="btn-icon" onclick="delPres('${p.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
+    <td style="white-space:nowrap">
+      <button class="btn-icon" onclick="abrirRevisionCotizacionV354('${p.id}',false)" title="Abrir esta revisión"><i class="ti ti-eye" style="font-size:13px"></i></button>
+      <button class="btn-icon" onclick="crearNuevaRevisionV354('${p.id}')" title="Crear nueva revisión sin borrar esta" style="margin-left:4px;color:var(--accent)"><i class="ti ti-copy-plus" style="font-size:13px"></i></button>
+      <button class="btn-icon" onclick="delPres('${p.id}')" title="Eliminar revisión" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
     </td>
   </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">Sin presupuestos.</td></tr>';
 }
@@ -2303,7 +2312,7 @@ window.savePresupuesto = async () => {
       });
     }
   } catch(e) {
-    console.warn('[TIZ V35.2] No se pudo crear carpeta de Análisis de Cotizaciones:', e);
+    console.warn('[TIZ V35.4] No se pudo crear carpeta de Análisis de Cotizaciones:', e);
   }
 
   if (String(data.estado || '').toLowerCase() === 'aprobado') {
@@ -2329,7 +2338,7 @@ window.savePresupuesto = async () => {
         showToast('Presupuesto aprobado: carpeta OT creada');
       }
     } catch(e) {
-      console.warn('[TIZ V35.2] No se pudo crear carpeta OT:', e);
+      console.warn('[TIZ V35.4] No se pudo crear carpeta OT:', e);
       showToast('Presupuesto aprobado y guardado');
     }
   }
@@ -2396,12 +2405,18 @@ window.abrirNuevoPresupuestoCompleto = () => {
   window.editingId.presupuesto = null;
   window.editingId.obra = null;
   window._presupuestoOrigen = 'presupuestos';
+  window._cotizacionBaseId = null;
+  window._cotizacionRevisionAnteriorId = null;
+  window._cotizacionEsRevisionNueva = false;
   const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0).filter(n=>n>0);
   const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
   const maxNro = Math.max(0, ...presNros, ...otNros);
   document.getElementById('pp-nro').value = (maxNro+1).toString().padStart(4,'0');
   document.getElementById('pp-cliente').value = '';
   document.getElementById('pp-desc').value = '';
+  document.getElementById('pp-revision').value = '1.1';
+  actualizarIdentificacionCotizacionV354();
+  const revBtn = document.getElementById('pp-btn-nueva-revision'); if (revBtn) revBtn.style.display='none';
   document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
   document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
   document.getElementById('pp-validez').value = '7';
@@ -2414,25 +2429,96 @@ window.guardarPresupuestoCompleto = async () => {
   const nro = document.getElementById('pp-nro').value.trim() || '0000';
   const cliente = document.getElementById('pp-cliente').value.trim();
   const descGeneral = document.getElementById('pp-desc').value.trim();
+  const revision = normalizarRevisionV354(document.getElementById('pp-revision')?.value || '1.1');
   const nota = document.getElementById('pp-nota').value.trim();
   const cond = document.getElementById('pp-condicion').value.trim();
   const hoy = new Date().toLocaleDateString('es-AR');
   const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
   const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
   if (!cliente) { showToast('Falta cargar el cliente'); return; }
+  if (!descGeneral) { showToast('Cargá la descripción general'); return; }
   if (!items.length) { showToast('Agregá al menos un ítem'); return; }
-  await addDoc_('presupuestos', {
-    nro, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
-    importe: total, fecha: hoy, estado: 'Pendiente',
-    nota, cond, items, creadoPor: window.currentUser?.email || '', obraId: ''
-  });
-  document.getElementById('modal-prespdf').classList.remove('open');
-  showToast('Presupuesto guardado con ítems');
+
+  // V35.4: una revisión es un documento propio. Nunca se actualiza una revisión anterior.
+  const existente = (window.DB.presupuestos||[]).find(p => String(p.nro||'').replace(/\D/g,'')===String(nro).replace(/\D/g,'') && normalizarRevisionV354(p.revision||'1.1')===revision && p.id!==window.editingId.presupuesto);
+  if (existente && !window.editingId.presupuesto) {
+    showToast(`La revisión ${revision} ya existe. Usá “Nueva revisión” para conservar el historial.`);
+    return;
+  }
+
+  const payload = {
+    nro, revision, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
+    importe: total, fecha: hoy, estado: 'Pendiente', nota, cond, items,
+    creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
+    cotizacionBase: String(nro).replace(/\D/g,''),
+    revisionAnteriorId: window._cotizacionRevisionAnteriorId || '',
+    esRevision: !!window._cotizacionRevisionAnteriorId,
+    nombreArchivo: window.tizCotizacionNombreBaseV354(nro, cliente, descGeneral, revision)
+  };
+
+  let ref;
+  if (window.editingId.presupuesto && !window._cotizacionEsRevisionNueva) {
+    // Solo se permite editar el borrador actual; crear una revisión nueva genera otro documento.
+    await updateDoc_('presupuestos', window.editingId.presupuesto, payload);
+    ref = {id:window.editingId.presupuesto};
+  } else {
+    ref = await addDoc_('presupuestos', payload);
+    window.editingId.presupuesto = ref?.id || null;
+    window._cotizacionBaseId = ref?.id || window._cotizacionBaseId;
+    window._cotizacionEsRevisionNueva = false;
+  }
+  const revBtn = document.getElementById('pp-btn-nueva-revision'); if (revBtn) revBtn.style.display='inline-flex';
+  showToast(`CT ${String(nro).replace(/\D/g,'')} ${revision} guardada sin borrar revisiones anteriores`);
 };
 
 // ============================================================
 // PRESUPUESTO PDF
 // ============================================================
+window.normalizarRevisionV354 = function(rev) {
+  const m = String(rev||'1.1').trim().match(/^(\d+)\.(\d+)$/);
+  return m ? `${parseInt(m[1],10)}.${parseInt(m[2],10)}` : '1.1';
+};
+function normalizarRevisionV354(rev){ return window.normalizarRevisionV354(rev); }
+window.siguienteRevisionV354 = function(rev) {
+  const r = normalizarRevisionV354(rev);
+  const [mayor, menor] = r.split('.').map(Number);
+  return `${mayor}.${menor+1}`;
+};
+window.actualizarIdentificacionCotizacionV354 = function() {
+  const n = String(document.getElementById('pp-nro')?.value||'').replace(/\D/g,'').padStart(7,'0');
+  const r = normalizarRevisionV354(document.getElementById('pp-revision')?.value||'1.1');
+  const el = document.getElementById('pp-identificacion'); if(el) el.value = `CT ${n} ${r}`;
+};
+window.abrirRevisionCotizacionV354 = function(id, crearNueva=false) {
+  const p = (window.DB.presupuestos||[]).find(x=>x.id===id);
+  if(!p) return showToast('No se encontró la cotización');
+  window.editingId.presupuesto = crearNueva ? null : id;
+  window.editingId.obra = p.obraId || null;
+  window._presupuestoOrigen='presupuestos';
+  window._cotizacionBaseId = p.cotizacionBaseId || p.id;
+  window._cotizacionRevisionAnteriorId = crearNueva ? p.id : (p.revisionAnteriorId||'');
+  window._cotizacionEsRevisionNueva = !!crearNueva;
+  document.getElementById('pp-nro').value = p.nro||'';
+  document.getElementById('pp-cliente').value = p.cliente||'';
+  document.getElementById('pp-desc').value = p.desc||'';
+  document.getElementById('pp-nota').value = p.nota||'Los precios cotizados se encuentran a valores netos';
+  document.getElementById('pp-condicion').value = p.cond||p.condicion||'Anticipo 50% Saldo a contraentrega';
+  document.getElementById('pp-validez').value = p.validezDias||7;
+  const revActual = normalizarRevisionV354(p.revision||'1.1');
+  document.getElementById('pp-revision').value = crearNueva ? window.siguienteRevisionV354(revActual) : revActual;
+  window.ppItems = (p.items&&p.items.length) ? p.items.map(it=>({desc:it.desc||it.descripcion||'',precio:+(it.precio??it.unitario)||0,cant:+(it.cant??it.unidades)||1})) : [{desc:p.desc||'',precio:+p.importe||0,cant:1}];
+  renderPPItems(); actualizarIdentificacionCotizacionV354();
+  const revBtn=document.getElementById('pp-btn-nueva-revision'); if(revBtn) revBtn.style.display=crearNueva?'none':'inline-flex';
+  document.getElementById('modal-prespdf').classList.add('open');
+  if(crearNueva) showToast(`Nueva revisión ${document.getElementById('pp-revision').value}: copiamos la anterior y no se modifica el original`);
+};
+window.crearNuevaRevisionV354 = id => window.abrirRevisionCotizacionV354(id,true);
+window.crearNuevaRevisionDesdeCotizador = function(){
+  const id=window.editingId.presupuesto || window._cotizacionBaseId;
+  if(!id) return showToast('Primero guardá la cotización');
+  window.crearNuevaRevisionV354(id);
+};
+
 window.ppItems = [];
 
 window.abrirPresupuesto = () => {
@@ -2444,6 +2530,10 @@ window.abrirPresupuesto = () => {
   const nro = obra?.ot ? obra.ot.toString().padStart(7,'0') : '0000000';
   document.getElementById('pp-nro').value = nro;
   document.getElementById('pp-cliente').value = obra?.cliente || '';
+  document.getElementById('pp-revision').value = '1.1';
+  window._cotizacionRevisionAnteriorId = null; window._cotizacionEsRevisionNueva=false;
+  actualizarIdentificacionCotizacionV354();
+  const revBtn=document.getElementById('pp-btn-nueva-revision'); if(revBtn) revBtn.style.display='none';
 
   // Item inicial con descripción de la obra
   window.ppItems = obra ? [{
@@ -2504,184 +2594,118 @@ function renderPPItems() {
 }
 
 
-window.generarPDF = async () => {
-  const nro      = document.getElementById('pp-nro').value || '0000';
-  const cliente  = document.getElementById('pp-cliente').value || '';
-  const nota     = document.getElementById('pp-nota').value || '';
-  const cond     = document.getElementById('pp-condicion').value || '';
-  const validezDias = +document.getElementById('pp-validez').value || 7;
-  const hoy = new Date();
-  const fmtFecha = d => d.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const validez = new Date(hoy); validez.setDate(validez.getDate() + validezDias);
-  const total = window.ppItems.reduce((a,it)=>a+(it.precio||0)*(it.cant||1),0);
+window.tizCotizacionNombreBaseV354 = function(nro, cliente, descripcion, revision='1.1') {
+  const n = String(nro || '').replace(/\D/g,'').padStart(7,'0');
+  const clean = v => String(v||'').replace(/[\\/:*?"<>|#%{}~]/g,' ').replace(/\s+/g,' ').trim();
+  // Formato TIZ: CT 0005406 1.2 - Cliente - Descripción
+  return ['CT ' + n + ' ' + normalizarRevisionV354(revision), clean(cliente), clean(descripcion)].filter(Boolean).join(' - ').slice(0,180);
+};
+window.tizCotizacionNombreBaseV353 = window.tizCotizacionNombreBaseV354;
 
-  // Guardar en Firebase como respaldo
-  await addDoc_('presupuestos', {
-    nro, cliente, nota, cond,
-    fecha: hoy.toLocaleDateString('es-AR'),
-    validez: validez.toLocaleDateString('es-AR'),
-    items: window.ppItems,
-    importe: total,
-    obraId: window.editingId.obra || '',
-    creadoPor: window.currentUser?.email || '',
-    estado: 'Pendiente',
-    desc: window.ppItems.map(i=>i.desc).join(' / '),
+window._postCotizacionDriveV353 = function(payload) {
+  return new Promise((resolve) => {
+    try {
+      const frameName = 'tiz-drive-upload-' + Date.now();
+      const iframe = document.createElement('iframe');
+      iframe.name = frameName;
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = TIZ_DRIVE_OT_WEBHOOK;
+      form.target = frameName;
+      form.style.display = 'none';
+      const inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'payload'; inp.value = JSON.stringify(payload);
+      form.appendChild(inp); document.body.appendChild(form);
+      let submitted = false;
+      iframe.onload = () => {
+        if (!submitted) return;
+        setTimeout(()=>{ try{form.remove();iframe.remove();}catch(_){} resolve({ok:true}); },300);
+      };
+      submitted = true; form.submit();
+      setTimeout(()=>{ try{form.remove();iframe.remove();}catch(_){} resolve({ok:true,timeout:true}); },12000);
+    } catch(e) { console.warn('[TIZ V35.4] Error enviando cotización a Drive', e); resolve({ok:false,error:String(e)}); }
+  });
+};
+
+window.generarPDF = async () => {
+  const nro = document.getElementById('pp-nro').value.trim() || '0000';
+  const cliente = document.getElementById('pp-cliente').value.trim();
+  const descGeneral = document.getElementById('pp-desc').value.trim();
+  const nota = document.getElementById('pp-nota').value.trim();
+  const cond = document.getElementById('pp-condicion').value.trim();
+  const validezDias = +document.getElementById('pp-validez').value || 7;
+  const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
+  if (!cliente) { showToast('Falta cargar el cliente'); return; }
+  if (!descGeneral) { showToast('Cargá la descripción general: se usa para nombrar la cotización y la carpeta'); return; }
+  if (!items.length) { showToast('Agregá al menos un ítem'); return; }
+
+  const hoy = new Date();
+  const validez = new Date(hoy); validez.setDate(validez.getDate() + validezDias);
+  const revision = normalizarRevisionV354(document.getElementById('pp-revision')?.value || '1.1');
+  const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
+  const fmtFecha = d => d.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const esc = v => String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const nombreBase = window.tizCotizacionNombreBaseV354(nro, cliente, descGeneral, revision);
+
+  let ref;
+  const registro = {
+    nro, cliente, desc: descGeneral, importe: total,
+    fecha: hoy.toLocaleDateString('es-AR'), validez: validez.toLocaleDateString('es-AR'),
+    estado:'Pendiente', nota, cond, items, revision,
+    creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
+    nombreArchivo: nombreBase, cotizacionBase:String(nro).replace(/\D/g,''),
+    revisionAnteriorId:window._cotizacionRevisionAnteriorId||'', esRevision:!!window._cotizacionRevisionAnteriorId
+  };
+  if(window.editingId.presupuesto && !window._cotizacionEsRevisionNueva){
+    await updateDoc_('presupuestos',window.editingId.presupuesto,registro); ref={id:window.editingId.presupuesto};
+  } else {
+    const existe=(window.DB.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===String(nro).replace(/\D/g,'') && normalizarRevisionV354(p.revision||'1.1')===revision);
+    if(existe && !window._cotizacionEsRevisionNueva){ ref={id:existe.id}; await updateDoc_('presupuestos',existe.id,registro); }
+    else { ref=await addDoc_('presupuestos',registro); window.editingId.presupuesto=ref?.id||null; }
+    window._cotizacionEsRevisionNueva=false;
+  }
+
+  // Crea/asegura carpeta de análisis con el nombre CT - Cliente - Descripción.
+  try {
+    const cotResult = await syncDriveFolder({
+      nroCotizacion:nro, cliente, desc:descGeneral, revision, firestoreId:ref?.id||'', estado:'Pendiente'
+    }, 'cotizacion');
+    if (cotResult?.driveFolderUrl && ref?.id) await updateDoc_('presupuestos', ref.id, {
+      cotizacionFolderUrl:cotResult.driveFolderUrl,
+      cotizacionFolderId:cotResult.folderId||'',
+      cotizacionFolderName:cotResult.folderName||''
+    });
+  } catch(e) { console.warn('[TIZ V35.4] Carpeta análisis:',e); }
+
+  // Guarda automáticamente una copia PDF en PDF 2026 y una XLSX en Excel 2026.
+  window._postCotizacionDriveV353({
+    action:'guardarCotizacionArchivos', nroCotizacion:nro, revision, cliente, descripcion:descGeneral,
+    fecha:fmtFecha(hoy), validez:fmtFecha(validez), nota, condicion:cond, total,
+    items:items.map(it=>({descripcion:String(it.desc||''), unitario:+it.precio||0, unidades:+it.cant||1, subtotal:(+it.precio||0)*(+it.cant||1)})),
+    nombreBase, firestoreId:ref?.id||''
   });
 
-  const rows = window.ppItems.map(it => {
-    const sub = (it.precio||0)*(it.cant||1);
-    return `<tr>
-      <td style="padding:14px 12px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top">${it.desc||''}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right;white-space:nowrap">${fmtPeso(it.precio)}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:center">${it.cant}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right;white-space:nowrap;font-weight:500">${fmtPeso(sub)}</td>
-    </tr>`;
-  }).join('');
-
-  const html = `<div style="font-family:'Arial',sans-serif;max-width:800px;margin:0 auto;color:#222">
-    <table style="width:100%;margin-bottom:20px"><tr>
-      <td style="width:200px;vertical-align:top">
-        <div style="background:#000;padding:10px 14px;border-radius:8px;display:inline-block">
-          <img src="assets/tiz-logo-presupuesto.png" alt="TIZ Publicidad" style="display:block;width:118px;height:auto;object-fit:contain">
-        </div>
-        <div style="margin-top:10px;font-size:10px;color:#555;line-height:1.7">
-          <div>📞 11-3479-9737</div><div>✉️ info@tizpublicidad.com</div>
-          <div>🌐 www.tizpublicidad.com</div><div>📍 Av Pte Perón 3779, J C Paz</div>
-        </div>
-      </td>
-      <td style="vertical-align:top;text-align:right">
-        <div style="font-size:22px;font-weight:700;color:#222;margin-bottom:12px">
-          Presupuesto Nro: &nbsp;<span style="color:#e8b84b">${String(nro).padStart(7,'0')}</span>
-        </div>
-        <table style="margin-left:auto;font-size:12px;color:#555">
-          <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Fecha:</td><td>${fmtFecha(hoy)}</td></tr>
-          <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Validez hasta:</td><td>${fmtFecha(validez)}</td></tr>
-          <tr><td style="padding:2px 8px 2px 0;font-weight:600;color:#333">Cliente:</td><td>${cliente}</td></tr>
-        </table>
-      </td>
-    </tr></table>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;border-radius:6px;overflow:hidden">
-      <thead><tr style="background:#f5f5f5">
-        <th style="padding:10px 12px;text-align:left;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Descripción</th>
-        <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd;white-space:nowrap">$ Unit</th>
-        <th style="padding:10px 12px;text-align:center;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Unidades</th>
-        <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Subtotal</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div style="margin-top:16px;font-size:11px;color:#666">
-      <div><em>Nota: ${nota}</em></div>
-      <div><em>Condición de compra: ${cond}</em></div>
+  const rows = items.map(it=>`<tr><td>${esc(it.desc)}</td><td class="num">${fmtPeso(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPeso((+it.precio||0)*(+it.cant||1))}</td></tr>`).join('');
+  const html = `<div class="ct-page">
+    <div class="ct-header">
+      <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ Av Pte Perón 3779 J C Paz</div></div>
+      <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${String(nro).padStart(7,'0')}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
     </div>
-    <table style="width:100%;margin-top:12px"><tr><td></td>
-      <td style="text-align:right">
-        <div style="background:#1a1a1a;color:#e8b84b;padding:10px 20px;border-radius:6px;display:inline-block;font-size:14px;font-weight:700">
-          Total Cotizado &nbsp;&nbsp; ${fmtPeso(total)}
-        </div>
-      </td>
-    </tr></table>
-    <div style="margin-top:32px;padding:12px 16px;background:#1a1a1a;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#aaa;flex-wrap:wrap;gap:8px">
-      <span>📞 11-34798737</span><span>✉️ INFO@TIZPUBLICIDAD.COM</span>
-      <span>🌐 WWW.TIZPUBLICIDAD.COM</span><span>📍 AV PTE PERÓN 3779, J C PAZ</span>
-    </div>
+    <table class="ct-table"><thead><tr><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPeso(total)}</b></div></div>
+    <div class="ct-footer"><span>☎ 11-3479-9737</span><span>✉ INFO@TIZPUBLICIDAD.COM</span><span>WWW.TIZPUBLICIDAD.COM</span><span>⌖ AV PTE PERÓN 3779 J C PAZ</span></div>
   </div>`;
 
-  const nombreArchivo = `Presupuesto_${String(nro).padStart(4,'0')}_${cliente.replace(/[^a-zA-Z0-9]/g,'_')}`;
-
-  // Descargar Excel directamente
-  const doExcelDownload = () => {
-    if (!window.XLSX) {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-      s.onload = () => _descargarExcelPres(nombreArchivo, nro, cliente, nota, cond, hoy, validez, total);
-      document.head.appendChild(s);
-    } else {
-      _descargarExcelPres(nombreArchivo, nro, cliente, nota, cond, hoy, validez, total);
-    }
-  };
-
-  const printWin = window.open('', '_blank', 'width=920,height=750');
-  printWin.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <title>Presupuesto ${nro} — ${cliente}</title>
-    <style>
-      body{margin:20px;font-family:Arial,sans-serif}
-      .toolbar{margin-top:20px;padding:14px 16px;background:#1a1a1a;border-radius:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-      .btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
-      .hint{font-size:11px;color:#888;margin-left:auto}
-      @media print{.toolbar{display:none}body{margin:0;padding:20px}@page{margin:1cm}}
-    
-/* V4.3 — presupuesto completo desde página Presupuestos */
-#modal-prespdf .modal { max-width: 920px !important; width: calc(100vw - 80px); }
-#modal-presupuesto { display: none !important; }
-#pp-clientes-dropdown .cli-option:last-child { background: rgba(232,184,75,.08); }
-@media (max-width: 900px) { #modal-prespdf .modal { width: calc(100vw - 24px); } }
-
-
-/* V5.8 — Alertas inteligentes / flujo por sector */
-.risk-pill{display:inline-flex;align-items:center;gap:5px;border-radius:18px;padding:3px 8px;font-size:10px;font-weight:600}
-.risk-ok{background:rgba(76,175,125,.14);color:var(--green)}
-.risk-warn{background:rgba(232,160,32,.15);color:var(--amber)}
-.risk-danger{background:rgba(224,92,92,.16);color:var(--red)}
-.alert-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px}
-.alert-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
-.checklist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.check-item{display:flex;gap:7px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;color:var(--text2)}
-.check-item input{width:14px;height:14px}
-@media(max-width:900px){.checklist-grid{grid-template-columns:1fr}}
-
-</style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
-    </head><body>
-    ${html}
-    <div class="toolbar">
-      <button class="btn" style="background:#e8b84b;color:#000" onclick="window.print()">📄 Descargar PDF</button>
-      <button class="btn" style="background:#1d6f42;color:#fff" onclick="descargarExcel()">📊 Descargar Excel</button>
-      <span class="hint">PDF: en el diálogo elegí "Guardar como PDF" · Excel: se descarga directo</span>
-    </div>
-    <script>
-    const ITEMS = ${JSON.stringify(window.ppItems)};
-    const NRO = '${nro}';
-    const CLIENTE = '${cliente.replace(/'/g,"\\'")}';
-    const TOTAL = ${total};
-    const FECHA = '${hoy.toLocaleDateString('es-AR')}';
-    const VALIDEZ = '${validez.toLocaleDateString('es-AR')}';
-    const NOTA = '${nota.replace(/'/g,"\\'")}';
-    const COND = '${cond.replace(/'/g,"\\'")}';
-
-    function descargarExcel() {
-      const wb = XLSX.utils.book_new();
-      const data = [
-        ['PRESUPUESTO TIZ PUBLICIDAD'],
-        [''],
-        ['Nro Presupuesto', 'PRES-' + String(NRO).padStart(4,'0')],
-        ['Cliente', CLIENTE],
-        ['Fecha', FECHA],
-        ['Válido hasta', VALIDEZ],
-        [''],
-        ['Descripción', 'Precio Unitario', 'Unidades', 'Subtotal'],
-        ...ITEMS.map(i => [i.desc, +i.precio||0, +i.cant||1, (+i.precio||0)*(+i.cant||1)]),
-        [''],
-        ['', '', 'TOTAL COTIZADO', TOTAL],
-        [''],
-        ['Nota:', NOTA],
-        ['Condición:', COND],
-        [''],
-        ['TIZ Publicidad · info@tizpublicidad.com · 11-3479-9737 · Av Pte Perón 3779, J C Paz'],
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      // Estilos de ancho
-      ws['!cols'] = [{wch:45},{wch:18},{wch:12},{wch:18}];
-      // Merge título
-      ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}}];
-      XLSX.utils.book_append_sheet(wb, ws, 'Presupuesto');
-      XLSX.writeFile(wb, 'Presupuesto_' + String(NRO).padStart(4,'0') + '_' + CLIENTE.replace(/[^a-zA-Z0-9]/g,'_') + '.xlsx');
-    }
-    <\/script>
-
-</body></html>`);
+  const printWin = window.open('', '_blank', 'width=920,height=780');
+  printWin.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(nombreBase)}</title><style>
+    *{box-sizing:border-box}body{margin:0;background:#eee;font-family:Arial,sans-serif;color:#111}.toolbar{width:210mm;margin:12px auto 0;background:#1b1b1b;padding:10px;display:flex;gap:8px;align-items:center}.toolbar button{border:0;border-radius:5px;padding:9px 14px;cursor:pointer;font-weight:700}.pdf{background:#e8b84b}.hint{color:#bbb;font-size:11px}
+    .ct-page{width:210mm;min-height:297mm;margin:0 auto;background:white;padding:8mm 7mm 7mm;border:1px solid #aaa;display:flex;flex-direction:column}.ct-header{display:flex;justify-content:space-between;gap:12mm;min-height:30mm;margin-bottom:5mm}.ct-brand{width:90mm;background:#111;padding:3mm 4mm;color:white;display:flex;align-items:center;gap:4mm}.ct-brand img{width:32mm;height:22mm;object-fit:contain}.ct-contact{font-size:7.8pt;line-height:1.55}.ct-meta{font-size:9pt;line-height:1.55;padding-top:2mm}.ct-title{font-size:14pt;font-style:italic;margin-bottom:2mm}.ct-table{width:100%;border-collapse:collapse;border:1px solid #777;table-layout:fixed;flex:1}.ct-table th,.ct-table td{border-left:1px solid #999;padding:2.2mm 2.5mm;vertical-align:top}.ct-table th{border-bottom:1px solid #777;font-size:10pt;font-style:italic;text-align:center}.ct-table th:first-child{width:67%}.ct-table th:nth-child(2){width:13%}.ct-table th:nth-child(3){width:8%}.ct-table th:nth-child(4){width:12%}.ct-table td{font-size:8.3pt;border-bottom:0}.num{text-align:right;white-space:nowrap}.cant{text-align:center}.ct-bottom{border:1px solid #777;border-top:0;display:grid;grid-template-columns:1fr 36%;font-size:8pt}.ct-notes{padding:2mm 2.5mm;line-height:1.45}.ct-total{border-left:1px solid #777;padding:2mm 2.5mm;display:flex;justify-content:space-between;align-items:center;font-size:9pt}.ct-footer{margin-top:3mm;height:13mm;padding:0 4mm;display:flex;align-items:center;justify-content:space-between;color:white;font-size:7pt;font-weight:700;background:linear-gradient(90deg,#ff9b23,#ff3b55,#ef2375,#7537e8)}
+    @media print{body{background:white}.toolbar{display:none}.ct-page{margin:0;border:1px solid #777;min-height:282mm}@page{size:A4 portrait;margin:6mm}}
+  </style></head><body><div class="toolbar"><button class="pdf" onclick="window.print()">📄 Guardar PDF local</button><span class="hint">La copia PDF y Excel ya se envía a Drive.</span></div>${html}</body></html>`);
   printWin.document.close();
-  showToast('Presupuesto guardado en Firebase ✓ — abrí la ventana para descargar PDF o Excel');
+  showToast('Cotización guardada: Drive PDF 2026 + Excel 2026');
 };
 window.estTab = 'tabla';
 window.setEstTab = (tab, el) => {
@@ -3125,7 +3149,8 @@ function sanitizeTizFolderPart(value) {
 }
 
 function buildTizFolderName(nroCotizacion, cliente, descripcion) {
-  const partes = [nroCotizacion, cliente, descripcion].map(sanitizeTizFolderPart).filter(Boolean);
+  const n=String(nroCotizacion||'').replace(/\D/g,'').padStart(7,'0');
+  const partes = ['CT '+n, cliente, descripcion].map(sanitizeTizFolderPart).filter(Boolean);
   return partes.join(' - ').slice(0, 180) || 'SIN NOMBRE';
 }
 window.buildTizFolderName = buildTizFolderName;
@@ -3219,13 +3244,13 @@ async function syncToSheets(data) {
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V35.2 · CARPETAS COTIZACIÓN + OT · 17/08/2026';
+  badge.textContent = 'TIZ V35.4 · REVISIONES DE COTIZACIÓN + HISTORIAL · 17/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
   else mountBadge();
 
-  console.info('[TIZ V35.2] Carpetas separadas de Cotización y OT + nombre normalizado.');
+  console.info('[TIZ V35.4] Revisiones de cotización con historial + PDF/Excel sin sobreescritura.');
 })();
 
 </script>
@@ -3236,6 +3261,6 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-2-DRIVE-COT-OT-20260817"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-4-REVISIONES-20260817"></script>
 </body>
 </html>
