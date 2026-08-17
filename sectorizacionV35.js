@@ -1,5 +1,5 @@
 // ============================================================
-// TIZ V35 — FUENTE ÚNICA POR SECTOR + TABLERO CONSOLIDADO
+// TIZ V35.1 — FUENTE ÚNICA + COTIZADOR LIMPIO + TABLERO CONSOLIDADO
 // 17/08/2026
 // Cada dato operativo tiene un único dueño. Obras sólo consolida.
 // ============================================================
@@ -176,8 +176,9 @@
   }
 
   function cleanObraModal(){
-    const modal=document.getElementById('modal-obra'); if(!modal || document.getElementById('obra-sector-summary-wrap')) return;
-    // Ocultar campos que corresponden a sectores. Se conservan en DOM por compatibilidad del código histórico.
+    const modal=document.getElementById('modal-obra'); if(!modal) return;
+    // Presupuestos queda exclusivamente comercial. Los campos operativos permanecen en el DOM
+    // sólo para compatibilidad con funciones históricas, pero nunca se muestran al usuario.
     const ids=['f-sector','f-estado','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-cobr','f-dias-pago','f-comentarios'];
     ids.forEach(id=>document.getElementById(id)?.closest('.form-group')?.classList.add('v34-hidden'));
     [...modal.querySelectorAll('.form-section')].forEach(sec=>{
@@ -186,17 +187,27 @@
     });
     document.getElementById('checklist-v58')?.closest('.form-group')?.classList.add('v34-hidden');
     ['nota-produccion','nota-colocaciones','nota-diseno','nota-ventas','nota-compras'].forEach(id=>document.getElementById(id)?.closest('.form-group')?.classList.add('v34-hidden'));
-    // esconder contenedor grande de notas si queda vacío
     const notes = document.getElementById('nota-produccion')?.closest('.form-group.full'); if(notes) notes.classList.add('v34-hidden');
 
     const actions=modal.querySelector('.modal-actions');
     actions?.querySelector('[onclick="abrirPresupuestoPDF()"]')?.classList.add('v34-hidden');
     actions?.querySelector('[onclick="exportarDatosFacturaActual()"]')?.classList.add('v34-hidden');
 
-    const grid=modal.querySelector('.form-grid');
-    const box=document.createElement('div'); box.id='obra-sector-summary-wrap';
-    box.innerHTML='<div class="form-section" style="margin-top:6px">Estado general por sector</div><div style="font-size:11px;color:var(--text3);margin:4px 0 8px">Cada sector actualiza su propio avance. Esta ficha consolida el estado general de la obra.</div><div id="obra-sector-summary" class="sector-summary-grid"></div>';
-    grid.appendChild(box);
+    // El resumen sectorial pertenece a OBRAS, no al cotizador. Se crea una sola vez y
+    // luego se muestra/oculta según desde qué pantalla se abrió la ficha.
+    if(!document.getElementById('obra-sector-summary-wrap')){
+      const grid=modal.querySelector('.form-grid');
+      const box=document.createElement('div'); box.id='obra-sector-summary-wrap';
+      box.innerHTML='<div class="form-section" style="margin-top:6px">Estado general por sector</div><div style="font-size:11px;color:var(--text3);margin:4px 0 8px">Cada sector actualiza su propio avance. Esta ficha consolida el estado general de la obra.</div><div id="obra-sector-summary" class="sector-summary-grid"></div>';
+      grid.appendChild(box);
+    }
+    updateObraSummaryVisibility();
+  }
+
+  function updateObraSummaryVisibility(){
+    const box=document.getElementById('obra-sector-summary-wrap');
+    if(!box) return;
+    box.style.display = window.currentPage==='obras' ? '' : 'none';
   }
 
   function sectorCard(key,s){
@@ -309,8 +320,22 @@
   }
 
   function patchEditObra(){
-    const old=window.editObra; window.editObra=function(id){ old?.(id); setTimeout(()=>{const o=(window.DB?.obras||[]).find(x=>x.id===id); renderObraSectorSummary(o); const t=document.getElementById('modal-obra-title'); if(t)t.textContent='Resumen de obra — OT '+(o?.ot||'');},0); };
-    const oldOpen=window.openModal; window.openModal=function(type){ const r=oldOpen?.apply(this,arguments); if(type==='obra')setTimeout(()=>renderObraSectorSummary({}),0); return r; };
+    const old=window.editObra; window.editObra=function(id){
+      old?.(id);
+      setTimeout(()=>{
+        updateObraSummaryVisibility();
+        const o=(window.DB?.obras||[]).find(x=>x.id===id);
+        if(window.currentPage==='obras'){
+          renderObraSectorSummary(o);
+          const t=document.getElementById('modal-obra-title'); if(t)t.textContent='Resumen de obra — OT '+(o?.ot||'');
+        }
+      },0);
+    };
+    const oldOpen=window.openModal; window.openModal=function(type){
+      const r=oldOpen?.apply(this,arguments);
+      if(type==='obra') setTimeout(()=>{updateObraSummaryVisibility(); if(window.currentPage==='obras')renderObraSectorSummary({});},0);
+      return r;
+    };
   }
 
   function patchPresupuestoFunctions(){
@@ -337,8 +362,18 @@
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
     patchEditObra(); patchPresupuestoFunctions();
-    const badge=document.getElementById('tiz-build-v20'); if(badge)badge.textContent='TIZ V35 · FUENTE ÚNICA + TABLERO EN VIVO · 17/08/2026';
-    console.info('[TIZ V35] Sectorización activa');
+    const VERSION_LABEL='TIZ V35.1 · FUENTE ÚNICA + COTIZADOR LIMPIO · 17/08/2026';
+    const forceVersionBadge=()=>{const badge=document.getElementById('tiz-build-v20'); if(badge)badge.textContent=VERSION_LABEL;};
+    forceVersionBadge();
+    // expedientesV33 actualiza el pie con retraso; lo reponemos después y además observamos
+    // cambios para que el nombre visible siempre corresponda a la versión publicada.
+    setTimeout(forceVersionBadge,1400); setTimeout(forceVersionBadge,2200);
+    const badge=document.getElementById('tiz-build-v20');
+    if(badge && !window.__v351BadgeObserver){
+      window.__v351BadgeObserver=new MutationObserver(()=>{if(badge.textContent!==VERSION_LABEL)badge.textContent=VERSION_LABEL;});
+      window.__v351BadgeObserver.observe(badge,{childList:true,characterData:true,subtree:true});
+    }
+    console.info('[TIZ V35.1] Fuente única + cotizador limpio activos');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })();
