@@ -864,6 +864,14 @@ td.strong { color: var(--text); font-weight: 500; }
       <div id="pp-items" style="max-height:280px;overflow-y:auto;padding-right:2px"></div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="addItemPP()" style="margin-top:8px"><i class="ti ti-plus"></i> Agregar ítem</button>
+    <div style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px">
+        <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Cálculos auxiliares internos</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Materiales, horas, colocación, tercerizados o cualquier cálculo usado para formar el precio. No aparece en el PDF del cliente.</div></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addCalculoAuxPP()"><i class="ti ti-plus"></i> Agregar cálculo</button>
+      </div>
+      <div id="pp-calculos-list"></div>
+      <div style="text-align:right;font-size:13px;color:var(--text2);font-weight:600;margin-top:8px">Total auxiliar: <span id="pp-calculos-total">$0</span></div>
+    </div>
     <div style="text-align:right;margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:15px;font-weight:700;color:var(--accent)">
       Total cotizado: <span id="pp-total">$0</span>
     </div>
@@ -2032,7 +2040,8 @@ window.abrirPresupuestoPDF = () => {
   document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
   document.getElementById('pp-validez').value = '7';
   window.ppItems = obra?[{desc:obra.desc||'',precio:+obra.neto||0,cant:1}]:[{desc:'',precio:0,cant:1}];
-  renderPPItems();
+  window.ppCalculosAux = obra?.calculosAuxiliares?.length ? obra.calculosAuxiliares.map(it=>({...it})) : [{concepto:'Materiales',detalle:'',cantidad:1,unidad:'u',precioUnitario:0,total:0,observaciones:''}];
+  renderPPItems(); renderCalculosAuxPP();
   document.getElementById('modal-prespdf').classList.add('open');
 };
 
@@ -2470,7 +2479,8 @@ window.abrirNuevoPresupuestoCompleto = () => {
   document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
   document.getElementById('pp-validez').value = '7';
   window.ppItems = [{desc:'', precio:0, cant:1}];
-  renderPPItems();
+  window.ppCalculosAux = [{concepto:'Materiales',detalle:'',cantidad:1,unidad:'u',precioUnitario:0,total:0,observaciones:''}];
+  renderPPItems(); renderCalculosAuxPP();
   document.getElementById('modal-prespdf').classList.add('open');
 };
 
@@ -2483,6 +2493,7 @@ window.guardarPresupuestoCompleto = async () => {
   const cond = document.getElementById('pp-condicion').value.trim();
   const hoy = new Date().toLocaleDateString('es-AR');
   const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
+  const calculosAuxiliares = collectCalculosAuxPP();
   const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
   if (!cliente) { showToast('Falta cargar el cliente'); return; }
   if (!descGeneral) { showToast('Cargá la descripción general'); return; }
@@ -2497,7 +2508,7 @@ window.guardarPresupuestoCompleto = async () => {
 
   const payload = {
     nro, revision, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
-    importe: total, fecha: hoy, estado: 'Pendiente', nota, cond, items,
+    importe: total, fecha: hoy, estado: 'Pendiente', nota, cond, items, calculosAuxiliares, totalCalculosAuxiliares:calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
     creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
     cotizacionBase: String(nro).replace(/\D/g,''),
     revisionAnteriorId: window._cotizacionRevisionAnteriorId || '',
@@ -2556,7 +2567,8 @@ window.abrirRevisionCotizacionV354 = function(id, crearNueva=false) {
   const revActual = normalizarRevisionV354(p.revision||'1.1');
   document.getElementById('pp-revision').value = crearNueva ? window.siguienteRevisionV354(revActual) : revActual;
   window.ppItems = (p.items&&p.items.length) ? p.items.map(it=>({desc:it.desc||it.descripcion||'',precio:+(it.precio??it.unitario)||0,cant:+(it.cant??it.unidades)||1})) : [{desc:p.desc||'',precio:+p.importe||0,cant:1}];
-  renderPPItems(); actualizarIdentificacionCotizacionV354();
+  window.ppCalculosAux = (p.calculosAuxiliares&&p.calculosAuxiliares.length) ? p.calculosAuxiliares.map(it=>({...it})) : [{concepto:'Materiales',detalle:'',cantidad:1,unidad:'u',precioUnitario:0,total:0,observaciones:''}];
+  renderPPItems(); renderCalculosAuxPP(); actualizarIdentificacionCotizacionV354();
   const revBtn=document.getElementById('pp-btn-nueva-revision'); if(revBtn) revBtn.style.display=crearNueva?'none':'inline-flex';
   document.getElementById('modal-prespdf').classList.add('open');
   if(crearNueva) showToast(`Nueva revisión ${document.getElementById('pp-revision').value}: copiamos la anterior y no se modifica el original`);
@@ -2567,6 +2579,40 @@ window.crearNuevaRevisionDesdeCotizador = function(){
   if(!id) return showToast('Primero guardá la cotización');
   window.crearNuevaRevisionV354(id);
 };
+
+
+// ============================================================
+// V35.7 — CÁLCULOS AUXILIARES DEL PRESUPUESTO
+// Se guardan con cada revisión y NO forman parte del PDF del cliente.
+// ============================================================
+window.ppCalculosAux = window.ppCalculosAux || [];
+function ppNum(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
+function ppMoney(n){ return '$' + Math.round(+n||0).toLocaleString('es-AR'); }
+window.collectCalculosAuxPP = function(){
+  return [...document.querySelectorAll('.pp-calc-aux-row')].map(row=>{
+    const cantidad=ppNum(row.querySelector('.pp-ca-cant')?.value);
+    const precioUnitario=ppNum(row.querySelector('.pp-ca-unit')?.value);
+    const manual=ppNum(row.querySelector('.pp-ca-total')?.value);
+    return {concepto:row.querySelector('.pp-ca-concepto')?.value.trim()||'',detalle:row.querySelector('.pp-ca-detalle')?.value.trim()||'',cantidad,unidad:row.querySelector('.pp-ca-unidad')?.value.trim()||'',precioUnitario,total:manual||cantidad*precioUnitario,observaciones:row.querySelector('.pp-ca-obs')?.value.trim()||''};
+  }).filter(it=>it.concepto||it.detalle||it.total||it.precioUnitario||it.observaciones);
+};
+window.updateCalculosAuxPP=function(manual=false){
+  document.querySelectorAll('.pp-calc-aux-row').forEach(row=>{
+    const cant=ppNum(row.querySelector('.pp-ca-cant')?.value), unit=ppNum(row.querySelector('.pp-ca-unit')?.value), total=row.querySelector('.pp-ca-total');
+    if(total && !manual && document.activeElement!==total) total.value=Math.round(cant*unit*100)/100;
+  });
+  const total=window.collectCalculosAuxPP().reduce((a,it)=>a+(+it.total||0),0);
+  const el=document.getElementById('pp-calculos-total'); if(el) el.textContent=ppMoney(total);
+};
+window.renderCalculosAuxPP=function(){
+  const wrap=document.getElementById('pp-calculos-list'); if(!wrap) return;
+  const items=window.ppCalculosAux||[];
+  const eh=v=>String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  wrap.innerHTML=`<div style="display:grid;grid-template-columns:140px 1fr 70px 70px 105px 105px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase"><span>Concepto</span><span>Detalle</span><span>Cant.</span><span>Unidad</span><span>$ Unit.</span><span>Total</span><span></span></div>${items.map((it,i)=>`<div class="pp-calc-aux-row" data-idx="${i}" style="display:grid;grid-template-columns:140px 1fr 70px 70px 105px 105px 34px;gap:6px;margin-bottom:6px;align-items:center"><input class="pp-ca-concepto" value="${eh(it.concepto)}" placeholder="Material/horas/etc" oninput="updateCalculosAuxPP()"><input class="pp-ca-detalle" value="${eh(it.detalle)}" placeholder="Detalle del cálculo" oninput="updateCalculosAuxPP()"><input class="pp-ca-cant" type="number" step="0.01" value="${it.cantidad??1}" oninput="updateCalculosAuxPP()"><input class="pp-ca-unidad" value="${eh(it.unidad)}" placeholder="m2/hs/u"><input class="pp-ca-unit" type="number" step="0.01" value="${it.precioUnitario??0}" oninput="updateCalculosAuxPP()"><input class="pp-ca-total" type="number" step="0.01" value="${it.total??((+it.cantidad||0)*(+it.precioUnitario||0))}" oninput="updateCalculosAuxPP(true)"><button type="button" class="btn-icon" onclick="removeCalculoAuxPP(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button><input class="pp-ca-obs" value="${eh(it.observaciones)}" placeholder="Observaciones internas" style="grid-column:1 / -1"></div>`).join('')||'<div style="font-size:12px;color:var(--text3);padding:8px 0">Sin cálculos auxiliares cargados todavía.</div>'}`;
+  window.updateCalculosAuxPP();
+};
+window.addCalculoAuxPP=function(){ window.ppCalculosAux=window.collectCalculosAuxPP(); window.ppCalculosAux.push({concepto:'',detalle:'',cantidad:1,unidad:'',precioUnitario:0,total:0,observaciones:''}); window.renderCalculosAuxPP(); };
+window.removeCalculoAuxPP=function(i){ window.ppCalculosAux=window.collectCalculosAuxPP(); window.ppCalculosAux.splice(i,1); window.renderCalculosAuxPP(); };
 
 window.ppItems = [];
 
@@ -3293,13 +3339,13 @@ async function syncToSheets(data) {
 
   const badge = document.createElement('div');
   badge.id = 'tiz-build-v20';
-  badge.textContent = 'TIZ V35.6 · AUTOCOMPLETE CLIENTES CORREGIDO · 17/08/2026';
+  badge.textContent = 'TIZ V35.7 · CLIENTES + CÁLCULOS AUXILIARES · 17/08/2026';
   badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
   const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
   else mountBadge();
 
-  console.info('[TIZ V35.6] Clientes precargados + ayudamemoria restaurados; revisiones e historial activos.');
+  console.info('[TIZ V35.7] Clientes históricos + cálculos auxiliares del presupuesto restaurados; revisiones e historial activos.');
 })();
 
 </script>
@@ -3328,11 +3374,16 @@ async function syncToSheets(data) {
     return [...mapa.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
   }
 
-  window.sugerirClientesPP=function(q){
+  window.sugerirClientesPP=function(q, mostrarAunqueVacio=false){
     const dd=document.getElementById('pp-clientes-dropdown'); if(!dd) return;
     const texto=String(q||'').trim();
-    const lista=clientesDisponibles();
+    // V35.7: además de Clientes/Obras/Presupuestos, incorporar la Base Madre histórica.
+    const listaBase=clientesDisponibles();
+    const mapa=new Map(listaBase.map(c=>[norm(c.nombre),c]));
+    (window.OBRAS_MADRE_V291||[]).forEach(o=>{ const nombre=String(o.cliente||'').trim(); if(nombre && !mapa.has(norm(nombre))) mapa.set(norm(nombre),{nombre,cuit:'',numero:'',fuente:'Base Madre'}); });
+    const lista=[...mapa.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
     const nq=norm(texto);
+    if(!nq && !mostrarAunqueVacio){ dd.style.display='none'; return; }
     const matches=(nq?lista.filter(c=>norm(c.nombre).includes(nq)):lista).slice(0,12);
     let html=matches.map(c=>`<div class="cli-option" onmousedown="document.getElementById('pp-cliente').value='${jsq(c.nombre)}';document.getElementById('pp-clientes-dropdown').style.display='none'"><span>${esc(c.nombre)}</span><span class="cli-option-sub">${c.numero?'Cliente '+esc(c.numero)+' · ':''}${c.cuit?'CUIT: '+esc(c.cuit):esc(c.fuente||'Cliente existente')}</span></div>`).join('');
     if(texto){
@@ -3402,6 +3453,6 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-5-CLIENTES-AYUDAMEMORIA-20260817"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-7-CLIENTES-CALCULOS-20260817"></script>
 </body>
 </html>

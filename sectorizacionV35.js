@@ -373,7 +373,7 @@
       window.__v351BadgeObserver=new MutationObserver(()=>{if(badge.textContent!==VERSION_LABEL)badge.textContent=VERSION_LABEL;});
       window.__v351BadgeObserver.observe(badge,{childList:true,characterData:true,subtree:true});
     }
-    console.info('[TIZ V35.6] Autocomplete de clientes + ayudamemoria, revisiones, carpetas y fuente única activos');
+    console.info('[TIZ V35.7] Clientes + cálculos auxiliares, revisiones, carpetas y fuente única activos');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })();
