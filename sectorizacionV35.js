@@ -9,7 +9,9 @@
       load('produccionOperativaV4.js?v=TIZ-PROD-OPERATIVA-V4-20260829-1',()=>{
         load('produccionDashboardV5.js?v=TIZ-PROD-DASHBOARD-V5-20260829-1',()=>{
           load('produccionFichaV6.js?v=TIZ-PROD-FICHA-V6-20260829-1',()=>{
-            load('produccionFichaCompletaV7.js?v=TIZ-PROD-FICHA-COMPLETA-V7-20260829-1');
+            load('produccionFichaCompletaV7.js?v=TIZ-PROD-FICHA-COMPLETA-V7-20260829-2',()=>{
+              load('produccionVersionV7.js?v=TIZ-PROD-VERSION-V7-20260829-1');
+            });
           });
         });
       });
