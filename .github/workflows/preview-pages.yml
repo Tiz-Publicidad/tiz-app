@@ -34,12 +34,45 @@ jobs:
       - name: Build combined Pages site
         shell: bash
         run: |
+          rm -rf site
           mkdir -p site/preview/produccion-copiloto-v1
+
+          # Sitio principal: copia exacta de main.
           cp -a stable/. site/
           rm -rf site/.git site/.github
-          cp -a preview-source/. site/preview/produccion-copiloto-v1/
+
+          # Preview: otra copia exacta de main para no alterar Firebase, auth ni sectorizacion.
+          cp -a stable/. site/preview/produccion-copiloto-v1/
           rm -rf site/preview/produccion-copiloto-v1/.git site/preview/produccion-copiloto-v1/.github
+
+          # Encima copiamos SOLO los modulos de Produccion del branch de preview.
+          for f in produccionCopilotoV1.js produccionOperativaV4.js produccionDashboardV5.js produccionFichaV6.js; do
+            cp "preview-source/$f" "site/preview/produccion-copiloto-v1/$f"
+          done
+
+          # Inyectar los modulos al final del HTML, despues de toda la app estable.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('site/preview/produccion-copiloto-v1/index.html')
+          html = p.read_text(encoding='utf-8')
+          marker = '</body>'
+          scripts = '''\n<!-- PRODUCCION PREVIEW V6 -->\n<script src="produccionCopilotoV1.js?v=preview-v6-stable"></script>\n<script src="produccionOperativaV4.js?v=preview-v6-stable"></script>\n<script src="produccionDashboardV5.js?v=preview-v6-stable"></script>\n<script src="produccionFichaV6.js?v=preview-v6-stable"></script>\n'''
+          if marker not in html:
+              raise SystemExit('No se encontro </body> en index.html')
+          html = html.replace(marker, scripts + marker, 1)
+          p.write_text(html, encoding='utf-8')
+          PY
+
+          echo "PREVIEW_V6_STABLE_MAIN_BASE" > site/preview/produccion-copiloto-v1/PREVIEW_BUILD.txt
           touch site/.nojekyll
+
+      - name: Verify preview base matches main
+        shell: bash
+        run: |
+          cmp stable/sectorizacionV35.js site/preview/produccion-copiloto-v1/sectorizacionV35.js
+          cmp stable/operacionesV31.js site/preview/produccion-copiloto-v1/operacionesV31.js
+          grep -q "PRODUCCION PREVIEW V6" site/preview/produccion-copiloto-v1/index.html
+          test -f site/preview/produccion-copiloto-v1/produccionFichaV6.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
