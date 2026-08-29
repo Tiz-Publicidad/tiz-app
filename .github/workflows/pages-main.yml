@@ -32,6 +32,7 @@ jobs:
         run: |
           grep -q "PRODUCCION-V8-20260829" produccionV34.js
           grep -q "Producción V8" produccionV34.js
+          test -f produccionV81.js
 
       - name: Prepare site
         shell: bash
@@ -45,28 +46,27 @@ jobs:
           s = p.read_text(encoding='utf-8')
           marker = '<script src="sectorizacionV35.js?v=TIZ-V35-7-CLIENTES-CALCULOS-20260817"></script>'
           prod = '<script src="produccionV34.js?v=PRODUCCION-V8-20260829"></script>'
+          assist = '<script src="produccionV81.js?v=PRODUCCION-V8-1-20260829"></script>'
           badge = '''<script>
           (function(){
-            const VERSION='TIZ V8 · PRODUCCIÓN INTEGRADA · 29/08/2026';
+            const VERSION='TIZ V8.1 · PRODUCCIÓN INTEGRADA · 29/08/2026';
             function syncVersionBadge(){
               const nodes=document.querySelectorAll('body *');
               for(const el of nodes){
                 if(el.children.length) continue;
                 const t=(el.textContent||'').trim();
-                if(/^TIZ V35\.6\b/i.test(t) || /AUTOCOMPLETE CLIENTES CORREGIDO/i.test(t)){
-                  el.textContent=VERSION;
-                }
+                if(/^TIZ V35\.6\b/i.test(t) || /AUTOCOMPLETE CLIENTES CORREGIDO/i.test(t) || /^TIZ V8 · PRODUCCIÓN/i.test(t)) el.textContent=VERSION;
               }
             }
             window.addEventListener('load',()=>{syncVersionBadge();setInterval(syncVersionBadge,1500)});
           })();
           </script>'''
           if prod not in s:
-              if marker not in s:
-                  raise SystemExit('No se encontro sectorizacionV35.js en index.html')
+              if marker not in s: raise SystemExit('No se encontro sectorizacionV35.js en index.html')
               s = s.replace(marker, marker + '\n' + prod, 1)
-          if 'TIZ V8 · PRODUCCIÓN INTEGRADA · 29/08/2026' not in s:
-              s = s.replace('</body>', badge + '\n</body>', 1)
+          if assist not in s: s = s.replace(prod, prod + '\n' + assist, 1)
+          s = s.replace('TIZ V8 · PRODUCCIÓN INTEGRADA · 29/08/2026','TIZ V8.1 · PRODUCCIÓN INTEGRADA · 29/08/2026')
+          if 'TIZ V8.1 · PRODUCCIÓN INTEGRADA · 29/08/2026' not in s: s = s.replace('</body>', badge + '\n</body>', 1)
           p.write_text(s, encoding='utf-8')
           PY
           echo "MAIN_DIRECT_DEPLOY" > site/DEPLOY_SOURCE.txt
@@ -78,7 +78,8 @@ jobs:
         run: |
           grep -q "PRODUCCION-V8-20260829" site/produccionV34.js
           grep -q 'produccionV34.js?v=PRODUCCION-V8-20260829' site/index.html
-          grep -q 'TIZ V8 · PRODUCCIÓN INTEGRADA · 29/08/2026' site/index.html
+          grep -q 'produccionV81.js?v=PRODUCCION-V8-1-20260829' site/index.html
+          grep -q 'TIZ V8.1 · PRODUCCIÓN INTEGRADA · 29/08/2026' site/index.html
           test -f site/index.html
           test -f site/app.js
           test -f site/sectorizacionV35.js
