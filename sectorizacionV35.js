@@ -1,4 +1,4 @@
-// TIZ V35 compatibility loader — Production Copilot V3 preview branch
+// TIZ V35 compatibility loader — Production Copilot V4 preview branch
 // Keep the existing sectorization implementation intact, then layer the production control center.
 (()=>{
   'use strict';
@@ -10,6 +10,8 @@
     document.head.appendChild(s);
   }
   load('sectorizacionV35Base.js?v=TIZ-V35-7-BASE-20260817',()=>{
-    load('produccionCopilotoV1.js?v=TIZ-PROD-COPILOTO-V3-20260829-1');
+    load('produccionCopilotoV1.js?v=TIZ-PROD-COPILOTO-V3-20260829-1',()=>{
+      load('produccionOperativaV4.js?v=TIZ-PROD-OPERATIVA-V4-20260829-1');
+    });
   });
 })();
