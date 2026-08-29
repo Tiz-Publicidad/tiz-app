@@ -17,24 +17,38 @@ concurrency:
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout stable main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: stable
+
       - name: Checkout preview branch
         uses: actions/checkout@v4
+        with:
+          ref: feature/produccion-copiloto-v1
+          path: preview-source
+
+      - name: Build combined Pages site
+        shell: bash
+        run: |
+          mkdir -p site/preview/produccion-copiloto-v1
+          cp -a stable/. site/
+          rm -rf site/.git site/.github
+          cp -a preview-source/. site/preview/produccion-copiloto-v1/
+          rm -rf site/preview/produccion-copiloto-v1/.git site/preview/produccion-copiloto-v1/.github
+          touch site/.nojekyll
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
-      - name: Upload static site
+      - name: Upload combined site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: site
 
-      - name: Deploy preview
+      - name: Deploy stable + preview
         id: deployment
         uses: actions/deploy-pages@v4
