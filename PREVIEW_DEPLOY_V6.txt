@@ -1,0 +1,2 @@
+Produccion V6 redeploy marker - 2026-08-29
+No modifica funcionalidad. Fuerza GitHub Pages a publicar el commit estable V6.
