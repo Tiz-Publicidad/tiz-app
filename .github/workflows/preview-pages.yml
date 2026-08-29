@@ -25,45 +25,55 @@ jobs:
           ref: main
           path: stable
 
-      - name: Checkout lab source
+      - name: Checkout production source
         uses: actions/checkout@v4
         with:
           ref: feature/produccion-copiloto-v1
-          path: lab-source
+          path: feature
 
-      - name: Build stable Pages site and isolated lab
+      - name: Build real app with isolated Production V8
         shell: bash
         run: |
           rm -rf site
-          mkdir -p site/preview/produccion-copiloto-v1 site/lab/produccion-v7
           cp -a stable/. site/
           rm -rf site/.git site/.github
 
-          # Preview seguro: copia exacta de main.
-          cp -a stable/. site/preview/produccion-copiloto-v1/
-          rm -rf site/preview/produccion-copiloto-v1/.git site/preview/produccion-copiloto-v1/.github
-          echo "PREVIEW_RECOVERY_EXACT_MAIN" > site/preview/produccion-copiloto-v1/PREVIEW_BUILD.txt
+          # Unico cambio sobre la app estable: modulo encapsulado de Produccion V8.
+          cp feature/produccionIntegradaV8.js site/produccionIntegradaV8.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('site/index.html')
+          s=p.read_text()
+          marker='<script src="produccionIntegradaV8.js?v=8.0.0"></script>'
+          assert '</body>' in s
+          s=s.replace('</body>', marker+'\n</body>')
+          p.write_text(s)
+          PY
 
-          # Laboratorio aislado: no carga Firebase ni modifica la app estable.
-          cp lab-source/lab/produccion-v7/index.html site/lab/produccion-v7/index.html
+          # Conservamos laboratorio como referencia visual, pero la raiz ya es la app real.
+          mkdir -p site/lab/produccion-v7
+          cp feature/lab/produccion-v7/index.html site/lab/produccion-v7/index.html
+          echo "REAL_APP_PLUS_PRODUCTION_V8" > site/PRODUCTION_BUILD.txt
           touch site/.nojekyll
 
-      - name: Verify stable preview and isolated lab
+      - name: Verify stable core is untouched
         shell: bash
         run: |
-          cmp stable/index.html site/preview/produccion-copiloto-v1/index.html
-          cmp stable/sectorizacionV35.js site/preview/produccion-copiloto-v1/sectorizacionV35.js
-          cmp stable/operacionesV31.js site/preview/produccion-copiloto-v1/operacionesV31.js
-          grep -q "LAB · Producción V7" site/lab/produccion-v7/index.html
+          cmp stable/sectorizacionV35.js site/sectorizacionV35.js
+          cmp stable/operacionesV31.js site/operacionesV31.js
+          cmp stable/app.js site/app.js
+          grep -q 'produccionIntegradaV8.js?v=8.0.0' site/index.html
+          grep -q 'TIZ Produccion V8' site/produccionIntegradaV8.js
+          grep -q 'REAL_APP_PLUS_PRODUCTION_V8' site/PRODUCTION_BUILD.txt
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload combined site
+      - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
-      - name: Deploy stable + recovery preview + isolated lab
+      - name: Deploy real app + Production V8
         id: deployment
         uses: actions/deploy-pages@v4
