@@ -25,24 +25,36 @@ jobs:
           ref: main
           path: stable
 
-      - name: Build stable Pages site and safe preview
+      - name: Checkout lab source
+        uses: actions/checkout@v4
+        with:
+          ref: feature/produccion-copiloto-v1
+          path: lab-source
+
+      - name: Build stable Pages site and isolated lab
         shell: bash
         run: |
           rm -rf site
-          mkdir -p site/preview/produccion-copiloto-v1
+          mkdir -p site/preview/produccion-copiloto-v1 site/lab/produccion-v7
           cp -a stable/. site/
           rm -rf site/.git site/.github
+
+          # Preview seguro: copia exacta de main.
           cp -a stable/. site/preview/produccion-copiloto-v1/
           rm -rf site/preview/produccion-copiloto-v1/.git site/preview/produccion-copiloto-v1/.github
           echo "PREVIEW_RECOVERY_EXACT_MAIN" > site/preview/produccion-copiloto-v1/PREVIEW_BUILD.txt
+
+          # Laboratorio aislado: no carga Firebase ni modifica la app estable.
+          cp lab-source/lab/produccion-v7/index.html site/lab/produccion-v7/index.html
           touch site/.nojekyll
 
-      - name: Verify preview is exact main
+      - name: Verify stable preview and isolated lab
         shell: bash
         run: |
           cmp stable/index.html site/preview/produccion-copiloto-v1/index.html
           cmp stable/sectorizacionV35.js site/preview/produccion-copiloto-v1/sectorizacionV35.js
           cmp stable/operacionesV31.js site/preview/produccion-copiloto-v1/operacionesV31.js
+          grep -q "LAB · Producción V7" site/lab/produccion-v7/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -52,6 +64,6 @@ jobs:
         with:
           path: site
 
-      - name: Deploy stable + recovery preview
+      - name: Deploy stable + recovery preview + isolated lab
         id: deployment
         uses: actions/deploy-pages@v4
