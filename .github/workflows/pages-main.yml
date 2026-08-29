@@ -36,12 +36,20 @@ jobs:
       - name: Prepare site
         shell: bash
         run: |
+          rm -rf site
           mkdir -p site
-          cp -a . site/
-          rm -rf site/.git site/.github
+          find . -mindepth 1 -maxdepth 1 ! -name site ! -name .git ! -name .github -exec cp -a {} site/ \;
           echo "MAIN_DIRECT_DEPLOY" > site/DEPLOY_SOURCE.txt
           git rev-parse HEAD > site/DEPLOY_COMMIT.txt
           touch site/.nojekyll
+
+      - name: Verify prepared site
+        shell: bash
+        run: |
+          grep -q "PRODUCCION-V8-20260829" site/produccionV34.js
+          test -f site/index.html
+          test -f site/app.js
+          test -f site/sectorizacionV35.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
