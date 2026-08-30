@@ -1,0 +1,56 @@
+name: Preview Produccion Copiloto V1
+
+on:
+  push:
+    branches:
+      - feature/produccion-copiloto-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: preview-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout stable main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: stable
+
+      - name: Build exact stable app
+        shell: bash
+        run: |
+          rm -rf site
+          cp -a stable/. site/
+          rm -rf site/.git site/.github
+          echo "EXACT_STABLE_MAIN_RECOVERY" > site/PRODUCTION_BUILD.txt
+          touch site/.nojekyll
+
+      - name: Verify exact stable core
+        shell: bash
+        run: |
+          cmp stable/index.html site/index.html
+          cmp stable/sectorizacionV35.js site/sectorizacionV35.js
+          cmp stable/operacionesV31.js site/operacionesV31.js
+          cmp stable/app.js site/app.js
+          grep -q 'EXACT_STABLE_MAIN_RECOVERY' site/PRODUCTION_BUILD.txt
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload stable site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy exact stable app
+        id: deployment
+        uses: actions/deploy-pages@v4
