@@ -420,7 +420,6 @@
 
   function scheduleAutoSync() {
     clearTimeout(autoSyncState.timer);
-    if(window.currentPage!=='produccion') return;
     autoSyncState.timer=setTimeout(autoSyncProductionDocuments,1800);
   }
 
@@ -439,9 +438,9 @@
     if(window.currentPage==='colocaciones')renderSector('Colocaciones');
     scheduleAutoSync();
     setInterval(()=>{
+      autoSyncProductionDocuments();
       if(window.currentPage==='produccion'){
         if(!window.__TIZ_PRODUCCION_V34__) renderSector('Producción');
-        autoSyncProductionDocuments();
       }
       if(window.currentPage==='colocaciones')renderSector('Colocaciones');
     },45000);
