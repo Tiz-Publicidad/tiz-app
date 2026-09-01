@@ -1184,6 +1184,10 @@ function getSemanaActual() {
 
 window.DB = { obras:[], clientes:[], presupuestos:[], retenciones:[], cobranzas:[], tareas:[] };
 window.currentSem = getSemanaActual();
+['dash-sem','sem-label','prod-sem','col-sem'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = 'Sem ' + window.currentSem;
+});
 window.currentPage = 'dashboard';
 window.obrasSemana = new Set();
 window.cobTab = 'pendientes';
