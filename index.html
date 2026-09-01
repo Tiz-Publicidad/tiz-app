@@ -3275,6 +3275,12 @@ async function syncDriveFolder(data, tipoCarpeta) {
       estado: String(data.estado || '').trim(),
       sector: String(data.sector || '').trim(),
       vendedor: String(data.vendedor || '').trim(),
+      itemsTecnicos: (Array.isArray(data.itemsTecnicos)?data.itemsTecnicos:[]).map(item=>({
+        articulo:String(item?.articulo||item?.desc||item?.descripcion||'').trim(),
+        cantidad:Number(item?.cantidad||item?.cant||1)||1,
+        unidad:String(item?.unidad||'UNID').trim()||'UNID',
+        observaciones:String(item?.observaciones||item?.detalle||'').trim()
+      })).filter(item=>item.articulo),
       folderName,
       tipoCarpeta: tipo
     }
@@ -3473,6 +3479,6 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-9-APROBADO-A-OBRAS-20260901"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-10-DRIVE-OT-AUTOMATICO-20260901"></script>
 </body>
 </html>
