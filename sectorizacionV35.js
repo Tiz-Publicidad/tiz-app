@@ -345,8 +345,12 @@
     window.guardarPresupuestoCompleto=async function(){
       const nro=val('pp-nro').trim()||'0000', cliente=val('pp-cliente').trim(), desc=val('pp-desc').trim(), items=(window.ppItems||[]).filter(i=>(i.desc||'').trim()||(+i.precio||0)>0); if(!cliente||!items.length)return oldSave?.apply(this,arguments);
       const total=items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
-      const data={nro,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),creadoPor:window.currentUser?.email||'',obraId:''};
-      try{await window.addDoc_('presupuestos',data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.('Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}
+      const revision=window.normalizarRevisionV354?.(val('pp-revision')||'1.1')||'1.1';
+      const numero=String(nro).replace(/\D/g,'');
+      const existente=(window.DB?.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===numero&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')===revision);
+      const id=window.editingId?.presupuesto||existente?.id||'';
+      const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),creadoPor:window.currentUser?.email||'',obraId:'',cotizacionBase:numero};
+      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);if(window.editingId)window.editingId.presupuesto=ref?.id||id;window._cotizacionBaseId=ref?.id||id;document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}
     };
   }
 
