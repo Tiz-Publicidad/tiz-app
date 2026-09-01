@@ -44,7 +44,7 @@ jobs:
           p = Path('site/index.html')
           s = p.read_text(encoding='utf-8')
           marker = '<script src="sectorizacionV35.js?v=TIZ-V35-7-CLIENTES-CALCULOS-20260817"></script>'
-          prod = '<script src="produccionV34.js?v=PRODUCCION-V8-20260829"></script>'
+          prod = '<script src="produccionV34.js?v=PRODUCCION-V8-NAV-20260901"></script>'
           badge = '''<script>
           (function(){
             const VERSION='TIZ V8 · PRODUCCIÓN INTEGRADA · 29/08/2026';
@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           grep -q "PRODUCCION-V8-20260829" site/produccionV34.js
-          grep -q 'produccionV34.js?v=PRODUCCION-V8-20260829' site/index.html
+          grep -q 'produccionV34.js?v=PRODUCCION-V8-NAV-20260901' site/index.html
           grep -q 'TIZ V8 · PRODUCCIÓN INTEGRADA · 29/08/2026' site/index.html
           test -f site/index.html
           test -f site/app.js
