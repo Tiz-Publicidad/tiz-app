@@ -1701,7 +1701,9 @@ window.delCobranza = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('
 
 // PRESUPUESTOS
 function renderPresupuestos() {
-  const pres = window.DB.presupuestos;
+  const grupos=new Map();
+  (window.DB.presupuestos||[]).forEach(p=>{const k=String(p.nro||'').replace(/\D/g,'')+'|'+normalizarRevisionV354(p.revision||'1.1'),actual=grupos.get(k);if(!actual||p.estado==='Aprobado'&&actual.estado!=='Aprobado')grupos.set(k,p);});
+  const pres = [...grupos.values()];
   const aprobados = pres.filter(p=>p.estado==='Aprobado').reduce((a,p)=>a+(+p.importe||0),0);
   const enviados = pres.filter(p=>p.estado==='Enviado'||p.estado==='En revisión').length;
 
@@ -3471,6 +3473,6 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V33-2-ELIMINAR-ITEMS-20260803"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-8-PRESUPUESTO-UNICO-20260901"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-9-APROBADO-A-OBRAS-20260901"></script>
 </body>
 </html>
