@@ -3378,6 +3378,15 @@ async function syncToSheets(data) {
     return [...mapa.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
   }
 
+  function posicionarSugerenciasPP(){
+    const input=document.getElementById('pp-cliente'),dd=document.getElementById('pp-clientes-dropdown');
+    if(!input||!dd)return;
+    const r=input.getBoundingClientRect();
+    dd.style.position='fixed';dd.style.left=r.left+'px';dd.style.top=(r.bottom+3)+'px';dd.style.width=r.width+'px';
+    dd.style.right='auto';dd.style.zIndex='20000';dd.style.background='var(--surface3,#202020)';
+    dd.style.boxShadow='0 12px 30px rgba(0,0,0,.55)';
+  }
+
   window.sugerirClientesPP=function(q, mostrarAunqueVacio=false){
     const dd=document.getElementById('pp-clientes-dropdown'); if(!dd) return;
     const texto=String(q||'').trim();
@@ -3389,11 +3398,14 @@ async function syncToSheets(data) {
     const nq=norm(texto);
     if(!nq && !mostrarAunqueVacio){ dd.style.display='none'; return; }
     const matches=(nq?lista.filter(c=>norm(c.nombre).includes(nq)):lista).slice(0,12);
-    let html=matches.map(c=>`<div class="cli-option" onmousedown="document.getElementById('pp-cliente').value='${jsq(c.nombre)}';document.getElementById('pp-clientes-dropdown').style.display='none'"><span>${esc(c.nombre)}</span><span class="cli-option-sub">${c.numero?'Cliente '+esc(c.numero)+' · ':''}${c.cuit?'CUIT: '+esc(c.cuit):esc(c.fuente||'Cliente existente')}</span></div>`).join('');
+    let html=matches.map((c,i)=>`<div class="cli-option" data-cliente-index="${i}"><span>${esc(c.nombre)}</span><span class="cli-option-sub">${c.numero?'Cliente '+esc(c.numero)+' · ':''}${c.cuit?'CUIT: '+esc(c.cuit):esc(c.fuente||'Cliente existente')}</span></div>`).join('');
     if(texto){
-      html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuestoV355('${jsq(texto)}')" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente nuevo: <strong>${esc(texto)}</strong></span><span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver al presupuesto</span></div>`;
+      html += `<div class="cli-option" data-crear-cliente="1" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente nuevo: <strong>${esc(texto)}</strong></span><span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver al presupuesto</span></div>`;
     }
     dd.innerHTML=html || '<div style="padding:10px;color:var(--text3)">Sin clientes cargados todavía.</div>';
+    dd.querySelectorAll('[data-cliente-index]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();const c=matches[+el.dataset.clienteIndex];if(c){document.getElementById('pp-cliente').value=c.nombre;dd.style.display='none';}}));
+    dd.querySelector('[data-crear-cliente]')?.addEventListener('mousedown',e=>{e.preventDefault();window.nuevoClienteDesdePresupuestoV355(texto);});
+    posicionarSugerenciasPP();
     dd.style.display='block';
   };
   window.nuevoClienteDesdePresupuestoV355=function(nombre){
@@ -3436,8 +3448,10 @@ async function syncToSheets(data) {
   };
 
   function bind(){
-    const cli=document.getElementById('pp-cliente');
-    if(cli && !cli.dataset.v355){cli.dataset.v355='1';cli.addEventListener('focus',()=>window.sugerirClientesPP(cli.value));}
+    const cli=document.getElementById('pp-cliente'),dd=document.getElementById('pp-clientes-dropdown');
+    if(dd&&dd.parentElement!==document.body)document.body.appendChild(dd);
+    if(cli && !cli.dataset.v355){cli.dataset.v355='1';cli.addEventListener('focus',()=>window.sugerirClientesPP(cli.value,true));cli.addEventListener('input',()=>window.sugerirClientesPP(cli.value,false));}
+    document.getElementById('modal-prespdf')?.addEventListener('scroll',posicionarSugerenciasPP,{passive:true});
     const desc=document.getElementById('pp-desc');
     if(desc && !desc.dataset.v355){desc.dataset.v355='1';desc.addEventListener('input',window.renderAyudamemoriaPPV355);}
     window.renderAyudamemoriaPPV355();
