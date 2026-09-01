@@ -43,7 +43,7 @@ jobs:
           from pathlib import Path
           p = Path('site/index.html')
           s = p.read_text(encoding='utf-8')
-          marker = '<script src="sectorizacionV35.js?v=TIZ-V35-9-APROBADO-A-OBRAS-20260901"></script>'
+          marker = '<script src="sectorizacionV35.js?v=TIZ-V35-10-DRIVE-OT-AUTOMATICO-20260901"></script>'
           prod = '<script src="produccionV34.js?v=PRODUCCION-V8-NAV-20260901"></script>'
           badge = '''<script>
           (function(){
