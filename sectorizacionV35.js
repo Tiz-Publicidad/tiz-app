@@ -339,6 +339,17 @@
   }
 
   function patchPresupuestoFunctions(){
+    window.ensureObraFromPresupuestoV358=async function(presupuestoId,data){
+      if(normEstado(data?.estado)!=='Aprobado'||!presupuestoId)return null;
+      const numero=String(data.nro||'').replace(/\D/g,'');
+      const existente=(window.DB?.obras||[]).find(o=>o.presupuestoId===presupuestoId||o.cotizacionId===presupuestoId||(String(o.ot||'').replace(/\D/g,'')===numero&&numero));
+      const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
+      let obraId=existente?.id||'';
+      if(obraId)await window.updateDoc_('obras',obraId,obra);
+      else{const ref=await window.addDoc_('obras',obra);obraId=ref?.id||'';}
+      await window.updateDoc_('presupuestos',presupuestoId,{obraId,promovidoAObra:true,promovidoEn:new Date().toISOString()});
+      return obraId;
+    };
     const oldNew=window.abrirNuevoPresupuestoCompleto;
     window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments); setTimeout(()=>{document.getElementById('pp-fecha').value=new Date().toLocaleDateString('es-AR'); document.getElementById('pp-estado').value='Enviado'; document.getElementById('pp-moneda').value='ARS'; document.getElementById('pp-vendedor').value='G'; document.getElementById('pp-plazo').value=''; document.getElementById('pp-anticipo').value='50'; document.getElementById('pp-dias-pago').value=''; document.getElementById('pp-oc').value=''; document.getElementById('pp-obs-comercial').value='';},0);return r;};
     const oldSave=window.guardarPresupuestoCompleto;
@@ -350,8 +361,23 @@
       const existente=(window.DB?.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===numero&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')===revision);
       const id=window.editingId?.presupuesto||existente?.id||'';
       const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),creadoPor:window.currentUser?.email||'',obraId:'',cotizacionBase:numero};
-      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);if(window.editingId)window.editingId.presupuesto=ref?.id||id;window._cotizacionBaseId=ref?.id||id;document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}
+      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;if(normEstado(data.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(presupuestoId,data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}
     };
+  }
+
+  async function limpiarDuplicadosPrueba4690(){
+    if(window.__v358Cleanup4690Running||window.__v358Cleanup4690Done||!window.currentUser?.isAdmin)return;
+    const lista=(window.DB?.presupuestos||[]).filter(p=>String(p.nro||'').replace(/\D/g,'')==='4690'&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')==='1.1');
+    if(lista.length<2)return;
+    window.__v358Cleanup4690Running=true;
+    try{
+      const conservar=lista.find(p=>normEstado(p.estado)==='Aprobado')||lista[0];
+      if(normEstado(conservar.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(conservar.id,conservar);
+      for(const p of lista)if(p.id!==conservar.id)await window.deleteDoc_('presupuestos',p.id);
+      window.__v358Cleanup4690Done=true;
+      window.showToast?.('CT 0004690 consolidada en un solo renglón');
+    }catch(e){console.error('[TIZ V35.8] No se pudieron limpiar duplicados',e);}
+    finally{window.__v358Cleanup4690Running=false;}
   }
 
   function init(){
@@ -361,7 +387,7 @@
     // en memoria para que Obras y las vistas históricas reflejen el sector al instante.
     if(!window.__v35RefreshPatched && window.refreshCurrent){
       window.__v35RefreshPatched=true; const oldRefresh=window.refreshCurrent;
-      window.refreshCurrent=function(){ normalizeDBV35(); return oldRefresh.apply(this,arguments); };
+      window.refreshCurrent=function(){ normalizeDBV35(); const r=oldRefresh.apply(this,arguments);setTimeout(limpiarDuplicadosPrueba4690,0);return r; };
     }
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
