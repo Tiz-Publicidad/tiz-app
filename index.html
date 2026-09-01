@@ -3381,10 +3381,10 @@ async function syncToSheets(data) {
   function posicionarSugerenciasPP(){
     const input=document.getElementById('pp-cliente'),dd=document.getElementById('pp-clientes-dropdown');
     if(!input||!dd)return;
-    const r=input.getBoundingClientRect();
-    dd.style.position='fixed';dd.style.left=r.left+'px';dd.style.top=(r.bottom+3)+'px';dd.style.width=r.width+'px';
-    dd.style.right='auto';dd.style.zIndex='20000';dd.style.background='var(--surface3,#202020)';
-    dd.style.boxShadow='0 12px 30px rgba(0,0,0,.55)';
+    if(input.nextElementSibling!==dd)input.insertAdjacentElement('afterend',dd);
+    dd.style.position='static';dd.style.left='auto';dd.style.top='auto';dd.style.width='100%';
+    dd.style.right='auto';dd.style.zIndex='auto';dd.style.background='var(--surface3,#202020)';
+    dd.style.boxShadow='0 8px 20px rgba(0,0,0,.35)';dd.style.marginTop='4px';
   }
 
   window.sugerirClientesPP=function(q, mostrarAunqueVacio=false){
@@ -3449,7 +3449,7 @@ async function syncToSheets(data) {
 
   function bind(){
     const cli=document.getElementById('pp-cliente'),dd=document.getElementById('pp-clientes-dropdown');
-    if(dd&&dd.parentElement!==document.body)document.body.appendChild(dd);
+    if(cli&&dd&&cli.nextElementSibling!==dd)cli.insertAdjacentElement('afterend',dd);
     if(cli && !cli.dataset.v355){cli.dataset.v355='1';cli.addEventListener('focus',()=>window.sugerirClientesPP(cli.value,true));cli.addEventListener('input',()=>window.sugerirClientesPP(cli.value,false));}
     document.getElementById('modal-prespdf')?.addEventListener('scroll',posicionarSugerenciasPP,{passive:true});
     const desc=document.getElementById('pp-desc');
