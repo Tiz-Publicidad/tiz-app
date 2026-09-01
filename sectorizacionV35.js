@@ -339,15 +339,42 @@
   }
 
   function patchPresupuestoFunctions(){
+    function datosTecnicosPresupuesto(data){
+      const items=(Array.isArray(data?.items)?data.items:[]).map(item=>({
+        articulo:String(item?.desc||item?.descripcion||'').trim(),
+        cantidad:Number(item?.cant||item?.cantidad||1)||1,
+        unidad:String(item?.unidad||'UNID').trim()||'UNID',
+        observaciones:String(item?.observaciones||item?.detalle||'').trim()
+      })).filter(item=>item.articulo);
+      const notas=[];
+      if(data?.desc)notas.push('Descripción general: '+data.desc);
+      if(data?.nota)notas.push('Notas de cotización: '+data.nota);
+      if(data?.cond)notas.push('Condiciones: '+data.cond);
+      if(data?.plazoEstimado)notas.push('Plazo estimado: '+data.plazoEstimado);
+      if(data?.oc)notas.push('OC / OP: '+data.oc);
+      items.forEach((item,i)=>{if(item.observaciones)notas.push('Ítem '+(i+1)+': '+item.observaciones);});
+      return {items,observaciones:notas.join('\n')};
+    }
+    window.datosTecnicosPresupuestoV3511=datosTecnicosPresupuesto;
     window.ensureObraFromPresupuestoV358=async function(presupuestoId,data){
       if(normEstado(data?.estado)!=='Aprobado'||!presupuestoId)return null;
       const numero=String(data.nro||'').replace(/\D/g,'');
       const existente=(window.DB?.obras||[]).find(o=>o.presupuestoId===presupuestoId||o.cotizacionId===presupuestoId||(String(o.ot||'').replace(/\D/g,'')===numero&&numero));
-      const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
+      const tecnico=datosTecnicosPresupuesto(data);
+      const produccionAnterior=existente?.gestionSectores?.produccion||{};
+      const produccion={...produccionAnterior,materiales:tecnico.items,observaciones:tecnico.observaciones,detalleCotizacion:tecnico.items,datosCotizacionSinPrecios:true};
+      const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],itemsTecnicos:tecnico.items,gestionSectores:{...(existente?.gestionSectores||{}),produccion},presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
       let obraId=existente?.id||'';
       if(obraId)await window.updateDoc_('obras',obraId,obra);
       else{const ref=await window.addDoc_('obras',obra);obraId=ref?.id||'';}
-      await window.updateDoc_('presupuestos',presupuestoId,{obraId,promovidoAObra:true,promovidoEn:new Date().toISOString()});
+      let links={};
+      if(!existente?.driveFolderUrl&&typeof window.syncDriveFolder==='function'){
+        const drive=await window.syncDriveFolder({...obra,firestoreId:obraId},'ot');
+        if(!drive?.driveFolderUrl)throw new Error(drive?.error||'Drive no devolvió el enlace de la carpeta OT');
+        links={driveFolderUrl:drive.driveFolderUrl,driveFolderId:drive.folderId||drive.driveFolderId||'',driveSyncedAt:new Date().toISOString()};
+        await window.updateDoc_('obras',obraId,links);
+      }
+      await window.updateDoc_('presupuestos',presupuestoId,{obraId,promovidoAObra:true,promovidoEn:new Date().toISOString(),...links});
       return obraId;
     };
     const oldNew=window.abrirNuevoPresupuestoCompleto;
@@ -380,6 +407,28 @@
     finally{window.__v358Cleanup4690Running=false;}
   }
 
+  async function repararDrivePrueba4690(){
+    if(window.__v3510Drive4690Running||window.__v3510Drive4690Done||!window.currentUser?.isAdmin)return;
+    const p=(window.DB?.presupuestos||[]).find(x=>String(x.nro||'').replace(/\D/g,'')==='4690'&&normEstado(x.estado)==='Aprobado');
+    const o=(window.DB?.obras||[]).find(x=>x.presupuestoId===p?.id||String(x.ot||'').replace(/\D/g,'')==='4690');
+    if(!p||!o||o.driveFolderUrl)return;
+    window.__v3510Drive4690Running=true;
+    try{await window.ensureObraFromPresupuestoV358(p.id,p);window.__v3510Drive4690Done=true;window.showToast?.('Carpeta de Drive vinculada a la OT 4690');}
+    catch(e){console.error('[TIZ V35.10] No se pudo vincular Drive a OT 4690',e);window.showToast?.('No se pudo completar la carpeta de Drive: '+(e?.message||e));}
+    finally{window.__v3510Drive4690Running=false;}
+  }
+
+  async function repararDatosTecnicos4690(){
+    if(window.__v3511Tech4690Running||window.__v3511Tech4690Done||!window.currentUser?.isAdmin)return;
+    const p=(window.DB?.presupuestos||[]).find(x=>String(x.nro||'').replace(/\D/g,'')==='4690'&&normEstado(x.estado)==='Aprobado');
+    const o=(window.DB?.obras||[]).find(x=>x.presupuestoId===p?.id||String(x.ot||'').replace(/\D/g,'')==='4690');
+    if(!p||!o)return;
+    window.__v3511Tech4690Running=true;
+    try{await window.ensureObraFromPresupuestoV358(p.id,p);window.__v3511Tech4690Done=true;}
+    catch(e){console.error('[TIZ V35.11] No se pudieron copiar los datos técnicos de la CT 4690',e);}
+    finally{window.__v3511Tech4690Running=false;}
+  }
+
   function init(){
     installSingleSourceGuard();
     normalizeDBV35();
@@ -387,7 +436,7 @@
     // en memoria para que Obras y las vistas históricas reflejen el sector al instante.
     if(!window.__v35RefreshPatched && window.refreshCurrent){
       window.__v35RefreshPatched=true; const oldRefresh=window.refreshCurrent;
-      window.refreshCurrent=function(){ normalizeDBV35(); const r=oldRefresh.apply(this,arguments);setTimeout(limpiarDuplicadosPrueba4690,0);return r; };
+      window.refreshCurrent=function(){ normalizeDBV35(); const r=oldRefresh.apply(this,arguments);setTimeout(limpiarDuplicadosPrueba4690,0);setTimeout(repararDrivePrueba4690,100);setTimeout(repararDatosTecnicos4690,200);return r; };
     }
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
