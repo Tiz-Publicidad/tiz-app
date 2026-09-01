@@ -324,11 +324,56 @@
 
   const autoSyncState = { running:false, attempted:new Set(), timer:null };
 
+  function productionDataWithQuote(o,old={}) {
+    const source=(Array.isArray(o.itemsTecnicos)&&o.itemsTecnicos.length?o.itemsTecnicos:(o.itemsCotizados||[]));
+    const materiales=source.map(item=>({
+      articulo:String(item?.articulo||item?.desc||item?.descripcion||'').trim(),
+      cantidad:Number(item?.cantidad||item?.cant||1)||1,
+      unidad:String(item?.unidad||'UNID').trim()||'UNID',
+      observaciones:String(item?.observaciones||item?.detalle||'').trim()
+    })).filter(item=>item.articulo);
+    const quoteNotes=materiales.map((item,i)=>`${i+1}. ${item.articulo} — Cantidad: ${item.cantidad} ${item.unidad}${item.observaciones?' — '+item.observaciones:''}`).join('\n');
+    return {
+      ...old,
+      materiales: materiales.length?materiales:(old.materiales||[]),
+      observaciones: old.observaciones || quoteNotes,
+      detalleCotizacion: materiales,
+      datosCotizacionSinPrecios: true
+    };
+  }
+  window.productionDataWithQuoteV311=productionDataWithQuote;
+
+  function productionSheetPayload(data={}) {
+    return {
+      estadoInterno:String(data.estadoInterno||'Pendiente'),
+      prioridad:String(data.prioridad||'Normal'),
+      responsable:String(data.responsable||''),
+      observaciones:String(data.observaciones||''),
+      fechaInicioPlan:String(data.fechaInicioPlan||''),
+      fechaFinPlan:String(data.fechaFinPlan||''),
+      personal:String(data.personal||''),
+      horasPlan:String(data.horasPlan||''),
+      horasReal:String(data.horasReal||''),
+      motivoDesvio:String(data.motivoDesvio||''),
+      checks:{...(data.checks||{})},
+      ayudamemoria:String(data.ayudamemoria||''),
+      materiales:(data.materiales||[]).map(item=>({
+        articulo:String(item?.articulo||''),
+        cantidad:Number(item?.cantidad||0),
+        unidad:String(item?.unidad||'UNID'),
+        observaciones:String(item?.observaciones||'')
+      })).filter(item=>item.articulo),
+      porcentaje:Number(data.porcentaje||0),
+      actualizadoPor:String(data.actualizadoPor||'Sincronización automática'),
+      actualizadoEn:String(data.actualizadoEn||new Date().toISOString())
+    };
+  }
+
   async function autoSyncProductionDocuments() {
     if (autoSyncState.running || !window.DB?.obras?.length || typeof window.updateDoc_ !== 'function') return;
     const candidates = approvedWorks()
       .filter(o => ['aprobado','en producción'].includes(norm(o.estado)))
-      .filter(o => !getGestion(o,'Producción').sheetUrl)
+      .filter(o => !getGestion(o,'Producción').sheetUrl || !getGestion(o,'Producción').cotizacionTecnicaSincronizada)
       .filter(o => !autoSyncState.attempted.has(o.id))
       .slice(0,1);
     if (!candidates.length) return;
@@ -339,7 +384,7 @@
         autoSyncState.attempted.add(o.id);
         const old = getGestion(o,'Producción');
         const data = {
-          ...old,
+          ...productionDataWithQuote(o,old),
           estadoInterno: old.estadoInterno || 'Pendiente',
           checks: old.checks || {},
           materiales: old.materiales || [],
@@ -351,10 +396,11 @@
           const result = await callWebhook({action:'syncSectorDocument',obra:{
             firestoreId:o.id, ot:o.ot, cliente:o.cliente, desc:o.desc, estado:o.estado,
             driveFolderId:o.driveFolderId||'', driveFolderUrl:o.driveFolderUrl||'',
-            sector:'Producción', data
+            sector:'Producción', data:productionSheetPayload(data)
           }});
           data.sheetUrl=result.sheetUrl||''; data.sheetId=result.sheetId||'';
           data.pdfUrl=result.pdfUrl||''; data.pdfId=result.pdfId||'';
+          data.cotizacionTecnicaSincronizada=true;
           const gestionSectores={...(o.gestionSectores||{}),produccion:data};
           const patch={gestionSectores};
           if(result.driveFolderUrl){patch.driveFolderUrl=result.driveFolderUrl;patch.driveFolderId=result.driveFolderId||result.folderId||'';}
