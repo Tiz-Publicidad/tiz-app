@@ -247,6 +247,26 @@ window.v32Close=()=>document.getElementById('v32-root')?.classList.remove('show'
 window.v32Apply=()=>{
  items.forEach(recalcItem);
  window.obraItems=items.map(x=>({...x,precioFinal:x.unitario,subtotal:x.cantidad*x.unitario}));
+ const presupuestoAbierto=document.getElementById('modal-prespdf')?.classList.contains('open');
+ if(presupuestoAbierto){
+   window.ppItems=items.map(x=>({
+     desc:x.descripcion,
+     descripcion:x.descripcion,
+     cant:x.cantidad,
+     cantidad:x.cantidad,
+     unidad:x.unidad||'UNID',
+     observaciones:x.observaciones||'',
+     precio:x.unitario,
+     unitario:x.unitario
+   }));
+   window.presupuestoTecnicoItems=items.map(x=>({
+     descripcion:x.descripcion,
+     cantidad:x.cantidad,
+     unidad:x.unidad||'UNID',
+     observaciones:x.observaciones||''
+   }));
+   if(typeof window.renderPPItems==='function')window.renderPPItems();
+ }
  const net=document.getElementById('f-neto');if(net)net.value=Math.round(totals().sale);
  if(typeof window.renderObraItems==='function')window.renderObraItems();
  window.v32Close();
