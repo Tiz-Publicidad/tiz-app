@@ -17,8 +17,9 @@
   };
   const tokens=v=>new Set(norm(v).split(' ').filter(w=>w.length>1));
   const dice=(a,b)=>{const A=tokens(a),B=tokens(b);if(!A.size&&!B.size)return 1;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return (2*hit)/(A.size+B.size||1)};
+  const normalizeOT=v=>text(v).replace(/^0+(?=\d)/,'');
   const patch=(x,existing)=>({
-    ot:text(x.ot), desc:text(x.descripcion), cliente:text(x.cliente), vendedor:text(x.vendedor)||text(existing?.vendedor)||'G',
+    ot:normalizeOT(x.ot), desc:text(x.descripcion), cliente:text(x.cliente), vendedor:text(x.vendedor)||text(existing?.vendedor)||'G',
     estado:ALLOWED.has(text(x.estado))?text(x.estado):'Pendiente', sector:text(x.sector)||text(existing?.sector)||'Producción',
     semana:Number(x.semana)||Number(existing?.semana)||0, neto:Number(x.precioVentaNeto)||0, bruto:Number(x.precioVentaBruto)||0,
     gastos:Number(x.gastos)||0, fprod_c:text(x.produccion?.fechaCompromiso)||text(existing?.fprod_c),
