@@ -2748,6 +2748,12 @@ window.generarPDF = async () => {
   const nota = document.getElementById('pp-nota').value.trim();
   const cond = document.getElementById('pp-condicion').value.trim();
   const validezDias = +document.getElementById('pp-validez').value || 7;
+  const calculosAuxiliares = window.collectCalculosAuxPP?.() || window.ppCalculosAux || [];
+  const plazoEstimado = document.getElementById('pp-plazo')?.value || '';
+  const anticipoPct = +document.getElementById('pp-anticipo')?.value || 0;
+  const diasPago = +document.getElementById('pp-dias-pago')?.value || 0;
+  const oc = document.getElementById('pp-oc')?.value || '';
+  const observacionesComerciales = document.getElementById('pp-obs-comercial')?.value || '';
   const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
   if (!cliente) { showToast('Falta cargar el cliente'); return; }
   if (!descGeneral) { showToast('Cargá la descripción general: se usa para nombrar la cotización y la carpeta'); return; }
@@ -2770,7 +2776,8 @@ window.generarPDF = async () => {
     creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
     nombreArchivo: nombreBase, cotizacionBase:String(nro).replace(/\D/g,''),
     revisionAnteriorId:window._cotizacionRevisionAnteriorId||'', esRevision:!!window._cotizacionRevisionAnteriorId,
-    entregaLogistica
+    entregaLogistica, calculosAuxiliares, plazoEstimado, anticipoPct, diasPago, oc, observacionesComerciales,
+    vendedor:document.getElementById('pp-vendedor')?.value||'',moneda:document.getElementById('pp-moneda')?.value||'ARS'
   };
   if(window.editingId.presupuesto && !window._cotizacionEsRevisionNueva){
     await updateDoc_('presupuestos',window.editingId.presupuesto,registro); ref={id:window.editingId.presupuesto};
@@ -3490,6 +3497,6 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-15-ERP-INTEGRAL-DRIVE-SIN-DUPLICADOS-20260903"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-16-DATOS-PRESUPUESTO-POR-SECTOR-20260903"></script>
 </body>
 </html>
