@@ -316,7 +316,7 @@
 
   function upgradeObrasTable(){
     const th=document.querySelector('#page-obras thead tr'); if(!th)return;
-    th.innerHTML='<th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Vendedor</th><th>Estado por sectores</th><th>Precio venta</th><th></th>';
+    th.innerHTML='<th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Vendedor</th><th>Estado</th><th></th>';
   }
 
   const oldRenderObras=window.renderObras;
@@ -330,7 +330,7 @@
     if(estado) obras=obras.filter(o=>o.estado===estado); if(cli) obras=obras.filter(o=>(o.cliente||'').toLowerCase().includes(cli)); if(otQ) obras=obras.filter(o=>(o.ot||'').toLowerCase().includes(otQ)||(o.desc||'').toLowerCase().includes(otQ)); if(semDesde)obras=obras.filter(o=>(+o.semana||0)>=semDesde); if(semHasta)obras=obras.filter(o=>(+o.semana||0)<=semHasta);
     obras.sort((a,b)=>(+b.ot||0)-(+a.ot||0));
     const count=document.getElementById('obras-count'); if(count)count.textContent=obras.length+' obras';
-    tbody.innerHTML=obras.map(o=>`<tr><td>${o.semana||'—'}</td><td class="strong">${esc(o.ot||'—')}</td><td class="strong" style="max-width:230px">${esc(o.desc||'')}</td><td>${esc(o.cliente||'')}</td><td>${esc(o.vendedor||'')}</td><td><div class="obra-sector-strip">${strip(o)}</div></td><td>${fmt(o.neto)}</td><td style="white-space:nowrap"><button class="btn-icon" title="Resumen de obra" onclick="editObra('${o.id}')"><i class="ti ti-eye"></i></button><button class="btn-icon" title="Eliminar" onclick="delObra('${o.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">No hay obras.</td></tr>';
+    tbody.innerHTML=obras.map(o=>`<tr><td>${o.semana||'—'}</td><td class="strong">${esc(String(o.ot||'—').replace(/^0+(?=\\d)/,''))}</td><td class="strong" style="max-width:230px">${esc(o.desc||'')}</td><td>${esc(o.cliente||'')}</td><td>${esc(o.vendedor||'')}</td><td onclick="event.stopPropagation()"><select class="quick-estado" onchange="quickChangeEstado('${o.id}',this.value)">${['Pendiente','Enviado','Aprobado','Entregado','Cobrado pendiente','Cobrado'].map(v=>`<option value="${v}" ${o.estado===v?'selected':''}>${v}</option>`).join('')}</select></td><td style="white-space:nowrap">${o.nrfc?`<span title="Facturado: FC ${esc(o.nrfc)}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>`:''}${renderDriveButtonsV9(o)}<button class="btn-icon" title="Resumen de obra" onclick="editObra('${o.id}')"><i class="ti ti-eye"></i></button><button class="btn-icon" title="Eliminar" onclick="delObra('${o.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras.</td></tr>';
   };
 
   function overrideSectorTable(pageKey, tbodyId, sectorKey, dateMode=true){
