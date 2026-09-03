@@ -258,10 +258,10 @@
 
   function sectorForm(key,s,o){
     s=s||{}; const common=['Pendiente','En proceso','Esperando','Bloqueado','Terminado'];
-    const log=o.entregaLogistica||{}, modalidades={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
-    const items=(o.itemsTecnicos||[]).map(i=>i.articulo||i.descripcion||i.desc).filter(Boolean).slice(0,4);
-    const sectores=getSectores(o), relevantes={ventas:['Entrega: '+(modalidades[log.tipo]||'A definir'),'Revisión CT: '+(o.revisionCotizacion||'—')],diseno:['Trabajo: '+(o.desc||'—'),'Producción: '+normEstado(sectores.produccion?.estado)],compras:['Producción: '+normEstado(sectores.produccion?.estado),'Fecha necesaria: '+(sectores.produccion?.compromiso||log.fecha||'—')],produccion:['Diseño: '+normEstado(sectores.diseno?.estado),'Compras: '+normEstado(sectores.compras?.estado),'Entrega: '+(modalidades[log.tipo]||'A definir')],colocaciones:['Modalidad: '+(modalidades[log.tipo]||'A definir'),'Fecha: '+(log.fecha||s.compromiso||'—'),'Domicilio: '+(log.domicilio||s.direccion||'—'),'Contacto: '+(log.contacto||s.contacto||'—')],facturacion:['CT: '+(o.nroCotizacion||o.ot||'—'),'OC / OP: '+(sectores.facturacion?.oc||o.oc||'—'),'Condición: '+(o.cond||'—')],cobranzas:['Factura: '+(sectores.facturacion?.nroFactura||'—'),'Vencimiento: '+(sectores.facturacion?.vencimiento||sectores.cobranzas?.vencimiento||'—')]}[key]||[];
-    let html=`<div class="commercial-note" style="border-left:3px solid ${SECTOR_DEF[key].color}"><b>Información compartida para ${SECTOR_DEF[key].label}</b><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px">${relevantes.map(x=>`<div>${esc(x)}</div>`).join('')}</div>${items.length&&['diseno','compras','produccion','colocaciones'].includes(key)?`<div style="margin-top:7px"><b>Ítems:</b> ${items.map(esc).join(' · ')}</div>`:''}${log.detalle&&['produccion','colocaciones'].includes(key)?`<div style="margin-top:7px"><b>Indicaciones:</b> ${esc(log.detalle)}</div>`:''}</div><div class="form-grid">`;
+    const log=o.entregaLogistica||{}, info=o.infoPresupuesto||s.infoPresupuesto||{}, modalidades={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
+    const items=(info.items||o.itemsTecnicos||[]).map(i=>i.articulo||i.descripcion||i.desc).filter(Boolean).slice(0,8), aclaraciones=(info.aclaraciones||[]).filter(Boolean);
+    const sectores=getSectores(o), relevantes={ventas:['Entrega: '+(modalidades[log.tipo||info.modalidadEntrega]||'A definir'),'Revisión CT: '+(o.revisionCotizacion||'—'),'Fecha: '+(info.fechaEntrega||'—')],diseno:['Trabajo: '+(o.desc||'—'),'Plazo: '+(info.plazoEstimado||'—'),'Producción: '+normEstado(sectores.produccion?.estado)],compras:['Producción: '+normEstado(sectores.produccion?.estado),'Fecha necesaria: '+(sectores.produccion?.compromiso||info.fechaEntrega||'—'),'Plazo: '+(info.plazoEstimado||'—')],produccion:['Diseño: '+normEstado(sectores.diseno?.estado),'Compras: '+normEstado(sectores.compras?.estado),'Entrega: '+(modalidades[log.tipo||info.modalidadEntrega]||'A definir'),'Fecha necesaria: '+(info.fechaEntrega||'—')],colocaciones:['Modalidad: '+(modalidades[log.tipo||info.modalidadEntrega]||'A definir'),'Fecha: '+(info.fechaEntrega||s.compromiso||'—'),'Domicilio: '+(info.domicilio||s.direccion||'—'),'Contacto: '+(info.contacto||s.contacto||'—')],facturacion:['CT: '+(o.nroCotizacion||o.ot||'—'),'OC / OP: '+(sectores.facturacion?.oc||info.oc||'—'),'Condición: '+(info.condicionPago||o.cond||'—'),'Importe: '+fmt(info.importe||o.neto)],cobranzas:['Factura: '+(sectores.facturacion?.nroFactura||'—'),'Condición: '+(info.condicionPago||'—'),'Anticipo: '+(info.anticipoPct||0)+'%','Vencimiento: '+(sectores.facturacion?.vencimiento||sectores.cobranzas?.vencimiento||'—')]}[key]||[];
+    let html=`<div class="commercial-note" style="border-left:3px solid ${SECTOR_DEF[key].color}"><b>Información recibida desde Presupuestos</b><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px">${relevantes.map(x=>`<div>${esc(x)}</div>`).join('')}</div>${items.length&&['diseno','compras','produccion','colocaciones'].includes(key)?`<div style="margin-top:7px"><b>Ítems / materiales:</b> ${items.map(esc).join(' · ')}</div>`:''}${aclaraciones.length?`<div style="margin-top:7px"><b>Aclaraciones:</b> ${aclaraciones.map(esc).join(' · ')}</div>`:''}${(log.detalle||info.indicacionesEntrega)&&['produccion','colocaciones'].includes(key)?`<div style="margin-top:7px"><b>Indicaciones:</b> ${esc(log.detalle||info.indicacionesEntrega)}</div>`:''}</div><div class="form-grid">`;
     if(key==='ventas') html += select('Estado','sv-estado',['Pendiente','En gestión','Confirmado','Aprobado','Rechazado'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||o.vendedor||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + `<div class="form-group full"><div class="checklist-grid">${field('Cliente confirmado','sv-cliente-confirmado','checkbox',s.clienteConfirmado)}${field('OC / OP recibida','sv-oc-recibida','checkbox',s.ocRecibida)}${field('Seña recibida','sv-sena','checkbox',s.senaRecibida)}</div></div>` + field('Notas de Ventas','sv-notas','textarea',s.notas||'');
     if(key==='diseno') html += select('Estado','sv-estado',['Pendiente','Diseñando','Esperando cliente','Correcciones','Aprobado'],normEstado(s.estado)) + field('Diseñador','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + field('Fecha real','sv-real','text',s.real||'') + `<div class="form-group full"><div class="checklist-grid">${field('Diseño aprobado','sv-aprobado','checkbox',s.aprobado)}${field('Archivo final listo','sv-archivo-final','checkbox',s.archivoFinal)}${field('Enviado a Producción','sv-enviado-prod','checkbox',s.enviadoProduccion)}</div></div>` + field('Notas de Diseño','sv-notas','textarea',s.notas||'');
     if(key==='compras') html += select('Estado','sv-estado',['Pendiente','Cotizando','Pedido','Entrega parcial','Completo','Bloqueado'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + field('Fecha real','sv-real','text',s.real||'') + `<div class="form-group full"><div class="checklist-grid">${field('Pedido realizado','sv-pedido','checkbox',s.pedidoRealizado)}${field('Materiales completos','sv-materiales','checkbox',s.materialesCompletos)}${field('Sin faltantes','sv-sin-faltantes','checkbox',s.sinFaltantes)}</div></div>` + field('Faltantes / notas de Compras','sv-notas','textarea',s.notas||'');
@@ -386,7 +386,16 @@
       if(entrega.retira)notas.push('Retira: '+entrega.retira);
       if(entrega.detalle)notas.push('Indicaciones logísticas: '+entrega.detalle);
       items.forEach((item,i)=>{if(item.observaciones)notas.push('Ítem '+(i+1)+': '+item.observaciones);});
-      return {items,observaciones:notas.join('\n'),entregaLogistica:entrega};
+      const auxiliares=(Array.isArray(data?.calculosAuxiliares)?data.calculosAuxiliares:[]).map(x=>({
+        concepto:String(x?.concepto||'').trim(),detalle:String(x?.detalle||'').trim(),cantidad:Number(x?.cantidad||0),unidad:String(x?.unidad||'').trim(),observaciones:String(x?.observaciones||'').trim()
+      })).filter(x=>x.concepto||x.detalle);
+      const aclaraciones=[data?.desc,data?.nota,data?.observacionesComerciales].map(x=>String(x||'').trim()).filter(Boolean);
+      const infoPresupuesto={
+        fechaCotizacion:data?.fecha||'',plazoEstimado:data?.plazoEstimado||'',fechaEntrega:entrega.fecha||'',
+        modalidadEntrega:entrega.tipo||'a_definir',domicilio:entrega.domicilio||'',contacto:entrega.contacto||'',retira:entrega.retira||'',indicacionesEntrega:entrega.detalle||'',
+        items,materialesAuxiliares:auxiliares,aclaraciones,condicionPago:data?.cond||'',anticipoPct:Number(data?.anticipoPct||0),diasPago:Number(data?.diasPago||0),oc:data?.oc||'',importe:Number(data?.importe||0)
+      };
+      return {items,auxiliares,aclaraciones,observaciones:notas.join('\n'),entregaLogistica:entrega,infoPresupuesto};
     }
     window.datosTecnicosPresupuestoV3511=datosTecnicosPresupuesto;
     window.ensureObraFromPresupuestoV358=async function(presupuestoId,data){
@@ -394,11 +403,17 @@
       const numero=String(data.nro||'').replace(/\D/g,'');
       const existente=(window.DB?.obras||[]).find(o=>o.presupuestoId===presupuestoId||o.cotizacionId===presupuestoId||(String(o.ot||'').replace(/\D/g,'')===numero&&numero));
       const tecnico=datosTecnicosPresupuesto(data);
-      const produccionAnterior=existente?.gestionSectores?.produccion||{};
-      const produccion={...produccionAnterior,materiales:tecnico.items,observaciones:tecnico.observaciones,detalleCotizacion:tecnico.items,datosCotizacionSinPrecios:true,entregaLogistica:tecnico.entregaLogistica};
-      const colocacionesAnterior=existente?.gestionSectores?.colocaciones||{}, esColocacion=tecnico.entregaLogistica?.tipo==='colocacion';
-      const colocaciones={...colocacionesAnterior,...(esColocacion?{estado:'A coordinar',compromiso:tecnico.entregaLogistica.fecha||'',direccion:tecnico.entregaLogistica.domicilio||'',contacto:tecnico.entregaLogistica.contacto||'',notas:tecnico.entregaLogistica.detalle||''}:{})};
-      const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],itemsTecnicos:tecnico.items,entregaLogistica:tecnico.entregaLogistica,gestionSectores:{...(existente?.gestionSectores||{}),produccion,colocaciones},presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
+      const anteriores=existente?.gestionSectores||{}, info=tecnico.infoPresupuesto, aclaraciones=tecnico.aclaraciones.join('\n');
+      const ventas={...(anteriores.ventas||{}),infoPresupuesto:info,responsable:anteriores.ventas?.responsable||data.vendedor||'',compromiso:anteriores.ventas?.compromiso||info.fechaEntrega||'',notasPresupuesto:aclaraciones};
+      const diseno={...(anteriores.diseno||{}),infoPresupuesto:info,itemsCotizados:tecnico.items,aclaracionesPresupuesto:aclaraciones,compromiso:anteriores.diseno?.compromiso||info.plazoEstimado||''};
+      const compras={...(anteriores.compras||{}),infoPresupuesto:info,requerimientosPresupuesto:tecnico.auxiliares.length?tecnico.auxiliares:tecnico.items,aclaracionesPresupuesto:aclaraciones,compromiso:anteriores.compras?.compromiso||info.fechaEntrega||info.plazoEstimado||''};
+      const produccionAnterior=anteriores.produccion||{};
+      const produccion={...produccionAnterior,infoPresupuesto:info,materiales:produccionAnterior.materiales?.length?produccionAnterior.materiales:tecnico.items,materialesCotizados:tecnico.items,requerimientosPresupuesto:tecnico.auxiliares,observaciones:produccionAnterior.observaciones||tecnico.observaciones,aclaracionesPresupuesto:aclaraciones,detalleCotizacion:tecnico.items,datosCotizacionSinPrecios:true,entregaLogistica:tecnico.entregaLogistica,fechaFinPlan:produccionAnterior.fechaFinPlan||info.fechaEntrega||''};
+      const colocacionesAnterior=anteriores.colocaciones||{}, esColocacion=tecnico.entregaLogistica?.tipo==='colocacion';
+      const colocaciones={...colocacionesAnterior,infoPresupuesto:info,itemsCotizados:tecnico.items,aclaracionesPresupuesto:aclaraciones,modalidadEntrega:info.modalidadEntrega,...(esColocacion?{estado:colocacionesAnterior.estado||'A coordinar',compromiso:colocacionesAnterior.compromiso||info.fechaEntrega||'',fechaPlan:colocacionesAnterior.fechaPlan||info.fechaEntrega||'',direccion:colocacionesAnterior.direccion||info.domicilio||'',contacto:colocacionesAnterior.contacto||info.contacto||'',notas:colocacionesAnterior.notas||info.indicacionesEntrega||aclaraciones}:{estado:colocacionesAnterior.estado||'No requerida'})};
+      const facturacion={...(anteriores.facturacion||{}),infoPresupuesto:info,oc:anteriores.facturacion?.oc||info.oc||'',condicionPago:info.condicionPago,anticipoPct:info.anticipoPct,diasPago:info.diasPago,importePresupuestado:info.importe,aclaracionesPresupuesto:aclaraciones};
+      const cobranzas={...(anteriores.cobranzas||{}),infoPresupuesto:info,condicionPago:info.condicionPago,anticipoPct:info.anticipoPct,diasPago:info.diasPago,montoTotal:info.importe,saldoPendiente:anteriores.cobranzas?.saldoPendiente||info.importe,aclaracionesPresupuesto:aclaraciones};
+      const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],itemsTecnicos:tecnico.items,infoPresupuesto:info,entregaLogistica:tecnico.entregaLogistica,cond:data.cond||'',plazoEstimado:data.plazoEstimado||'',oc:data.oc||'',diasPago:Number(data.diasPago||0),anticipoPct:Number(data.anticipoPct||0),gestionSectores:{...anteriores,ventas,diseno,compras,produccion,colocaciones,facturacion,cobranzas},presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
       let obraId=existente?.id||'';
       if(obraId)await window.updateDoc_('obras',obraId,obra);
       else{const ref=await window.addDoc_('obras',obra);obraId=ref?.id||'';}
@@ -427,47 +442,9 @@
       const existente=(window.DB?.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===numero&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')===revision);
       const id=window.editingId?.presupuesto||existente?.id||'';
       const actual=(window.DB?.presupuestos||[]).find(p=>p.id===id)||existente||{};
-      const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),entregaLogistica:entregaLogisticaActual(),creadoPor:window.currentUser?.email||'',obraId:actual.obraId||'',cotizacionBase:numero};
+      const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,calculosAuxiliares:window.collectCalculosAuxPP?.()||window.ppCalculosAux||[],vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),entregaLogistica:entregaLogisticaActual(),creadoPor:window.currentUser?.email||'',obraId:actual.obraId||'',cotizacionBase:numero};
       try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;if(normEstado(data.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(presupuestoId,data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
     };
-  }
-
-  async function repararPresupuestosRecientes(){
-    if(window.__tizReparacionPresupuestosRunning||window.__tizReparacionPresupuestosDone||!window.currentUser?.isAdmin)return;
-    // Los listeners de Firestore cargan cada colección por separado. Esperamos a tener
-    // Obras para no crear otra OT mientras esa colección todavía está inicializando.
-    if(!(window.DB?.obras||[]).length)return;
-    const afectados=new Set(['4691','4692']);
-    const lista=(window.DB?.presupuestos||[]).filter(p=>afectados.has(String(p.nro||'').replace(/\D/g,'')));
-    if(!lista.length)return;
-    window.__tizReparacionPresupuestosRunning=true;
-    try{
-      const grupos=new Map();
-      for(const p of lista){
-        const numero=String(p.nro||'').replace(/\D/g,'');
-        const revision=window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1';
-        const key=numero+'|'+revision;
-        if(!grupos.has(key))grupos.set(key,[]);
-        grupos.get(key).push(p);
-      }
-      for(const grupo of grupos.values()){
-        const aprobados=grupo.filter(p=>normEstado(p.estado)==='Aprobado');
-        const conservar=aprobados[0]||grupo[0];
-        if(grupo.length>1){
-          const combinado={};
-          for(const p of grupo)for(const [k,v] of Object.entries(p))if((combinado[k]===undefined||combinado[k]===''||combinado[k]===null)&&v!==undefined&&v!==''&&v!==null)combinado[k]=v;
-          Object.assign(combinado,conservar,{estado:aprobados.length?'Aprobado':conservar.estado});
-          delete combinado.id;
-          await window.updateDoc_('presupuestos',conservar.id,combinado);
-          for(const p of grupo)if(p.id!==conservar.id)await window.deleteDoc_('presupuestos',p.id);
-          Object.assign(conservar,combinado);
-        }
-        if(normEstado(conservar.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(conservar.id,conservar);
-      }
-      window.__tizReparacionPresupuestosDone=true;
-      window.showToast?.('CT 4691 y 4692 revisadas: duplicados consolidados y Obras sincronizadas.');
-    }catch(e){console.error('[TIZ] No se pudieron reparar CT 4691/4692',e);}
-    finally{window.__tizReparacionPresupuestosRunning=false;}
   }
 
   function bloquearGeneracionDuplicada(){
@@ -480,43 +457,6 @@
     };
     wrapped.__tizBloqueado=true;
     window.generarPDF=wrapped;
-  }
-
-  async function limpiarDuplicadosPrueba4690(){
-    if(window.__v358Cleanup4690Running||window.__v358Cleanup4690Done||!window.currentUser?.isAdmin)return;
-    const lista=(window.DB?.presupuestos||[]).filter(p=>String(p.nro||'').replace(/\D/g,'')==='4690'&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')==='1.1');
-    if(lista.length<2)return;
-    window.__v358Cleanup4690Running=true;
-    try{
-      const conservar=lista.find(p=>normEstado(p.estado)==='Aprobado')||lista[0];
-      if(normEstado(conservar.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(conservar.id,conservar);
-      for(const p of lista)if(p.id!==conservar.id)await window.deleteDoc_('presupuestos',p.id);
-      window.__v358Cleanup4690Done=true;
-      window.showToast?.('CT 0004690 consolidada en un solo renglón');
-    }catch(e){console.error('[TIZ V35.8] No se pudieron limpiar duplicados',e);}
-    finally{window.__v358Cleanup4690Running=false;}
-  }
-
-  async function repararDrivePrueba4690(){
-    if(window.__v3510Drive4690Running||window.__v3510Drive4690Done||!window.currentUser?.isAdmin)return;
-    const p=(window.DB?.presupuestos||[]).find(x=>String(x.nro||'').replace(/\D/g,'')==='4690'&&normEstado(x.estado)==='Aprobado');
-    const o=(window.DB?.obras||[]).find(x=>x.presupuestoId===p?.id||String(x.ot||'').replace(/\D/g,'')==='4690');
-    if(!p||!o||o.driveFolderUrl)return;
-    window.__v3510Drive4690Running=true;
-    try{await window.ensureObraFromPresupuestoV358(p.id,p);window.__v3510Drive4690Done=true;window.showToast?.('Carpeta de Drive vinculada a la OT 4690');}
-    catch(e){console.error('[TIZ V35.10] No se pudo vincular Drive a OT 4690',e);window.showToast?.('No se pudo completar la carpeta de Drive: '+(e?.message||e));}
-    finally{window.__v3510Drive4690Running=false;}
-  }
-
-  async function repararDatosTecnicos4690(){
-    if(window.__v3511Tech4690Running||window.__v3511Tech4690Done||!window.currentUser?.isAdmin)return;
-    const p=(window.DB?.presupuestos||[]).find(x=>String(x.nro||'').replace(/\D/g,'')==='4690'&&normEstado(x.estado)==='Aprobado');
-    const o=(window.DB?.obras||[]).find(x=>x.presupuestoId===p?.id||String(x.ot||'').replace(/\D/g,'')==='4690');
-    if(!p||!o)return;
-    window.__v3511Tech4690Running=true;
-    try{await window.ensureObraFromPresupuestoV358(p.id,p);window.__v3511Tech4690Done=true;}
-    catch(e){console.error('[TIZ V35.11] No se pudieron copiar los datos técnicos de la CT 4690',e);}
-    finally{window.__v3511Tech4690Running=false;}
   }
 
   function integrarFichaProduccionV8(){
@@ -546,7 +486,7 @@
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
     patchEditObra(); patchPresupuestoFunctions(); bloquearGeneracionDuplicada();
-    const VERSION_LABEL='TIZ V35.15 · ERP INTEGRAL POR SECTOR · 03/09/2026';
+    const VERSION_LABEL='TIZ V35.16 · DATOS DE PRESUPUESTO POR SECTOR · 03/09/2026';
     const forceVersionBadge=()=>{const badge=document.getElementById('tiz-build-v20'); if(badge)badge.textContent=VERSION_LABEL;};
     forceVersionBadge();
     // expedientesV33 actualiza el pie con retraso; lo reponemos después y además observamos
