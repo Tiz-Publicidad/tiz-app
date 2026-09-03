@@ -104,7 +104,12 @@
     if(typeof window.updateDoc_!=='function'||typeof window.goTo!=='function')return false;
     window.renderCobranzas=renderCobranzasV41;window.setCobTab=setCobTabV41;
     if(!window.goTo.__cobranzasV41){const baseGo=window.goTo;const secured=function(page){if(page==='cobranzas'&&!window.currentUser?.isAdmin){window.showToast?.('Cobranzas es un módulo privado de administración');return}return baseGo.apply(this,arguments)};secured.__cobranzasV41=true;window.goTo=secured;}
-    setupPage();const nav=[...document.querySelectorAll('.nav-item')].find(x=>x.textContent.trim().startsWith('Cobranzas'));if(nav&&!window.currentUser?.isAdmin)nav.style.display='none';if(window.currentPage==='cobranzas')renderCobranzasV41();return true;
+    setupPage();
+    // La autenticación termina después de cargar este archivo. El acceso permanece
+    // visible y la autorización se valida al entrar, con el usuario ya identificado.
+    const nav=[...document.querySelectorAll('.nav-item')].find(x=>x.textContent.trim().startsWith('Cobranzas'));
+    if(nav)nav.style.display='';
+    if(window.currentPage==='cobranzas')renderCobranzasV41();return true;
   }
   if(!instalar()){let intentos=0;const timer=setInterval(()=>{if(instalar()||++intentos>80)clearInterval(timer)},250)}
 })();
