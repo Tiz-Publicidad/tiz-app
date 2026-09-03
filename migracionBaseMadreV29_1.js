@@ -86,4 +86,37 @@
     for(const it of lastPlan.creates){try{await window.addDoc_('obras',it.data);result.creadas++}catch(e){result.errores.push({tipo:'crear',ot:it.data.ot,error:String(e)})}}
     lastPlan=null;console.table(result);return result;
   };
+
+  function mostrarResumenMigracionV40(){
+    let x;
+    try{x=window.simularMigracionObrasV40()}catch(e){alert('No se pudo revisar la importación: '+e.message);return}
+    document.getElementById('modal-migracion-v40')?.remove();
+    const root=document.createElement('div');root.id='modal-migracion-v40';
+    root.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+    const ambiguas=(lastPlan?.ambiguous||[]).slice(0,20);
+    root.innerHTML='<div style="width:min(720px,96vw);max-height:88vh;overflow:auto;background:#171717;border:1px solid #3a3a3a;border-radius:12px;padding:22px;color:#eee;font:14px Arial">'+
+      '<h2 style="margin:0 0 16px">Revisión de importación</h2>'+
+      '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;line-height:1.7">'+
+      '<div>Base Excel: <b>'+x.origen+'</b></div><div>Obras actuales: <b>'+x.existentes+'</b></div>'+
+      '<div>Actualizaría: <b>'+x.actualizar+'</b></div><div>Crearía: <b>'+x.crear+'</b></div>'+
+      '<div>Ambiguas: <b style="color:'+(x.ambiguas?'#ffb020':'#35c46a')+'">'+x.ambiguas+'</b></div><div>Sin tocar: <b>'+x.sinTocar+'</b></div>'+
+      '<div>Siguiente cotización: <b>'+x.siguienteCotizacion+'</b></div><div>Esperada: <b>4696</b></div></div>'+
+      '<p style="margin:16px 0 8px;color:'+(x.listaParaAplicar?'#35c46a':'#ffb020')+'"><b>'+(x.listaParaAplicar?'La simulación pasó todos los controles.':'La carga permanece bloqueada hasta resolver las diferencias.')+'</b></p>'+
+      (ambiguas.length?'<div style="margin-top:12px"><b>Primeras coincidencias ambiguas</b><div style="margin-top:8px;font-size:12px;color:#bbb">'+ambiguas.map(a=>'Fila '+a.source.filaExcel+' · OT '+a.source.ot+' · '+a.source.cliente+' · '+a.source.descripcion).join('<br>')+'</div></div>':'')+
+      '<div style="display:flex;justify-content:flex-end;margin-top:18px"><button id="cerrar-migracion-v40" class="btn btn-primary">Cerrar</button></div></div>';
+    document.body.appendChild(root);
+    root.querySelector('#cerrar-migracion-v40').onclick=()=>root.remove();
+  }
+
+  function instalarBotonRevisionV40(){
+    if(document.getElementById('btn-revisar-migracion-v40'))return true;
+    const excel=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Excel');
+    if(!excel)return false;
+    const b=document.createElement('button');b.id='btn-revisar-migracion-v40';b.className='btn btn-ghost';
+    b.innerHTML='<i class="ti ti-database-search"></i> Revisar importación';
+    b.onclick=mostrarResumenMigracionV40;excel.parentElement.insertBefore(b,excel);return true;
+  }
+  if(!instalarBotonRevisionV40()){
+    let intentos=0;const reloj=setInterval(()=>{if(instalarBotonRevisionV40()||++intentos>40)clearInterval(reloj)},250);
+  }
 })();
