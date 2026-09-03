@@ -3254,6 +3254,8 @@ function renderEstCumplimiento() {
 // DRIVE OT — integración estable validada con Apps Script V16
 // ============================================================
 const TIZ_DRIVE_OT_WEBHOOK = "https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec";
+// Exponer el endpoint a los módulos externos que se cargan después del módulo Firebase.
+window.TIZ_DRIVE_OT_WEBHOOK = TIZ_DRIVE_OT_WEBHOOK;
 
 function sanitizeTizFolderPart(value) {
   return String(value || '')
