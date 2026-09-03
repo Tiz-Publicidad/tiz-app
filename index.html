@@ -429,7 +429,7 @@ td.strong { color: var(--text); font-weight: 500; }
         </div>
         <div class="card">
           <div class="table-wrap"><table>
-            <thead><tr><th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>Estado</th><th>F.Prod.Comp</th><th>F.Prod.Real</th><th>F.Col.Comp</th><th>F.Col.Real</th><th>Días</th><th></th></tr></thead>
+            <thead><tr><th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>Estado</th><th></th></tr></thead>
             <tbody id="obras-tbody"></tbody>
           </table></div>
         </div>
@@ -1389,7 +1389,7 @@ function renderDashboard() {
     const sp=semaforo(o.fprod_c,o.fprod_r); const sc=semaforo(o.fcol_c,o.fcol_r);
     const dias = diasEntre(o.fprod_c, o.fprod_r||new Date().toLocaleDateString('es-AR'));
     return `<tr>
-      <td class="strong">${o.ot||'—'}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
       <td><span style="color:var(--blue)">${o.sector||''}</span></td>
       <td>${sp!=='g'&&sp!=='n'?`<span>Prod: ${semBadge(o.fprod_c,o.fprod_r)}</span>`:''}${sc!=='g'&&sc!=='n'?`<span>Col: ${semBadge(o.fcol_c,o.fcol_r)}</span>`:''}</td>
       <td>${dias!==null?Math.abs(dias)+'d':'—'}</td>
@@ -1497,12 +1497,11 @@ window.renderObras = function() {
 
   document.getElementById('obras-count').textContent = obras.length + ' obras';
   document.getElementById('obras-tbody').innerHTML = obras.length ? obras.map(o => {
-    const dt = diasEntre(o.fprod_r||o.fprod_c, o.fcol_r||o.fcol_c);
     const tieneNotas = hasNotas(o);
     const riesgoV58 = window.analizaObraV58 ? window.analizaObraV58(o) : {nivel:'ok', problemas:[]};
     return `<tr onclick="toggleNotasRow('${o.id}')" style="cursor:pointer">
       <td>${o.semana||'—'}</td>
-      <td class="strong">${o.ot||'—'}</td>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td>
       <td class="strong" style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}<div style="margin-top:5px">${riesgoV58.nivel==='ok'?'':`<span class="risk-pill ${riesgoV58.nivel==='danger'?'risk-danger':'risk-warn'}">${riesgoV58.nivel==='danger'?'🔴':'🟡'} ${riesgoV58.problemas.length}</span>`}</div></td>
       <td>${o.cliente||''}</td>
       <td><span style="font-size:11px;font-weight:500;color:var(--blue)">${o.sector||''}</span></td>
@@ -1511,11 +1510,6 @@ window.renderObras = function() {
           ${['Pendiente','Enviado','Aprobado','Entregado','Cobrado pendiente','Cobrado'].map(s=>`<option value="${s}" ${o.estado===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </td>
-      <td><span class="dot dot-${semaforo(o.fprod_c,o.fprod_r)==='g'?'green':semaforo(o.fprod_c,o.fprod_r)==='a'?'amber':semaforo(o.fprod_c,o.fprod_r)==='r'?'red':'gray'}"></span>${o.fprod_c||'—'}</td>
-      <td style="color:${o.fprod_r?'var(--green)':'var(--text3)'}">${o.fprod_r||'Pendiente'}</td>
-      <td><span class="dot dot-${semaforo(o.fcol_c,o.fcol_r)==='g'?'green':semaforo(o.fcol_c,o.fcol_r)==='a'?'amber':semaforo(o.fcol_c,o.fcol_r)==='r'?'red':'gray'}"></span>${o.fcol_c||'—'}</td>
-      <td style="color:${o.fcol_r?'var(--green)':'var(--text3)'}">${o.fcol_r||'Pendiente'}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px">${dt!==null?dt+'d':'—'}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
         ${o.nrfc ? `<span title="Facturado: FC ${o.nrfc}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>` : ''}
         ${alertaVencimiento(o) ? `<span title="${alertaVencimiento(o)}" style="color:var(--red);margin-right:4px;font-size:13px">⚠</span>` : ''}
@@ -1526,12 +1520,12 @@ window.renderObras = function() {
       </td>
     </tr>
     <tr id="notas-row-${o.id}" style="display:none">
-      <td colspan="12" style="background:var(--surface2);padding:10px 14px;border-bottom:0.5px solid var(--border)">
+      <td colspan="7" style="background:var(--surface2);padding:10px 14px;border-bottom:0.5px solid var(--border)">
         ${tieneNotas ? notasPreview(o) : '<span style="font-size:12px;color:var(--text3)">Sin anotaciones. Hacé clic en el lápiz para agregar.</span>'}
         <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:11px"></i> Editar / Agregar nota</button>
       </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text3)">No hay obras. Hacé clic en "Nueva obra" para agregar.</td></tr>';
+  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras. Hacé clic en "Nueva obra" para agregar.</td></tr>';
 };
 
 window.setObrasSector = s => { window.obrasSectorFilter=s; renderObras(); };
@@ -1547,14 +1541,14 @@ window.renderSemana = function() {
 
   document.getElementById('semana-body').innerHTML = sel.length ? `
     <table style="width:100%;font-size:12px"><thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>F.Prod</th><th>F.Col</th></tr></thead>
-    <tbody>${sel.map(o=>`<tr><td class="strong">${o.ot||'—'}</td><td>${o.desc||''}</td><td>${o.cliente||''}</td><td>${o.sector||''}</td><td>${o.fprod_c||'—'}</td><td>${o.fcol_c||'—'}</td></tr>`).join('')}</tbody>
+    <tbody>${sel.map(o=>`<tr><td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td>${o.desc||''}</td><td>${o.cliente||''}</td><td>${o.sector||''}</td><td>${o.fprod_c||'—'}</td><td>${o.fcol_c||'—'}</td></tr>`).join('')}</tbody>
     </table>` : '<p style="color:var(--text3);font-size:13px">Ninguna obra seleccionada todavía. Tildá las obras abajo.</p>';
 
   document.getElementById('semana-picker').innerHTML = activas.length ? activas.map(o => `
     <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" ${window.obrasSemana.has(o.id)?'checked':''} onchange="toggleSemana('${o.id}',this.checked)" style="accent-color:var(--accent);width:16px;height:16px">
       <div>
-        <span style="font-weight:500;color:var(--text)">${o.ot||'—'} — ${o.desc||''}</span>
+        <span style="font-weight:500;color:var(--text)">${String(o.ot||'—').replace(/^0+(?=\d)/,'')} — ${o.desc||''}</span>
         <span style="color:var(--text3);font-size:11px;margin-left:8px">${o.cliente||''} · ${o.sector||''}</span>
       </div>
       <span style="margin-left:auto;color:var(--text3);font-size:11px">${estadoBadge(o.estado)}</span>
@@ -1597,7 +1591,7 @@ function renderProduccion() {
   document.getElementById('prod-tbody').innerHTML = show.map(o => {
     const dias = diasEntre(o.fprod_r||o.fprod_c, o.fcol_r||o.fcol_c);
     return `<tr>
-      <td class="strong">${o.ot||'—'}</td>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td>
       <td class="strong">${o.desc||''}</td>
       <td>${o.cliente||''}</td>
       <td><span class="dot dot-${semaforo(o.fprod_c,o.fprod_r)==='g'?'green':semaforo(o.fprod_c,o.fprod_r)==='a'?'amber':'red'}"></span>${o.fprod_c||'—'}</td>
@@ -1626,7 +1620,7 @@ function renderColocaciones() {
   document.getElementById('col-tbody').innerHTML = show.map(o => {
     const dias = diasEntre(o.fcol_c, o.fcol_r||new Date().toLocaleDateString('es-AR'));
     return `<tr>
-      <td class="strong">${o.ot||'—'}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
       <td><span class="dot dot-${semaforo(o.fcol_c,o.fcol_r)==='g'?'green':semaforo(o.fcol_c,o.fcol_r)==='a'?'amber':'red'}"></span>${o.fcol_c||'—'}</td>
       <td style="color:${o.fcol_r?'var(--green)':'var(--text3)'}">${o.fcol_r||'Pendiente'}</td>
       <td>${semBadge(o.fcol_c,o.fcol_r)}</td>
@@ -1650,7 +1644,7 @@ function renderDiseno() {
   `;
 
   document.getElementById('dis-tbody').innerHTML = obras.map(o => `<tr>
-    <td class="strong">${o.ot||'—'}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+    <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
     <td>${o.vendedor||'—'}</td><td>${estadoBadge(o.estado)}</td><td>${fmtM(o.neto)}</td>
     <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras de diseño.</td></tr>';
@@ -3491,11 +3485,11 @@ async function syncToSheets(data) {
 </script>
 
 <script src="excelMadre.js?v=TIZ-V40-BASE-20260903"></script>
-<script src="migracionBaseMadreV29_1.js?v=TIZ-V40-3-BASE-20260903"></script>
+<script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-16-DATOS-PRESUPUESTO-POR-SECTOR-20260903"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-17-OBRAS-LIMPIAS-20260903"></script>
 </body>
 </html>
