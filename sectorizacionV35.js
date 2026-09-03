@@ -367,29 +367,91 @@
       let obraId=existente?.id||'';
       if(obraId)await window.updateDoc_('obras',obraId,obra);
       else{const ref=await window.addDoc_('obras',obra);obraId=ref?.id||'';}
+      // La obra y el vínculo con el presupuesto son la operación principal. Drive es
+      // complementario: una demora o error allí nunca debe dejar una CT aprobada fuera
+      // de Obras.
+      await window.updateDoc_('presupuestos',presupuestoId,{obraId,promovidoAObra:true,promovidoEn:new Date().toISOString()});
       let links={};
       if(!existente?.driveFolderUrl&&typeof window.syncDriveFolder==='function'){
-        const drive=await window.syncDriveFolder({...obra,firestoreId:obraId},'ot');
-        if(!drive?.driveFolderUrl)throw new Error(drive?.error||'Drive no devolvió el enlace de la carpeta OT');
-        links={driveFolderUrl:drive.driveFolderUrl,driveFolderId:drive.folderId||drive.driveFolderId||'',driveSyncedAt:new Date().toISOString()};
-        await window.updateDoc_('obras',obraId,links);
+        try{
+          const drive=await window.syncDriveFolder({...obra,firestoreId:obraId},'ot');
+          if(!drive?.driveFolderUrl)throw new Error(drive?.error||'Drive no devolvió el enlace de la carpeta OT');
+          links={driveFolderUrl:drive.driveFolderUrl,driveFolderId:drive.folderId||drive.driveFolderId||'',driveSyncedAt:new Date().toISOString()};
+          await window.updateDoc_('obras',obraId,links);
+          await window.updateDoc_('presupuestos',presupuestoId,links);
+        }catch(e){
+          console.warn('[TIZ] La obra fue creada, pero Drive quedó pendiente',e);
+          window.showToast?.('La obra fue creada. La carpeta de Drive quedó pendiente y se reintentará.');
+        }
       }
-      await window.updateDoc_('presupuestos',presupuestoId,{obraId,promovidoAObra:true,promovidoEn:new Date().toISOString(),...links});
       return obraId;
     };
     const oldNew=window.abrirNuevoPresupuestoCompleto;
     window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments); setTimeout(()=>{document.getElementById('pp-fecha').value=new Date().toLocaleDateString('es-AR'); document.getElementById('pp-estado').value='Enviado'; document.getElementById('pp-moneda').value='ARS'; document.getElementById('pp-vendedor').value='G'; document.getElementById('pp-plazo').value=''; document.getElementById('pp-anticipo').value='50'; document.getElementById('pp-dias-pago').value=''; document.getElementById('pp-oc').value=''; document.getElementById('pp-obs-comercial').value='';},0);return r;};
     const oldSave=window.guardarPresupuestoCompleto;
     window.guardarPresupuestoCompleto=async function(){
-      const nro=val('pp-nro').trim()||'0000', cliente=val('pp-cliente').trim(), desc=val('pp-desc').trim(), items=(window.ppItems||[]).filter(i=>(i.desc||'').trim()||(+i.precio||0)>0); if(!cliente||!items.length)return oldSave?.apply(this,arguments);
+      if(window.__tizPresupuestoGuardando){window.showToast?.('El presupuesto ya se está guardando. Esperá un momento.');return;}
+      window.__tizPresupuestoGuardando=true;
+      const nro=val('pp-nro').trim()||'0000', cliente=val('pp-cliente').trim(), desc=val('pp-desc').trim(), items=(window.ppItems||[]).filter(i=>(i.desc||'').trim()||(+i.precio||0)>0); if(!cliente||!items.length){window.__tizPresupuestoGuardando=false;return oldSave?.apply(this,arguments);}
       const total=items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
       const revision=window.normalizarRevisionV354?.(val('pp-revision')||'1.1')||'1.1';
       const numero=String(nro).replace(/\D/g,'');
       const existente=(window.DB?.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===numero&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')===revision);
       const id=window.editingId?.presupuesto||existente?.id||'';
-      const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),creadoPor:window.currentUser?.email||'',obraId:'',cotizacionBase:numero};
-      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;if(normEstado(data.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(presupuestoId,data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}
+      const actual=(window.DB?.presupuestos||[]).find(p=>p.id===id)||existente||{};
+      const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),creadoPor:window.currentUser?.email||'',obraId:actual.obraId||'',cotizacionBase:numero};
+      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;if(normEstado(data.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(presupuestoId,data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
     };
+  }
+
+  async function repararPresupuestosRecientes(){
+    if(window.__tizReparacionPresupuestosRunning||window.__tizReparacionPresupuestosDone||!window.currentUser?.isAdmin)return;
+    // Los listeners de Firestore cargan cada colección por separado. Esperamos a tener
+    // Obras para no crear otra OT mientras esa colección todavía está inicializando.
+    if(!(window.DB?.obras||[]).length)return;
+    const afectados=new Set(['4691','4692']);
+    const lista=(window.DB?.presupuestos||[]).filter(p=>afectados.has(String(p.nro||'').replace(/\D/g,'')));
+    if(!lista.length)return;
+    window.__tizReparacionPresupuestosRunning=true;
+    try{
+      const grupos=new Map();
+      for(const p of lista){
+        const numero=String(p.nro||'').replace(/\D/g,'');
+        const revision=window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1';
+        const key=numero+'|'+revision;
+        if(!grupos.has(key))grupos.set(key,[]);
+        grupos.get(key).push(p);
+      }
+      for(const grupo of grupos.values()){
+        const aprobados=grupo.filter(p=>normEstado(p.estado)==='Aprobado');
+        const conservar=aprobados[0]||grupo[0];
+        if(grupo.length>1){
+          const combinado={};
+          for(const p of grupo)for(const [k,v] of Object.entries(p))if((combinado[k]===undefined||combinado[k]===''||combinado[k]===null)&&v!==undefined&&v!==''&&v!==null)combinado[k]=v;
+          Object.assign(combinado,conservar,{estado:aprobados.length?'Aprobado':conservar.estado});
+          delete combinado.id;
+          await window.updateDoc_('presupuestos',conservar.id,combinado);
+          for(const p of grupo)if(p.id!==conservar.id)await window.deleteDoc_('presupuestos',p.id);
+          Object.assign(conservar,combinado);
+        }
+        if(normEstado(conservar.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(conservar.id,conservar);
+      }
+      window.__tizReparacionPresupuestosDone=true;
+      window.showToast?.('CT 4691 y 4692 revisadas: duplicados consolidados y Obras sincronizadas.');
+    }catch(e){console.error('[TIZ] No se pudieron reparar CT 4691/4692',e);}
+    finally{window.__tizReparacionPresupuestosRunning=false;}
+  }
+
+  function bloquearGeneracionDuplicada(){
+    const original=window.generarPDF;
+    if(typeof original!=='function'||original.__tizBloqueado)return;
+    const wrapped=async function(){
+      if(window.__tizPresupuestoGuardando){window.showToast?.('El presupuesto ya se está procesando. Esperá un momento.');return;}
+      window.__tizPresupuestoGuardando=true;
+      try{return await original.apply(this,arguments);}finally{window.__tizPresupuestoGuardando=false;}
+    };
+    wrapped.__tizBloqueado=true;
+    window.generarPDF=wrapped;
   }
 
   async function limpiarDuplicadosPrueba4690(){
@@ -436,12 +498,12 @@
     // en memoria para que Obras y las vistas históricas reflejen el sector al instante.
     if(!window.__v35RefreshPatched && window.refreshCurrent){
       window.__v35RefreshPatched=true; const oldRefresh=window.refreshCurrent;
-      window.refreshCurrent=function(){ normalizeDBV35(); const r=oldRefresh.apply(this,arguments);setTimeout(limpiarDuplicadosPrueba4690,0);setTimeout(repararDrivePrueba4690,100);setTimeout(repararDatosTecnicos4690,200);return r; };
+      window.refreshCurrent=function(){ normalizeDBV35(); const r=oldRefresh.apply(this,arguments);setTimeout(limpiarDuplicadosPrueba4690,0);setTimeout(repararPresupuestosRecientes,50);setTimeout(repararDrivePrueba4690,100);setTimeout(repararDatosTecnicos4690,200);return r; };
     }
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
-    patchEditObra(); patchPresupuestoFunctions();
-    const VERSION_LABEL='TIZ V35.6 · AUTOCOMPLETE CLIENTES CORREGIDO · 17/08/2026';
+    patchEditObra(); patchPresupuestoFunctions(); bloquearGeneracionDuplicada();
+    const VERSION_LABEL='TIZ V35.13 · PRESUPUESTOS SIN DUPLICADOS · 03/09/2026';
     const forceVersionBadge=()=>{const badge=document.getElementById('tiz-build-v20'); if(badge)badge.textContent=VERSION_LABEL;};
     forceVersionBadge();
     // expedientesV33 actualiza el pie con retraso; lo reponemos después y además observamos
