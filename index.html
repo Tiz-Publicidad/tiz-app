@@ -429,7 +429,7 @@ td.strong { color: var(--text); font-weight: 500; }
         </div>
         <div class="card">
           <div class="table-wrap"><table>
-            <thead><tr><th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>Estado</th><th>F.Prod.Comp</th><th>F.Prod.Real</th><th>F.Col.Comp</th><th>F.Col.Real</th><th>Días</th><th>Precio venta</th><th></th></tr></thead>
+            <thead><tr><th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>Estado</th><th>F.Prod.Comp</th><th>F.Prod.Real</th><th>F.Col.Comp</th><th>F.Col.Real</th><th>Días</th><th></th></tr></thead>
             <tbody id="obras-tbody"></tbody>
           </table></div>
         </div>
@@ -1516,7 +1516,6 @@ window.renderObras = function() {
       <td><span class="dot dot-${semaforo(o.fcol_c,o.fcol_r)==='g'?'green':semaforo(o.fcol_c,o.fcol_r)==='a'?'amber':semaforo(o.fcol_c,o.fcol_r)==='r'?'red':'gray'}"></span>${o.fcol_c||'—'}</td>
       <td style="color:${o.fcol_r?'var(--green)':'var(--text3)'}">${o.fcol_r||'Pendiente'}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${dt!==null?dt+'d':'—'}</td>
-      <td>${fmtM(o.neto)}</td>
       <td style="white-space:nowrap" onclick="event.stopPropagation()">
         ${o.nrfc ? `<span title="Facturado: FC ${o.nrfc}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>` : ''}
         ${alertaVencimiento(o) ? `<span title="${alertaVencimiento(o)}" style="color:var(--red);margin-right:4px;font-size:13px">⚠</span>` : ''}
@@ -1527,12 +1526,12 @@ window.renderObras = function() {
       </td>
     </tr>
     <tr id="notas-row-${o.id}" style="display:none">
-      <td colspan="13" style="background:var(--surface2);padding:10px 14px;border-bottom:0.5px solid var(--border)">
+      <td colspan="12" style="background:var(--surface2);padding:10px 14px;border-bottom:0.5px solid var(--border)">
         ${tieneNotas ? notasPreview(o) : '<span style="font-size:12px;color:var(--text3)">Sin anotaciones. Hacé clic en el lápiz para agregar.</span>'}
         <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:11px"></i> Editar / Agregar nota</button>
       </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="13" style="text-align:center;padding:32px;color:var(--text3)">No hay obras. Hacé clic en "Nueva obra" para agregar.</td></tr>';
+  }).join('') : '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text3)">No hay obras. Hacé clic en "Nueva obra" para agregar.</td></tr>';
 };
 
 window.setObrasSector = s => { window.obrasSectorFilter=s; renderObras(); };
@@ -3492,7 +3491,7 @@ async function syncToSheets(data) {
 </script>
 
 <script src="excelMadre.js?v=TIZ-V40-BASE-20260903"></script>
-<script src="migracionBaseMadreV29_1.js?v=TIZ-V40-2-BASE-20260903"></script>
+<script src="migracionBaseMadreV29_1.js?v=TIZ-V40-3-BASE-20260903"></script>
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>

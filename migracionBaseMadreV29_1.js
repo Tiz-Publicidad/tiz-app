@@ -52,7 +52,7 @@
     const updates=[],creates=[],ambiguous=[];
     source.forEach(x=>{const found=matched.get(x);if(found){updates.push({id:found.id,source:x,data:patch(x,found),similaridad:dice(x.descripcion,found.desc||found.descripcion)});return}const sameOT=byBase.get(baseOT(x.ot))||[];if(sameOT.length){ambiguous.push({source:x,candidates:sameOT.map(o=>({id:o.id,ot:o.ot,cliente:o.cliente,desc:o.desc||o.descripcion,estado:o.estado}))});return}creates.push({source:x,data:patch(x,null)})});
     const counts={};source.forEach(x=>{const st=text(x.estado);counts[st]=(counts[st]||0)+1});
-    return {version:VERSION,createdAt:new Date().toISOString(),sourceCount:source.length,currentCount:current.length,updates,creates,ambiguous,untouched:current.filter(o=>!used.has(o.id)),statusCounts:counts,nextQuote:nextQuote(),expectedNextQuote:4696,safeToApply:ambiguous.length===0&&nextQuote()===4696,token:crypto.randomUUID?crypto.randomUUID():String(Date.now())};
+    return {version:VERSION,createdAt:new Date().toISOString(),sourceCount:source.length,currentCount:current.length,updates,creates,ambiguous,untouched:current.filter(o=>!used.has(o.id)),statusCounts:counts,nextQuote:nextQuote(),expectedNextQuote:4696,safeToApply:nextQuote()===4696&&(updates.length>0||creates.length>0),token:crypto.randomUUID?crypto.randomUUID():String(Date.now())};
   }
 
   window.simularMigracionObrasV40=function(){
@@ -78,10 +78,10 @@
   window.aplicarMigracionObrasV40=async function(token){
     if(!lastPlan) throw new Error('Primero ejecutá simularMigracionObrasV40().');
     if(token!==lastPlan.token) throw new Error('Token inválido: repetí la simulación.');
-    if(lastPlan.ambiguous.length) throw new Error('Hay coincidencias ambiguas. No se aplicó ningún cambio.');
+    // Los casos ambiguos se omiten: nunca se actualizan ni se crean automáticamente.
     if(lastPlan.nextQuote!==4696) throw new Error('La siguiente cotización no es 4696. No se aplicó ningún cambio.');
     if(typeof window.updateDoc_!=='function'||typeof window.addDoc_!=='function') throw new Error('Firestore todavía no está listo.');
-    if(!confirm('Se actualizarán '+lastPlan.updates.length+' obras y se crearán '+lastPlan.creates.length+'. No se eliminará ninguna. ¿Continuar?')) return {cancelado:true};
+    if(!confirm('Se actualizarán '+lastPlan.updates.length+' obras y se crearán '+lastPlan.creates.length+'. Se omitirán '+lastPlan.ambiguous.length+' casos ambiguos y no se eliminará ninguna obra. ¿Continuar?')) return {cancelado:true};
     window.descargarRespaldoObrasV40();
     const result={actualizadas:0,creadas:0,errores:[]};
     for(const it of lastPlan.updates){try{await window.updateDoc_('obras',it.id,it.data);result.actualizadas++}catch(e){result.errores.push({tipo:'actualizar',id:it.id,error:String(e)})}}
@@ -103,11 +103,13 @@
       '<div>Actualizaría: <b>'+x.actualizar+'</b></div><div>Crearía: <b>'+x.crear+'</b></div>'+
       '<div>Ambiguas: <b style="color:'+(x.ambiguas?'#ffb020':'#35c46a')+'">'+x.ambiguas+'</b></div><div>Sin tocar: <b>'+x.sinTocar+'</b></div>'+
       '<div>Siguiente cotización: <b>'+x.siguienteCotizacion+'</b></div><div>Esperada: <b>4696</b></div></div>'+
-      '<p style="margin:16px 0 8px;color:'+(x.listaParaAplicar?'#35c46a':'#ffb020')+'"><b>'+(x.listaParaAplicar?'La simulación pasó todos los controles.':'La carga permanece bloqueada hasta resolver las diferencias.')+'</b></p>'+
+      '<p style="margin:16px 0 8px;color:'+(x.listaParaAplicar?'#35c46a':'#ffb020')+'"><b>'+(x.listaParaAplicar?'Listo para cargar las coincidencias seguras. Los casos ambiguos serán omitidos.':'La carga permanece bloqueada por el control de numeración.')+'</b></p>'+
       (ambiguas.length?'<div style="margin-top:12px"><b>Primeras coincidencias ambiguas</b><div style="margin-top:8px;font-size:12px;color:#bbb">'+ambiguas.map(a=>'Fila '+a.source.filaExcel+' · OT '+a.source.ot+' · '+a.source.cliente+' · '+a.source.descripcion).join('<br>')+'</div></div>':'')+
-      '<div style="display:flex;justify-content:flex-end;margin-top:18px"><button id="cerrar-migracion-v40" class="btn btn-primary">Cerrar</button></div></div>';
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button id="cerrar-migracion-v40" class="btn btn-ghost">Cerrar</button><button id="aplicar-migracion-v40" class="btn btn-primary" '+(x.listaParaAplicar?'':'disabled')+'>Cargar obras seguras</button></div></div>';
     document.body.appendChild(root);
     root.querySelector('#cerrar-migracion-v40').onclick=()=>root.remove();
+    const aplicar=root.querySelector('#aplicar-migracion-v40');
+    aplicar.onclick=async()=>{aplicar.disabled=true;aplicar.textContent='Cargando…';try{const r=await window.aplicarMigracionObrasV40(x.token);if(r?.cancelado){aplicar.disabled=false;aplicar.textContent='Cargar obras seguras';return}alert('Carga terminada. Actualizadas: '+r.actualizadas+' · Creadas: '+r.creadas+' · Errores: '+r.errores.length);root.remove()}catch(e){alert('No se aplicó la carga: '+e.message);aplicar.disabled=false;aplicar.textContent='Cargar obras seguras'}};
   }
 
   function instalarBotonRevisionV40(){
