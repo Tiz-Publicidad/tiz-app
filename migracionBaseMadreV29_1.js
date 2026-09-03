@@ -13,16 +13,21 @@
   const nextQuote=()=>{
     const ps=(window.DB?.presupuestos||[]).map(p=>parseInt(p.nro,10)||0);
     const os=(window.DB?.obras||[]).map(o=>parseInt(o.ot,10)||0);
-    return Math.max(0,...ps,...os)+1;
+    return Math.max(4695,...ps,...os)+1;
   };
-  const patch=x=>({
-    ot:text(x.ot), desc:text(x.descripcion), cliente:text(x.cliente), vendedor:text(x.vendedor)||'G',
-    estado:ALLOWED.has(text(x.estado))?text(x.estado):'Pendiente', sector:text(x.sector)||'Producción',
-    semana:Number(x.semana)||0, neto:Number(x.precioVentaNeto)||0, bruto:Number(x.precioVentaBruto)||0,
-    gastos:Number(x.gastos)||0, fprod_c:text(x.produccion?.fechaCompromiso),
-    fprod_r:text(x.produccion?.fechaReal), fcol_c:text(x.colocacion?.fechaCompromiso),
-    fcol_r:text(x.colocacion?.fechaReal), oc:text(x.oc), op:text(x.op), nrfc:text(x.nroFactura),
-    ffc:text(x.fechaFactura), comentarios:text(x.comentarios), sourceKey:text(x.sourceKey),
+  const tokens=v=>new Set(norm(v).split(' ').filter(w=>w.length>1));
+  const dice=(a,b)=>{const A=tokens(a),B=tokens(b);if(!A.size&&!B.size)return 1;let hit=0;A.forEach(x=>{if(B.has(x))hit++});return (2*hit)/(A.size+B.size||1)};
+  const patch=(x,existing)=>({
+    ot:text(x.ot), desc:text(x.descripcion), cliente:text(x.cliente), vendedor:text(x.vendedor)||text(existing?.vendedor)||'G',
+    estado:ALLOWED.has(text(x.estado))?text(x.estado):'Pendiente', sector:text(x.sector)||text(existing?.sector)||'Producción',
+    semana:Number(x.semana)||Number(existing?.semana)||0, neto:Number(x.precioVentaNeto)||0, bruto:Number(x.precioVentaBruto)||0,
+    gastos:Number(x.gastos)||0, fprod_c:text(x.produccion?.fechaCompromiso)||text(existing?.fprod_c),
+    fprod_r:text(x.produccion?.fechaReal)||text(existing?.fprod_r), fcol_c:text(x.colocacion?.fechaCompromiso)||text(existing?.fcol_c),
+    fcol_r:text(x.colocacion?.fechaReal)||text(existing?.fcol_r),
+    oc:text(x.oc)||text(existing?.oc), op:text(x.op)||text(existing?.op),
+    nrfc:text(x.nroFactura)||text(existing?.nrfc)||text(existing?.nroFactura)||text(existing?.numeroFactura),
+    ffc:text(x.fechaFactura)||text(existing?.ffc)||text(existing?.fFactura)||text(existing?.fechaFactura),
+    comentarios:text(x.comentarios)||text(existing?.comentarios), sourceKey:text(x.sourceKey),
     importacionVersion:VERSION, importacionFilaExcel:Number(x.filaExcel)||0
   });
 
@@ -36,21 +41,18 @@
       const f=fp(o);if(baseOT(o.ot)){const a=byFp.get(f)||[];a.push(o);byFp.set(f,a)}
       const b=baseOT(o.ot);if(b){const a=byBase.get(b)||[];a.push(o);byBase.set(b,a)}
     });
-    const used=new Set(), updates=[], creates=[], ambiguous=[];
+    const used=new Set(), matched=new Map(), pending=[];
     const take=list=>(list||[]).find(o=>!used.has(o.id));
-    source.forEach(x=>{
-      let found=take(bySource.get(text(x.sourceKey)))||take(byFp.get(fp(x)));
-      if(found){used.add(found.id);updates.push({id:found.id,source:x,data:patch(x)});return}
-      const sameOT=(byBase.get(baseOT(x.ot))||[]).filter(o=>!used.has(o.id));
-      if(sameOT.length){ambiguous.push({source:x,candidates:sameOT.map(o=>({id:o.id,ot:o.ot,cliente:o.cliente,desc:o.desc||o.descripcion,estado:o.estado}))});return}
-      creates.push({source:x,data:patch(x)});
-    });
-    const counts={};source.forEach(x=>{const s=text(x.estado);counts[s]=(counts[s]||0)+1});
-    return {version:VERSION,createdAt:new Date().toISOString(),sourceCount:source.length,currentCount:current.length,
-      updates,creates,ambiguous,untouched:current.filter(o=>!used.has(o.id)),statusCounts:counts,
-      nextQuote:nextQuote(),expectedNextQuote:4696,
-      safeToApply:ambiguous.length===0&&nextQuote()===4696,
-      token:crypto.randomUUID?crypto.randomUUID():String(Date.now())};
+    source.forEach(x=>{const found=take(bySource.get(text(x.sourceKey)))||take(byFp.get(fp(x)));if(found){used.add(found.id);matched.set(x,found)}else pending.push(x)});
+    const pairs=[];
+    pending.forEach(x=>(byBase.get(baseOT(x.ot))||[]).forEach(o=>{if(used.has(o.id)||norm(x.cliente)!==norm(o.cliente))return;pairs.push({x,o,score:dice(x.descripcion,o.desc||o.descripcion)})}));
+    pairs.sort((a,b)=>b.score-a.score);
+    const assignedSource=new Set();
+    pairs.forEach(p=>{if(p.score<0.36||assignedSource.has(p.x)||used.has(p.o.id))return;assignedSource.add(p.x);used.add(p.o.id);matched.set(p.x,p.o)});
+    const updates=[],creates=[],ambiguous=[];
+    source.forEach(x=>{const found=matched.get(x);if(found){updates.push({id:found.id,source:x,data:patch(x,found),similaridad:dice(x.descripcion,found.desc||found.descripcion)});return}const sameOT=byBase.get(baseOT(x.ot))||[];if(sameOT.length){ambiguous.push({source:x,candidates:sameOT.map(o=>({id:o.id,ot:o.ot,cliente:o.cliente,desc:o.desc||o.descripcion,estado:o.estado}))});return}creates.push({source:x,data:patch(x,null)})});
+    const counts={};source.forEach(x=>{const st=text(x.estado);counts[st]=(counts[st]||0)+1});
+    return {version:VERSION,createdAt:new Date().toISOString(),sourceCount:source.length,currentCount:current.length,updates,creates,ambiguous,untouched:current.filter(o=>!used.has(o.id)),statusCounts:counts,nextQuote:nextQuote(),expectedNextQuote:4696,safeToApply:ambiguous.length===0&&nextQuote()===4696,token:crypto.randomUUID?crypto.randomUUID():String(Date.now())};
   }
 
   window.simularMigracionObrasV40=function(){
