@@ -232,7 +232,9 @@
   function drawTab() {
     const {root,o,sector,key,data}=current();if(!o)return;
     const tab=root.dataset.tab||'general', c=document.getElementById('v31-content');
-    if(tab==='general') c.innerHTML=`<div class="v31-form">
+    const log=o.entregaLogistica||{}, modalidades={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
+    const compartida=`<div class="v31-panel" style="margin-bottom:10px;border-left:3px solid ${sector==='Colocaciones'?'var(--teal)':'var(--blue)'}"><b>Información compartida de la OT</b><div class="v31-form" style="margin-top:8px"><div><span class="v31-sub">Modalidad</span><br><b>${esc(modalidades[log.tipo]||'A definir')}</b></div><div><span class="v31-sub">Fecha prevista</span><br><b>${esc(log.fecha||'Sin definir')}</b></div>${log.domicilio?`<div><span class="v31-sub">Domicilio</span><br><b>${esc(log.domicilio)}</b></div>`:''}${log.contacto?`<div><span class="v31-sub">Contacto</span><br><b>${esc(log.contacto)}</b></div>`:''}${log.retira?`<div><span class="v31-sub">Retira</span><br><b>${esc(log.retira)}</b></div>`:''}${log.detalle?`<div class="v31-field full"><span class="v31-sub">Indicaciones</span><div>${esc(log.detalle)}</div></div>`:''}</div></div>`;
+    if(tab==='general') c.innerHTML=compartida+`<div class="v31-form">
       <div class="v31-field"><label>OT</label><input value="${esc(o.ot||'')}" disabled></div><div class="v31-field"><label>Cliente</label><input value="${esc(o.cliente||'')}" disabled></div><div class="v31-field"><label>Trabajo</label><input value="${esc(o.desc||'')}" disabled></div>
       <div class="v31-field"><label>Responsable</label><input id="v31-responsable" value="${esc(data.responsable||'')}"></div><div class="v31-field"><label>Prioridad</label><select id="v31-prioridad"><option ${data.prioridad==='Normal'?'selected':''}>Normal</option><option ${data.prioridad==='Alta'?'selected':''}>Alta</option><option ${data.prioridad==='Crítica'?'selected':''}>Crítica</option></select></div><div class="v31-field"><label>Estado interno</label><select id="v31-estado"><option ${data.estadoInterno==='Pendiente'?'selected':''}>Pendiente</option><option ${data.estadoInterno==='En preparación'?'selected':''}>En preparación</option><option ${data.estadoInterno==='Lista'?'selected':''}>Lista</option><option ${data.estadoInterno==='Finalizada'?'selected':''}>Finalizada</option></select></div>
       ${sector==='Colocaciones'?`<div class="v31-field"><label>Dirección</label><input id="v31-direccion" value="${esc(data.direccion||o.direccion||'')}"></div><div class="v31-field"><label>Contacto</label><input id="v31-contacto" value="${esc(data.contacto||o.contacto||'')}"></div><div class="v31-field"><label>Teléfono</label><input id="v31-telefono" value="${esc(data.telefono||'')}"></div><div class="v31-field"><label>Altura (m)</label><input id="v31-altura" type="number" step=".1" value="${esc(data.altura||'')}"></div><div class="v31-field"><label>Tipo de superficie</label><input id="v31-superficie" value="${esc(data.superficie||'')}"></div><div class="v31-field"><label>Interior / exterior</label><select id="v31-ambiente"><option ${data.ambiente==='Exterior'?'selected':''}>Exterior</option><option ${data.ambiente==='Interior'?'selected':''}>Interior</option></select></div>`:''}
@@ -252,7 +254,7 @@
       c.innerHTML=`<div id="v31-material-list">${rows.map(materialHTML).join('')}</div><button class="btn btn-ghost" onclick="addMaterialV31()">＋ Agregar material</button><div class="v31-sub" style="margin-top:8px">Seleccionar materiales específicos de la OT. No cargar consumibles generales.</div>`;
     }
     if(tab==='notes') c.innerHTML=`<div class="v31-panel"><div id="v31-generated-alerts">${alertsFor(o,sector).map(a=>`<div class="v31-alert">${esc(a)}</div>`).join('')||'<div class="v31-alert">No hay ayudamemorias automáticos pendientes.</div>'}</div><div class="v31-field full" style="margin-top:9px"><label>Ayudamemoria / nota natural</label><textarea id="v31-ayudamemoria" rows="4">${esc(data.ayudamemoria||'')}</textarea></div><div class="v31-sub">Ejemplo: “Confirmar color con Pablo antes de pintar”.</div></div>`;
-    if(tab==='docs') c.innerHTML=`<div class="v31-docs">${o.driveFolderUrl?`<button class="v31-doc" onclick="window.open('${esc(o.driveFolderUrl)}','_blank')">📁 Abrir carpeta OT</button>`:''}${data.sheetUrl?`<button class="v31-doc" onclick="window.open('${esc(data.sheetUrl)}','_blank')">📄 Abrir Google Sheet</button>`:'<button class="v31-doc" onclick="saveSectorFichaV31()">📄 Generar Google Sheet</button>'}${data.pdfUrl?`<button class="v31-doc" onclick="window.open('${esc(data.pdfUrl)}','_blank')">🖨 Abrir PDF</button>`:''}</div><div class="v31-sub" style="margin-top:9px">El documento se genera desde el ERP, sin precios ni costos internos.</div>`;
+    if(tab==='docs') c.innerHTML=`<div class="v31-docs">${o.driveFolderUrl?`<button class="v31-doc" onclick="window.open('${esc(o.driveFolderUrl)}','_blank')">📁 Abrir carpeta OT</button>`:''}${data.sheetUrl?`<button class="v31-doc" onclick="window.open('${esc(data.sheetUrl)}','_blank')">📄 Abrir Google Sheet</button>`:'<button class="v31-doc" onclick="saveSectorFichaV31()">📄 Generar Google Sheet</button>'}</div><div class="v31-sub" style="margin-top:9px">La OT mantiene una única hoja operativa en la carpeta del sector. No se genera PDF.</div>`;
     c.querySelectorAll('.v31-check-input,.v31-resource').forEach(x=>x.addEventListener('change',()=>x.closest('.v31-check')?.classList.toggle('done',x.checked)));
   }
 
@@ -299,6 +301,16 @@
     });
   }
 
+  window.syncProductionOtDocumentV315=async function(o){
+    if(!o?.id&&!o?.firestoreId)throw new Error('Falta identificar la OT');
+    const old=getGestion(o,'Producción'), data={...productionDataWithQuote(o,old),estadoInterno:old.estadoInterno||'Pendiente',checks:old.checks||{},porcentaje:pct('Producción',old),actualizadoPor:old.actualizadoPor||'Sincronización automática',actualizadoEn:new Date().toISOString()};
+    const result=await callWebhook({action:'syncSectorDocument',obra:{firestoreId:o.id||o.firestoreId,ot:o.ot,cliente:o.cliente,desc:o.desc,estado:o.estado,driveFolderId:o.driveFolderId||'',driveFolderUrl:o.driveFolderUrl||'',sector:'Producción',data:{...productionSheetPayload(data),entregaLogistica:o.entregaLogistica||{}}}});
+    data.sheetUrl=result.sheetUrl||data.sheetUrl||'';data.sheetId=result.sheetId||data.sheetId||'';data.cotizacionTecnicaSincronizada=true;
+    const patch={gestionSectores:{...(o.gestionSectores||{}),produccion:data}};
+    if(result.driveFolderUrl){patch.driveFolderUrl=result.driveFolderUrl;patch.driveFolderId=result.driveFolderId||result.folderId||'';}
+    await window.updateDoc_('obras',o.id||o.firestoreId,patch);Object.assign(o,patch);return result;
+  };
+
   window.saveSectorFichaV31 = async () => {
     const {root,o,sector,key,data:old}=current();if(!o)return;
     const data=collectVisible(JSON.parse(JSON.stringify(old||{})),sector);
@@ -309,7 +321,7 @@
       Object.assign(o,{gestionSectores:gestion});
       toast('Guardado en ERP ✓ Sincronizando Google Sheet…');
       const result=await callWebhook({action:'syncSectorDocument',obra:{firestoreId:o.id,ot:o.ot,cliente:o.cliente,desc:o.desc,estado:o.estado,driveFolderId:o.driveFolderId||'',driveFolderUrl:o.driveFolderUrl||'',sector,data}});
-      data.sheetUrl=result.sheetUrl||data.sheetUrl||'';data.sheetId=result.sheetId||data.sheetId||'';data.pdfUrl=result.pdfUrl||data.pdfUrl||'';data.pdfId=result.pdfId||data.pdfId||'';
+      data.sheetUrl=result.sheetUrl||data.sheetUrl||'';data.sheetId=result.sheetId||data.sheetId||'';delete data.pdfUrl;delete data.pdfId;
       const gestion2={...(o.gestionSectores||{}),[key]:data};
       const links={gestionSectores:gestion2};
       if(result.driveFolderUrl&&!o.driveFolderUrl){links.driveFolderUrl=result.driveFolderUrl;links.driveFolderId=result.driveFolderId||result.folderId||''}
@@ -399,7 +411,7 @@
             sector:'Producción', data:productionSheetPayload(data)
           }});
           data.sheetUrl=result.sheetUrl||''; data.sheetId=result.sheetId||'';
-          data.pdfUrl=result.pdfUrl||''; data.pdfId=result.pdfId||'';
+          delete data.pdfUrl; delete data.pdfId;
           data.cotizacionTecnicaSincronizada=true;
           const gestionSectores={...(o.gestionSectores||{}),produccion:data};
           const patch={gestionSectores};
@@ -437,6 +449,7 @@
     if(window.currentPage==='produccion' && !window.__TIZ_PRODUCCION_V34__)renderSector('Producción');
     if(window.currentPage==='colocaciones')renderSector('Colocaciones');
     scheduleAutoSync();
+    window.requestDriveSyncForObra=async function(id,event){if(event)event.stopPropagation();const o=(window.DB?.obras||[]).find(x=>x.id===id);if(!o)return toast('No se encontró la obra');try{toast('Creando o recuperando la hoja de Producción…');const r=await window.syncProductionOtDocumentV315(o);toast('Carpeta OT y hoja de Producción listas ✓');return r}catch(e){console.error(e);toast('No se pudo sincronizar la OT: '+(e.message||e));return null}};
     setInterval(()=>{
       autoSyncProductionDocuments();
       if(window.currentPage==='produccion'){
