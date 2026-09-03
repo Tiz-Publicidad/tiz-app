@@ -48,6 +48,35 @@
     const tabs=page.querySelector('.page-tabs');if(tabs)tabs.innerHTML='<button class="page-tab active" onclick="setCobTab(\'pendientes\',this)">Pendientes</button><button class="page-tab" onclick="setCobTab(\'cobradas\',this)">Cobradas</button><button class="page-tab" onclick="setCobTab(\'todas\',this)">Todas</button>';
     const filter=page.querySelector('#cobr-filter-estado');if(filter)filter.innerHTML='<option value="">Todos los estados</option><option>Sin cobrar</option><option>Facturado pendiente</option><option>Anticipo cobrado</option><option>Cobro parcial</option><option>Cobrado</option>';
     const th=page.querySelector('thead tr');if(th)th.innerHTML='<th>OT</th><th>Cliente / obra</th><th>Estado obra</th><th>Facturación</th><th>Total</th><th>Cobrado</th><th>Retenciones</th><th>Saldo</th><th>Cobro previsto</th><th>Estado financiero</th><th></th>';
+    const kpis=document.getElementById('cobr-kpis');
+    if(kpis&&!document.getElementById('cobr-prevision-v42')){
+      const forecast=document.createElement('div');forecast.id='cobr-prevision-v42';
+      kpis.insertAdjacentElement('afterend',forecast);
+    }
+  }
+
+  function parseIsoDate(value){
+    const s=dateValue(value);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;
+    const d=new Date(s+'T12:00:00');return isNaN(d)?null:d;
+  }
+  function startOfWeek(date){const d=new Date(date);const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);d.setHours(12,0,0,0);return d}
+  function weekKey(date){const monday=startOfWeek(date);return monday.toISOString().slice(0,10)}
+  function shortDate(date){return date.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})}
+  function expectedPayments(obras){
+    const rows=[];
+    obras.forEach(o=>{const f=finances(o);['anticipo','saldo'].forEach(tipo=>{const p=f[tipo],pendiente=Math.max(0,num(p.monto)-num(p.montoCobrado));if(!pendiente)return;const fecha=parseIsoDate(p.fechaPrevistaCobro);rows.push({obra:o,tipo,fecha,monto:pendiente,facturado:!!p.facturado||!!p.nroFactura,nroFactura:p.nroFactura||''})})});
+    return rows;
+  }
+  function renderForecast(obras){
+    const box=document.getElementById('cobr-prevision-v42');if(!box)return;
+    const today=new Date();today.setHours(0,0,0,0);const monday=startOfWeek(today),limit=new Date(monday);limit.setDate(limit.getDate()+7*8);
+    const payments=expectedPayments(obras),overdue=payments.filter(x=>x.fecha&&x.fecha<today),upcoming=payments.filter(x=>x.fecha&&x.fecha>=today).sort((a,b)=>a.fecha-b.fecha);
+    const undated=payments.filter(x=>!x.fecha),weeks=new Map();
+    for(let i=0;i<8;i++){const d=new Date(monday);d.setDate(d.getDate()+i*7);weeks.set(weekKey(d),{start:d,total:0,count:0})}
+    upcoming.filter(x=>x.fecha<limit).forEach(x=>{const w=weeks.get(weekKey(x.fecha));if(w){w.total+=x.monto;w.count++}});
+    const list=[...weeks.values()],max=Math.max(1,...list.map(w=>w.total));
+    box.innerHTML=`<div class="card" style="margin-top:0"><div class="card-header"><span class="card-title">Previsión semanal de cobranzas · próximas 8 semanas</span><span style="font-size:11px;color:var(--text3)">Importes pendientes según fecha prevista</span></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(8,minmax(95px,1fr));gap:8px;overflow-x:auto;padding-bottom:4px">${list.map((w,i)=>`<div style="min-width:95px;background:var(--surface2);border:1px solid ${i===0?'rgba(232,184,75,.5)':'var(--border)'};border-radius:9px;padding:10px"><div style="font-size:10px;color:${i===0?'var(--accent)':'var(--text3)'}">${i===0?'ESTA SEMANA':shortDate(w.start)}</div><div style="font-weight:600;margin:7px 0 5px">${MONEY.format(w.total)}</div><div style="height:4px;background:var(--border);border-radius:4px"><div style="height:100%;width:${Math.round(w.total/max*100)}%;background:var(--green);border-radius:4px"></div></div><div style="font-size:10px;color:var(--text3);margin-top:5px">${w.count} cobro${w.count===1?'':'s'}</div></div>`).join('')}</div></div></div>`+
+      `<div class="card"><div class="card-header"><span class="card-title">Próximos vencimientos de facturas</span><span style="font-size:11px;color:var(--text3)">${overdue.length} vencidas · ${undated.length} sin fecha prevista</span></div><div class="table-wrap"><table><thead><tr><th>Fecha prevista</th><th>OT</th><th>Cliente</th><th>Concepto</th><th>Factura</th><th>Importe esperado</th><th>Situación</th><th></th></tr></thead><tbody>${[...overdue.sort((a,b)=>a.fecha-b.fecha),...upcoming].slice(0,12).map(x=>{const late=x.fecha<today;return `<tr class="${late?'alerta-row':''}"><td style="color:${late?'var(--red)':'var(--text2)'}">${esc(displayDate(x.fecha.toISOString().slice(0,10)))}</td><td class="strong">${esc(baseOt(x.obra.ot))}</td><td>${esc(x.obra.cliente)}</td><td>${x.tipo==='anticipo'?'Anticipo':'Saldo'}</td><td>${x.nroFactura?esc(x.nroFactura):'<span style="color:var(--text3)">Sin número</span>'}</td><td style="font-weight:600">${MONEY.format(x.monto)}</td><td>${late?'<span class="badge badge-red">Vencida</span>':x.facturado?'<span class="badge badge-amber">Próxima</span>':'<span class="badge badge-gray">Sin facturar</span>'}</td><td><button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41(\'${x.obra.id}\')">Gestionar</button></td></tr>`}).join('')||'<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Todavía no hay fechas previstas cargadas.</td></tr>'}</tbody></table></div></div>`;
   }
 
   window.renderCobranzas=function(){
@@ -63,6 +92,7 @@
     const all=(window.DB?.obras||[]).filter(o=>baseOt(o.ot)).map(totals);
     const total=all.reduce((a,x)=>a+num(x.f.total),0),cob=all.reduce((a,x)=>a+x.cob,0),ret=all.reduce((a,x)=>a+x.ret,0),pend=all.reduce((a,x)=>a+x.pendiente,0);
     document.getElementById('cobr-kpis').innerHTML=`<div class="kpi"><div class="kpi-label">Total vendido</div><div class="kpi-val">${MONEY.format(total)}</div></div><div class="kpi"><div class="kpi-label">Cobrado</div><div class="kpi-val green">${MONEY.format(cob)}</div></div><div class="kpi"><div class="kpi-label">Retenciones</div><div class="kpi-val">${MONEY.format(ret)}</div></div><div class="kpi"><div class="kpi-label">Pendiente</div><div class="kpi-val amber">${MONEY.format(pend)}</div></div>`;
+    renderForecast((window.DB?.obras||[]).filter(o=>baseOt(o.ot)));
     const count=document.getElementById('cobr-count');if(count)count.textContent=rows.length+' obras';
     document.getElementById('cobr-tbody').innerHTML=rows.map(o=>{const x=totals(o);return `<tr><td class="strong">${esc(baseOt(o.ot))}</td><td><b style="color:var(--text)">${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>${esc(o.estado||'—')}</td><td style="font-size:11px">${invoiceSummary(x.f)}</td><td>${MONEY.format(x.f.total)}</td><td style="color:var(--green)">${MONEY.format(x.cob)}</td><td>${MONEY.format(x.ret)}</td><td style="color:${x.pendiente?'var(--amber)':'var(--green)'}">${MONEY.format(x.pendiente)}</td><td>${esc(displayDate(due(o)))}</td><td>${badge(x.status)}</td><td><button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button></td></tr>`}).join('')||'<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text3)">Sin obras para mostrar.</td></tr>';
   };
