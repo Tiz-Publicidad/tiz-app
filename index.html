@@ -864,6 +864,17 @@ td.strong { color: var(--text); font-weight: 500; }
       <div id="pp-items" style="max-height:280px;overflow-y:auto;padding-right:2px"></div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="addItemPP()" style="margin-top:8px"><i class="ti ti-plus"></i> Agregar ítem</button>
+    <details id="pp-entrega-wrap" style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:0 12px">
+      <summary style="cursor:pointer;padding:12px 0;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);font-weight:600">🚚 Entrega / logística <span id="pp-entrega-resumen" style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">— A definir</span></summary>
+      <div style="padding:2px 0 12px"><div class="form-grid">
+        <div class="form-group full"><label>Modalidad</label><select id="pp-entrega-tipo" onchange="actualizarEntregaLogisticaPP()"><option value="a_definir">A definir</option><option value="retiro_fabrica">Retira en fábrica</option><option value="envio">Envío a domicilio</option><option value="colocacion">Con colocación</option></select></div>
+        <div class="form-group pp-entrega-domicilio" style="display:none"><label>Domicilio</label><input id="pp-entrega-domicilio" placeholder="Calle, número, localidad y referencia"></div>
+        <div class="form-group pp-entrega-fecha" style="display:none"><label id="pp-entrega-fecha-label">Fecha prevista</label><input id="pp-entrega-fecha" type="date"></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label>Contacto en destino</label><input id="pp-entrega-contacto" placeholder="Nombre y teléfono"></div>
+        <div class="form-group pp-entrega-retira" style="display:none"><label>Persona que retira</label><input id="pp-entrega-retira" placeholder="Nombre y teléfono"></div>
+        <div class="form-group full pp-entrega-detalle" style="display:none"><label id="pp-entrega-detalle-label">Indicaciones adicionales</label><textarea id="pp-entrega-detalle" placeholder="Horarios, acceso, permisos, equipos necesarios u otras indicaciones"></textarea></div>
+      </div><div style="font-size:11px;color:var(--text3);margin-top:4px">Esta información se comparte en la OT con Producción, Colocaciones y los demás sectores que la necesiten.</div></div>
+    </details>
     <div style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px">
         <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Cálculos auxiliares internos</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Materiales, horas, colocación, tercerizados o cualquier cálculo usado para formar el precio. No aparece en el PDF del cliente.</div></div>
@@ -2749,6 +2760,7 @@ window.generarPDF = async () => {
   const fmtFecha = d => d.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const esc = v => String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const nombreBase = window.tizCotizacionNombreBaseV354(nro, cliente, descGeneral, revision);
+  const entregaLogistica = window.collectEntregaLogisticaPP?.() || {tipo:'a_definir'};
 
   let ref;
   const registro = {
@@ -2757,7 +2769,8 @@ window.generarPDF = async () => {
     estado:'Pendiente', nota, cond, items, revision,
     creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
     nombreArchivo: nombreBase, cotizacionBase:String(nro).replace(/\D/g,''),
-    revisionAnteriorId:window._cotizacionRevisionAnteriorId||'', esRevision:!!window._cotizacionRevisionAnteriorId
+    revisionAnteriorId:window._cotizacionRevisionAnteriorId||'', esRevision:!!window._cotizacionRevisionAnteriorId,
+    entregaLogistica
   };
   if(window.editingId.presupuesto && !window._cotizacionEsRevisionNueva){
     await updateDoc_('presupuestos',window.editingId.presupuesto,registro); ref={id:window.editingId.presupuesto};
@@ -2785,7 +2798,7 @@ window.generarPDF = async () => {
     action:'guardarCotizacionArchivos', nroCotizacion:nro, revision, cliente, descripcion:descGeneral,
     fecha:fmtFecha(hoy), validez:fmtFecha(validez), nota, condicion:cond, total,
     items:items.map(it=>({descripcion:String(it.desc||''), unitario:+it.precio||0, unidades:+it.cant||1, subtotal:(+it.precio||0)*(+it.cant||1)})),
-    nombreBase, firestoreId:ref?.id||''
+    nombreBase, firestoreId:ref?.id||'', entregaLogistica
   });
 
   const rows = items.map(it=>`<tr><td>${esc(it.desc)}</td><td class="num">${fmtPeso(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPeso((+it.precio||0)*(+it.cant||1))}</td></tr>`).join('');
@@ -3428,7 +3441,6 @@ async function syncToSheets(data) {
 
   const MEASURE=/\b\d+(?:[\.,]\d+)?\s*(?:m|mt|mts|cm|mm)?\s*[x×]\s*\d+/i;
   const MATERIAL=/(acr[ií]lico|pvc|chapa|aluminio|acm|mdf|hierro|cañ[oó]|perfil|lona|vinilo|polyfan|polifan|madera|pintura|tela|backlight)/i;
-  const COLOC=/(colocaci[oó]n|instalaci[oó]n|montaje|retira|retiro|sin colocar|incluye coloc)/i;
   const ILUM=/(led|m[oó]dulo|tira|ne[oó]n|retroilumin|iluminad|sin iluminaci[oó]n|fuente|driver|12v|24v|220v)/i;
   const FINISH=/(pintura|poliuret|sint[eé]tica|horno|powder|laminado|mate|brillo|uv|impresi[oó]n|vinilo|backlight)/i;
   const DEPTH=/(profundidad|prof\.|faja|lateral|espesor|canto|retorno|cuerpo)/i;
@@ -3447,7 +3459,6 @@ async function syncToSheets(data) {
       add(checks,DEPTH.test(txt),'Profundidad / faja de letras','Ej.: faja 8 cm, lateral chapa, contraletra PVC.');
       add(checks,ILUM.test(txt),'Iluminación','Aclarar retroiluminada, frente iluminado, neón flexible o sin iluminación.');
     } else if(/ilumin|led|neon|neón|backlight/.test(low)) add(checks,ILUM.test(txt),'Tipo de iluminación','Indicar módulo/tira/neón y tensión o fuente cuando corresponda.');
-    add(checks,COLOC.test(txt),'Colocación','Indicar si incluye colocación, retira cliente o se cotiza aparte.');
     if(/vinilo|lona|impres|pintura|chapa|acm|mdf/.test(low)) add(checks,FINISH.test(txt),'Terminación','Aclarar pintura, laminado, UV, brillo/mate u otra terminación cuando aplique.');
     const pendientes=checks.filter(x=>!x.ok);
     box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:8px"><strong>${pendientes.length?'📝 Antes de enviar, revisar':'✅ Datos técnicos básicos completos'}</strong><span style="color:${pendientes.length?'var(--amber)':'var(--green)'}">${checks.length-pendientes.length}/${checks.length}</span></div>`+
@@ -3479,6 +3490,6 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
 <script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-13-PRESUPUESTOS-SIN-DUPLICADOS-20260903"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-15-ERP-INTEGRAL-DRIVE-SIN-DUPLICADOS-20260903"></script>
 </body>
 </html>
