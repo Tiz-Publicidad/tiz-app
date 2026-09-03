@@ -175,6 +175,28 @@
     grid.insertBefore(wrap, desc || null);
   }
 
+  function entregaLogisticaActual(){
+    return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),retira:val('pp-entrega-retira').trim(),detalle:val('pp-entrega-detalle').trim()};
+  }
+  window.collectEntregaLogisticaPP=entregaLogisticaActual;
+  window.actualizarEntregaLogisticaPP=function(){
+    const tipo=val('pp-entrega-tipo')||'a_definir', envio=tipo==='envio', colocacion=tipo==='colocacion', retiro=tipo==='retiro_fabrica';
+    document.querySelectorAll('.pp-entrega-domicilio').forEach(e=>e.style.display=(envio||colocacion)?'':'none');
+    document.querySelectorAll('.pp-entrega-fecha').forEach(e=>e.style.display=tipo==='a_definir'?'none':'');
+    document.querySelectorAll('.pp-entrega-contacto').forEach(e=>e.style.display=(envio||colocacion)?'':'none');
+    document.querySelectorAll('.pp-entrega-retira').forEach(e=>e.style.display=retiro?'':'none');
+    document.querySelectorAll('.pp-entrega-detalle').forEach(e=>e.style.display=(envio||colocacion)?'':'none');
+    const etiquetas={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
+    const resumen=document.getElementById('pp-entrega-resumen');if(resumen)resumen.textContent='— '+etiquetas[tipo];
+    const fecha=document.getElementById('pp-entrega-fecha-label');if(fecha)fecha.textContent=retiro?'Fecha prevista de retiro':envio?'Fecha prevista de entrega':'Fecha prevista de colocación';
+    const detalle=document.getElementById('pp-entrega-detalle-label');if(detalle)detalle.textContent=colocacion?'Acceso, horarios, permisos y equipos':'Indicaciones para la entrega';
+  };
+  function cargarEntregaLogisticaPP(data={}){
+    const e=data.entregaLogistica||data.logistica||{}, set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||'';};
+    set('pp-entrega-tipo',e.tipo||'a_definir');set('pp-entrega-domicilio',e.domicilio);set('pp-entrega-fecha',e.fecha);set('pp-entrega-contacto',e.contacto);set('pp-entrega-retira',e.retira);set('pp-entrega-detalle',e.detalle);
+    window.actualizarEntregaLogisticaPP();
+  }
+
   function cleanObraModal(){
     const modal=document.getElementById('modal-obra'); if(!modal) return;
     // Presupuestos queda exclusivamente comercial. Los campos operativos permanecen en el DOM
@@ -236,7 +258,10 @@
 
   function sectorForm(key,s,o){
     s=s||{}; const common=['Pendiente','En proceso','Esperando','Bloqueado','Terminado'];
-    let html='<div class="form-grid">';
+    const log=o.entregaLogistica||{}, modalidades={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
+    const items=(o.itemsTecnicos||[]).map(i=>i.articulo||i.descripcion||i.desc).filter(Boolean).slice(0,4);
+    const sectores=getSectores(o), relevantes={ventas:['Entrega: '+(modalidades[log.tipo]||'A definir'),'Revisión CT: '+(o.revisionCotizacion||'—')],diseno:['Trabajo: '+(o.desc||'—'),'Producción: '+normEstado(sectores.produccion?.estado)],compras:['Producción: '+normEstado(sectores.produccion?.estado),'Fecha necesaria: '+(sectores.produccion?.compromiso||log.fecha||'—')],produccion:['Diseño: '+normEstado(sectores.diseno?.estado),'Compras: '+normEstado(sectores.compras?.estado),'Entrega: '+(modalidades[log.tipo]||'A definir')],colocaciones:['Modalidad: '+(modalidades[log.tipo]||'A definir'),'Fecha: '+(log.fecha||s.compromiso||'—'),'Domicilio: '+(log.domicilio||s.direccion||'—'),'Contacto: '+(log.contacto||s.contacto||'—')],facturacion:['CT: '+(o.nroCotizacion||o.ot||'—'),'OC / OP: '+(sectores.facturacion?.oc||o.oc||'—'),'Condición: '+(o.cond||'—')],cobranzas:['Factura: '+(sectores.facturacion?.nroFactura||'—'),'Vencimiento: '+(sectores.facturacion?.vencimiento||sectores.cobranzas?.vencimiento||'—')]}[key]||[];
+    let html=`<div class="commercial-note" style="border-left:3px solid ${SECTOR_DEF[key].color}"><b>Información compartida para ${SECTOR_DEF[key].label}</b><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 14px;margin-top:7px">${relevantes.map(x=>`<div>${esc(x)}</div>`).join('')}</div>${items.length&&['diseno','compras','produccion','colocaciones'].includes(key)?`<div style="margin-top:7px"><b>Ítems:</b> ${items.map(esc).join(' · ')}</div>`:''}${log.detalle&&['produccion','colocaciones'].includes(key)?`<div style="margin-top:7px"><b>Indicaciones:</b> ${esc(log.detalle)}</div>`:''}</div><div class="form-grid">`;
     if(key==='ventas') html += select('Estado','sv-estado',['Pendiente','En gestión','Confirmado','Aprobado','Rechazado'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||o.vendedor||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + `<div class="form-group full"><div class="checklist-grid">${field('Cliente confirmado','sv-cliente-confirmado','checkbox',s.clienteConfirmado)}${field('OC / OP recibida','sv-oc-recibida','checkbox',s.ocRecibida)}${field('Seña recibida','sv-sena','checkbox',s.senaRecibida)}</div></div>` + field('Notas de Ventas','sv-notas','textarea',s.notas||'');
     if(key==='diseno') html += select('Estado','sv-estado',['Pendiente','Diseñando','Esperando cliente','Correcciones','Aprobado'],normEstado(s.estado)) + field('Diseñador','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + field('Fecha real','sv-real','text',s.real||'') + `<div class="form-group full"><div class="checklist-grid">${field('Diseño aprobado','sv-aprobado','checkbox',s.aprobado)}${field('Archivo final listo','sv-archivo-final','checkbox',s.archivoFinal)}${field('Enviado a Producción','sv-enviado-prod','checkbox',s.enviadoProduccion)}</div></div>` + field('Notas de Diseño','sv-notas','textarea',s.notas||'');
     if(key==='compras') html += select('Estado','sv-estado',['Pendiente','Cotizando','Pedido','Entrega parcial','Completo','Bloqueado'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + field('Fecha real','sv-real','text',s.real||'') + `<div class="form-group full"><div class="checklist-grid">${field('Pedido realizado','sv-pedido','checkbox',s.pedidoRealizado)}${field('Materiales completos','sv-materiales','checkbox',s.materialesCompletos)}${field('Sin faltantes','sv-sin-faltantes','checkbox',s.sinFaltantes)}</div></div>` + field('Faltantes / notas de Compras','sv-notas','textarea',s.notas||'');
@@ -352,8 +377,16 @@
       if(data?.cond)notas.push('Condiciones: '+data.cond);
       if(data?.plazoEstimado)notas.push('Plazo estimado: '+data.plazoEstimado);
       if(data?.oc)notas.push('OC / OP: '+data.oc);
+      const entrega=data?.entregaLogistica||{};
+      const modalidades={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
+      notas.push('ENTREGA / LOGÍSTICA: '+(modalidades[entrega.tipo]||'A definir'));
+      if(entrega.domicilio)notas.push('Domicilio: '+entrega.domicilio);
+      if(entrega.fecha)notas.push('Fecha prevista: '+entrega.fecha);
+      if(entrega.contacto)notas.push('Contacto: '+entrega.contacto);
+      if(entrega.retira)notas.push('Retira: '+entrega.retira);
+      if(entrega.detalle)notas.push('Indicaciones logísticas: '+entrega.detalle);
       items.forEach((item,i)=>{if(item.observaciones)notas.push('Ítem '+(i+1)+': '+item.observaciones);});
-      return {items,observaciones:notas.join('\n')};
+      return {items,observaciones:notas.join('\n'),entregaLogistica:entrega};
     }
     window.datosTecnicosPresupuestoV3511=datosTecnicosPresupuesto;
     window.ensureObraFromPresupuestoV358=async function(presupuestoId,data){
@@ -362,8 +395,10 @@
       const existente=(window.DB?.obras||[]).find(o=>o.presupuestoId===presupuestoId||o.cotizacionId===presupuestoId||(String(o.ot||'').replace(/\D/g,'')===numero&&numero));
       const tecnico=datosTecnicosPresupuesto(data);
       const produccionAnterior=existente?.gestionSectores?.produccion||{};
-      const produccion={...produccionAnterior,materiales:tecnico.items,observaciones:tecnico.observaciones,detalleCotizacion:tecnico.items,datosCotizacionSinPrecios:true};
-      const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],itemsTecnicos:tecnico.items,gestionSectores:{...(existente?.gestionSectores||{}),produccion},presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
+      const produccion={...produccionAnterior,materiales:tecnico.items,observaciones:tecnico.observaciones,detalleCotizacion:tecnico.items,datosCotizacionSinPrecios:true,entregaLogistica:tecnico.entregaLogistica};
+      const colocacionesAnterior=existente?.gestionSectores?.colocaciones||{}, esColocacion=tecnico.entregaLogistica?.tipo==='colocacion';
+      const colocaciones={...colocacionesAnterior,...(esColocacion?{estado:'A coordinar',compromiso:tecnico.entregaLogistica.fecha||'',direccion:tecnico.entregaLogistica.domicilio||'',contacto:tecnico.entregaLogistica.contacto||'',notas:tecnico.entregaLogistica.detalle||''}:{})};
+      const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],itemsTecnicos:tecnico.items,entregaLogistica:tecnico.entregaLogistica,gestionSectores:{...(existente?.gestionSectores||{}),produccion,colocaciones},presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
       let obraId=existente?.id||'';
       if(obraId)await window.updateDoc_('obras',obraId,obra);
       else{const ref=await window.addDoc_('obras',obra);obraId=ref?.id||'';}
@@ -371,23 +406,16 @@
       // complementario: una demora o error allí nunca debe dejar una CT aprobada fuera
       // de Obras.
       await window.updateDoc_('presupuestos',presupuestoId,{obraId,promovidoAObra:true,promovidoEn:new Date().toISOString()});
-      let links={};
-      if(!existente?.driveFolderUrl&&typeof window.syncDriveFolder==='function'){
-        try{
-          const drive=await window.syncDriveFolder({...obra,firestoreId:obraId},'ot');
-          if(!drive?.driveFolderUrl)throw new Error(drive?.error||'Drive no devolvió el enlace de la carpeta OT');
-          links={driveFolderUrl:drive.driveFolderUrl,driveFolderId:drive.folderId||drive.driveFolderId||'',driveSyncedAt:new Date().toISOString()};
-          await window.updateDoc_('obras',obraId,links);
-          await window.updateDoc_('presupuestos',presupuestoId,links);
-        }catch(e){
-          console.warn('[TIZ] La obra fue creada, pero Drive quedó pendiente',e);
-          window.showToast?.('La obra fue creada. La carpeta de Drive quedó pendiente y se reintentará.');
-        }
+      if(typeof window.syncProductionOtDocumentV315==='function'){
+        try{const drive=await window.syncProductionOtDocumentV315({...(existente||{}),...obra,id:obraId,firestoreId:obraId});if(drive?.driveFolderUrl)await window.updateDoc_('presupuestos',presupuestoId,{driveFolderUrl:drive.driveFolderUrl,driveFolderId:drive.driveFolderId||drive.folderId||''});}
+        catch(e){console.warn('[TIZ] La obra fue creada; la hoja de Producción se reintentará automáticamente',e);}
       }
       return obraId;
     };
     const oldNew=window.abrirNuevoPresupuestoCompleto;
-    window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments); setTimeout(()=>{document.getElementById('pp-fecha').value=new Date().toLocaleDateString('es-AR'); document.getElementById('pp-estado').value='Enviado'; document.getElementById('pp-moneda').value='ARS'; document.getElementById('pp-vendedor').value='G'; document.getElementById('pp-plazo').value=''; document.getElementById('pp-anticipo').value='50'; document.getElementById('pp-dias-pago').value=''; document.getElementById('pp-oc').value=''; document.getElementById('pp-obs-comercial').value='';},0);return r;};
+    window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments); setTimeout(()=>{document.getElementById('pp-fecha').value=new Date().toLocaleDateString('es-AR'); document.getElementById('pp-estado').value='Enviado'; document.getElementById('pp-moneda').value='ARS'; document.getElementById('pp-vendedor').value='G'; document.getElementById('pp-plazo').value=''; document.getElementById('pp-anticipo').value='50'; document.getElementById('pp-dias-pago').value=''; document.getElementById('pp-oc').value=''; document.getElementById('pp-obs-comercial').value='';cargarEntregaLogisticaPP({});},0);return r;};
+    const oldOpenRevision=window.abrirRevisionCotizacionV354;
+    if(oldOpenRevision)window.abrirRevisionCotizacionV354=function(id){const data=(window.DB?.presupuestos||[]).find(p=>p.id===id)||{};const r=oldOpenRevision.apply(this,arguments);setTimeout(()=>cargarEntregaLogisticaPP(data),0);return r;};
     const oldSave=window.guardarPresupuestoCompleto;
     window.guardarPresupuestoCompleto=async function(){
       if(window.__tizPresupuestoGuardando){window.showToast?.('El presupuesto ya se está guardando. Esperá un momento.');return;}
@@ -399,7 +427,7 @@
       const existente=(window.DB?.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===numero&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')===revision);
       const id=window.editingId?.presupuesto||existente?.id||'';
       const actual=(window.DB?.presupuestos||[]).find(p=>p.id===id)||existente||{};
-      const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),creadoPor:window.currentUser?.email||'',obraId:actual.obraId||'',cotizacionBase:numero};
+      const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),entregaLogistica:entregaLogisticaActual(),creadoPor:window.currentUser?.email||'',obraId:actual.obraId||'',cotizacionBase:numero};
       try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;if(normEstado(data.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(presupuestoId,data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
     };
   }
@@ -491,6 +519,21 @@
     finally{window.__v3511Tech4690Running=false;}
   }
 
+  function integrarFichaProduccionV8(){
+    if(window.__tizProduccionIntegralV3515||typeof window.p8Open!=='function')return;
+    const abrir=window.p8Open;
+    window.p8Open=function(id){
+      const resultado=abrir.apply(this,arguments),o=(window.DB?.obras||[]).find(x=>x.id===id),panel=document.querySelector('#p8-workspace .p8-panel[data-panel="resumen"]');
+      if(o&&panel&&!panel.querySelector('.tiz-integral-produccion')){
+        const log=o.entregaLogistica||{},m={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'},s=getSectores(o);
+        const items=(o.itemsTecnicos||[]).map(x=>x.articulo||x.descripcion||x.desc).filter(Boolean);
+        panel.insertAdjacentHTML('afterbegin',`<section class="p8-card tiz-integral-produccion" style="margin-bottom:10px;border-left:3px solid var(--accent)"><div class="p8-title"><b>Información integral de la OT</b><span>Ventas · Diseño · Compras · Entrega</span></div><div class="p8-form"><div><span class="p8-muted">DISEÑO</span><br><b>${esc(normEstado(s.diseno?.estado))}</b></div><div><span class="p8-muted">COMPRAS</span><br><b>${esc(normEstado(s.compras?.estado))}</b></div><div><span class="p8-muted">ENTREGA</span><br><b>${esc(m[log.tipo]||'A definir')}</b></div><div><span class="p8-muted">FECHA PREVISTA</span><br><b>${esc(log.fecha||'Sin definir')}</b></div>${log.domicilio?`<div class="p8-full"><span class="p8-muted">DOMICILIO</span><br><b>${esc(log.domicilio)}</b></div>`:''}${items.length?`<div class="p8-full"><span class="p8-muted">ÍTEMS COTIZADOS</span><br>${items.map(esc).join(' · ')}</div>`:''}${log.detalle?`<div class="p8-full"><span class="p8-muted">INDICACIONES</span><br>${esc(log.detalle)}</div>`:''}</div></section>`);
+      }
+      return resultado;
+    };
+    window.__tizProduccionIntegralV3515=true;
+  }
+
   function init(){
     installSingleSourceGuard();
     normalizeDBV35();
@@ -498,17 +541,17 @@
     // en memoria para que Obras y las vistas históricas reflejen el sector al instante.
     if(!window.__v35RefreshPatched && window.refreshCurrent){
       window.__v35RefreshPatched=true; const oldRefresh=window.refreshCurrent;
-      window.refreshCurrent=function(){ normalizeDBV35(); const r=oldRefresh.apply(this,arguments);setTimeout(limpiarDuplicadosPrueba4690,0);setTimeout(repararPresupuestosRecientes,50);setTimeout(repararDrivePrueba4690,100);setTimeout(repararDatosTecnicos4690,200);return r; };
+      window.refreshCurrent=function(){ normalizeDBV35(); return oldRefresh.apply(this,arguments); };
     }
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
     patchEditObra(); patchPresupuestoFunctions(); bloquearGeneracionDuplicada();
-    const VERSION_LABEL='TIZ V35.13 · PRESUPUESTOS SIN DUPLICADOS · 03/09/2026';
+    const VERSION_LABEL='TIZ V35.15 · ERP INTEGRAL POR SECTOR · 03/09/2026';
     const forceVersionBadge=()=>{const badge=document.getElementById('tiz-build-v20'); if(badge)badge.textContent=VERSION_LABEL;};
     forceVersionBadge();
     // expedientesV33 actualiza el pie con retraso; lo reponemos después y además observamos
     // cambios para que el nombre visible siempre corresponda a la versión publicada.
-    setTimeout(forceVersionBadge,1400); setTimeout(forceVersionBadge,2200);
+    setTimeout(forceVersionBadge,1400); setTimeout(forceVersionBadge,2200); setTimeout(integrarFichaProduccionV8,1700);
     const badge=document.getElementById('tiz-build-v20');
     if(badge && !window.__v351BadgeObserver){
       window.__v351BadgeObserver=new MutationObserver(()=>{if(badge.textContent!==VERSION_LABEL)badge.textContent=VERSION_LABEL;});
