@@ -44,7 +44,7 @@
   function setupPage(){
     const page=document.getElementById('page-cobranzas');if(!page)return;
     const title=page.querySelector('.page-title');if(title)title.textContent='Dashboard de cobranzas';
-    const actions=page.querySelector('.header-actions');if(actions)actions.innerHTML='<button class="btn btn-ghost btn-sm" onclick="revisarUnificacionFinancieraV41()"><i class="ti ti-git-merge"></i> Revisar anticipos y saldos</button>';
+    const actions=page.querySelector('.header-actions');if(actions)actions.innerHTML='<button class="btn btn-ghost btn-sm" onclick="probarArcaHomologacionV46(this)"><i class="ti ti-plug-connected"></i> Probar ARCA</button><button class="btn btn-ghost btn-sm" onclick="revisarUnificacionFinancieraV41()"><i class="ti ti-git-merge"></i> Revisar anticipos y saldos</button>';
     const tabs=page.querySelector('.page-tabs');if(tabs)tabs.innerHTML='<button class="page-tab active" onclick="setCobTab(\'pendientes\',this)">Pendientes</button><button class="page-tab" onclick="setCobTab(\'cobradas\',this)">Cobradas</button><button class="page-tab" onclick="setCobTab(\'todas\',this)">Todas</button>';
     const filter=page.querySelector('#cobr-filter-estado');if(filter)filter.innerHTML='<option value="">Todos los estados</option><option>Sin cobrar</option><option>Facturado pendiente</option><option>Anticipo cobrado</option><option>Cobro parcial</option><option>Cobrado</option>';
     const th=page.querySelector('thead tr');if(th)th.innerHTML='<th>OT</th><th>Cliente / obra</th><th>Estado obra</th><th>Facturación</th><th>Total</th><th>Cobrado</th><th>Retenciones</th><th>Saldo</th><th>Cobro previsto</th><th>Estado financiero</th><th></th>';
@@ -54,6 +54,22 @@
       kpis.insertAdjacentElement('afterend',forecast);
     }
   }
+
+  window.probarArcaHomologacionV46=async function(button){
+    if(!window.currentUser?.isAdmin){window.showToast?.('Sólo administración puede probar ARCA');return}
+    const original=button?.innerHTML;if(button){button.disabled=true;button.textContent='Consultando ARCA…'}
+    try{
+      const [{getApp},{getAuth}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);
+      const user=getAuth(getApp()).currentUser;if(!user)throw new Error('Sesión no iniciada');
+      const token=await user.getIdToken();
+      const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/arcaHomologacionStatus',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.ok)throw new Error(data.error||'La conexión no respondió correctamente');
+      const puntos=(data.pointsOfSale||[]).length?data.pointsOfSale.join(', '):'ninguno informado';
+      alert('Conexión de homologación correcta.\n\nWSAA: autorizado\nWSFE: disponible\nCUIT emisor: '+data.issuerCuit+'\nPuntos de venta de prueba: '+puntos+'\n\nLa emisión continúa deshabilitada.');
+    }catch(error){console.error(error);alert('No se pudo validar ARCA.\n\n'+(error.message||error)+'\n\nVerificá que el backend esté desplegado y sus secretos configurados.')}
+    finally{if(button){button.disabled=false;button.innerHTML=original}}
+  };
 
   function parseIsoDate(value){
     const s=dateValue(value);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;
