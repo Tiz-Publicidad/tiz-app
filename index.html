@@ -2506,6 +2506,7 @@ window.guardarPresupuestoCompleto = async () => {
   const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
   const calculosAuxiliares = collectCalculosAuxPP();
   const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
+  const presupuestoAnterior = window.editingId.presupuesto ? (window.DB.presupuestos||[]).find(p=>p.id===window.editingId.presupuesto) : null;
   if (!cliente) { showToast('Falta cargar el cliente'); return; }
   if (!descGeneral) { showToast('Cargá la descripción general'); return; }
   if (!items.length) { showToast('Agregá al menos un ítem'); return; }
@@ -2537,6 +2538,10 @@ window.guardarPresupuestoCompleto = async () => {
     window.editingId.presupuesto = ref?.id || null;
     window._cotizacionBaseId = ref?.id || window._cotizacionBaseId;
     window._cotizacionEsRevisionNueva = false;
+  }
+  if (payload.obraId && presupuestoAnterior && presupuestoAnterior.cliente !== cliente) {
+    await updateDoc_('obras', payload.obraId, {cliente});
+    const obra=(window.DB.obras||[]).find(o=>o.id===payload.obraId); if(obra) obra.cliente=cliente;
   }
   const revBtn = document.getElementById('pp-btn-nueva-revision'); if (revBtn) revBtn.style.display='inline-flex';
   showToast(`CT ${String(nro).replace(/\D/g,'')} ${revision} guardada sin borrar revisiones anteriores`);
@@ -3492,7 +3497,7 @@ async function syncToSheets(data) {
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
-<script src="expedientesV33.js?v=TIZ-V33-1-EXPEDIENTES-20260803"></script>
+<script src="expedientesV33.js?v=TIZ-V50-EDITAR-CLIENTE-20260904"></script>
 <script src="sectorizacionV35.js?v=TIZ-V35-17-OBRAS-LIMPIAS-20260903"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-V38-1-VINCULOS-DRIVE-20260903"></script>
 <script src="cobranzasDesdeObrasV41.js?v=TIZ-V48-TABLERO-INTEGRAL-20260904"></script>

@@ -96,6 +96,9 @@
     }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">Sin expedientes activos.</td></tr>';
   }
   window.renderPresupuestos=renderPresupuestosV33;
+  // Abrir siempre el editor completo: permite corregir cliente, ítems y condiciones
+  // de la revisión vigente sin caer en el formulario histórico reducido.
+  window.editPres=id=>window.abrirRevisionCotizacionV354?.(id,false);
   window.toggleHistoryV33=key=>{expanded.has(key)?expanded.delete(key):expanded.add(key);renderPresupuestosV33()};
 
   async function ensureRevisionFields(p, index=0){
