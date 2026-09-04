@@ -16,7 +16,8 @@
 
   const norm = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
   const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  const ctKey = p => String(p?.expedienteId || p?.ct || p?.nro || '').replace(/\D/g,'') || String(p?.id || '');
+  const numeroBase = value => {const m=String(value??'').match(/\d+/);return m?(m[0].replace(/^0+(?=\d)/,'').slice(0,4)||'0'):''};
+  const ctKey = p => numeroBase(p?.expedienteId || p?.ct || p?.nro) || String(p?.id || '');
   const revParts = value => String(value || '1.0').split('.').map(x => Number(x) || 0);
   const revCompare = (a,b) => {
     const aa=revParts(a), bb=revParts(b), n=Math.max(aa.length,bb.length);
@@ -79,7 +80,7 @@
     body.innerHTML=visible.map(g=>{
       const p=g.vigente, open=expanded.has(g.key), rev=p.revision||'1.0';
       return `<tr class="v33-main-row">
-        <td class="strong">${esc(p.nro||g.key||'—')}</td>
+        <td class="strong">${esc(numeroBase(p.nro||g.key)||'—')}</td>
         <td>${esc(p.cliente||'')}</td>
         <td>${esc(p.desc||'')}<div class="v33-sub"><span class="v33-rev">Rev ${esc(rev)}</span> ${isApproved(p)?'<span class="v33-current">Última aprobada</span>':'<span class="v33-draft">Revisión actual</span>'}</div></td>
         <td>${esc(p.vendedor||'')}</td>
