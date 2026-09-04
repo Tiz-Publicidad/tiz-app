@@ -1196,6 +1196,11 @@ function getSemanaActual() {
 }
 
 window.DB = { obras:[], clientes:[], presupuestos:[], retenciones:[], cobranzas:[], tareas:[] };
+window.tizNumeroBase = value => {
+  const match=String(value??'').match(/\d+/); if(!match)return '';
+  const sinCeros=match[0].replace(/^0+(?=\d)/,'');
+  return sinCeros.slice(0,4);
+};
 window.currentSem = getSemanaActual();
 ['dash-sem','sem-label','prod-sem','col-sem'].forEach(id => {
   const el = document.getElementById(id);
@@ -1208,7 +1213,7 @@ window.obrasSectorFilter = 'Todos';
 window.editingId = { obra:null, cliente:null, presupuesto:null, retencion:null, cobranza:null, tarea:null };
 
 function initListeners() {
-  const numeroDesc = (a,b) => (Number(String(b.ot??b.nro??'').replace(/\D/g,''))||-1) - (Number(String(a.ot??a.nro??'').replace(/\D/g,''))||-1);
+  const numeroDesc = (a,b) => (Number(window.tizNumeroBase(b.ot??b.nro))||-1) - (Number(window.tizNumeroBase(a.ot??a.nro))||-1);
   const clienteAZ = (a,b) => String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'});
   function listen(col, key) {
     onSnapshot(collection(db, col), snap => {
@@ -1499,7 +1504,7 @@ window.renderObras = function() {
   if (otQ) obras = obras.filter(o=>(o.ot||'').toLowerCase().includes(otQ)||(o.desc||'').toLowerCase().includes(otQ));
   if (semDesde) obras = obras.filter(o=>(+o.semana||0)>=semDesde);
   if (semHasta) obras = obras.filter(o=>(+o.semana||0)<=semHasta);
-  obras = [...obras].sort((a,b)=>{ const bo=Number(String(b.ot||'').replace(/\D/g,''))||-1; const ao=Number(String(a.ot||'').replace(/\D/g,''))||-1; return bo-ao || ((+b.semana||0)-(+a.semana||0)); });
+  obras = [...obras].sort((a,b)=>{ const bo=Number(window.tizNumeroBase(b.ot))||-1; const ao=Number(window.tizNumeroBase(a.ot))||-1; return bo-ao || ((+b.semana||0)-(+a.semana||0)); });
 
   document.getElementById('obras-count').textContent = obras.length + ' obras';
   document.getElementById('obras-tbody').innerHTML = obras.length ? obras.map(o => {
@@ -1726,7 +1731,7 @@ function renderPresupuestos() {
   const map={'Pendiente':'gray','Enviado':'blue','Aprobado':'teal','Entregado':'purple','Cobrado pendiente':'amber','Cobrado':'green'};
   const ordenados=[...pres].sort((a,b)=>{ const na=parseInt(a.nro)||0, nb=parseInt(b.nro)||0; if(nb!==na)return nb-na; const ra=normalizarRevisionV354(a.revision||'1.1').split('.').map(Number), rb=normalizarRevisionV354(b.revision||'1.1').split('.').map(Number); return (rb[0]-ra[0])||(rb[1]-ra[1]); });
   document.getElementById('pres-tbody').innerHTML = ordenados.map(p => `<tr>
-    <td class="strong" style="white-space:nowrap">CT ${String(p.nro||'').replace(/\D/g,'').padStart(7,'0')} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
+    <td class="strong" style="white-space:nowrap">CT ${window.tizNumeroBase(p.nro)} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
     <td>${p.vendedor||''}</td><td style="font-weight:500">${fmtM(p.importe)}</td>
     <td>${p.fecha||'—'}</td><td><span class="badge badge-${map[p.estado]||'gray'}">${p.estado||''}</span></td>
     <td style="white-space:nowrap">
@@ -2510,7 +2515,7 @@ window.abrirNuevoPresupuestoCompleto = () => {
 };
 
 window.guardarPresupuestoCompleto = async () => {
-  const nro = document.getElementById('pp-nro').value.trim() || '0000';
+  const nro = window.tizNumeroBase(document.getElementById('pp-nro').value) || '0';
   const cliente = document.getElementById('pp-cliente').value.trim();
   const descGeneral = document.getElementById('pp-desc').value.trim();
   const revision = normalizarRevisionV354(document.getElementById('pp-revision')?.value || '1.1');
@@ -2575,7 +2580,7 @@ window.siguienteRevisionV354 = function(rev) {
   return `${mayor}.${menor+1}`;
 };
 window.actualizarIdentificacionCotizacionV354 = function() {
-  const n = String(document.getElementById('pp-nro')?.value||'').replace(/\D/g,'').padStart(7,'0');
+  const n = window.tizNumeroBase(document.getElementById('pp-nro')?.value)||'0';
   const r = normalizarRevisionV354(document.getElementById('pp-revision')?.value||'1.1');
   const el = document.getElementById('pp-identificacion'); if(el) el.value = `CT ${n} ${r}`;
 };
@@ -2652,7 +2657,7 @@ window.abrirPresupuesto = () => {
   const obra = obraId ? window.DB.obras.find(x => x.id === obraId) : null;
 
   // Número de presupuesto
-  const nro = obra?.ot ? obra.ot.toString().padStart(7,'0') : '0000000';
+  const nro = obra?.ot ? window.tizNumeroBase(obra.ot) : '0';
   document.getElementById('pp-nro').value = nro;
   document.getElementById('pp-cliente').value = obra?.cliente || '';
   document.getElementById('pp-revision').value = '1.1';
@@ -2720,7 +2725,7 @@ function renderPPItems() {
 
 
 window.tizCotizacionNombreBaseV354 = function(nro, cliente, descripcion, revision='1.1') {
-  const n = String(nro || '').replace(/\D/g,'').padStart(7,'0');
+  const n = window.tizNumeroBase(nro)||'0';
   const clean = v => String(v||'').replace(/[\\/:*?"<>|#%{}~]/g,' ').replace(/\s+/g,' ').trim();
   // Formato TIZ: CT 0005406 1.2 - Cliente - Descripción
   return ['CT ' + n + ' ' + normalizarRevisionV354(revision), clean(cliente), clean(descripcion)].filter(Boolean).join(' - ').slice(0,180);
@@ -2755,7 +2760,7 @@ window._postCotizacionDriveV353 = function(payload) {
 };
 
 window.generarPDF = async () => {
-  const nro = document.getElementById('pp-nro').value.trim() || '0000';
+  const nro = window.tizNumeroBase(document.getElementById('pp-nro').value) || '0';
   const cliente = document.getElementById('pp-cliente').value.trim();
   const descGeneral = document.getElementById('pp-desc').value.trim();
   const nota = document.getElementById('pp-nota').value.trim();
@@ -2825,7 +2830,7 @@ window.generarPDF = async () => {
   const html = `<div class="ct-page">
     <div class="ct-header">
       <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ Av Pte Perón 3779 J C Paz</div></div>
-      <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${String(nro).padStart(7,'0')}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
+      <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${window.tizNumeroBase(nro)}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
     </div>
     <div class="ct-items"><table class="ct-table"><thead><tr><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPeso(total)}</b></div></div>
@@ -3511,7 +3516,7 @@ async function syncToSheets(data) {
 <script type="module" src="compras.js?v=TIZ-V29-STABLE-20260729"></script>
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
-<script src="expedientesV33.js?v=TIZ-V50-EDITAR-CLIENTE-20260904"></script>
+<script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
 <script src="sectorizacionV35.js?v=TIZ-V35-17-OBRAS-LIMPIAS-20260903"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-V38-1-VINCULOS-DRIVE-20260903"></script>
 <script src="cobranzasDesdeObrasV41.js?v=TIZ-V53-ORDEN-OT-20260904"></script>
