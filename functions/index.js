@@ -79,9 +79,12 @@ function signCms(xml, certPem, keyPem) {
 async function soap(url, action, body) {
   const response = await fetch(url, {method:"POST", headers:{"Content-Type":"text/xml; charset=utf-8", SOAPAction:action}, body});
   const text = await response.text();
-  if (!response.ok) throw new Error(`ARCA respondió HTTP ${response.status}`);
   const fault = tag(text, "faultstring");
-  if (fault) throw new Error(fault);
+  if (fault) throw new Error(`ARCA: ${fault}`);
+  if (!response.ok) {
+    const safeDetail = tag(text,"Message") || tag(text,"Error") || tag(text,"description");
+    throw new Error(`ARCA respondió HTTP ${response.status}${safeDetail?`: ${safeDetail}`:""}`);
+  }
   return text;
 }
 async function loginWsaa(wsaaUrl = WSAA_URL) {
