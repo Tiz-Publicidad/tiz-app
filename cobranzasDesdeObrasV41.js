@@ -46,7 +46,7 @@
   function setupPage(){
     const page=document.getElementById('page-cobranzas');if(!page)return;
     const title=page.querySelector('.page-title');if(title)title.textContent='Facturación y Cobranzas';
-    const actions=page.querySelector('.header-actions');if(actions)actions.innerHTML='<button class="btn btn-ghost btn-sm" onclick="probarArcaHomologacionV46(this)"><i class="ti ti-plug-connected"></i> Probar ARCA</button><button class="btn btn-ghost btn-sm" onclick="revisarUnificacionFinancieraV41()"><i class="ti ti-git-merge"></i> Revisar anticipos y saldos</button>';
+    const actions=page.querySelector('.header-actions');if(actions)actions.innerHTML='<button class="btn btn-primary btn-sm" onclick="emitirPruebaArcaOT4680V57(this)"><i class="ti ti-file-invoice"></i> Probar factura OT 4680</button><button class="btn btn-ghost btn-sm" onclick="probarArcaHomologacionV46(this)"><i class="ti ti-plug-connected"></i> Probar ARCA</button><button class="btn btn-ghost btn-sm" onclick="revisarUnificacionFinancieraV41()"><i class="ti ti-git-merge"></i> Revisar anticipos y saldos</button>';
     const tabs=page.querySelector('.page-tabs');if(tabs&&!tabs.dataset.facV48){tabs.dataset.facV48='1';tabs.innerHTML=[['dashboard','Dashboard'],['facturar','Para facturar'],['cobrar','Por cobrar'],['gestiones','Gestiones'],['retenciones','Retenciones'],['historico','Histórico'],['alertas','Alertas'],['configuracion','Configuración']].map(([k,l])=>`<button class="page-tab ${k==='dashboard'?'active':''}" onclick="setCobTab('${k}',this)">${l}</button>`).join('');}
     const filter=page.querySelector('#cobr-filter-estado');if(filter)filter.innerHTML='<option value="">Todos los estados</option><option>Sin cobrar</option><option>Facturado pendiente</option><option>Anticipo cobrado</option><option>Cobro parcial</option><option>Cobrado</option>';
     const th=page.querySelector('thead tr');if(th)th.innerHTML='<th>OT</th><th>Cliente / obra</th><th>Estado obra</th><th>Facturación</th><th>Total</th><th>Cobrado</th><th>Retenciones</th><th>Saldo</th><th>Cobro previsto</th><th>Estado financiero</th><th></th>';
@@ -108,6 +108,27 @@
       alert('Conexión de homologación correcta.\n\nWSAA: autorizado\nWSFE: disponible\nCUIT emisor: '+data.issuerCuit+'\nPuntos de venta de prueba: '+puntos+'\n\nLa emisión continúa deshabilitada.');
     }catch(error){console.error(error);alert('No se pudo validar ARCA.\n\n'+(error.message||error)+'\n\nVerificá que el backend esté desplegado y sus secretos configurados.')}
     finally{if(button){button.disabled=false;button.innerHTML=original}}
+  };
+
+  window.emitirPruebaArcaOT4680V57=async function(button){
+    if(!window.currentUser?.isAdmin)return window.showToast?.('Sólo administración puede emitir pruebas ARCA');
+    const obra=(window.DB?.obras||[]).find(o=>baseOt(o.ot)==='4680');if(!obra)return window.showToast?.('No se encontró la OT 4680');
+    const cliente=(window.DB?.clientes||[]).find(c=>norm(c.nombre)===norm(obra.cliente)||c.id===obra.clienteId),cuit=String(obra.clienteCuit||cliente?.cuit||'').replace(/\D/g,'');
+    const nombre=String(cliente?.razonSocial||cliente?.razon_social||cliente?.nombreFiscal||obra.cliente||'').trim();
+    const items=(obra.itemsCotizados||[]).map(i=>({descripcion:String(i.descripcion||i.desc||'').trim(),cantidad:num(i.cantidad||i.cant||1),unitario:num(i.unitario??i.precio)})).filter(i=>i.descripcion&&i.cantidad&&i.unitario);
+    if(norm(nombre)!==norm('Actitud Argentina')||cuit!=='30710787588')return alert('La OT 4680 todavía no está vinculada correctamente.\n\nEsperado: Actitud Argentina · CUIT 30-71078758-8\nActual: '+nombre+' · '+(cuit||'sin CUIT'));
+    if(items.length!==2)return alert('La prueba se detuvo porque la OT 4680 no tiene exactamente dos ítems cotizados.');
+    const neto=Math.round(items.reduce((a,i)=>a+i.cantidad*i.unitario,0)*100)/100,iva=Math.round(neto*.21*100)/100,total=neto+iva;
+    const detalle=items.map((i,n)=>`${n+1}. ${i.descripcion}\n   ${i.cantidad} × ${MONEY.format(i.unitario)}`).join('\n');
+    if(!confirm(`PRUEBA SIN VALOR FISCAL\n\nOT 4680 · Factura A\nCliente: ${nombre}\nCUIT: 30-71078758-8\n\n${detalle}\n\nNeto: ${MONEY.format(neto)}\nIVA 21%: ${MONEY.format(iva)}\nTotal: ${MONEY.format(total)}\n\n¿Enviar a homologación de ARCA?`))return;
+    const preview=window.open('','_blank','width=900,height=760'),original=button?.innerHTML;if(button){button.disabled=true;button.textContent='Emitiendo prueba…'}
+    try{
+      const [{getApp},{getAuth}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);const user=getAuth(getApp()).currentUser;if(!user)throw new Error('Sesión no iniciada');const token=await user.getIdToken();
+      const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/arcaHomologacionEmitirPrueba',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({docNro:cuit,neto,items})});const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'ARCA rechazó la prueba');
+      await window.updateDoc_('obras',obra.id,{ultimaPruebaArca:{...data,cliente:nombre,ot:'4680',fecha:new Date().toISOString()}});
+      const filas=items.map(i=>`<tr><td>${esc(i.descripcion)}</td><td>${i.cantidad}</td><td>${MONEY.format(i.unitario)}</td><td>${MONEY.format(i.cantidad*i.unitario)}</td></tr>`).join('');
+      preview.document.write(`<!doctype html><meta charset="utf-8"><title>Prueba ARCA OT 4680</title><style>body{font:14px Arial;margin:35px;color:#222}h1{font-size:22px}.test{padding:12px;background:#fff3cd;border:1px solid #e3c56b;font-weight:bold}table{width:100%;border-collapse:collapse;margin:22px 0}th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left}.tot{max-width:330px;margin-left:auto;line-height:1.8}.meta{line-height:1.6}</style><div class="test">COMPROBANTE DE HOMOLOGACIÓN · SIN VALOR FISCAL</div><h1>Factura A · OT 4680</h1><div class="meta"><b>Cliente:</b> ${esc(nombre)}<br><b>CUIT:</b> 30-71078758-8<br><b>Punto de venta de prueba:</b> ${data.ptoVta}<br><b>Comprobante:</b> ${data.cbteNro}</div><table><thead><tr><th>Descripción</th><th>Cantidad</th><th>Unitario neto</th><th>Subtotal</th></tr></thead><tbody>${filas}</tbody></table><div class="tot">Neto: <b>${MONEY.format(data.neto)}</b><br>IVA 21%: <b>${MONEY.format(data.iva)}</b><br>Total: <b>${MONEY.format(data.total)}</b><br>CAE prueba: <b>${esc(data.cae)}</b><br>Vencimiento CAE: <b>${esc(data.caeVto)}</b></div>`);preview.document.close();window.showToast?.('Factura de homologación aprobada por ARCA ✓');
+    }catch(e){preview?.close();console.error(e);alert('No se pudo emitir la prueba.\n\n'+(e.message||e));}finally{if(button){button.disabled=false;button.innerHTML=original}}
   };
 
   function parseIsoDate(value){
