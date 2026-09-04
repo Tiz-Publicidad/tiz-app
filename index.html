@@ -717,9 +717,10 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-group" style="position:relative">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <label>Cliente</label>
-          <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="nuevoClienteDesdeObra(document.getElementById('f-cliente').value || '')">+ Nuevo cliente</button>
+          <div style="display:flex;gap:5px"><button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="guardarClienteObraV55()">Guardar cliente</button><button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="nuevoClienteDesdeObra(document.getElementById('f-cliente').value || '')">+ Nuevo</button></div>
         </div>
         <input id="f-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientes(this.value)" onfocus="sugerirClientes(this.value)" onblur="setTimeout(()=>cerrarSugerencias(),250)">
+        <div id="f-cliente-cuit" style="font-size:10px;color:var(--text3);min-height:14px;margin-top:3px"></div>
         <div id="clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;z-index:400;max-height:220px;overflow-y:auto;margin-top:2px;box-shadow:0 12px 30px rgba(0,0,0,.45)"></div>
       </div>
       <div class="form-group"><label>Vendedor</label>
@@ -1927,6 +1928,7 @@ window.editObra = id => {
   document.getElementById('f-sector').value = o.sector||'Producción';
   document.getElementById('f-desc').value = o.desc||'';
   document.getElementById('f-cliente').value = o.cliente||'';
+  { const input=document.getElementById('f-cliente'),norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'',cli=(window.DB.clientes||[]).find(c=>c.id===o.clienteId||norm(fiscal(c))===norm(o.cliente)||norm(c.nombre)===norm(o.cliente)); if(input){input.dataset.clienteId=cli?.id||o.clienteId||'';input.dataset.clienteCuit=cli?.cuit||o.clienteCuit||''} const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=(cli?.cuit||o.clienteCuit)?'CUIT '+(cli?.cuit||o.clienteCuit):'Seleccioná un cliente de la lista para vincular su CUIT'; }
   document.getElementById('f-vendedor').value = o.vendedor||'G';
   document.getElementById('f-estado').value = o.estado||'Pendiente';
   document.getElementById('f-semana').value = o.semana||'';
@@ -2153,6 +2155,30 @@ window.nuevoClienteDesdePresupuesto = nombre => {
   ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   window._volvioDePresupuesto = true;
   document.getElementById('modal-cliente').classList.add('open');
+};
+
+// Selector y guardado directo de cliente desde Obras — V55.
+// La versión integrada de index no tenía estas funciones, aunque el campo las invocaba.
+window.sugerirClientes = q => {
+  const dd=document.getElementById('clientes-dropdown');if(!dd)return;
+  const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const fiscal=c=>String(c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'').trim();
+  const texto=String(q||'').trim(),nq=norm(texto);if(!nq){dd.style.display='none';return}
+  const clientes=(window.DB.clientes||[]).map(c=>({id:c.id,nombre:fiscal(c),alias:String(c.nombre||'').trim(),cuit:String(c.cuit||'').trim()})).filter(c=>c.nombre&&(norm(c.nombre).includes(nq)||norm(c.alias).includes(nq)||c.cuit.includes(texto))).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'})).slice(0,12);
+  dd.innerHTML=clientes.map((c,i)=>`<div class="cli-option" data-obra-cliente="${i}"><span>${resaltar(c.nombre,texto)}</span><span class="cli-option-sub">${c.cuit?'CUIT: '+c.cuit:'Sin CUIT'}${c.alias&&c.alias!==c.nombre?' · '+c.alias:''}</span></div>`).join('')+`<div class="cli-option" data-nuevo-obra="1" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente nuevo: <strong>${texto}</strong></span></div>`;
+  dd.querySelectorAll('[data-obra-cliente]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();const c=clientes[+el.dataset.obraCliente];if(c)window.elegirCliente(c.nombre,c.id,c.cuit)}));
+  dd.querySelector('[data-nuevo-obra]')?.addEventListener('mousedown',e=>{e.preventDefault();window.nuevoClienteDesdeObra(texto)});dd.style.display='block';
+};
+window.elegirCliente=(nombre,id='',cuit='')=>{const input=document.getElementById('f-cliente');if(input){input.value=nombre;input.dataset.clienteId=id;input.dataset.clienteCuit=cuit}const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=cuit?'Razón social seleccionada · CUIT '+cuit:'Cliente sin CUIT vinculado';const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
+window.cerrarSugerencias=()=>{const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
+window.nuevoClienteDesdeObra=nombre=>{window.cerrarSugerencias();window.editingId.cliente=null;document.getElementById('fc-numero').value=nextClienteNumero();document.getElementById('fc-nombre').value=nombre||'';['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('modal-cliente').classList.add('open')};
+window.guardarClienteObraV55=async()=>{
+  const obraId=window.editingId?.obra,input=document.getElementById('f-cliente');if(!obraId||!input)return showToast('No hay una obra abierta');
+  const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>String(c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'').trim();
+  const cliente=(window.DB.clientes||[]).find(c=>c.id===input.dataset.clienteId||norm(fiscal(c))===norm(input.value)||norm(c.nombre)===norm(input.value));
+  if(!cliente)return showToast('Seleccioná un cliente existente de la lista');const nombre=fiscal(cliente),cuit=String(cliente.cuit||'').trim();if(!cuit)return showToast('El cliente seleccionado no tiene CUIT cargado');
+  const obra=(window.DB.obras||[]).find(o=>o.id===obraId);input.disabled=true;
+  try{await updateDoc_('obras',obraId,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});const ids=new Set([obra?.presupuestoId,obra?.cotizacionId].filter(Boolean));const vinculadas=(window.DB.presupuestos||[]).filter(p=>p.obraId===obraId||ids.has(p.id));for(const p of vinculadas){await updateDoc_('presupuestos',p.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});p.cliente=nombre;p.clienteId=cliente.id;p.clienteCuit=cuit}if(obra){obra.cliente=nombre;obra.clienteId=cliente.id;obra.clienteCuit=cuit}const info=document.getElementById('f-cliente-cuit');if(info)info.textContent='Guardado · CUIT '+cuit;showToast('Cliente y CUIT actualizados en Obra y Presupuesto ✓')}catch(e){console.error(e);showToast('No se pudo guardar el cliente')}finally{input.disabled=false}
 };
 
 // ============================================================
