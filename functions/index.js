@@ -88,7 +88,7 @@ async function wsfeCall(method, innerXml, credentials) {
   return soap(WSFE_URL, `http://ar.gov.afip.dif.FEV1/${method}`, envelope);
 }
 
-exports.arcaHomologacionStatus = onRequest({region:"us-central1", secrets:[certificatePem, privateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
+exports.arcaHomologacionStatus = onRequest({region:"us-central1", invoker:"public", secrets:[certificatePem, privateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
   cors(req, res);
   if (req.method === "OPTIONS") return res.status(204).send("");
   if (req.method !== "POST") return res.status(405).json({ok:false,error:"Método no permitido"});
