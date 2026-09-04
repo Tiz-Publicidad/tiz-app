@@ -1208,9 +1208,13 @@ window.obrasSectorFilter = 'Todos';
 window.editingId = { obra:null, cliente:null, presupuesto:null, retencion:null, cobranza:null, tarea:null };
 
 function initListeners() {
+  const numeroDesc = (a,b) => (Number(String(b.ot??b.nro??'').replace(/\D/g,''))||-1) - (Number(String(a.ot??a.nro??'').replace(/\D/g,''))||-1);
+  const clienteAZ = (a,b) => String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'});
   function listen(col, key) {
     onSnapshot(collection(db, col), snap => {
       window.DB[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if(key==='clientes') window.DB[key].sort(clienteAZ);
+      if(key==='obras'||key==='presupuestos'||key==='cobranzas') window.DB[key].sort(numeroDesc);
       refreshCurrent();
     });
   }
@@ -1751,14 +1755,15 @@ window.editPres = id => {
 
 // CLIENTES
 window.renderClientes = function() {
-  let clis = window.DB.clientes;
+  let clis = [...window.DB.clientes].sort((a,b)=>String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'}));
   const q = document.getElementById('filter-cliente2')?.value.toLowerCase();
   if (q) clis = clis.filter(c=>(c.nombre||'').toLowerCase().includes(q)||(c.cuit||'').includes(q));
   document.getElementById('clientes-count').textContent = clis.length + ' clientes';
   document.getElementById('clientes-tbody').innerHTML = clis.map(c => {
-    const obras = window.DB.obras.filter(o=>(o.cliente||'').toLowerCase()===(c.nombre||'').toLowerCase()).length;
+    const nombre=c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'';
+    const obras = window.DB.obras.filter(o=>(o.cliente||'').toLowerCase()===nombre.toLowerCase()).length;
     return `<tr>
-      <td class="strong">${c.nombre||''}</td>
+      <td class="strong">${nombre}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${c.cuit||'—'}</td>
       <td>${c.contacto||'—'}</td><td>${c.cel||'—'}</td>
       <td style="color:var(--blue)">${c.email||'—'}</td>
@@ -3410,7 +3415,7 @@ async function syncToSheets(data) {
       const prev=mapa.get(k)||{};
       mapa.set(k,{nombre:prev.nombre||nombre,cuit:prev.cuit||cuit||'',numero:prev.numero||numero||'',fuente:prev.fuente||fuente});
     };
-    (window.DB?.clientes||[]).forEach(c=>add(c.nombre,c.cuit,c.numeroCliente||c.numero,'Base de clientes'));
+    (window.DB?.clientes||[]).forEach(c=>{const fiscal=c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre;add(fiscal,c.cuit,c.numeroCliente||c.numero,'Base de clientes');if(c.nombre&&norm(c.nombre)!==norm(fiscal))add(c.nombre,c.cuit,c.numeroCliente||c.numero,'Nombre comercial');});
     (window.DB?.obras||[]).forEach(o=>add(o.cliente,'','','Obras anteriores'));
     (window.DB?.presupuestos||[]).forEach(p=>add(p.cliente,'','','Cotizaciones anteriores'));
     return [...mapa.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
@@ -3509,6 +3514,6 @@ async function syncToSheets(data) {
 <script src="expedientesV33.js?v=TIZ-V50-EDITAR-CLIENTE-20260904"></script>
 <script src="sectorizacionV35.js?v=TIZ-V35-17-OBRAS-LIMPIAS-20260903"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-V38-1-VINCULOS-DRIVE-20260903"></script>
-<script src="cobranzasDesdeObrasV41.js?v=TIZ-V48-TABLERO-INTEGRAL-20260904"></script>
+<script src="cobranzasDesdeObrasV41.js?v=TIZ-V53-ORDEN-OT-20260904"></script>
 </body>
 </html>
