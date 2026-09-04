@@ -9,6 +9,8 @@ admin.initializeApp();
 
 const certificatePem = defineSecret("ARCA_CERTIFICATE_PEM");
 const privateKeyPem = defineSecret("ARCA_PRIVATE_KEY_PEM");
+const prodCertificatePem = defineSecret("ARCA_PROD_CERTIFICATE_PEM");
+const prodPrivateKeyPem = defineSecret("ARCA_PROD_PRIVATE_KEY_PEM");
 const issuerCuit = defineSecret("ARCA_ISSUER_CUIT");
 const allowedEmails = defineSecret("ARCA_ALLOWED_EMAILS");
 
@@ -87,8 +89,8 @@ async function soap(url, action, body) {
   }
   return text;
 }
-async function loginWsaa(wsaaUrl = WSAA_URL) {
-  const cms = signCms(createTra(), certificatePem.value(), privateKeyPem.value());
+async function loginWsaa(wsaaUrl = WSAA_URL, certSecret = certificatePem, keySecret = privateKeyPem) {
+  const cms = signCms(createTra(), certSecret.value(), keySecret.value());
   const envelope = `<?xml version="1.0" encoding="UTF-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body><loginCms xmlns="http://wsaa.view.sua.dvadac.desein.afip.gov"><in0>${cms}</in0></loginCms></soapenv:Body></soapenv:Envelope>`;
   const response = await soap(wsaaUrl, "", envelope);
   const result = tag(response, "loginCmsReturn");
@@ -102,13 +104,13 @@ async function wsfeCall(method, innerXml, credentials, wsfeUrl = WSFE_URL) {
   return soap(wsfeUrl, `http://ar.gov.afip.dif.FEV1/${method}`, envelope);
 }
 
-exports.arcaProduccionStatus = onRequest({region:"us-central1", invoker:"public", secrets:[certificatePem, privateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
+exports.arcaProduccionStatus = onRequest({region:"us-central1", invoker:"public", secrets:[prodCertificatePem, prodPrivateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
   cors(req, res);
   if (req.method === "OPTIONS") return res.status(204).send("");
   if (req.method !== "POST") return res.status(405).json({ok:false,error:"Método no permitido"});
   try {
     const user = await requireAdmin(req);
-    const credentials = await loginWsaa(WSAA_PROD_URL);
+    const credentials = await loginWsaa(WSAA_PROD_URL, prodCertificatePem, prodPrivateKeyPem);
     const dummyXml = await wsfeCall("FEDummy", "", credentials, WSFE_PROD_URL);
     const pointsXml = await wsfeCall("FEParamGetPtosVenta", "", credentials, WSFE_PROD_URL);
     const points = pointsOfSale(pointsXml), ptoVta = 9;
