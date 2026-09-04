@@ -184,6 +184,7 @@ td.strong { color: var(--text); font-weight: 500; }
 .page-tab { padding: 10px 16px; font-size: 13px; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-left: none; border-right: none; border-top: none; }
 .page-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 #page-cobranzas .page-tabs { position: sticky; top: 0; z-index: 35; background: var(--bg); padding-top: 6px; }
+#modal-obra .modal-actions { position: sticky; bottom: -24px; z-index: 45; background: var(--surface); border-top: 1px solid var(--border); padding-top: 12px; padding-bottom: 12px; }
 
 /* Annotations panel */
 .notas-panel { display: flex; flex-direction: column; gap: 8px; }
@@ -2302,6 +2303,14 @@ window.saveObra = async () => {
   let docRefId = existingId;
   if (existingId) await updateDoc_('obras', existingId, data);
   else { const ref = await addDoc_('obras', data); docRefId = ref?.id || null; }
+  if (existingId && existing && existing.cliente !== data.cliente) {
+    const ids=new Set([existing.presupuestoId,existing.cotizacionId].filter(Boolean));
+    const vinculadas=(window.DB.presupuestos||[]).filter(p=>p.obraId===existingId||ids.has(p.id));
+    for (const p of vinculadas) {
+      await updateDoc_('presupuestos',p.id,{cliente:data.cliente,nombreArchivo:window.tizCotizacionNombreBaseV354?.(p.nro,data.cliente,p.desc,p.revision||'1.1')||p.nombreArchivo||''});
+      p.cliente=data.cliente;
+    }
+  }
   try {
     const syncResult = await syncToSheets({...data, firestoreId: docRefId});
     if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
