@@ -62,7 +62,7 @@
       const [{getApp},{getAuth}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);
       const user=getAuth(getApp()).currentUser;if(!user)throw new Error('Sesión no iniciada');
       const token=await user.getIdToken();
-      const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/arcaHomologacionStatus',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}'});
+      const response=await fetch('https://arcahomologacionstatus-rqutcbncdq-uc.a.run.app',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}'});
       const data=await response.json().catch(()=>({}));
       if(!response.ok||!data.ok)throw new Error(data.error||'La conexión no respondió correctamente');
       const puntos=(data.pointsOfSale||[]).length?data.pointsOfSale.join(', '):'ninguno informado';
