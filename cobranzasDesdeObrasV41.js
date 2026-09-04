@@ -8,7 +8,7 @@
   const baseOt=v=>{const m=String(v??'').match(/\d{4,7}/);return m?String(Number(m[0])):''};
   const dateValue=v=>{if(!v)return '';const s=String(v);const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:s.slice(0,10)};
   const displayDate=v=>{if(!v)return '—';const s=String(v);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:s};
-  const emptyPart=()=>({facturado:false,nroFactura:'',fechaFactura:'',monto:0,fechaPrevistaCobro:'',fechaCobro:'',montoCobrado:0});
+  const emptyPart=()=>({facturado:false,nroFactura:'',fechaFactura:'',porcentaje:0,monto:0,fechaPrevistaCobro:'',fechaCobro:'',montoCobrado:0});
   const emptyFin=o=>({total:num(o?.neto),diasPago:0,anticipo:emptyPart(),saldo:emptyPart(),retenciones:{suss:0,iibb:0,ganancias:0,iva:0,otras:0},notas:''});
 
   function finances(o){
@@ -23,14 +23,16 @@
   }
   function totals(o){
     const f=finances(o), ret=Object.values(f.retenciones).reduce((a,v)=>a+num(v),0);
-    const cob=num(f.anticipo.montoCobrado)+num(f.saldo.montoCobrado);
+    const registrado=num(f.anticipo.montoCobrado)+num(f.saldo.montoCobrado);
+    const cobradoHistorico=norm(o?.estado)==='cobrado'&&registrado<=0&&num(f.total)>0;
+    const cob=cobradoHistorico?Math.max(0,num(f.total)-ret):registrado;
     const pendiente=Math.max(0,num(f.total)-cob-ret);
     let status='Sin cobrar';
     if(pendiente<=0&&f.total>0)status='Cobrado';
     else if(cob>0&&(num(f.saldo.montoCobrado)>0||cob>=num(f.total)*.5))status='Cobro parcial';
     else if(num(f.anticipo.montoCobrado)>0)status='Anticipo cobrado';
     else if(f.anticipo.facturado||f.saldo.facturado)status='Facturado pendiente';
-    return {f,ret,cob,pendiente,status};
+    return {f,ret,cob,pendiente,status,cobradoHistorico};
   }
   function due(o){const {f}=totals(o);return f.saldo.fechaPrevistaCobro||f.anticipo.fechaPrevistaCobro||''}
   function badge(status){const c=status==='Cobrado'?'green':status==='Sin cobrar'?'gray':status==='Facturado pendiente'?'red':'amber';return `<span class="badge badge-${c}">${esc(status)}</span>`}
@@ -49,9 +51,13 @@
     const filter=page.querySelector('#cobr-filter-estado');if(filter)filter.innerHTML='<option value="">Todos los estados</option><option>Sin cobrar</option><option>Facturado pendiente</option><option>Anticipo cobrado</option><option>Cobro parcial</option><option>Cobrado</option>';
     const th=page.querySelector('thead tr');if(th)th.innerHTML='<th>OT</th><th>Cliente / obra</th><th>Estado obra</th><th>Facturación</th><th>Total</th><th>Cobrado</th><th>Retenciones</th><th>Saldo</th><th>Cobro previsto</th><th>Estado financiero</th><th></th>';
     const kpis=document.getElementById('cobr-kpis');
+    if(kpis&&!document.getElementById('cobr-gestion-v47')){
+      const management=document.createElement('div');management.id='cobr-gestion-v47';
+      kpis.insertAdjacentElement('afterend',management);
+    }
     if(kpis&&!document.getElementById('cobr-prevision-v42')){
       const forecast=document.createElement('div');forecast.id='cobr-prevision-v42';
-      kpis.insertAdjacentElement('afterend',forecast);
+      (document.getElementById('cobr-gestion-v47')||kpis).insertAdjacentElement('afterend',forecast);
     }
   }
 
@@ -80,6 +86,24 @@
   function shortDate(date){return date.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})}
   function isoWeek(date){const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));const day=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-day);const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.ceil((((d-yearStart)/86400000)+1)/7)}
   function weekLabel(date){const end=new Date(date);end.setDate(end.getDate()+6);return {title:'SEM '+isoWeek(date),range:shortDate(date)+' al '+shortDate(end)}}
+  function monthKey(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`}
+  function monthLabel(key){const [y,m]=key.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('es-AR',{month:'long',year:'numeric'})}
+  function collectionMovements(obras){
+    const dated=[],undated=[];
+    obras.forEach(o=>{const x=totals(o);let found=false;['anticipo','saldo'].forEach(tipo=>{const p=x.f[tipo],amount=num(p.montoCobrado);if(!amount)return;found=true;const date=parseIsoDate(p.fechaCobro);(date?dated:undated).push({obra:o,tipo,date,amount,ret:0})});if(x.cobradoHistorico&&!found)undated.push({obra:o,tipo:'histórico',date:null,amount:x.cob,ret:x.ret})});
+    return {dated,undated};
+  }
+  function renderManagement(obras){
+    const box=document.getElementById('cobr-gestion-v47');if(!box)return;
+    const now=new Date(),week=weekKey(now),month=monthKey(now),moves=collectionMovements(obras);
+    const weekCollected=moves.dated.filter(x=>weekKey(x.date)===week).reduce((a,x)=>a+x.amount,0);
+    const monthCollected=moves.dated.filter(x=>monthKey(x.date)===month).reduce((a,x)=>a+x.amount,0);
+    const monthRet=obras.filter(o=>{const x=totals(o);return ['anticipo','saldo'].some(k=>{const d=parseIsoDate(x.f[k].fechaCobro);return d&&monthKey(d)===month})}).reduce((a,o)=>a+totals(o).ret,0);
+    const overdue=expectedPayments(obras).filter(x=>x.fecha&&x.fecha<new Date().setHours(0,0,0,0)).reduce((a,x)=>a+x.monto,0);
+    const months=[];for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1),key=monthKey(d);months.push({key,collected:moves.dated.filter(x=>monthKey(x.date)===key).reduce((a,x)=>a+x.amount,0)})}
+    const weeks=[];for(let i=7;i>=0;i--){const d=startOfWeek(now);d.setDate(d.getDate()-i*7);const key=weekKey(d);weeks.push({date:d,key,collected:moves.dated.filter(x=>weekKey(x.date)===key).reduce((a,x)=>a+x.amount,0)})}
+    box.innerHTML=`<div class="kpi-grid" style="margin-top:12px"><div class="kpi"><div class="kpi-label">Cobrado esta semana</div><div class="kpi-val green">${MONEY.format(weekCollected)}</div><div class="kpi-sub">Según fecha real de cobro</div></div><div class="kpi"><div class="kpi-label">Cobrado este mes</div><div class="kpi-val green">${MONEY.format(monthCollected)}</div><div class="kpi-sub">${monthLabel(month)}</div></div><div class="kpi"><div class="kpi-label">Retenciones del mes</div><div class="kpi-val">${MONEY.format(monthRet)}</div><div class="kpi-sub">SUSS, IIBB, Ganancias, IVA y otras</div></div><div class="kpi"><div class="kpi-label">Vencido por gestionar</div><div class="kpi-val ${overdue?'red':''}">${MONEY.format(overdue)}</div><div class="kpi-sub">${moves.undated.length} cobros históricos sin fecha</div></div></div><div class="card"><div class="card-header"><span class="card-title">Cobranzas reales por semana</span><span style="font-size:11px;color:var(--text3)">Últimas 8 semanas</span></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(8,minmax(105px,1fr));gap:8px;overflow-x:auto">${weeks.map(w=>{const l=weekLabel(w.date);return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--text2)">${l.title}</div><div style="font-size:9px;color:var(--text3)">${l.range}</div><div style="font-weight:600;margin-top:6px;color:var(--green)">${MONEY.format(w.collected)}</div></div>`}).join('')}</div></div></div><div class="card"><div class="card-header"><span class="card-title">Cobranzas reales por mes</span><span style="font-size:11px;color:var(--text3)">Últimos 6 meses · sólo movimientos con fecha real</span></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:8px;overflow-x:auto">${months.map(m=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--text3);text-transform:capitalize">${esc(monthLabel(m.key))}</div><div style="font-weight:600;margin-top:6px;color:var(--green)">${MONEY.format(m.collected)}</div></div>`).join('')}</div></div></div>`;
+  }
   function expectedPayments(obras){
     const rows=[];
     obras.forEach(o=>{const f=finances(o);['anticipo','saldo'].forEach(tipo=>{const p=f[tipo],pendiente=Math.max(0,num(p.monto)-num(p.montoCobrado));if(!pendiente)return;const fecha=parseIsoDate(p.fechaPrevistaCobro);rows.push({obra:o,tipo,fecha,monto:pendiente,facturado:!!p.facturado||!!p.nroFactura,nroFactura:p.nroFactura||''})})});
@@ -102,7 +126,7 @@
   window.cambiarSemanaCobranzasV43=function(value){window.cobrForecastWeekV43=value;window.renderCobranzas?.()};
   window.actualizarEstadoCobranzaV43=async function(id,value){
     if(!['Cobrado pendiente','Cobrado'].includes(value))return;
-    try{await window.updateDoc_('obras',id,{estado:value,estadoCobranzaActualizadoAt:new Date().toISOString()});const o=(window.DB?.obras||[]).find(x=>x.id===id);if(o)o.estado=value;window.renderCobranzas?.();window.showToast?.('Estado actualizado también en Obras ✓')}catch(e){console.error(e);window.showToast?.('No se pudo actualizar el estado')}
+    try{const o=(window.DB?.obras||[]).find(x=>x.id===id),patch={estado:value,estadoCobranzaActualizadoAt:new Date().toISOString()};if(value==='Cobrado'&&o){const f=finances(o),x=totals(o);if(!num(f.anticipo.montoCobrado)&&!num(f.saldo.montoCobrado)){f.saldo.montoCobrado=Math.max(0,num(f.total)-x.ret);f.saldo.fechaCobro=new Date().toISOString().slice(0,10);patch.finanzas=f}}await window.updateDoc_('obras',id,patch);if(o)Object.assign(o,patch);window.renderCobranzas?.();window.showToast?.('Estado y cobranza actualizados también en Obras ✓')}catch(e){console.error(e);window.showToast?.('No se pudo actualizar el estado')}
   };
 
   window.renderCobranzas=function(){
@@ -118,22 +142,22 @@
     const all=(window.DB?.obras||[]).filter(o=>baseOt(o.ot)).map(totals);
     const total=all.reduce((a,x)=>a+num(x.f.total),0),cob=all.reduce((a,x)=>a+x.cob,0),ret=all.reduce((a,x)=>a+x.ret,0),pend=all.reduce((a,x)=>a+x.pendiente,0);
     document.getElementById('cobr-kpis').innerHTML=`<div class="kpi"><div class="kpi-label">Total vendido</div><div class="kpi-val">${MONEY.format(total)}</div></div><div class="kpi"><div class="kpi-label">Cobrado</div><div class="kpi-val green">${MONEY.format(cob)}</div></div><div class="kpi"><div class="kpi-label">Retenciones</div><div class="kpi-val">${MONEY.format(ret)}</div></div><div class="kpi"><div class="kpi-label">Pendiente</div><div class="kpi-val amber">${MONEY.format(pend)}</div></div>`;
-    renderForecast((window.DB?.obras||[]).filter(o=>baseOt(o.ot)));
+    const obrasFin=(window.DB?.obras||[]).filter(o=>baseOt(o.ot));renderManagement(obrasFin);renderForecast(obrasFin);
     const count=document.getElementById('cobr-count');if(count)count.textContent=rows.length+' obras';
     document.getElementById('cobr-tbody').innerHTML=rows.map(o=>{const x=totals(o),current=o.estado||'';return `<tr><td class="strong">${esc(baseOt(o.ot))}</td><td><b style="color:var(--text)">${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td><select class="quick-estado" onchange="actualizarEstadoCobranzaV43('${o.id}',this.value)">${!['Cobrado pendiente','Cobrado'].includes(current)?`<option value="" selected disabled>${esc(current||'Seleccionar')}</option>`:''}<option value="Cobrado pendiente" ${current==='Cobrado pendiente'?'selected':''}>Cobrado pendiente</option><option value="Cobrado" ${current==='Cobrado'?'selected':''}>Cobrado</option></select></td><td style="font-size:11px">${invoiceSummary(x.f)}</td><td>${MONEY.format(x.f.total)}</td><td style="color:var(--green)">${MONEY.format(x.cob)}</td><td>${MONEY.format(x.ret)}</td><td style="color:${x.pendiente?'var(--amber)':'var(--green)'}">${MONEY.format(x.pendiente)}</td><td>${esc(displayDate(due(o)))}</td><td>${badge(x.status)}</td><td><button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button></td></tr>`}).join('')||'<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text3)">Sin obras para mostrar.</td></tr>';
   };
 
   function moneyInput(id,label,value){return `<div class="form-group"><label>${label}</label><input id="${id}" type="number" min="0" step="0.01" value="${num(value)}"></div>`}
-  function partFields(prefix,title,p){return `<div class="form-section">${title}</div><div class="form-group"><label><input id="${prefix}-fact" type="checkbox" ${p.facturado?'checked':''}> Facturado</label></div><div class="form-group"><label>Número de factura</label><input id="${prefix}-fc" value="${esc(p.nroFactura)}"></div><div class="form-group"><label>Fecha factura</label><input id="${prefix}-ff" type="date" value="${esc(dateValue(p.fechaFactura))}"></div>${moneyInput(prefix+'-monto','Importe facturado',p.monto)}<div class="form-group"><label>Fecha prevista de cobro</label><input id="${prefix}-prev" type="date" value="${esc(dateValue(p.fechaPrevistaCobro))}"></div><div class="form-group"><label>Fecha de cobro</label><input id="${prefix}-real" type="date" value="${esc(dateValue(p.fechaCobro))}"></div>${moneyInput(prefix+'-cob','Importe cobrado',p.montoCobrado)}`}
+  function partFields(prefix,title,p,total){const pct=num(p.porcentaje)||(total?num(p.monto)/total*100:0);return `<div class="form-section">${title} · preparación de factura</div><div class="form-group"><label><input id="${prefix}-fact" type="checkbox" ${p.facturado?'checked':''}> Facturado</label></div><div class="form-group"><label>Porcentaje a facturar</label><input id="${prefix}-pct" type="number" min="0" max="100" step="0.01" value="${Math.round(pct*100)/100}"><small style="color:var(--text3)">% sobre el total de la obra</small></div><div class="form-group"><label>Número de factura</label><input id="${prefix}-fc" value="${esc(p.nroFactura)}"></div><div class="form-group"><label>Fecha factura</label><input id="${prefix}-ff" type="date" value="${esc(dateValue(p.fechaFactura))}"></div>${moneyInput(prefix+'-monto','Importe facturado',p.monto)}<div class="form-group"><label>Fecha prevista de cobro</label><input id="${prefix}-prev" type="date" value="${esc(dateValue(p.fechaPrevistaCobro))}"></div><div class="form-group"><label>Fecha de cobro</label><input id="${prefix}-real" type="date" value="${esc(dateValue(p.fechaCobro))}"></div>${moneyInput(prefix+'-cob','Importe cobrado',p.montoCobrado)}`}
   window.editarCobranzaObraV41=function(id){
     const o=(window.DB?.obras||[]).find(x=>x.id===id);if(!o)return;const f=finances(o);const cliente=(window.DB?.clientes||[]).find(c=>norm(c.nombre)===norm(o.cliente));const dias=num(f.diasPago||cliente?.diasPagoHabitual);
     document.getElementById('modal-cobranza-v41')?.remove();const root=document.createElement('div');root.id='modal-cobranza-v41';root.className='modal-overlay open';
-    root.innerHTML=`<div class="modal" style="max-width:900px"><div class="modal-title">Cobranza · OT ${esc(baseOt(o.ot))} · ${esc(o.cliente)}</div><div class="form-grid"><div class="form-group"><label>Total de la obra</label><input id="fin-total" type="number" min="0" value="${num(f.total)}"></div><div class="form-group"><label>Estado operativo</label><input value="${esc(o.estado||'')}" disabled></div><div class="form-group"><label>Plazo habitual de pago</label><select id="fin-dias-pago"><option value="0">Sin plazo definido</option>${[7,15,30,45,60,90].map(d=>`<option value="${d}" ${dias===d?'selected':''}>${d} días</option>`).join('')}</select></div><div class="form-group"><label>Preferencia del cliente</label><input value="${cliente?.diasPagoHabitual?esc(cliente.diasPagoHabitual+' días guardados'):'Se guardará al confirmar'}" disabled></div>${partFields('fin-ant','Anticipo',f.anticipo)}${partFields('fin-sal','Saldo',f.saldo)}<div class="form-section">Retenciones</div>${moneyInput('fin-suss','SUSS',f.retenciones.suss)}${moneyInput('fin-iibb','Ingresos Brutos',f.retenciones.iibb)}${moneyInput('fin-gan','Ganancias',f.retenciones.ganancias)}${moneyInput('fin-iva','IVA',f.retenciones.iva)}${moneyInput('fin-otras','Otras',f.retenciones.otras)}<div class="form-group full"><label>Notas privadas de cobranzas</label><textarea id="fin-notas">${esc(f.notas)}</textarea></div></div><div class="modal-actions"><button class="btn btn-ghost" id="fin-cancel">Cancelar</button><button class="btn btn-primary" id="fin-save">Guardar cobranza</button></div></div>`;
-    document.body.appendChild(root);root.querySelector('#fin-cancel').onclick=()=>root.remove();root.querySelector('#fin-save').onclick=()=>guardarFinanzas(id,root);root.querySelector('#fin-dias-pago').onchange=()=>calcularFechasPrevistasV44(true);['fin-ant-ff','fin-sal-ff'].forEach(x=>{const e=document.getElementById(x);if(e)e.onchange=()=>calcularFechasPrevistasV44(false)});
+    root.innerHTML=`<div class="modal" style="max-width:900px"><div class="modal-title">Cobranza · OT ${esc(baseOt(o.ot))} · ${esc(o.cliente)}</div><div class="form-grid"><div class="form-group"><label>Total de la obra</label><input id="fin-total" type="number" min="0" value="${num(f.total)}"></div><div class="form-group"><label>Estado operativo</label><input value="${esc(o.estado||'')}" disabled></div><div class="form-group"><label>Plazo habitual de pago</label><select id="fin-dias-pago"><option value="0">Sin plazo definido</option>${[7,15,30,45,60,90].map(d=>`<option value="${d}" ${dias===d?'selected':''}>${d} días</option>`).join('')}</select></div><div class="form-group"><label>Preferencia del cliente</label><input value="${cliente?.diasPagoHabitual?esc(cliente.diasPagoHabitual+' días guardados'):'Se guardará al confirmar'}" disabled></div>${partFields('fin-ant','Anticipo',f.anticipo,f.total)}${partFields('fin-sal','Saldo',f.saldo,f.total)}<div class="form-section">Retenciones</div>${moneyInput('fin-suss','SUSS',f.retenciones.suss)}${moneyInput('fin-iibb','Ingresos Brutos',f.retenciones.iibb)}${moneyInput('fin-gan','Ganancias',f.retenciones.ganancias)}${moneyInput('fin-iva','IVA',f.retenciones.iva)}${moneyInput('fin-otras','Otras',f.retenciones.otras)}<div class="form-group full"><label>Notas privadas de cobranzas</label><textarea id="fin-notas">${esc(f.notas)}</textarea></div></div><div class="modal-actions"><button class="btn btn-ghost" id="fin-cancel">Cancelar</button><button class="btn btn-primary" id="fin-save">Guardar cobranza</button></div></div>`;
+    document.body.appendChild(root);root.querySelector('#fin-cancel').onclick=()=>root.remove();root.querySelector('#fin-save').onclick=()=>guardarFinanzas(id,root);root.querySelector('#fin-dias-pago').onchange=()=>calcularFechasPrevistasV44(true);['fin-ant','fin-sal'].forEach(p=>{const pct=document.getElementById(p+'-pct'),amount=document.getElementById(p+'-monto');pct.oninput=()=>{amount.value=Math.round(num(val('fin-total'))*num(pct.value))/100};amount.oninput=()=>{pct.value=num(val('fin-total'))?Math.round(num(amount.value)/num(val('fin-total'))*10000)/100:0};document.getElementById(p+'-ff').onchange=()=>calcularFechasPrevistasV44(false)});
   };
   function calcularFechasPrevistasV44(force){const dias=num(val('fin-dias-pago'));if(!dias)return;['fin-ant','fin-sal'].forEach(p=>{const invoice=parseIsoDate(val(p+'-ff')),target=document.getElementById(p+'-prev');if(invoice&&target&&(force||!target.value)){invoice.setDate(invoice.getDate()+dias);target.value=invoice.toISOString().slice(0,10)}})}
   const val=id=>document.getElementById(id)?.value||'';const checked=id=>!!document.getElementById(id)?.checked;
-  function readPart(p){return {facturado:checked(p+'-fact'),nroFactura:val(p+'-fc').trim(),fechaFactura:val(p+'-ff'),monto:num(val(p+'-monto')),fechaPrevistaCobro:val(p+'-prev'),fechaCobro:val(p+'-real'),montoCobrado:num(val(p+'-cob'))}}
+  function readPart(p){return {facturado:checked(p+'-fact'),porcentaje:num(val(p+'-pct')),nroFactura:val(p+'-fc').trim(),fechaFactura:val(p+'-ff'),monto:num(val(p+'-monto')),fechaPrevistaCobro:val(p+'-prev'),fechaCobro:val(p+'-real'),montoCobrado:num(val(p+'-cob'))}}
   async function guardarFinanzas(id,root){
     const finanzas={total:num(val('fin-total')),diasPago:num(val('fin-dias-pago')),anticipo:readPart('fin-ant'),saldo:readPart('fin-sal'),retenciones:{suss:num(val('fin-suss')),iibb:num(val('fin-iibb')),ganancias:num(val('fin-gan')),iva:num(val('fin-iva')),otras:num(val('fin-otras'))},notas:val('fin-notas').trim(),actualizadoAt:new Date().toISOString(),actualizadoPor:window.currentUser?.email||''};
     try{await window.updateDoc_('obras',id,{finanzas});const o=window.DB.obras.find(x=>x.id===id);if(o)o.finanzas=finanzas;const cliente=(window.DB?.clientes||[]).find(c=>norm(c.nombre)===norm(o?.cliente));if(cliente&&finanzas.diasPago!==num(cliente.diasPagoHabitual)){await window.updateDoc_('clientes',cliente.id,{diasPagoHabitual:finanzas.diasPago});cliente.diasPagoHabitual=finanzas.diasPago}root.remove();window.renderCobranzas();window.showToast?.('Cobranza y plazo del cliente actualizados ✓');}catch(e){console.error(e);window.showToast?.('No se pudo guardar la cobranza');}
