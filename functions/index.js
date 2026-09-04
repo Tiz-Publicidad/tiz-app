@@ -15,6 +15,8 @@ const allowedEmails = defineSecret("ARCA_ALLOWED_EMAILS");
 const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "http://localhost:5000", "http://127.0.0.1:5000"]);
 const WSAA_URL = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms";
 const WSFE_URL = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
+const WSAA_PROD_URL = "https://wsaa.afip.gov.ar/ws/services/LoginCms";
+const WSFE_PROD_URL = "https://servicios1.afip.gov.ar/wsfev1/service.asmx";
 
 function cors(req, res) {
   const origin = req.get("origin");
@@ -82,20 +84,47 @@ async function soap(url, action, body) {
   if (fault) throw new Error(fault);
   return text;
 }
-async function loginWsaa() {
+async function loginWsaa(wsaaUrl = WSAA_URL) {
   const cms = signCms(createTra(), certificatePem.value(), privateKeyPem.value());
   const envelope = `<?xml version="1.0" encoding="UTF-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body><loginCms xmlns="http://wsaa.view.sua.dvadac.desein.afip.gov"><in0>${cms}</in0></loginCms></soapenv:Body></soapenv:Envelope>`;
-  const response = await soap(WSAA_URL, "", envelope);
+  const response = await soap(wsaaUrl, "", envelope);
   const result = tag(response, "loginCmsReturn");
   const token = tag(result, "token"), sign = tag(result, "sign"), expirationTime = tag(result, "expirationTime");
   if (!token || !sign) throw new Error("WSAA no devolvió credenciales válidas");
   return {token, sign, expirationTime};
 }
-async function wsfeCall(method, innerXml, credentials) {
+async function wsfeCall(method, innerXml, credentials, wsfeUrl = WSFE_URL) {
   const auth = `<Auth><Token>${escapeXml(credentials.token)}</Token><Sign>${escapeXml(credentials.sign)}</Sign><Cuit>${escapeXml(issuerCuit.value())}</Cuit></Auth>`;
   const envelope = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><${method} xmlns="http://ar.gov.afip.dif.FEV1/">${auth}${innerXml || ""}</${method}></soap:Body></soap:Envelope>`;
-  return soap(WSFE_URL, `http://ar.gov.afip.dif.FEV1/${method}`, envelope);
+  return soap(wsfeUrl, `http://ar.gov.afip.dif.FEV1/${method}`, envelope);
 }
+
+exports.arcaProduccionStatus = onRequest({region:"us-central1", invoker:"public", secrets:[certificatePem, privateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
+  cors(req, res);
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  if (req.method !== "POST") return res.status(405).json({ok:false,error:"Método no permitido"});
+  try {
+    const user = await requireAdmin(req);
+    const credentials = await loginWsaa(WSAA_PROD_URL);
+    const dummyXml = await wsfeCall("FEDummy", "", credentials, WSFE_PROD_URL);
+    const pointsXml = await wsfeCall("FEParamGetPtosVenta", "", credentials, WSFE_PROD_URL);
+    const points = pointsOfSale(pointsXml), ptoVta = 9;
+    let lastAuthorized = null, pointError = "";
+    try {
+      const lastXml = await wsfeCall("FECompUltimoAutorizado", `<PtoVta>${ptoVta}</PtoVta><CbteTipo>1</CbteTipo>`, credentials, WSFE_PROD_URL);
+      const errors = [...lastXml.matchAll(/<(?:Msg|Obs)>([\s\S]*?)<\/(?:Msg|Obs)>/gi)].map(m=>decodeXml(m[1].trim())).filter(Boolean);
+      if (errors.length) pointError = errors.join(" · ");
+      else lastAuthorized = Number(tag(lastXml,"CbteNro") || 0);
+    } catch (error) { pointError = error.message || String(error); }
+    const ready = points.includes(ptoVta) && !pointError;
+    return res.json({ok:true,ready,environment:"produccion",issuerCuit:issuerCuit.value(),operator:user.email,ptoVta,pointsOfSale:points,lastAuthorized,
+      services:{app:tag(dummyXml,"AppServer")||"OK",db:tag(dummyXml,"DbServer")||"OK",auth:tag(dummyXml,"AuthServer")||"OK"},
+      message:ready?"Producción lista para emitir":(pointError||"ARCA no informó el punto de venta 00009 para web services"),emissionEnabled:false});
+  } catch (error) {
+    console.error("ARCA production diagnostic failed", error);
+    return res.status(error.status||502).json({ok:false,ready:false,error:error.message||"No se pudo validar ARCA producción"});
+  }
+});
 
 exports.arcaHomologacionStatus = onRequest({region:"us-central1", invoker:"public", secrets:[certificatePem, privateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
   cors(req, res);
