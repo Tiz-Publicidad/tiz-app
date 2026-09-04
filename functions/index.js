@@ -135,8 +135,11 @@ exports.arcaHomologacionEmitirPrueba = onRequest({region:"us-central1", invoker:
     const credentials = await loginWsaa();
     const pointsXml = await wsfeCall("FEParamGetPtosVenta", "", credentials);
     const points = pointsOfSale(pointsXml);
-    const ptoVta = points[0];
-    if (!ptoVta) throw Object.assign(new Error("ARCA no informó un punto de venta de homologación"), {status:409});
+    // Homologación puede responder sin padrón de puntos aunque acepte solicitudes.
+    // En ese caso usamos el punto indicado por TIZ sólo para la prueba; ARCA hará
+    // la validación definitiva al consultar el último comprobante/autorización.
+    const ptoVta = points[0] || 3;
+    const pointSource = points.length ? "arca" : "respaldo-tiz";
     const cbteTipo = 1;
     const lastXml = await wsfeCall("FECompUltimoAutorizado", `<PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo>`, credentials);
     const last = Number(tag(lastXml, "CbteNro") || 0), next = last + 1;
@@ -149,7 +152,7 @@ exports.arcaHomologacionEmitirPrueba = onRequest({region:"us-central1", invoker:
     const messages = [...resultXml.matchAll(/<(?:Msg|Obs)>([\s\S]*?)<\/(?:Msg|Obs)>/gi)].map(m=>decodeXml(m[1].trim())).filter(Boolean);
     if (result !== "A" || !cae) return res.status(422).json({ok:false,error:messages.join(" · ")||"ARCA rechazó el comprobante de prueba",environment:"homologacion",ptoVta,cbteNro:next});
     console.info("ARCA homologation invoice approved", {operator:user.email,ptoVta,cbteNro:next,neto,total});
-    return res.json({ok:true,environment:"homologacion",ptoVta,cbteTipo,cbteNro:next,cae,caeVto,issuerCuit:issuerCuit.value(),receiverCuit:docNro,neto,iva,total,items});
+    return res.json({ok:true,environment:"homologacion",ptoVta,pointSource,cbteTipo,cbteNro:next,cae,caeVto,issuerCuit:issuerCuit.value(),receiverCuit:docNro,neto,iva,total,items});
   } catch (error) {
     console.error("ARCA homologation invoice failed", error);
     return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo emitir la prueba"});
