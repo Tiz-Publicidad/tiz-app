@@ -1775,6 +1775,7 @@ window.renderClientes = function() {
       <td style="color:var(--blue)">${c.email||'—'}</td>
       <td><span class="badge badge-blue">${obras}</span></td>
       <td>
+        <button class="btn-icon" onclick="asignarClienteAOTV56('${c.id}')" title="Asignar este cliente a una OT"><i class="ti ti-link" style="font-size:13px"></i></button>
         <button class="btn-icon" onclick="editCliente('${c.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button>
         <button class="btn-icon" onclick="delCliente('${c.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
       </td>
@@ -1796,6 +1797,21 @@ window.editCliente = id => {
   openModal('cliente');
 };
 window.delCliente = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('clientes',id); };
+window.asignarClienteAOTV56 = async clienteId => {
+  const cliente=(window.DB.clientes||[]).find(c=>c.id===clienteId);if(!cliente)return showToast('No se encontró el cliente');
+  const nombre=String(cliente.razonSocial||cliente.razon_social||cliente.nombreFiscal||cliente.nombre||'').trim(),cuit=String(cliente.cuit||'').trim();
+  if(!cuit)return showToast('Este cliente no tiene CUIT cargado');
+  const solicitado=prompt(`Asignar ${nombre} · CUIT ${cuit}\n\nIngresá el número de OT:`, '4680');if(solicitado===null)return;
+  const base=window.tizNumeroBase(solicitado),obra=(window.DB.obras||[]).find(o=>window.tizNumeroBase(o.ot)===base);if(!obra)return showToast('No se encontró la OT '+base);
+  if(!confirm(`Confirmar cambio de cliente\n\nOT: ${base}\nCliente actual: ${obra.cliente||'—'}\nCliente nuevo: ${nombre}\nCUIT: ${cuit}\n\nNo se modificarán importes ni estados.`))return;
+  try{
+    await updateDoc_('obras',obra.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});
+    const ids=new Set([obra.presupuestoId,obra.cotizacionId].filter(Boolean));
+    const vinculadas=(window.DB.presupuestos||[]).filter(p=>p.obraId===obra.id||ids.has(p.id)||window.tizNumeroBase(p.nro)===base);
+    for(const p of vinculadas){await updateDoc_('presupuestos',p.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});p.cliente=nombre;p.clienteId=cliente.id;p.clienteCuit=cuit}
+    obra.cliente=nombre;obra.clienteId=cliente.id;obra.clienteCuit=cuit;showToast(`OT ${base} vinculada a ${nombre} ✓`);window.renderClientes();
+  }catch(e){console.error(e);showToast('No se pudo vincular el cliente a la OT')}
+};
 
 window.saveCliente = async () => {
   const nombre = document.getElementById('fc-nombre').value.trim();
