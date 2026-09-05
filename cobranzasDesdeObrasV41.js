@@ -187,9 +187,9 @@ window.abrirEnvioFacturaEmailV61=function(obraId){
         const [{getApp},{getAuth}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);const user=getAuth(getApp()).currentUser;if(!user)throw new Error('Sesión no iniciada');const token=await user.getIdToken();
         const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/arcaProduccionEmitirFactura',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({obraId:obra.id,clienteId:cliente?.id||'',cuit:cuitElegido,condicionIvaId,tipoParte,porcentaje,confirmacion:'EMITIR FACTURA REAL'})});
         const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'ARCA no autorizó la factura');
-        obra.facturaArca=data;obra.facturasArca=[...(obra.facturasArca||[]),data];obra.facturado=true;obra.nrfc=data.numeroCompleto;obra.ffc=data.fecha;root.remove();window.renderCobranzas?.();
+        const abrirEnvio=root.querySelector('#arca-enviar-v63')?.checked;obra.facturaArca=data;obra.facturasArca=[...(obra.facturasArca||[]),data];obra.facturado=true;obra.nrfc=data.numeroCompleto;obra.ffc=data.fecha;root.remove();window.renderCobranzas?.();
         alert('FACTURA AUTORIZADA\\n\\n'+data.tipo+' '+data.numeroCompleto+'\\nCAE: '+data.cae+'\\nTotal: '+MONEY.format(data.total)+'\\n\\nQuedó registrada en la OT '+baseOt(obra.ot)+'.');
-        if(root.querySelector('#arca-enviar-v63')?.checked)setTimeout(()=>window.abrirEnvioFacturaEmailV61?.(obra.id),0);else window.showToast?.('Factura emitida · envío pendiente');
+        if(abrirEnvio)setTimeout(()=>window.abrirEnvioFacturaEmailV61?.(obra.id),0);else window.showToast?.('Factura emitida · envío pendiente');
       }catch(e){console.error(e);alert('No se pudo completar la emisión.\\n\\n'+(e.message||e)+'\\n\\nSi ARCA pudo haberla procesado, no vuelvas a emitir hasta verificar el estado.');button.disabled=false;button.textContent=original}
     };
   };
