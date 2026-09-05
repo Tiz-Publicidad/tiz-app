@@ -78,8 +78,8 @@
     const facturada=!!o?.facturaArca?.cae;
     const enviada=!!o?.facturaArca?.emailUltimoEnvioAt;
     const estado=facturada?`<span title="${enviada?'Factura enviada':'Factura pendiente de envío'}" style="width:11px;height:11px;border-radius:50%;display:inline-block;background:${enviada?'#22a06b':'#e8b84b'};box-shadow:0 0 0 3px ${enviada?'rgba(34,160,107,.14)':'rgba(232,184,75,.18)'}"></span>`:'';
-    const enviar=facturada?`<button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')"><i class="ti ti-mail-forward"></i> ${enviada?'Reenviar FC':'Enviar FC'}</button>`:'';
-    return `<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap">${estado}<button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button>${enviar}</div>`;
+    const accion=facturada?`<button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')"><i class="ti ti-mail-forward"></i> ${enviada?'Reenviar FC':'Enviar FC'}</button>`:`<button class="btn btn-primary btn-sm" onclick="prepararFacturaArcaV63('${o.id}')"><i class="ti ti-file-invoice"></i> Facturar</button>`;
+    return `<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap">${estado}<button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button>${accion}</div>`;
   }
   function operationalRows(items){return items.map(x=>{const o=x.obra||x,t=totals(o);return `<tr><td class="strong">${esc(baseOt(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>${invoiceSummary(t.f)}</td><td>${MONEY.format(t.pendiente)}</td><td>${esc(displayDate(due(o)))}</td><td>${badge(t.status)}</td><td>${manageButton(o)}</td></tr>`}).join('')}
   function renderModule(obras){
@@ -125,7 +125,7 @@ window.abrirEnvioFacturaEmailV61=function(obraId){
     ])].slice(0,10);
     let seleccionados=new Set(correos);
     const fileId=String(factura.driveFileId||((baseOt(obra.ot)==='4680')?'1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn':'')).trim();
-    if(!fileId)return alert('La factura está autorizada, pero todavía no tiene un PDF asociado en Drive.');
+
     document.getElementById('modal-envio-factura-v61')?.remove();
     const root=document.createElement('div');root.id='modal-envio-factura-v61';root.className='modal-overlay open';
     const numero=String(factura.numeroCompleto||obra.nrfc||'').trim();
@@ -151,9 +151,46 @@ window.abrirEnvioFacturaEmailV61=function(obraId){
         const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/facturaEnviarEmail',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({obraId:obra.id,destinatario:destinatarios,fileId,asunto,confirmacion:'ENVIAR FACTURA POR EMAIL'})});
         const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'No se pudo enviar la factura');
         await persistir();
-        factura.driveFileId=fileId;factura.drivePendiente=false;factura.emailUltimoDestinatario=destinatarios;factura.emailUltimoDestinatarios=elegidos;factura.emailUltimoRemitente='info@tizpublicidad.com';factura.emailUltimoEnvioAt=new Date().toISOString();factura.emailUltimoEnvioPor=window.currentUser.email;
+        factura.driveFileId=data.fileId||fileId;factura.drivePendiente=false;factura.emailUltimoDestinatario=destinatarios;factura.emailUltimoDestinatarios=elegidos;factura.emailUltimoRemitente='info@tizpublicidad.com';factura.emailUltimoEnvioAt=new Date().toISOString();factura.emailUltimoEnvioPor=window.currentUser.email;
         root.remove();window.renderCobranzas?.();alert('FACTURA ENVIADA\\n\\nFactura '+numero+'\\nDe: info@tizpublicidad.com\\nPara: '+elegidos.join(', ')+'\\n\\nEl envío quedó registrado en la OT '+baseOt(obra.ot)+'.');
       }catch(error){console.error(error);alert('No se pudo enviar la factura.\\n\\n'+(error.message||error));send.disabled=false;send.textContent='ENVIAR AHORA'}
+    };
+  };
+
+
+  window.prepararFacturaArcaV63=function(obraId){
+    if(!window.currentUser?.isAdmin)return window.showToast?.('Sólo administración puede emitir facturas');
+    const obra=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!obra)return alert('No se encontró la obra.');
+    const cliente=(window.DB?.clientes||[]).find(x=>x.id===obra.clienteId||norm(x.nombre)===norm(obra.cliente));
+    const totalNeto=num(obra.finanzas?.total||obra.neto);
+    if(totalNeto<=0)return alert('La obra no tiene un importe neto válido.');
+    const previas=Array.isArray(obra.facturasArca)?obra.facturasArca.filter(x=>x?.cae):[];
+    const tieneAnticipo=previas.some(x=>x.tipoParte==='anticipo');
+    const modoInicial=tieneAnticipo?'saldo':'total';
+    const cuit=String(cliente?.cuit||obra.clienteCuit||'').replace(/\D/g,'');
+    const condicion=Number(cliente?.condicionIvaId||1);
+    document.getElementById('modal-facturar-arca-v63')?.remove();
+    const root=document.createElement('div');root.id='modal-facturar-arca-v63';root.className='modal-overlay open';
+    root.innerHTML=`<div class="modal" style="max-width:760px"><div class="modal-title">Emitir factura real · OT ${esc(baseOt(obra.ot))}</div><div style="padding:11px;border:1px solid rgba(232,184,75,.55);background:rgba(232,184,75,.08);border-radius:8px;margin-bottom:14px;font-size:12px"><b>Esta operación solicita un CAE real a ARCA.</b> Revisá todos los datos antes de confirmar.</div><div class="form-grid"><div class="form-group"><label>Cliente / razón social</label><input value="${esc(obra.cliente||'')}" disabled></div><div class="form-group"><label>CUIT</label><input id="arca-cuit-v63" value="${esc(cuit)}" maxlength="13" placeholder="00-00000000-0"></div><div class="form-group"><label>Condición frente al IVA</label><select id="arca-condicion-v63"><option value="1" ${condicion===1?'selected':''}>IVA Responsable Inscripto</option><option value="6" ${condicion===6?'selected':''}>Responsable Monotributo</option><option value="4" ${condicion===4?'selected':''}>IVA Sujeto Exento</option><option value="5" ${condicion===5?'selected':''}>Consumidor Final</option><option value="15" ${condicion===15?'selected':''}>IVA No Alcanzado</option></select></div><div class="form-group"><label>Comprobante resultante</label><input id="arca-tipo-v63" disabled></div><div class="form-section">Alcance de esta factura</div><div class="form-group full"><div style="display:flex;gap:18px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border);border-radius:8px">${tieneAnticipo?`<label><input type="radio" name="arca-parte-v63" value="saldo" checked> Saldo restante</label>`:`<label><input type="radio" name="arca-parte-v63" value="total" checked> Factura total</label><label><input type="radio" name="arca-parte-v63" value="anticipo"> Anticipo</label>`}</div></div><div class="form-group" id="arca-pct-box-v63" style="display:none"><label>Porcentaje de anticipo</label><input id="arca-pct-v63" type="number" min="1" max="99" step="0.01" value="50"></div><div class="form-group"><label>Neto a facturar</label><input id="arca-neto-v63" disabled></div></div><label style="display:flex;gap:9px;align-items:flex-start;font-size:12px;margin-top:14px"><input id="arca-enviar-v63" type="checkbox" checked style="margin-top:2px"> Después de autorizar, abrir la selección de correos para enviar ahora o más tarde.</label><label style="display:flex;gap:9px;align-items:flex-start;font-size:12px;margin-top:10px"><input id="arca-confirm-v63" type="checkbox" style="margin-top:2px"> Revisé cliente, CUIT, condición fiscal, importe y confirmo la emisión real.</label><div class="modal-actions"><button class="btn btn-ghost" id="arca-cancel-v63">Cancelar</button><button class="btn btn-primary" id="arca-emit-v63" disabled>EMITIR EN ARCA</button></div></div>`;
+    document.body.appendChild(root);
+    const refrescar=()=>{const parte=root.querySelector('[name="arca-parte-v63"]:checked')?.value||modoInicial,pct=parte==='anticipo'?num(root.querySelector('#arca-pct-v63').value):100,neto=parte==='saldo'?Math.max(0,totalNeto-previas.reduce((s,x)=>s+num(x.neto),0)):totalNeto*pct/100;root.querySelector('#arca-pct-box-v63').style.display=parte==='anticipo'?'':'none';root.querySelector('#arca-neto-v63').value=MONEY.format(neto);root.querySelector('#arca-tipo-v63').value=num(root.querySelector('#arca-condicion-v63').value)===1?'Factura A · PV 00009':'Factura B · PV 00009'};
+    root.querySelectorAll('[name="arca-parte-v63"]').forEach(x=>x.onchange=refrescar);root.querySelector('#arca-pct-v63').oninput=refrescar;root.querySelector('#arca-condicion-v63').onchange=refrescar;refrescar();
+    root.querySelector('#arca-cancel-v63').onclick=()=>root.remove();root.querySelector('#arca-confirm-v63').onchange=e=>root.querySelector('#arca-emit-v63').disabled=!e.target.checked;
+    root.querySelector('#arca-emit-v63').onclick=async()=>{
+      const button=root.querySelector('#arca-emit-v63'),tipoParte=root.querySelector('[name="arca-parte-v63"]:checked')?.value||modoInicial,porcentaje=tipoParte==='anticipo'?num(root.querySelector('#arca-pct-v63').value):100,condicionIvaId=num(root.querySelector('#arca-condicion-v63').value),cuitElegido=root.querySelector('#arca-cuit-v63').value.replace(/\D/g,'');
+      if(!/^\d{11}$/.test(cuitElegido))return alert('Ingresá un CUIT válido de 11 dígitos.');
+      if(tipoParte==='anticipo'&&(porcentaje<=0||porcentaje>=100))return alert('El anticipo debe ser mayor a 0% y menor a 100%.');
+      if(!confirm('CONFIRMACIÓN FINAL\\n\\nSe solicitará un CAE REAL a ARCA. Esta operación no se puede deshacer.\\n\\n¿Confirmás la emisión?'))return;
+      const original=button.textContent;button.disabled=true;button.textContent='Solicitando CAE…';
+      try{
+        if(cliente){await window.updateDoc_('clientes',cliente.id,{cuit:cuitElegido,condicionIvaId});cliente.cuit=cuitElegido;cliente.condicionIvaId=condicionIvaId}
+        const [{getApp},{getAuth}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);const user=getAuth(getApp()).currentUser;if(!user)throw new Error('Sesión no iniciada');const token=await user.getIdToken();
+        const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/arcaProduccionEmitirFactura',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({obraId:obra.id,clienteId:cliente?.id||'',cuit:cuitElegido,condicionIvaId,tipoParte,porcentaje,confirmacion:'EMITIR FACTURA REAL'})});
+        const data=await response.json().catch(()=>({}));if(!response.ok||!data.ok)throw new Error(data.error||'ARCA no autorizó la factura');
+        obra.facturaArca=data;obra.facturasArca=[...(obra.facturasArca||[]),data];obra.facturado=true;obra.nrfc=data.numeroCompleto;obra.ffc=data.fecha;root.remove();window.renderCobranzas?.();
+        alert('FACTURA AUTORIZADA\\n\\n'+data.tipo+' '+data.numeroCompleto+'\\nCAE: '+data.cae+'\\nTotal: '+MONEY.format(data.total)+'\\n\\nQuedó registrada en la OT '+baseOt(obra.ot)+'.');
+        if(root.querySelector('#arca-enviar-v63')?.checked)setTimeout(()=>window.abrirEnvioFacturaEmailV61?.(obra.id),0);else window.showToast?.('Factura emitida · envío pendiente');
+      }catch(e){console.error(e);alert('No se pudo completar la emisión.\\n\\n'+(e.message||e)+'\\n\\nSi ARCA pudo haberla procesado, no vuelvas a emitir hasta verificar el estado.');button.disabled=false;button.textContent=original}
     };
   };
 
