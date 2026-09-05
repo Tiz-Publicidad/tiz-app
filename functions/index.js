@@ -201,6 +201,85 @@ exports.arcaProduccionEmitirOT4680 = onRequest({region:"us-central1", invoker:"p
 });
 
 
+exports.arcaProduccionEmitirFactura = onRequest({region:"us-central1", invoker:"public", secrets:[prodCertificatePem, prodPrivateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
+  cors(req, res);
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  if (req.method !== "POST") return res.status(405).json({ok:false,error:"Método no permitido"});
+  const db=admin.firestore();
+  let lockRef=null;
+  try {
+    const user=await requireAdmin(req);
+    if(req.body?.confirmacion!=="EMITIR FACTURA REAL")throw Object.assign(new Error("Falta la confirmación final de emisión"),{status:400});
+    const obraId=String(req.body?.obraId||"").trim();
+    const tipoParte=String(req.body?.tipoParte||"total").trim();
+    const porcentaje=tipoParte==="total"?100:Number(req.body?.porcentaje);
+    const condicionIvaId=Number(req.body?.condicionIvaId);
+    const condiciones={1:"IVA Responsable Inscripto",4:"IVA Sujeto Exento",5:"Consumidor Final",6:"Responsable Monotributo",7:"Sujeto No Categorizado",13:"Monotributista Social",15:"IVA No Alcanzado"};
+    if(!obraId)throw Object.assign(new Error("Falta identificar la obra"),{status:400});
+    if(!["total","anticipo","saldo"].includes(tipoParte))throw Object.assign(new Error("Tipo de facturación inválido"),{status:400});
+    if(!Number.isFinite(porcentaje)||porcentaje<=0||porcentaje>100)throw Object.assign(new Error("Porcentaje inválido"),{status:400});
+    if(!condiciones[condicionIvaId])throw Object.assign(new Error("Falta definir la condición frente al IVA del cliente"),{status:400});
+    const obraRef=db.collection("obras").doc(obraId),snap=await obraRef.get();
+    if(!snap.exists)throw Object.assign(new Error("No se encontró la obra"),{status:404});
+    const obra=snap.data()||{},ot=String(obra.ot||"").match(/\d{1,7}/)?.[0].replace(/^0+/,"")||"";
+    const clienteId=String(obra.clienteId||req.body?.clienteId||"").trim();
+    const clienteRef=clienteId?db.collection("clientes").doc(clienteId):null;
+    const clienteSnap=clienteRef?await clienteRef.get():null,clienteData=clienteSnap?.exists?clienteSnap.data()||{}:{};
+    const cliente=String(clienteData.razonSocial||clienteData.nombreFiscal||obra.cliente||"").trim();
+    const cuit=String(clienteData.cuit||obra.clienteCuit||obra.cuit||req.body?.cuit||"").replace(/\D/g,"");
+    if(!ot||!cliente)throw Object.assign(new Error("La obra no tiene OT o cliente válido"),{status:400});
+    if(!/^\d{11}$/.test(cuit))throw Object.assign(new Error("El cliente debe tener un CUIT válido de 11 dígitos"),{status:400});
+    const anteriores=Array.isArray(obra.facturasArca)?obra.facturasArca:[];
+    if(anteriores.some(x=>x?.tipoParte===tipoParte&&x?.cae)||(!anteriores.length&&obra.facturaArca?.cae&&tipoParte==="total")){
+      throw Object.assign(new Error("Esta parte de la obra ya tiene una factura ARCA autorizada"),{status:409});
+    }
+    if(tipoParte==="total"&&anteriores.some(x=>x?.cae))throw Object.assign(new Error("La obra ya tiene facturación parcial; corresponde emitir el saldo"),{status:409});
+    const itemsBase=(Array.isArray(obra.itemsCotizados)?obra.itemsCotizados:[]).map(item=>({descripcion:String(item.descripcion||item.desc||"").trim(),cantidad:Number(item.cantidad||item.cant||1),unitario:Number(item.unitario??item.precio)})).filter(item=>item.descripcion&&Number.isFinite(item.cantidad)&&item.cantidad>0&&Number.isFinite(item.unitario)&&item.unitario>0);
+    const netoObra=Math.round(Number(obra.finanzas?.total||obra.neto||itemsBase.reduce((s,i)=>s+i.cantidad*i.unitario,0))*100)/100;
+    if(!Number.isFinite(netoObra)||netoObra<=0)throw Object.assign(new Error("La obra no tiene un importe neto válido"),{status:400});
+    const yaFacturado=anteriores.filter(x=>x?.cae).reduce((s,x)=>s+Number(x.neto||0),0);
+    let neto=tipoParte==="saldo"?Math.round(Math.max(0,netoObra-yaFacturado)*100)/100:Math.round(netoObra*porcentaje)/100;
+    if(neto<=0||neto>netoObra+0.01)throw Object.assign(new Error("El importe a facturar no es válido"),{status:400});
+    const factor=neto/netoObra;
+    const items=(itemsBase.length?itemsBase:[{descripcion:String(obra.desc||`Trabajo correspondiente a OT ${ot}`),cantidad:1,unitario:netoObra}]).map(i=>({...i,unitario:Math.round(i.unitario*factor*100)/100}));
+    const iva=Math.round(neto*.21*100)/100,total=Math.round((neto+iva)*100)/100;
+    const cbteTipo=condicionIvaId===1?1:6,ptoVta=9;
+    lockRef=db.collection("arcaEmisiones").doc(`ot-${ot}-${tipoParte}`);
+    await db.runTransaction(async tx=>{
+      const lock=await tx.get(lockRef),existing=lock.exists?lock.data():null;
+      if(existing?.status==="autorizada")throw Object.assign(new Error(`La factura ya fue autorizada: ${existing.numeroCompleto}`),{status:409});
+      if(existing&&existing.status!=="rechazada")throw Object.assign(new Error("Existe una emisión pendiente de revisión. Verificá ARCA antes de volver a intentar"),{status:409});
+      tx.set(lockRef,{status:"procesando",ot,obraId,cliente,cuit,tipoParte,porcentaje,condicionIvaId,neto,iva,total,operador:user.email,iniciadoAt:admin.firestore.FieldValue.serverTimestamp()});
+    });
+    const credentials=await loginWsaa(WSAA_PROD_URL,prodCertificatePem,prodPrivateKeyPem);
+    const lastXml=await wsfeCall("FECompUltimoAutorizado",`<PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo>`,credentials,WSFE_PROD_URL);
+    const next=Number(tag(lastXml,"CbteNro")||0)+1;
+    await lockRef.update({ptoVta,cbteTipo,cbteNroPrevisto:next});
+    const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/Argentina/Buenos_Aires",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).map(({type,value})=>[type,value]));
+    const date=`${parts.year}${parts.month}${parts.day}`;
+    const detail=`<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>1</Concepto><DocTipo>80</DocTipo><DocNro>${cuit}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${date}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${neto.toFixed(2)}</ImpNeto><ImpOpEx>0.00</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA><MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>${condicionIvaId}</CondicionIVAReceptorId><Iva><AlicIva><Id>5</Id><BaseImp>${neto.toFixed(2)}</BaseImp><Importe>${iva.toFixed(2)}</Importe></AlicIva></Iva></FECAEDetRequest></FeDetReq></FeCAEReq>`;
+    const resultXml=await wsfeCall("FECAESolicitar",detail,credentials,WSFE_PROD_URL);
+    const result=tag(resultXml,"Resultado"),cae=tag(resultXml,"CAE"),caeVto=tag(resultXml,"CAEFchVto");
+    const messages=[...resultXml.matchAll(/<(?:Msg|Obs)>([\s\S]*?)<\/(?:Msg|Obs)>/gi)].map(m=>decodeXml(m[1].trim())).filter(Boolean);
+    if(result!=="A"||!cae){await lockRef.set({status:"rechazada",mensajes:messages,finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});return res.status(422).json({ok:false,error:messages.join(" · ")||"ARCA rechazó la factura"});}
+    const numeroCompleto=`${String(ptoVta).padStart(5,"0")}-${String(next).padStart(8,"0")}`,fechaIso=`${parts.year}-${parts.month}-${parts.day}`;
+    const facturaArca={ambiente:"produccion",tipo:cbteTipo===1?"Factura A":"Factura B",tipoParte,porcentaje:tipoParte==="saldo"?Math.round(neto/netoObra*10000)/100:porcentaje,ptoVta,cbteTipo,cbteNro:next,numeroCompleto,fecha:fechaIso,cae,caeVto,cliente,cuit,condicionIvaId,condicionIva:condiciones[condicionIvaId],neto,iva,total,items,ot,emitidaPor:user.email,drivePendiente:true};
+    const parte=tipoParte==="anticipo"?"anticipo":"saldo";
+    const finanzas={...(obra.finanzas||{}),total:netoObra,[parte]:{...(obra.finanzas?.[parte]||{}),facturado:true,porcentaje:facturaArca.porcentaje,nroFactura:numeroCompleto,fechaFactura:fechaIso,monto:neto,fechaPrevistaCobro:fechaIso}};
+    const batch=db.batch();
+    batch.set(lockRef,{status:"autorizada",numeroCompleto,cae,caeVto,fecha:fechaIso,finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+    batch.update(obraRef,{facturaArca,facturasArca:admin.firestore.FieldValue.arrayUnion(facturaArca),finanzas,nrfc:numeroCompleto,ffc:fechaIso,facturado:true,facturaDrivePendiente:true});
+    if(clienteRef)batch.set(clienteRef,{condicionIvaId,condicionIva:condiciones[condicionIvaId],cuit},{merge:true});
+    await batch.commit();
+    return res.json({ok:true,...facturaArca});
+  } catch(error) {
+    console.error("Generic ARCA production invoice failed",error);
+    if(lockRef&&![409].includes(error.status))await lockRef.set({status:"revision_requerida",error:error.message||String(error),finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});
+    return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo emitir la factura"});
+  }
+});
+
+
 exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", secrets:[allowedEmails, facturasWebhookSecret], timeoutSeconds:60}, async (req, res) => {
   cors(req, res);
   if (req.method === "OPTIONS") return res.status(204).send("");
@@ -213,7 +292,7 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
     const obraId = String(req.body?.obraId || "").trim();
     const destinatarios = String(req.body?.destinatario || "").split(/[;,\n]+/).map((value)=>value.trim().toLowerCase()).filter(Boolean);
     const fileId = String(req.body?.fileId || "").trim();
-    if (!obraId || !fileId) throw Object.assign(new Error("Falta identificar la OT o el PDF"), {status:400});
+    if (!obraId) throw Object.assign(new Error("Falta identificar la OT"), {status:400});
     if (!destinatarios.length || destinatarios.length > 10 || destinatarios.some((email)=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
       throw Object.assign(new Error("Revisá los correos destinatarios (máximo 10)"), {status:400});
     }
@@ -233,6 +312,7 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
       secret:facturasWebhookSecret.value(),
       destinatario,
       fileId,
+      factura,
       numero:factura.numeroCompleto,
       cliente:String(obra.cliente || factura.cliente || "").trim(),
       ot,
@@ -246,7 +326,7 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
     if (!response.ok || !result?.ok) throw new Error(result?.error || "No se pudo enviar la factura");
 
     await obraRef.update({
-      "facturaArca.driveFileId":fileId,
+      "facturaArca.driveFileId":result.fileId||fileId,
       "facturaArca.drivePendiente":false,
       "facturaArca.emailUltimoDestinatario":destinatario,
       "facturaArca.emailUltimoDestinatarios":destinatario.split(","),
@@ -255,7 +335,7 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
       "facturaArca.emailUltimoEnvioPor":user.email,
       facturaDrivePendiente:false,
     });
-    return res.json({ok:true,destinatario,remitente:"info@tizpublicidad.com",fileId,fileName:result.fileName||"",numero:factura.numeroCompleto});
+    return res.json({ok:true,destinatario,remitente:"info@tizpublicidad.com",fileId:result.fileId||fileId,fileName:result.fileName||"",numero:factura.numeroCompleto});
   } catch (error) {
     console.error("Invoice email failed", error);
     return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo enviar la factura"});
