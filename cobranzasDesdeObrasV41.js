@@ -50,13 +50,14 @@
     const title=page.querySelector('.page-title');if(title)title.textContent='Facturación y Cobranzas';
     const actions=page.querySelector('.header-actions');if(actions)actions.innerHTML='';
     const tabs=page.querySelector('.page-tabs');if(tabs&&!tabs.dataset.facV48){tabs.dataset.facV48='1';tabs.innerHTML=[['dashboard','Dashboard'],['facturar','Para facturar'],['cobrar','Por cobrar'],['gestiones','Gestiones'],['retenciones','Retenciones'],['historico','Histórico'],['alertas','Alertas'],['configuracion','Configuración']].map(([k,l])=>`<button class="page-tab ${k==='dashboard'?'active':''}" onclick="setCobTab('${k}',this)">${l}</button>`).join('');}
+    const content=page.querySelector('.page-header')?.nextElementSibling;if(tabs&&content){content.insertBefore(tabs,content.firstElementChild);tabs.style.position='sticky';tabs.style.top='0';tabs.style.zIndex='20';tabs.style.background='var(--bg)';tabs.style.margin='0';tabs.style.paddingTop='10px';}
     const buscador=page.querySelector('#cobr-filter-cliente');if(buscador)buscador.placeholder='Buscar por nombre de obra, cliente u OT…';
     const filter=page.querySelector('#cobr-filter-estado');if(filter)filter.innerHTML='<option value="">Todos los estados</option><option>Sin cobrar</option><option>Facturado pendiente</option><option>Anticipo cobrado</option><option>Cobro parcial</option><option>Cobrado</option>';
     const th=page.querySelector('thead tr');if(th)th.innerHTML='<th>OT</th><th>Cliente / obra</th><th>Estado obra</th><th>Facturación</th><th>Total</th><th>Cobrado</th><th>Retenciones</th><th>Saldo</th><th>Cobro previsto</th><th>Estado financiero</th><th></th>';
     const kpis=document.getElementById('cobr-kpis');
     if(kpis)kpis.dataset.facOriginal='1';
-    const filters=page.querySelector('.filters');if(filters){filters.id='cobr-filters-v48';filters.style.position='sticky';filters.style.top='0';filters.style.zIndex='12';filters.style.background='var(--bg)';filters.style.padding='10px 0';}
-    if(!document.getElementById('cobr-sticky-v62')){const style=document.createElement('style');style.id='cobr-sticky-v62';style.textContent='#page-cobranzas .table-wrap{position:relative} #page-cobranzas table thead th{position:sticky;top:0;z-index:6;background:var(--surface,#111);box-shadow:0 1px 0 var(--border)}';document.head.appendChild(style)}
+    const filters=page.querySelector('.filters');if(filters){filters.id='cobr-filters-v48';filters.style.position='sticky';filters.style.top='48px';filters.style.zIndex='12';filters.style.background='var(--bg)';filters.style.padding='10px 0';}
+    if(!document.getElementById('cobr-sticky-v62')){const style=document.createElement('style');style.id='cobr-sticky-v62';style.textContent='#page-cobranzas .table-wrap{position:relative} #page-cobranzas table thead th{position:sticky;top:48px;z-index:6;background:var(--surface,#111);box-shadow:0 1px 0 var(--border)}';document.head.appendChild(style)}
     const legacyCard=page.querySelector('#cobr-tbody')?.closest('.card');if(legacyCard)legacyCard.id='cobr-historico-v48';
     if(kpis&&!document.getElementById('cobr-modulo-v48')){const module=document.createElement('div');module.id='cobr-modulo-v48';kpis.insertAdjacentElement('beforebegin',module)}
     if(kpis&&!document.getElementById('cobr-gestion-v47')){
