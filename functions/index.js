@@ -163,7 +163,7 @@ exports.arcaProduccionEmitirOT4680 = onRequest({region:"us-central1", invoker:"p
     await db.runTransaction(async (tx) => {
       const lock = await tx.get(lockRef), existing = lock.exists ? lock.data() : null;
       if (existing?.status === "autorizada") throw Object.assign(new Error(`La factura ya fue autorizada: ${existing.numeroCompleto}`), {status:409});
-      if (existing?.status === "procesando") throw Object.assign(new Error("La emisión ya está en proceso. No vuelva a enviarla; revise el estado antes de continuar"), {status:409});
+      if (existing && existing.status !== "rechazada") throw Object.assign(new Error("Existe una emisión pendiente de revisión. No vuelva a enviarla hasta verificar su estado en ARCA"), {status:409});
       tx.set(lockRef,{status:"procesando",ot:"4680",obraId,cliente,cuit,neto,iva,total,items,operador:user.email,iniciadoAt:admin.firestore.FieldValue.serverTimestamp()});
     });
     const credentials = await loginWsaa(WSAA_PROD_URL, prodCertificatePem, prodPrivateKeyPem);
@@ -193,7 +193,7 @@ exports.arcaProduccionEmitirOT4680 = onRequest({region:"us-central1", invoker:"p
     return res.json({ok:true,...facturaArca});
   } catch (error) {
     console.error("ARCA production invoice failed", error);
-    if (lockRef && ![409].includes(error.status)) await lockRef.set({status:"error",error:error.message||String(error),finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});
+    if (lockRef && ![409].includes(error.status)) await lockRef.set({status:"revision_requerida",error:error.message||String(error),finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});
     return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo emitir la factura"});
   }
 });
