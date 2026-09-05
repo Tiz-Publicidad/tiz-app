@@ -211,12 +211,13 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
       throw Object.assign(new Error("Falta la confirmación final del envío"), {status:400});
     }
     const obraId = String(req.body?.obraId || "").trim();
-    const destinatario = String(req.body?.destinatario || "").trim().toLowerCase();
+    const destinatarios = String(req.body?.destinatario || "").split(/[;,\\n]+/).map((value)=>value.trim().toLowerCase()).filter(Boolean);
     const fileId = String(req.body?.fileId || "").trim();
     if (!obraId || !fileId) throw Object.assign(new Error("Falta identificar la OT o el PDF"), {status:400});
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
-      throw Object.assign(new Error("El correo del destinatario no es válido"), {status:400});
+    if (!destinatarios.length || destinatarios.length > 10 || destinatarios.some((email)=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+      throw Object.assign(new Error("Revisá los correos destinatarios (máximo 10)"), {status:400});
     }
+    const destinatario = [...new Set(destinatarios)].join(",");
 
     const obraRef = admin.firestore().collection("obras").doc(obraId);
     const snap = await obraRef.get();
@@ -248,6 +249,7 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
       "facturaArca.driveFileId":fileId,
       "facturaArca.drivePendiente":false,
       "facturaArca.emailUltimoDestinatario":destinatario,
+      "facturaArca.emailUltimoDestinatarios":destinatario.split(","),
       "facturaArca.emailUltimoRemitente":"info@tizpublicidad.com",
       "facturaArca.emailUltimoEnvioAt":admin.firestore.FieldValue.serverTimestamp(),
       "facturaArca.emailUltimoEnvioPor":user.email,
