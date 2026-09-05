@@ -13,12 +13,14 @@ const prodCertificatePem = defineSecret("ARCA_PROD_CERTIFICATE_PEM");
 const prodPrivateKeyPem = defineSecret("ARCA_PROD_PRIVATE_KEY_PEM");
 const issuerCuit = defineSecret("ARCA_ISSUER_CUIT");
 const allowedEmails = defineSecret("ARCA_ALLOWED_EMAILS");
+const facturasWebhookSecret = defineSecret("TIZ_FACTURAS_SECRET");
 
 const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "http://localhost:5000", "http://127.0.0.1:5000"]);
 const WSAA_URL = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms";
 const WSFE_URL = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
 const WSAA_PROD_URL = "https://wsaa.afip.gov.ar/ws/services/LoginCms";
 const WSFE_PROD_URL = "https://servicios1.afip.gov.ar/wsfev1/service.asmx";
+const FACTURAS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec";
 
 function cors(req, res) {
   const origin = req.get("origin");
@@ -195,6 +197,66 @@ exports.arcaProduccionEmitirOT4680 = onRequest({region:"us-central1", invoker:"p
     console.error("ARCA production invoice failed", error);
     if (lockRef && ![409].includes(error.status)) await lockRef.set({status:"revision_requerida",error:error.message||String(error),finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});
     return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo emitir la factura"});
+  }
+});
+
+
+exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", secrets:[allowedEmails, facturasWebhookSecret], timeoutSeconds:60}, async (req, res) => {
+  cors(req, res);
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  if (req.method !== "POST") return res.status(405).json({ok:false,error:"Método no permitido"});
+  try {
+    const user = await requireAdmin(req);
+    if (req.body?.confirmacion !== "ENVIAR FACTURA POR EMAIL") {
+      throw Object.assign(new Error("Falta la confirmación final del envío"), {status:400});
+    }
+    const obraId = String(req.body?.obraId || "").trim();
+    const destinatario = String(req.body?.destinatario || "").trim().toLowerCase();
+    const fileId = String(req.body?.fileId || "").trim();
+    if (!obraId || !fileId) throw Object.assign(new Error("Falta identificar la OT o el PDF"), {status:400});
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
+      throw Object.assign(new Error("El correo del destinatario no es válido"), {status:400});
+    }
+
+    const obraRef = admin.firestore().collection("obras").doc(obraId);
+    const snap = await obraRef.get();
+    if (!snap.exists) throw Object.assign(new Error("No se encontró la OT"), {status:404});
+    const obra = snap.data() || {};
+    const factura = obra.facturaArca || {};
+    if (!factura.cae || !factura.numeroCompleto) {
+      throw Object.assign(new Error("La OT no tiene una factura ARCA autorizada"), {status:400});
+    }
+    const ot = String(obra.ot || "").match(/\d{4,7}/)?.[0].replace(/^0+/, "") || "";
+    const payload = {
+      action:"enviarFacturaEmail",
+      secret:facturasWebhookSecret.value(),
+      destinatario,
+      fileId,
+      numero:factura.numeroCompleto,
+      cliente:String(obra.cliente || factura.cliente || "").trim(),
+      ot,
+      asunto:String(req.body?.asunto || "").trim(),
+    };
+    const form = new URLSearchParams({payload:JSON.stringify(payload)});
+    const response = await fetch(FACTURAS_WEBHOOK_URL, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"}, body:form});
+    const text = await response.text();
+    let result;
+    try { result = JSON.parse(text); } catch (_) { throw new Error("El servicio de correo devolvió una respuesta inválida"); }
+    if (!response.ok || !result?.ok) throw new Error(result?.error || "No se pudo enviar la factura");
+
+    await obraRef.update({
+      "facturaArca.driveFileId":fileId,
+      "facturaArca.drivePendiente":false,
+      "facturaArca.emailUltimoDestinatario":destinatario,
+      "facturaArca.emailUltimoRemitente":"info@tizpublicidad.com",
+      "facturaArca.emailUltimoEnvioAt":admin.firestore.FieldValue.serverTimestamp(),
+      "facturaArca.emailUltimoEnvioPor":user.email,
+      facturaDrivePendiente:false,
+    });
+    return res.json({ok:true,destinatario,remitente:"info@tizpublicidad.com",fileId,fileName:result.fileName||"",numero:factura.numeroCompleto});
+  } catch (error) {
+    console.error("Invoice email failed", error);
+    return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo enviar la factura"});
   }
 });
 
