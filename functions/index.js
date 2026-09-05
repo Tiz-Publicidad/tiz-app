@@ -131,6 +131,73 @@ exports.arcaProduccionStatus = onRequest({region:"us-central1", invoker:"public"
   }
 });
 
+exports.arcaProduccionEmitirOT4680 = onRequest({region:"us-central1", invoker:"public", secrets:[prodCertificatePem, prodPrivateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
+  cors(req, res);
+  if (req.method === "OPTIONS") return res.status(204).send("");
+  if (req.method !== "POST") return res.status(405).json({ok:false,error:"Método no permitido"});
+  const db = admin.firestore();
+  let lockRef = null;
+  try {
+    const user = await requireAdmin(req);
+    if (req.body?.confirmacion !== "EMITIR FACTURA REAL OT 4680") throw Object.assign(new Error("Falta la confirmación final de emisión"), {status:400});
+    const obraId = String(req.body?.obraId || "").trim();
+    if (!obraId) throw Object.assign(new Error("Falta identificar la obra"), {status:400});
+    const obraRef = db.collection("obras").doc(obraId), snap = await obraRef.get();
+    if (!snap.exists) throw Object.assign(new Error("No se encontró la OT 4680"), {status:404});
+    const obra = snap.data() || {};
+    const ot = String(obra.ot || "").match(/\d{4,7}/)?.[0].replace(/^0+/, "") || "";
+    const cuit = String(obra.clienteCuit || obra.cuit || "").replace(/\D/g, "");
+    const cliente = String(obra.cliente || "").trim();
+    if (ot !== "4680" || cuit !== "30710787588" || cliente.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase() !== "actitud argentina") {
+      throw Object.assign(new Error("La obra no coincide con OT 4680 · Actitud Argentina · CUIT 30-71078758-8"), {status:400});
+    }
+    if (obra.facturaArca?.cae || obra.finanzas?.saldo?.nroFactura) throw Object.assign(new Error(`La OT 4680 ya tiene una factura registrada: ${obra.facturaArca?.numeroCompleto || obra.finanzas?.saldo?.nroFactura}`), {status:409});
+    const items = (Array.isArray(obra.itemsCotizados) ? obra.itemsCotizados : []).map((item) => ({
+      descripcion:String(item.descripcion || item.desc || "").trim(), cantidad:Number(item.cantidad || item.cant || 1), unitario:Number(item.unitario ?? item.precio),
+    })).filter((item) => item.descripcion && Number.isFinite(item.cantidad) && item.cantidad > 0 && Number.isFinite(item.unitario) && item.unitario > 0);
+    if (items.length !== 2) throw Object.assign(new Error("La OT 4680 debe conservar exactamente los dos ítems cotizados"), {status:400});
+    const neto = Math.round(items.reduce((sum,item)=>sum+item.cantidad*item.unitario,0)*100)/100;
+    if (Math.abs(neto-329200) > 0.01) throw Object.assign(new Error(`El neto de la OT cambió: ${neto}. Esperado: 329200`), {status:400});
+    const iva = Math.round(neto*0.21*100)/100, total = Math.round((neto+iva)*100)/100;
+    lockRef = db.collection("arcaEmisiones").doc("ot-4680-factura-a-total");
+    await db.runTransaction(async (tx) => {
+      const lock = await tx.get(lockRef), existing = lock.exists ? lock.data() : null;
+      if (existing?.status === "autorizada") throw Object.assign(new Error(`La factura ya fue autorizada: ${existing.numeroCompleto}`), {status:409});
+      if (existing?.status === "procesando") throw Object.assign(new Error("La emisión ya está en proceso. No vuelva a enviarla; revise el estado antes de continuar"), {status:409});
+      tx.set(lockRef,{status:"procesando",ot:"4680",obraId,cliente,cuit,neto,iva,total,items,operador:user.email,iniciadoAt:admin.firestore.FieldValue.serverTimestamp()});
+    });
+    const credentials = await loginWsaa(WSAA_PROD_URL, prodCertificatePem, prodPrivateKeyPem);
+    const ptoVta = 9, cbteTipo = 1;
+    const lastXml = await wsfeCall("FECompUltimoAutorizado", `<PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo>`, credentials, WSFE_PROD_URL);
+    const next = Number(tag(lastXml,"CbteNro") || 0) + 1;
+    await lockRef.update({ptoVta,cbteTipo,cbteNroPrevisto:next});
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/Argentina/Buenos_Aires",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).map(({type,value})=>[type,value]));
+    const date = `${parts.year}${parts.month}${parts.day}`;
+    const detail = `<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>1</Concepto><DocTipo>80</DocTipo><DocNro>${cuit}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${date}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${neto.toFixed(2)}</ImpNeto><ImpOpEx>0.00</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA><MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>1</CondicionIVAReceptorId><Iva><AlicIva><Id>5</Id><BaseImp>${neto.toFixed(2)}</BaseImp><Importe>${iva.toFixed(2)}</Importe></AlicIva></Iva></FECAEDetRequest></FeDetReq></FeCAEReq>`;
+    const resultXml = await wsfeCall("FECAESolicitar", detail, credentials, WSFE_PROD_URL);
+    const result = tag(resultXml,"Resultado"), cae = tag(resultXml,"CAE"), caeVto = tag(resultXml,"CAEFchVto");
+    const messages = [...resultXml.matchAll(/<(?:Msg|Obs)>([\s\S]*?)<\/(?:Msg|Obs)>/gi)].map(m=>decodeXml(m[1].trim())).filter(Boolean);
+    if (result !== "A" || !cae) {
+      await lockRef.set({status:"rechazada",mensajes:messages,finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+      return res.status(422).json({ok:false,error:messages.join(" · ")||"ARCA rechazó la factura",ptoVta,cbteNro:next});
+    }
+    const numeroCompleto = `${String(ptoVta).padStart(5,"0")}-${String(next).padStart(8,"0")}`;
+    const fechaIso = `${parts.year}-${parts.month}-${parts.day}`;
+    const facturaArca = {ambiente:"produccion",tipo:"Factura A",ptoVta,cbteTipo,cbteNro:next,numeroCompleto,fecha:fechaIso,cae,caeVto,cliente,cuit,neto,iva,total,items,condicionPago:"Contado",diasPago:0,fechaPrevistaCobro:fechaIso,emitidaPor:user.email,drivePendiente:true};
+    const finanzas = {...(obra.finanzas||{}),total:neto,diasPago:0,saldo:{...(obra.finanzas?.saldo||{}),facturado:true,porcentaje:100,nroFactura:numeroCompleto,fechaFactura:fechaIso,monto:neto,fechaPrevistaCobro:fechaIso}};
+    const batch = db.batch();
+    batch.set(lockRef,{status:"autorizada",numeroCompleto,cae,caeVto,fecha:fechaIso,finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+    batch.update(obraRef,{facturaArca,finanzas,nrfc:numeroCompleto,ffc:fechaIso,facturado:true,facturaDrivePendiente:true});
+    await batch.commit();
+    console.info("ARCA production invoice approved",{operator:user.email,ot:"4680",numeroCompleto,neto,total});
+    return res.json({ok:true,...facturaArca});
+  } catch (error) {
+    console.error("ARCA production invoice failed", error);
+    if (lockRef && ![409].includes(error.status)) await lockRef.set({status:"error",error:error.message||String(error),finalizadoAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});
+    return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo emitir la factura"});
+  }
+});
+
 exports.arcaHomologacionStatus = onRequest({region:"us-central1", invoker:"public", secrets:[certificatePem, privateKeyPem, issuerCuit, allowedEmails], timeoutSeconds:60}, async (req, res) => {
   cors(req, res);
   if (req.method === "OPTIONS") return res.status(204).send("");
