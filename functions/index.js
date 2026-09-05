@@ -211,7 +211,7 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
       throw Object.assign(new Error("Falta la confirmación final del envío"), {status:400});
     }
     const obraId = String(req.body?.obraId || "").trim();
-    const destinatarios = String(req.body?.destinatario || "").split(/[;,\\n]+/).map((value)=>value.trim().toLowerCase()).filter(Boolean);
+    const destinatarios = String(req.body?.destinatario || "").split(/[;,\n]+/).map((value)=>value.trim().toLowerCase()).filter(Boolean);
     const fileId = String(req.body?.fileId || "").trim();
     if (!obraId || !fileId) throw Object.assign(new Error("Falta identificar la OT o el PDF"), {status:400});
     if (!destinatarios.length || destinatarios.length > 10 || destinatarios.some((email)=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
