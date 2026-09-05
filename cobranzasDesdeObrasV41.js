@@ -46,7 +46,7 @@
   function setupPage(){
     const page=document.getElementById('page-cobranzas');if(!page)return;
     const title=page.querySelector('.page-title');if(title)title.textContent='Facturación y Cobranzas';
-    const actions=page.querySelector('.header-actions');if(actions)actions.innerHTML='<button class="btn btn-primary btn-sm" onclick="prepararFacturaRealOT4680V60(this)"><i class="ti ti-file-invoice"></i> Preparar FC real OT 4680</button><button class="btn btn-ghost btn-sm" onclick="validarArcaProduccionV59(this)"><i class="ti ti-shield-check"></i> Validar producción</button><button class="btn btn-ghost btn-sm" onclick="emitirPruebaArcaOT4680V57(this)"><i class="ti ti-flask"></i> Prueba OT 4680</button><button class="btn btn-ghost btn-sm" onclick="probarArcaHomologacionV46(this)"><i class="ti ti-plug-connected"></i> Probar ARCA</button>';
+    const actions=page.querySelector('.header-actions');if(actions)actions.innerHTML='<button class="btn btn-primary btn-sm" onclick="prepararFacturaRealOT4680V60(this)"><i class="ti ti-file-invoice"></i> Preparar FC real OT 4680</button><button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61()"><i class="ti ti-mail-forward"></i> Enviar FC OT 4680</button><button class="btn btn-ghost btn-sm" onclick="validarArcaProduccionV59(this)"><i class="ti ti-shield-check"></i> Validar producción</button><button class="btn btn-ghost btn-sm" onclick="emitirPruebaArcaOT4680V57(this)"><i class="ti ti-flask"></i> Prueba OT 4680</button><button class="btn btn-ghost btn-sm" onclick="probarArcaHomologacionV46(this)"><i class="ti ti-plug-connected"></i> Probar ARCA</button>';
     const tabs=page.querySelector('.page-tabs');if(tabs&&!tabs.dataset.facV48){tabs.dataset.facV48='1';tabs.innerHTML=[['dashboard','Dashboard'],['facturar','Para facturar'],['cobrar','Por cobrar'],['gestiones','Gestiones'],['retenciones','Retenciones'],['historico','Histórico'],['alertas','Alertas'],['configuracion','Configuración']].map(([k,l])=>`<button class="page-tab ${k==='dashboard'?'active':''}" onclick="setCobTab('${k}',this)">${l}</button>`).join('');}
     const filter=page.querySelector('#cobr-filter-estado');if(filter)filter.innerHTML='<option value="">Todos los estados</option><option>Sin cobrar</option><option>Facturado pendiente</option><option>Anticipo cobrado</option><option>Cobro parcial</option><option>Cobrado</option>';
     const th=page.querySelector('thead tr');if(th)th.innerHTML='<th>OT</th><th>Cliente / obra</th><th>Estado obra</th><th>Facturación</th><th>Total</th><th>Cobrado</th><th>Retenciones</th><th>Saldo</th><th>Cobro previsto</th><th>Estado financiero</th><th></th>';
@@ -70,7 +70,7 @@
   function monthOptions(selected){const now=new Date(),a=[];for(let i=-6;i<=3;i++){const d=new Date(now.getFullYear(),now.getMonth()+i,1),k=monthKey(d);a.push(`<option value="${k}" ${selected===k?'selected':''}>${esc(monthLabel(k))}</option>`)}return a.join('')}
   function weekOptionsV48(selected){const now=startOfWeek(new Date()),a=[];for(let i=-5;i<=6;i++){const d=new Date(now);d.setDate(d.getDate()+i*7);const k=weekKey(d),l=weekLabel(d);a.push(`<option value="${k}" ${selected===k?'selected':''}>${l.title} · ${l.range}</option>`)}return a.join('')}
   function tableCard(title,headers,rows,empty){return `<div class="card"><div class="card-header"><span class="card-title">${title}</span></div><div class="table-wrap"><table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}" style="text-align:center;padding:30px;color:var(--text3)">${empty||'No hay registros para mostrar.'}</td></tr>`}</tbody></table></div></div>`}
-  function manageButton(o){return `<button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button>`}
+  function manageButton(o){const enviar=o?.facturaArca?.cae?`<button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')"><i class="ti ti-mail-forward"></i> Enviar FC</button>`:'';return `<div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button>${enviar}</div>`}
   function operationalRows(items){return items.map(x=>{const o=x.obra||x,t=totals(o);return `<tr><td class="strong">${esc(baseOt(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>${invoiceSummary(t.f)}</td><td>${MONEY.format(t.pendiente)}</td><td>${esc(displayDate(due(o)))}</td><td>${badge(t.status)}</td><td>${manageButton(o)}</td></tr>`}).join('')}
   function renderModule(obras){
     const module=document.getElementById('cobr-modulo-v48'),tab=window.cobTab||'dashboard';if(!module)return;
@@ -93,6 +93,45 @@
   }
   window.facCambiarMesV48=v=>{window.facMonthV48=v;window.renderCobranzas?.()};window.facCambiarSemanaV48=v=>{window.facWeekV48=v;window.renderCobranzas?.()};
   window.abrirFacTabV48=function(tab){window.cobTab=tab;const btn=[...document.querySelectorAll('#page-cobranzas .page-tab')].find(x=>x.getAttribute('onclick')?.includes(`'${tab}'`));document.querySelectorAll('#page-cobranzas .page-tab').forEach(x=>x.classList.remove('active'));btn?.classList.add('active');window.renderCobranzas?.()};
+
+
+  window.abrirEnvioFacturaEmailV61=function(obraId){
+    if(!window.currentUser?.isAdmin)return window.showToast?.('Sólo administración puede enviar facturas');
+    const obra=obraId?(window.DB?.obras||[]).find(x=>x.id===obraId):(window.DB?.obras||[]).find(x=>baseOt(x.ot)==='4680');
+    if(!obra?.facturaArca?.cae)return alert('La OT seleccionada no tiene una factura ARCA autorizada.');
+    const factura=obra.facturaArca;
+    const cliente=(window.DB?.clientes||[]).find(c=>norm(c.nombre)===norm(obra.cliente));
+    const destinatario=String(cliente?.email||factura.emailDestinatario||((baseOt(obra.ot)==='4680')?'facturacion@rootsagencia.com':'')).trim();
+    const fileId=String(factura.driveFileId||((baseOt(obra.ot)==='4680')?'1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn':'')).trim();
+    if(!fileId)return alert('La factura está autorizada, pero todavía no tiene un PDF asociado en Drive.');
+    document.getElementById('modal-envio-factura-v61')?.remove();
+    const root=document.createElement('div');root.id='modal-envio-factura-v61';root.className='modal-overlay open';
+    const numero=String(factura.numeroCompleto||obra.nrfc||'').trim();
+    root.innerHTML=`<div class="modal" style="max-width:720px"><div class="modal-title">Enviar factura · OT ${esc(baseOt(obra.ot))}</div><div style="padding:11px;border:1px solid rgba(232,184,75,.55);background:rgba(232,184,75,.08);border-radius:8px;margin-bottom:14px;font-size:12px"><b>Confirmación obligatoria.</b> Revisá el correo antes de enviar. La operación quedará registrada en la OT.</div><div class="form-grid"><div class="form-group"><label>Remitente</label><input value="TIZ Publicidad &lt;info@tizpublicidad.com&gt;" disabled></div><div class="form-group"><label>Factura</label><input value="${esc(numero)}" disabled></div><div class="form-group full"><label>Destinatario</label><input id="fc-email-dest-v61" type="email" value="${esc(destinatario)}" placeholder="facturacion@cliente.com"></div><div class="form-group full"><label>Asunto</label><input id="fc-email-asunto-v61" value="${esc('Factura '+numero+' - '+(obra.cliente||''))}"></div><div class="form-group full"><label>Archivo adjunto</label><input value="${esc(numero+' - '+(obra.cliente||'Cliente')+' - OT '+baseOt(obra.ot)+'.pdf')}" disabled></div>${cliente?`<label class="full" style="display:flex;gap:9px;align-items:flex-start;font-size:12px"><input id="fc-email-guardar-v61" type="checkbox"> Guardar este correo como email habitual de ${esc(cliente.nombre||obra.cliente)}.</label>`:''}</div><label style="display:flex;gap:9px;align-items:flex-start;font-size:12px;margin-top:16px"><input id="fc-email-check-v61" type="checkbox" style="margin-top:2px"> Confirmo el destinatario y deseo enviar ahora esta factura real por correo.</label><div class="modal-actions"><button class="btn btn-ghost" id="fc-email-cancel-v61">Cancelar</button><button class="btn btn-primary" id="fc-email-send-v61" disabled>ENVIAR FACTURA</button></div></div>`;
+    document.body.appendChild(root);
+    const confirm=root.querySelector('#fc-email-check-v61'),send=root.querySelector('#fc-email-send-v61');
+    root.querySelector('#fc-email-cancel-v61').onclick=()=>root.remove();
+    confirm.onchange=()=>{send.disabled=!confirm.checked};
+    send.onclick=async()=>{
+      const email=root.querySelector('#fc-email-dest-v61').value.trim().toLowerCase();
+      const asunto=root.querySelector('#fc-email-asunto-v61').value.trim();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return alert('Revisá el correo del destinatario.');
+      if(!asunto)return alert('El asunto no puede quedar vacío.');
+      send.disabled=true;send.textContent='Enviando…';
+      try{
+        const [{getApp},{getAuth}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);
+        const user=getAuth(getApp()).currentUser;if(!user)throw new Error('Sesión no iniciada');
+        const token=await user.getIdToken();
+        const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/facturaEnviarEmail',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({obraId:obra.id,destinatario:email,fileId,asunto,confirmacion:'ENVIAR FACTURA POR EMAIL'})});
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok||!data.ok)throw new Error(data.error||'No se pudo enviar la factura');
+        if(cliente&&root.querySelector('#fc-email-guardar-v61')?.checked){await window.updateDoc_('clientes',cliente.id,{email});cliente.email=email}
+        factura.driveFileId=fileId;factura.drivePendiente=false;factura.emailUltimoDestinatario=email;factura.emailUltimoRemitente='info@tizpublicidad.com';factura.emailUltimoEnvioAt=new Date().toISOString();factura.emailUltimoEnvioPor=window.currentUser.email;
+        root.remove();window.renderCobranzas?.();
+        alert('FACTURA ENVIADA\n\nFactura '+numero+'\nDe: info@tizpublicidad.com\nPara: '+email+'\n\nEl envío quedó registrado en la OT '+baseOt(obra.ot)+'.');
+      }catch(error){console.error(error);alert('No se pudo enviar la factura.\n\n'+(error.message||error));send.disabled=false;send.textContent='ENVIAR FACTURA'}
+    };
+  };
 
   window.probarArcaHomologacionV46=async function(button){
     if(!window.currentUser?.isAdmin){window.showToast?.('Sólo administración puede probar ARCA');return}
