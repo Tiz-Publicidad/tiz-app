@@ -1,20 +1,12 @@
-name: Activar facturacion V67 y cobranzas V68-V77
+name: Activar nucleo operativo V80
 
 on:
   push:
     branches: [main]
     paths:
       - '.github/workflows/activar-facturacion-v67.yml'
-      - 'facturacionProduccionV67.js'
-      - 'facturacionCobranzasBridgeV68.js'
-      - 'cobranzasUnificadasV69.js'
-      - 'cobranzasEstadoGestionV70.js'
-      - 'cobranzasRecuperarFacturadasV71.js'
-      - 'cobranzasRestaurar4680y4701V72.js'
-      - 'cobranzasIntegralV73.js'
-      - 'cobranzasWatchdogV74.js'
-      - 'cobranzas4680V75.js'
-      - 'cobranzasUnificadasStableV76.js'
+      - 'tizCoreOperativoV80.js'
+      - 'activarRefactorV80.js'
 
 permissions:
   contents: write
@@ -28,16 +20,25 @@ jobs:
         with:
           ref: main
 
-      - name: Actualizar scripts de cobranzas en index.html
+      - name: Consolidar Facturacion y Cobranzas en V80
         shell: python
         run: |
           from pathlib import Path
           import re
           p=Path('index.html')
           text=p.read_text(encoding='utf-8')
-          for name in ['cobranzasWatchdogV74.js','cobranzas4680V75.js','cobranzasUnificadasStableV76.js']:
-              text=re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*','',text)
-          tag='<script src="cobranzasUnificadasStableV76.js?v=TIZ-V77-APROBADAS-AUTORITATIVAS-20260907-2325"></script>'
+          # Retira solamente las capas que compiten por renderCobranzas. Conserva
+          # V41 (modal Gestionar) y V67 (emision ARCA), que V80 reutiliza.
+          legacy=[
+            'facturacionCobranzasBridgeV68.js','cobranzasUnificadasV69.js',
+            'cobranzasEstadoGestionV70.js','cobranzasRecuperarFacturadasV71.js',
+            'cobranzasRestaurar4680y4701V72.js','cobranzasIntegralV73.js',
+            'cobranzasWatchdogV74.js','cobranzas4680V75.js','cobranzasUnificadasStableV76.js',
+            'activarRefactorV80.js','tizCoreOperativoV80.js'
+          ]
+          for name in legacy:
+              text=re.sub(r'<script src="'+re.escape(name)+r'(?:\?v=[^"]*)?"></script>\s*','',text)
+          tag='<script src="activarRefactorV80.js?v=TIZ-V80-CORE-20260907-2028"></script>'
           pos=text.rfind('</body>')
           if pos<0: raise SystemExit('No se encontro </body> en index.html')
           text=text[:pos]+tag+'\n'+text[pos:]
@@ -46,11 +47,11 @@ jobs:
       - name: Commit y push si hubo cambios
         run: |
           if git diff --quiet -- index.html; then
-            echo "index.html ya estaba actualizado"
+            echo "index.html ya estaba consolidado"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Activar V77 aprobadas en facturacion"
+          git commit -m "Consolidar Facturacion y Cobranzas en V80"
           git push origin main
