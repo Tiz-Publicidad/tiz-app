@@ -38,8 +38,12 @@
     return Math.max(0,total-cob-ret);
   }
   function asegurarFilasPorCobrar(){
-    if(window.cobTab!=='cobrar')return;
-    const card=[...document.querySelectorAll('#cobr-modulo-v48 .card')].find(x=>x.textContent.includes('Cartera por cobrar'));
+    // Desde V69 la pestaña visible "Por cobrar" reutiliza internamente la vista
+    // 'gestiones'. En ambos casos deben verse TODAS las facturas con saldo pendiente,
+    // incluso las ya enviadas por email (ej. OT 4680).
+    if(window.cobTab!=='cobrar'&&window.cobTab!=='gestiones')return;
+    const cards=[...document.querySelectorAll('#cobr-modulo-v48 .card')];
+    const card=cards.find(x=>/Cartera por cobrar|Seguimiento y compromisos/i.test(x.textContent||''));
     const tbody=card?.querySelector('tbody');if(!tbody)return;
     const actuales=new Set([...tbody.querySelectorAll('tr')].map(tr=>baseOt(tr.cells?.[0]?.textContent)));
     const faltantes=(window.DB?.obras||[]).filter(o=>o?.facturaArca?.cae&&pendiente(o)>0&&!actuales.has(baseOt(o.ot))).sort((a,b)=>num(baseOt(b.ot))-num(baseOt(a.ot)));
@@ -49,7 +53,7 @@
       const f=o.facturaArca||{},p=pendiente(o),enviada=!!f.emailUltimoEnvioAt;
       const tr=document.createElement('tr');
       tr.dataset.arcaBridge='1';
-      tr.innerHTML=`<td class="strong">${esc(baseOt(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>Saldo: FC ${esc(f.numeroCompleto||o.nrfc||'')} · ${esc(fecha(f.fecha||o.ffc))}</td><td>${money(p)}</td><td>—</td><td><span class="badge badge-red">Facturado pendiente</span></td><td><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap"><span title="${enviada?'Factura enviada':'Factura pendiente de envío'}" style="width:11px;height:11px;border-radius:50%;display:inline-block;background:${enviada?'#22a06b':'#e8b84b'}"></span><button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button><button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')"><i class="ti ti-mail-forward"></i> ${enviada?'Reenviar FC':'Enviar FC'}</button></div></td>`;
+      tr.innerHTML=`<td class="strong">${esc(baseOt(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>Saldo: FC ${esc(f.numeroCompleto||o.nrfc||'')} · ${esc(fecha(f.fecha||o.ffc))}</td><td>${money(p)}</td><td>${esc(fecha(o?.finanzas?.saldo?.fechaPrevistaCobro||o?.finanzas?.anticipo?.fechaPrevistaCobro||''))}</td><td><span class="badge badge-red">Facturado pendiente</span></td><td><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap"><span title="${enviada?'Factura enviada por correo':'Factura pendiente de envío por correo'}" style="width:11px;height:11px;border-radius:50%;display:inline-block;background:${enviada?'#22a06b':'#e8b84b'};box-shadow:0 0 0 3px ${enviada?'rgba(34,160,107,.14)':'rgba(232,184,75,.18)'}"></span><button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button><button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')"><i class="ti ti-mail-forward"></i> ${enviada?'Reenviar FC':'Enviar FC'}</button></div></td>`;
       tbody.prepend(tr);
     }
   }
