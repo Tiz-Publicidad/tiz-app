@@ -1,4 +1,4 @@
-name: Activar facturacion V67
+name: Activar facturacion V67 y cobranzas V68
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/activar-facturacion-v67.yml'
       - 'facturacionProduccionV67.js'
+      - 'facturacionCobranzasBridgeV68.js'
 
 permissions:
   contents: write
@@ -19,19 +20,27 @@ jobs:
         with:
           ref: main
 
-      - name: Insertar script V67 en index.html
+      - name: Insertar scripts V67 y V68 en index.html
         shell: python
         run: |
           from pathlib import Path
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
-          tag = '<script src="facturacionProduccionV67.js?v=TIZ-V67-ARCA-PROD-PV9-20260907"></script>'
-          if tag not in text:
-              marker = '</body>'
-              pos = text.rfind(marker)
-              if pos < 0:
-                  raise SystemExit('No se encontro </body> en index.html')
-              text = text[:pos] + tag + '\n' + text[pos:]
+          tags = [
+              '<script src="facturacionProduccionV67.js?v=TIZ-V67-ARCA-PROD-PV9-20260907"></script>',
+              '<script src="facturacionCobranzasBridgeV68.js?v=TIZ-V68-ARCA-COBRAR-20260907"></script>',
+          ]
+          marker = '</body>'
+          pos = text.rfind(marker)
+          if pos < 0:
+              raise SystemExit('No se encontro </body> en index.html')
+          changed = False
+          for tag in tags:
+              if tag not in text:
+                  text = text[:pos] + tag + '\n' + text[pos:]
+                  pos += len(tag) + 1
+                  changed = True
+          if changed:
               p.write_text(text, encoding='utf-8')
 
       - name: Commit y push si hubo cambios
@@ -43,5 +52,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Activar interfaz facturacion V67 en index"
+          git commit -m "Activar facturacion V67 y cobranzas V68 en index"
           git push origin main
