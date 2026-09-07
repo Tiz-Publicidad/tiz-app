@@ -1,4 +1,4 @@
-name: Activar facturacion V67 y cobranzas V68-V69
+name: Activar facturacion V67 y cobranzas V68-V70
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - 'facturacionProduccionV67.js'
       - 'facturacionCobranzasBridgeV68.js'
       - 'cobranzasUnificadasV69.js'
+      - 'cobranzasEstadoGestionV70.js'
 
 permissions:
   contents: write
@@ -21,7 +22,7 @@ jobs:
         with:
           ref: main
 
-      - name: Insertar scripts V67 V68 y V69 en index.html
+      - name: Insertar scripts V67 a V70 en index.html
         shell: python
         run: |
           from pathlib import Path
@@ -31,6 +32,7 @@ jobs:
               '<script src="facturacionProduccionV67.js?v=TIZ-V67-ARCA-PROD-PV9-20260907"></script>',
               '<script src="facturacionCobranzasBridgeV68.js?v=TIZ-V68-ARCA-COBRAR-20260907"></script>',
               '<script src="cobranzasUnificadasV69.js?v=TIZ-V69-COBRANZAS-UNIFICADAS-20260907"></script>',
+              '<script src="cobranzasEstadoGestionV70.js?v=TIZ-V70-ESTADO-GESTION-20260907"></script>',
           ]
           marker = '</body>'
           pos = text.rfind(marker)
@@ -54,5 +56,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Activar cobranzas unificadas V69 en index"
+          git commit -m "Activar estado de gestion editable V70 en index"
           git push origin main
