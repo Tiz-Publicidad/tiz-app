@@ -33,9 +33,8 @@ jobs:
           import re
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
-          # Reemplaza cualquier referencia anterior de V74 para forzar que el navegador baje el JS nuevo.
           text = re.sub(r'<script src="cobranzasWatchdogV74\.js\?v=[^"]+"></script>\s*', '', text)
-          tag = '<script src="cobranzasWatchdogV74.js?v=TIZ-V742-FC4680-FIX-20260907-2215"></script>'
+          tag = '<script src="cobranzasWatchdogV74.js?v=TIZ-V743-FC4680-STABLE-20260907-2225"></script>'
           marker = '</body>'
           pos = text.rfind(marker)
           if pos < 0:
@@ -52,5 +51,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Forzar carga V74.2 para FC 4680"
+          git commit -m "Forzar carga V74.3 estable para FC 4680"
           git push origin main
