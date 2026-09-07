@@ -1,4 +1,4 @@
-name: Activar facturacion V67 y cobranzas V68-V76
+name: Activar facturacion V67 y cobranzas V68-V77
 
 on:
   push:
@@ -37,8 +37,7 @@ jobs:
           text=p.read_text(encoding='utf-8')
           for name in ['cobranzasWatchdogV74.js','cobranzas4680V75.js','cobranzasUnificadasStableV76.js']:
               text=re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*','',text)
-          # V76 reemplaza los parches especiales: la regla se aplica a todas las OT.
-          tag='<script src="cobranzasUnificadasStableV76.js?v=TIZ-V76-COBRANZAS-GENERAL-20260907-2300"></script>'
+          tag='<script src="cobranzasUnificadasStableV76.js?v=TIZ-V77-APROBADAS-AUTORITATIVAS-20260907-2325"></script>'
           pos=text.rfind('</body>')
           if pos<0: raise SystemExit('No se encontro </body> en index.html')
           text=text[:pos]+tag+'\n'+text[pos:]
@@ -53,5 +52,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Activar cobranzas generales V76"
+          git commit -m "Activar V77 aprobadas en facturacion"
           git push origin main
