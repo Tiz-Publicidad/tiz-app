@@ -290,10 +290,19 @@ exports.arcaHomologacionEmitirPrueba = onRequest({region:"us-central1", invoker:
     const user = await requireAdmin(req);
     const docNro = String(req.body?.docNro || "").replace(/\D/g, "");
     const neto = Number(req.body?.neto);
-    const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 20) : [];
+    const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : [];
+    const cbteTipo = Number(req.body?.cbteTipo || 1);
+    const condicionIVAReceptorId = Number(req.body?.condicionIVAReceptorId || 1);
+    const alicuota = Number(req.body?.alicuota ?? 21);
+    const tratamientoIva = String(req.body?.tratamientoIva || "gravado");
+    const alicuotas = new Map([[0,3],[2.5,9],[5,8],[10.5,4],[21,5],[27,6]]);
     if (!/^\d{11}$/.test(docNro)) throw Object.assign(new Error("CUIT del cliente inválido"), {status:400});
     if (!Number.isFinite(neto) || neto <= 0) throw Object.assign(new Error("Importe neto inválido"), {status:400});
-    if (items.length !== 2) throw Object.assign(new Error("La prueba debe conservar los dos ítems de la OT 4680"), {status:400});
+    if (!items.length) throw Object.assign(new Error("La factura debe incluir al menos un ítem"), {status:400});
+    if (![1,6,201,206].includes(cbteTipo)) throw Object.assign(new Error("Tipo de comprobante no habilitado"), {status:400});
+    if (!Number.isInteger(condicionIVAReceptorId) || condicionIVAReceptorId < 1 || condicionIVAReceptorId > 15) throw Object.assign(new Error("Condición de IVA del receptor inválida"), {status:400});
+    if (!['gravado','exento'].includes(tratamientoIva)) throw Object.assign(new Error("Tratamiento de IVA inválido"), {status:400});
+    if (tratamientoIva === 'gravado' && !alicuotas.has(alicuota)) throw Object.assign(new Error("Alícuota de IVA no habilitada"), {status:400});
     const itemTotal = items.reduce((sum, item)=>sum + Number(item.unitario||0)*Number(item.cantidad||0), 0);
     if (Math.abs(itemTotal-neto) > 0.01) throw Object.assign(new Error("La suma de los ítems no coincide con el neto"), {status:400});
 
@@ -305,19 +314,22 @@ exports.arcaHomologacionEmitirPrueba = onRequest({region:"us-central1", invoker:
     // la validación definitiva al consultar el último comprobante/autorización.
     const ptoVta = points[0] || 3;
     const pointSource = points.length ? "arca" : "respaldo-tiz";
-    const cbteTipo = 1;
     const lastXml = await wsfeCall("FECompUltimoAutorizado", `<PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo>`, credentials);
     const last = Number(tag(lastXml, "CbteNro") || 0), next = last + 1;
-    const iva = Math.round(neto*0.21*100)/100, total = Math.round((neto+iva)*100)/100;
+    const iva = tratamientoIva === 'exento' ? 0 : Math.round(neto*(alicuota/100)*100)/100;
+    const total = Math.round((neto+iva)*100)/100;
     const dateParts = Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/Argentina/Buenos_Aires",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).map(({type,value})=>[type,value]));
     const date = `${dateParts.year}${dateParts.month}${dateParts.day}`;
-    const detail = `<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>1</Concepto><DocTipo>80</DocTipo><DocNro>${docNro}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${date}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${neto.toFixed(2)}</ImpNeto><ImpOpEx>0.00</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA><MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>1</CondicionIVAReceptorId><Iva><AlicIva><Id>5</Id><BaseImp>${neto.toFixed(2)}</BaseImp><Importe>${iva.toFixed(2)}</Importe></AlicIva></Iva></FECAEDetRequest></FeDetReq></FeCAEReq>`;
+    const ivaXml = tratamientoIva === 'exento' ? '' : `<Iva><AlicIva><Id>${alicuotas.get(alicuota)}</Id><BaseImp>${neto.toFixed(2)}</BaseImp><Importe>${iva.toFixed(2)}</Importe></AlicIva></Iva>`;
+    const impNeto = tratamientoIva === 'exento' ? 0 : neto;
+    const impOpEx = tratamientoIva === 'exento' ? neto : 0;
+    const detail = `<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${ptoVta}</PtoVta><CbteTipo>${cbteTipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>1</Concepto><DocTipo>80</DocTipo><DocNro>${docNro}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${date}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${impNeto.toFixed(2)}</ImpNeto><ImpOpEx>${impOpEx.toFixed(2)}</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA><MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>${condicionIVAReceptorId}</CondicionIVAReceptorId>${ivaXml}</FECAEDetRequest></FeDetReq></FeCAEReq>`;
     const resultXml = await wsfeCall("FECAESolicitar", detail, credentials);
     const result = tag(resultXml,"Resultado"), cae = tag(resultXml,"CAE"), caeVto = tag(resultXml,"CAEFchVto");
     const messages = [...resultXml.matchAll(/<(?:Msg|Obs)>([\s\S]*?)<\/(?:Msg|Obs)>/gi)].map(m=>decodeXml(m[1].trim())).filter(Boolean);
     if (result !== "A" || !cae) return res.status(422).json({ok:false,error:messages.join(" · ")||"ARCA rechazó el comprobante de prueba",environment:"homologacion",ptoVta,cbteNro:next});
     console.info("ARCA homologation invoice approved", {operator:user.email,ptoVta,cbteNro:next,neto,total});
-    return res.json({ok:true,environment:"homologacion",ptoVta,pointSource,cbteTipo,cbteNro:next,cae,caeVto,issuerCuit:issuerCuit.value(),receiverCuit:docNro,neto,iva,total,items});
+    return res.json({ok:true,environment:"homologacion",ptoVta,pointSource,cbteTipo,cbteNro:next,cae,caeVto,issuerCuit:issuerCuit.value(),receiverCuit:docNro,condicionIVAReceptorId,tratamientoIva,alicuota,neto,iva,total,items});
   } catch (error) {
     console.error("ARCA homologation invoice failed", error);
     return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo emitir la prueba"});
