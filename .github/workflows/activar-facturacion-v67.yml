@@ -1,4 +1,4 @@
-name: Activar facturacion V67 y cobranzas V68-V74
+name: Activar facturacion V67 y cobranzas V68-V75
 
 on:
   push:
@@ -13,6 +13,7 @@ on:
       - 'cobranzasRestaurar4680y4701V72.js'
       - 'cobranzasIntegralV73.js'
       - 'cobranzasWatchdogV74.js'
+      - 'cobranzas4680V75.js'
 
 permissions:
   contents: write
@@ -34,12 +35,13 @@ jobs:
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
           text = re.sub(r'<script src="cobranzasWatchdogV74\.js\?v=[^"]+"></script>\s*', '', text)
-          tag = '<script src="cobranzasWatchdogV74.js?v=TIZ-V743-FC4680-STABLE-20260907-2225"></script>'
+          text = re.sub(r'<script src="cobranzas4680V75\.js\?v=[^"]+"></script>\s*', '', text)
+          tags = '<script src="cobranzasWatchdogV74.js?v=TIZ-V743-FC4680-STABLE-20260907-2225"></script>\n<script src="cobranzas4680V75.js?v=TIZ-V75-OT4680-DIRECT-20260907-2240"></script>'
           marker = '</body>'
           pos = text.rfind(marker)
           if pos < 0:
               raise SystemExit('No se encontro </body> en index.html')
-          text = text[:pos] + tag + '\n' + text[pos:]
+          text = text[:pos] + tags + '\n' + text[pos:]
           p.write_text(text, encoding='utf-8')
 
       - name: Commit y push si hubo cambios
@@ -51,5 +53,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Forzar carga V74.3 estable para FC 4680"
+          git commit -m "Activar V75 para OT 4680"
           git push origin main
