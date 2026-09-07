@@ -1,4 +1,4 @@
-name: Activar facturacion V67 y cobranzas V68-V72
+name: Activar facturacion V67 y cobranzas V68-V73
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - 'cobranzasEstadoGestionV70.js'
       - 'cobranzasRecuperarFacturadasV71.js'
       - 'cobranzasRestaurar4680y4701V72.js'
+      - 'cobranzasIntegralV73.js'
 
 permissions:
   contents: write
@@ -24,7 +25,7 @@ jobs:
         with:
           ref: main
 
-      - name: Insertar scripts V67 a V72 en index.html
+      - name: Insertar scripts V67 a V73 en index.html
         shell: python
         run: |
           from pathlib import Path
@@ -37,6 +38,7 @@ jobs:
               '<script src="cobranzasEstadoGestionV70.js?v=TIZ-V70-ESTADO-GESTION-20260907"></script>',
               '<script src="cobranzasRecuperarFacturadasV71.js?v=TIZ-V71-RECUPERAR-FACTURADAS-20260907"></script>',
               '<script src="cobranzasRestaurar4680y4701V72.js?v=TIZ-V72-RESTORE-4680-4701-20260907"></script>',
+              '<script src="cobranzasIntegralV73.js?v=TIZ-V73-GESTION-INTEGRAL-20260907"></script>',
           ]
           marker = '</body>'
           pos = text.rfind(marker)
@@ -60,5 +62,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Activar restauracion puntual de FC 4680 y 4701 V72"
+          git commit -m "Activar gestion integral de cobranzas V73"
           git push origin main
