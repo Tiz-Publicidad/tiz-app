@@ -2,6 +2,10 @@
 (function(){
   'use strict';
   const num=v=>Number(v)||0;
+  const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const baseOt=v=>String(v??'').match(/\d{4,7}/)?.[0].replace(/^0+/,'')||'';
+  const money=v=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(num(v));
+  const fecha=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:(v||'—')};
   function totalAprobado(o){return num(o?.finanzas?.total||o?.neto||o?.importe||o?.infoPresupuesto?.importe)}
   function facturas(o){
     const list=Array.isArray(o?.facturasArca)?[...o.facturasArca]:[];
@@ -27,15 +31,39 @@
     return true;
   }
   function syncTodas(){(window.DB?.obras||[]).forEach(syncObra)}
+  function pendiente(o){
+    const total=totalAprobado(o),f=o.finanzas||{};
+    const cob=num(f.anticipo?.montoCobrado)+num(f.saldo?.montoCobrado);
+    const ret=Object.values(f.retenciones||{}).reduce((a,v)=>a+num(v),0);
+    return Math.max(0,total-cob-ret);
+  }
+  function asegurarFilasPorCobrar(){
+    if(window.cobTab!=='cobrar')return;
+    const card=[...document.querySelectorAll('#cobr-modulo-v48 .card')].find(x=>x.textContent.includes('Cartera por cobrar'));
+    const tbody=card?.querySelector('tbody');if(!tbody)return;
+    const actuales=new Set([...tbody.querySelectorAll('tr')].map(tr=>baseOt(tr.cells?.[0]?.textContent)));
+    const faltantes=(window.DB?.obras||[]).filter(o=>o?.facturaArca?.cae&&pendiente(o)>0&&!actuales.has(baseOt(o.ot))).sort((a,b)=>num(baseOt(b.ot))-num(baseOt(a.ot)));
+    if(!faltantes.length)return;
+    const vacio=tbody.querySelector('tr td[colspan]');if(vacio)vacio.parentElement.remove();
+    for(const o of faltantes.reverse()){
+      const f=o.facturaArca||{},p=pendiente(o),enviada=!!f.emailUltimoEnvioAt;
+      const tr=document.createElement('tr');
+      tr.dataset.arcaBridge='1';
+      tr.innerHTML=`<td class="strong">${esc(baseOt(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>Saldo: FC ${esc(f.numeroCompleto||o.nrfc||'')} · ${esc(fecha(f.fecha||o.ffc))}</td><td>${money(p)}</td><td>—</td><td><span class="badge badge-red">Facturado pendiente</span></td><td><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap"><span title="${enviada?'Factura enviada':'Factura pendiente de envío'}" style="width:11px;height:11px;border-radius:50%;display:inline-block;background:${enviada?'#22a06b':'#e8b84b'}"></span><button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button><button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')"><i class="ti ti-mail-forward"></i> ${enviada?'Reenviar FC':'Enviar FC'}</button></div></td>`;
+      tbody.prepend(tr);
+    }
+  }
+  function postRender(){syncTodas();setTimeout(asegurarFilasPorCobrar,0)}
   function instalar(){
     syncTodas();
     if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas._arcaBridgeV68){
       const old=window.renderCobranzas;
-      const wrapped=function(){syncTodas();return old.apply(this,arguments)};
+      const wrapped=function(){syncTodas();const r=old.apply(this,arguments);setTimeout(asegurarFilasPorCobrar,0);return r};
       wrapped._arcaBridgeV68=true;window.renderCobranzas=wrapped;
     }
   }
   instalar();
-  window.addEventListener('load',()=>{instalar();setTimeout(instalar,300);setTimeout(instalar,1200);setTimeout(()=>window.renderCobranzas?.(),1500)});
-  let n=0;const t=setInterval(()=>{instalar();if(++n>80)clearInterval(t)},250);
+  window.addEventListener('load',()=>{instalar();setTimeout(postRender,300);setTimeout(postRender,1200);setTimeout(()=>window.renderCobranzas?.(),1500)});
+  document.addEventListener('click',e=>{if(e.target?.closest?.('#page-cobranzas .page-tab'))setTimeout(asegurarFilasPorCobrar,80)});
+  let n=0;const t=setInterval(()=>{instalar();asegurarFilasPorCobrar();if(++n>120)clearInterval(t)},250);
 })();
