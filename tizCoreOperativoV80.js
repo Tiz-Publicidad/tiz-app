@@ -11,6 +11,8 @@ const approved=v=>norm(v).startsWith('aprob');
 const collected=v=>norm(v)==='cobrado';
 const invoiceNumberValid=v=>{const s=norm(v);return !!s&&!['sin factura','sin facturar','-','—','n/a','na'].includes(s)};
 const emptyPart=()=>({facturado:false,nroFactura:'',fechaFactura:'',porcentaje:0,monto:0,fechaPrevistaCobro:'',fechaCobro:'',montoCobrado:0});
+const revisionParts=v=>String(v||'1.0').split('.').map(x=>Number(x)||0);
+function newerRevision(a,b){const aa=revisionParts(a),bb=revisionParts(b),n=Math.max(aa.length,bb.length);for(let i=0;i<n;i++){const d=(aa[i]||0)-(bb[i]||0);if(d)return d>0;}return false;}
 function parseDate(v){
  if(!v)return null;if(v instanceof Date&&!isNaN(v))return new Date(v);
  if(typeof v==='object'&&typeof v?.toDate==='function')return v.toDate();
@@ -28,7 +30,7 @@ function weekFor(o,p){
 }
 function approvedBudgets(){
  const map=new Map();
- (window.DB?.presupuestos||[]).forEach(p=>{if(!approved(p?.estado||p?.status||p?.estadoRevision))return;const n=base(p?.nro||p?.nroPresupuesto||p?.cotizacionBase);if(!n)return;const old=map.get(n);if(!old||String(p?.revision||'')>=String(old?.revision||''))map.set(n,p);});
+ (window.DB?.presupuestos||[]).forEach(p=>{if(!approved(p?.estado||p?.status||p?.estadoRevision))return;const n=base(p?.nro||p?.nroPresupuesto||p?.cotizacionBase);if(!n)return;const old=map.get(n);if(!old||newerRevision(p?.revision,old?.revision))map.set(n,p);});
  return map;
 }
 function findWorkForBudget(p){
@@ -70,7 +72,10 @@ function canonicalPatch(o,p){
  const n=base(p?.nro||o?.ot),total=totalFor(o,p),items=itemsFrom(p,o),week=weekFor(o,p),info={...(o?.infoPresupuesto||{}),importe:total,nro:p?.nro||o?.infoPresupuesto?.nro||n,presupuestoId:p?.id||o?.presupuestoId||'',revision:p?.revision||o?.revisionCotizacion||'',cliente:p?.cliente||o?.cliente||'',descripcion:p?.desc||p?.descripcion||o?.desc||'',condicionPago:p?.cond||o?.cond||o?.infoPresupuesto?.condicionPago||'',anticipoPct:num(p?.anticipoPct||o?.anticipoPct||o?.infoPresupuesto?.anticipoPct),diasPago:num(p?.diasPago||o?.diasPago||o?.infoPresupuesto?.diasPago),oc:p?.oc||o?.oc||o?.infoPresupuesto?.oc||''};
  const sectores={};['ventas','diseno','compras','produccion','colocaciones','facturacion','cobranzas'].forEach(k=>sectores[k]=canonicalSector(k,o,p,info,total));
  const f=finance({...o,finanzas:o?.finanzas||{}},p);f.total=total;if(!f.saldo.monto)f.saldo.monto=total;
- return {ot:n||o?.ot,cliente:p?.cliente||o?.cliente||'',desc:p?.desc||p?.descripcion||o?.desc||'',estado:collected(o?.estado)?'Cobrado':'Aprobado',neto:total,importe:total,semana:week||num(o?.semana),infoPresupuesto:info,itemsCotizados:items.length?items:(o?.itemsCotizados||[]),sectores,finanzas:f,presupuestoId:p?.id||o?.presupuestoId||'',cotizacionId:p?.id||o?.cotizacionId||'',nroCotizacion:p?.nro||o?.nroCotizacion||n,revisionCotizacion:p?.revision||o?.revisionCotizacion||'',origen:o?.origen||'presupuesto'};
+ // sectores alimenta Obras/Facturacion y gestionSectores alimenta las pantallas
+ // operativas V31. Ambas vistas reciben el mismo bloque canonico. El estado global
+ // ya existente se conserva para no devolver una OT en produccion a "Aprobado".
+ return {ot:n||o?.ot,cliente:p?.cliente||o?.cliente||'',desc:p?.desc||p?.descripcion||o?.desc||'',estado:o?.estado||'Aprobado',neto:total,importe:total,semana:week||num(o?.semana),infoPresupuesto:info,itemsCotizados:items.length?items:(o?.itemsCotizados||[]),sectores,gestionSectores:sectores,finanzas:f,presupuestoId:p?.id||o?.presupuestoId||'',cotizacionId:p?.id||o?.cotizacionId||'',nroCotizacion:p?.nro||o?.nroCotizacion||n,revisionCotizacion:p?.revision||o?.revisionCotizacion||'',origen:o?.origen||'presupuesto'};
 }
 async function createMissingWork(p){
  if(typeof window.ensureObraFromPresupuestoV358==='function'){
@@ -88,7 +93,7 @@ async function reconcile(){
   for(const o of (window.DB?.obras||[])){
    const p=budgetForWork(o,map);if(!p&&!approved(o?.estado)&&o?.origen!=='presupuesto')continue;
    const fakeP=p||{id:o.presupuestoId,nro:o.nroCotizacion||o.ot,cliente:o.cliente,desc:o.desc,importe:totalFor(o,null),estado:'Aprobado',fecha:o.fechaAprobacion};const patch=canonicalPatch(o,fakeP);
-   const m=metrics(o,fakeP),needs=num(o?.semana)!==num(patch.semana)||num(o?.finanzas?.total)!==num(patch.finanzas.total)||num(o?.sectores?.facturacion?.importePresupuestado)!==num(patch.sectores.facturacion.importePresupuestado)||num(o?.sectores?.cobranzas?.montoTotal)!==num(patch.sectores.cobranzas.montoTotal)||!o?.sectores?.produccion||!o?.sectores?.diseno||!o?.sectores?.compras||(!collected(o?.estado)&&m.total>0&&!approved(o?.estado));
+   const needs=num(o?.semana)!==num(patch.semana)||num(o?.finanzas?.total)!==num(patch.finanzas.total)||num(o?.sectores?.facturacion?.importePresupuestado)!==num(patch.sectores.facturacion.importePresupuestado)||num(o?.sectores?.cobranzas?.montoTotal)!==num(patch.sectores.cobranzas.montoTotal)||num(o?.gestionSectores?.facturacion?.importePresupuestado)!==num(patch.gestionSectores.facturacion.importePresupuestado)||num(o?.gestionSectores?.cobranzas?.montoTotal)!==num(patch.gestionSectores.cobranzas.montoTotal)||!o?.sectores?.produccion||!o?.sectores?.diseno||!o?.sectores?.compras||!o?.gestionSectores?.produccion||!o?.gestionSectores?.diseno||!o?.gestionSectores?.compras;
    if(!needs)continue;
    try{await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);changed++;}catch(e){console.error('[V80] No se pudo normalizar OT '+base(o.ot),e);}
   }
