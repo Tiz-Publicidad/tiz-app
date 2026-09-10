@@ -9,9 +9,22 @@
     diseno:{label:'Diseño',icon:'✏️',color:'var(--purple)'},
     compras:{label:'Compras',icon:'🛒',color:'var(--accent)'},
     produccion:{label:'Producción',icon:'📦',color:'var(--blue)'},
+    calidad:{label:'Calidad',icon:'✅',color:'var(--green)'},
     colocaciones:{label:'Colocaciones',icon:'🚛',color:'var(--teal)'},
     facturacion:{label:'Facturación',icon:'🧾',color:'var(--amber)'},
     cobranzas:{label:'Cobranzas',icon:'💵',color:'var(--green)'}
+  };
+
+  const RESPONSABLES_OBRA=['','Cristian','Caro','Pablo','Ariel','Gian','Juli'];
+  const PROBLEMAS_SECTOR={
+    ventas:['Sin problema','Falta aprobación del cliente','Falta OC / OP','Falta anticipo','Cambio de alcance','Demora de respuesta','Otro'],
+    diseno:['Sin problema','Falta información','Falta medida','Archivo incorrecto','Corrección del cliente','Diseño no aprobado','Demora de diseño','Otro'],
+    compras:['Sin problema','Material sin stock','Demora del proveedor','Precio a confirmar','Compra incompleta','Material incorrecto','Otro'],
+    produccion:['Sin problema','Falta material','Falta archivo','Error de medida','Error de impresión','Falla de máquina','Demora de producción','Rehacer trabajo','Otro'],
+    calidad:['Sin problema','Medida incorrecta','Color incorrecto','Terminación defectuosa','Impresión defectuosa','Material dañado','Falta un componente','Requiere retrabajo','Otro'],
+    colocaciones:['Sin problema','Falta coordinar fecha','Falta contacto en obra','Acceso no disponible','Falta permiso','Problema de instalación','Clima','Reprogramación','Otro'],
+    facturacion:['Sin problema','Falta CUIT','Falta OC / OP','Datos fiscales incorrectos','Importe a confirmar','Factura observada','Otro'],
+    cobranzas:['Sin problema','Factura no recibida','Fecha de pago vencida','Pago parcial','Retención pendiente','Reclamo del cliente','Otro']
   };
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -39,6 +52,7 @@
       diseno:{ estado:c.disenoAprobado?'Aprobado':'Pendiente', aprobado:!!c.disenoAprobado, notas:n['Diseño']||'' },
       compras:{ estado:c.materialesCompletos?'Completo':'Pendiente', materialesCompletos:!!c.materialesCompletos, notas:n.Compras||'' },
       produccion:{ estado:(c.produccionTerminada||o.fprod_r)?'Terminada':(o.fprod_c?'En proceso':'Pendiente'), compromiso:o.fprod_c||'', real:o.fprod_r||'', terminada:!!c.produccionTerminada||!!o.fprod_r, notas:n['Producción']||'' },
+      calidad:{ estado:c.calidadOK?'Aprobado':'Pendiente', aprobado:!!c.calidadOK, notas:n.Calidad||'' },
       colocaciones:{ estado:o.fcol_r?'Instalada':(c.colocacionCoordinada?'Coordinada':'Pendiente'), compromiso:o.fcol_c||'', real:o.fcol_r||'', coordinada:!!c.colocacionCoordinada, instalada:!!o.fcol_r, fotosFinales:!!c.fotosFinales, notas:n.Colocaciones||'' },
       facturacion:{ estado:(c.facturado||o.nrfc)?'Facturado':'Pendiente', oc:o.oc||'', nroFactura:o.nrfc||'', fechaFactura:o.ffc||'', diasPago:+o.diasPago||0, facturado:!!c.facturado||!!o.nrfc, notas:'' },
       cobranzas:{ estado:(c.cobrado||o.cobr==='Cobrado')?'Cobrado':(c.senaRecibida?'Seña recibida':'Pendiente'), senaRecibida:!!c.senaRecibida, cobrado:!!c.cobrado||o.cobr==='Cobrado', notas:'' }
@@ -256,6 +270,13 @@
   }
   function select(label,id,options,value){return `<div class="form-group"><label>${label}</label><select id="${id}">${options.map(x=>`<option ${x===value?'selected':''}>${x}</option>`).join('')}</select></div>`;}
 
+  function problemaFields(key,s){
+    const opciones=PROBLEMAS_SECTOR[key]||['Sin problema','Otro'];
+    return select('Tipo de problema','sv-problema-tipo',opciones,s.problemaTipo||'Sin problema')+
+      field('Descripción del problema','sv-problema-detalle','textarea',s.problemaDetalle||'','placeholder="Agregá el detalle necesario"')+
+      `<div class="form-group full"><div class="checklist-grid">${field('Marcar como urgente','sv-urgente','checkbox',s.urgente)}</div></div>`;
+  }
+
   function sectorForm(key,s,o){
     s=s||{}; const common=['Pendiente','En proceso','Esperando','Bloqueado','Terminado'];
     const log=o.entregaLogistica||{}, info=o.infoPresupuesto||s.infoPresupuesto||{}, modalidades={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
@@ -266,9 +287,11 @@
     if(key==='diseno') html += select('Estado','sv-estado',['Pendiente','Diseñando','Esperando cliente','Correcciones','Aprobado'],normEstado(s.estado)) + field('Diseñador','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + field('Fecha real','sv-real','text',s.real||'') + `<div class="form-group full"><div class="checklist-grid">${field('Diseño aprobado','sv-aprobado','checkbox',s.aprobado)}${field('Archivo final listo','sv-archivo-final','checkbox',s.archivoFinal)}${field('Enviado a Producción','sv-enviado-prod','checkbox',s.enviadoProduccion)}</div></div>` + field('Notas de Diseño','sv-notas','textarea',s.notas||'');
     if(key==='compras') html += select('Estado','sv-estado',['Pendiente','Cotizando','Pedido','Entrega parcial','Completo','Bloqueado'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + field('Fecha real','sv-real','text',s.real||'') + `<div class="form-group full"><div class="checklist-grid">${field('Pedido realizado','sv-pedido','checkbox',s.pedidoRealizado)}${field('Materiales completos','sv-materiales','checkbox',s.materialesCompletos)}${field('Sin faltantes','sv-sin-faltantes','checkbox',s.sinFaltantes)}</div></div>` + field('Faltantes / notas de Compras','sv-notas','textarea',s.notas||'');
     if(key==='produccion') html += select('Estado','sv-estado',['Pendiente','En producción','Control de calidad','Embalando','Terminada','Bloqueada'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||o.fprod_c||'') + field('Fecha real','sv-real','text',s.real||o.fprod_r||'') + `<div class="form-group full"><div class="checklist-grid">${field('Material recibido','sv-material','checkbox',s.materialRecibido)}${field('Control calidad OK','sv-calidad','checkbox',s.calidadOK)}${field('Producción terminada','sv-terminada','checkbox',s.terminada)}${field('Embalado','sv-embalado','checkbox',s.embalado)}</div></div>` + field('Notas de Producción','sv-notas','textarea',s.notas||'');
+    if(key==='calidad') html += select('Estado','sv-estado',['Pendiente','En revisión','Observado','Rehacer','Aprobado'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||'') + field('Fecha real','sv-real','text',s.real||'') + `<div class="form-group full"><div class="checklist-grid">${field('Medidas verificadas','sv-medidas-ok','checkbox',s.medidasOK)}${field('Material verificado','sv-material-ok','checkbox',s.materialOK)}${field('Terminación verificada','sv-terminacion-ok','checkbox',s.terminacionOK)}${field('Calidad aprobada','sv-calidad-aprobada','checkbox',s.aprobado)}</div></div>` + field('Notas de Calidad','sv-notas','textarea',s.notas||'');
     if(key==='colocaciones') html += select('Estado','sv-estado',['Pendiente','A coordinar','Coordinada','En instalación','Instalada','Reprogramada'],normEstado(s.estado)) + field('Responsable','sv-responsable','text',s.responsable||'') + field('Fecha compromiso','sv-compromiso','text',s.compromiso||o.fcol_c||'') + field('Fecha real','sv-real','text',s.real||o.fcol_r||'') + field('Dirección de obra','sv-direccion','text',s.direccion||'') + field('Contacto en obra','sv-contacto','text',s.contacto||'') + `<div class="form-group full"><div class="checklist-grid">${field('Colocación coordinada','sv-coordinada','checkbox',s.coordinada)}${field('Instalación realizada','sv-instalada','checkbox',s.instalada)}${field('Fotos finales cargadas','sv-fotos','checkbox',s.fotosFinales)}</div></div>` + field('Logística / permisos / equipos / notas','sv-notas','textarea',s.notas||'');
     if(key==='facturacion') html += select('Estado','sv-estado',['Pendiente','Lista para facturar','Facturado','Observada'],normEstado(s.estado)) + field('OC / OP','sv-oc','text',s.oc||o.oc||'') + field('Nro factura','sv-nrfc','text',s.nroFactura||o.nrfc||'') + field('Fecha factura','sv-fecha-factura','text',s.fechaFactura||o.ffc||'') + field('Días de pago','sv-dias-pago','number',s.diasPago||o.diasPago||'') + field('Fecha vencimiento','sv-vencimiento','text',s.vencimiento||'') + `<div class="form-group full"><div class="checklist-grid">${field('Facturado','sv-facturado','checkbox',s.facturado)}</div></div>` + field('Notas de Facturación','sv-notas','textarea',s.notas||'');
     if(key==='cobranzas') html += select('Estado','sv-estado',['Pendiente','Seña recibida','Parcial','Cobrado','Vencido'],normEstado(s.estado)) + field('Monto cobrado','sv-monto-cobrado','number',s.montoCobrado||'') + field('Saldo pendiente','sv-saldo','number',s.saldoPendiente||'') + field('Fecha vencimiento','sv-vencimiento','text',s.vencimiento||'') + `<div class="form-group full"><div class="checklist-grid">${field('Seña recibida','sv-sena','checkbox',s.senaRecibida)}${field('Cobrado total','sv-cobrado','checkbox',s.cobrado)}</div></div>` + field('Notas de Cobranzas','sv-notas','textarea',s.notas||'');
+    html += problemaFields(key,s);
     return html+'</div>';
   }
 
@@ -288,9 +311,11 @@
     if(key==='diseno') Object.assign(base,{aprobado:checked('sv-aprobado'),archivoFinal:checked('sv-archivo-final'),enviadoProduccion:checked('sv-enviado-prod')});
     if(key==='compras') Object.assign(base,{pedidoRealizado:checked('sv-pedido'),materialesCompletos:checked('sv-materiales'),sinFaltantes:checked('sv-sin-faltantes')});
     if(key==='produccion') Object.assign(base,{materialRecibido:checked('sv-material'),calidadOK:checked('sv-calidad'),terminada:checked('sv-terminada'),embalado:checked('sv-embalado')});
+    if(key==='calidad') Object.assign(base,{medidasOK:checked('sv-medidas-ok'),materialOK:checked('sv-material-ok'),terminacionOK:checked('sv-terminacion-ok'),aprobado:checked('sv-calidad-aprobada')});
     if(key==='colocaciones') Object.assign(base,{direccion:val('sv-direccion'),contacto:val('sv-contacto'),coordinada:checked('sv-coordinada'),instalada:checked('sv-instalada'),fotosFinales:checked('sv-fotos')});
     if(key==='facturacion') Object.assign(base,{oc:val('sv-oc'),nroFactura:val('sv-nrfc'),fechaFactura:val('sv-fecha-factura'),diasPago:+val('sv-dias-pago')||0,vencimiento:val('sv-vencimiento'),facturado:checked('sv-facturado')});
     if(key==='cobranzas') Object.assign(base,{montoCobrado:+val('sv-monto-cobrado')||0,saldoPendiente:+val('sv-saldo')||0,vencimiento:val('sv-vencimiento'),senaRecibida:checked('sv-sena'),cobrado:checked('sv-cobrado')});
+    Object.assign(base,{problemaTipo:val('sv-problema-tipo')||'Sin problema',problemaDetalle:val('sv-problema-detalle').trim(),urgente:checked('sv-urgente')});
     return base;
   }
 
@@ -316,7 +341,7 @@
 
   function upgradeObrasTable(){
     const th=document.querySelector('#page-obras thead tr'); if(!th)return;
-    th.innerHTML='<th>Sem</th><th>OT</th><th>Descripción</th><th>Cliente</th><th>Vendedor</th><th>Estado</th><th></th>';
+    th.innerHTML='<th>Sem</th><th>OT</th><th>Descripción / alertas</th><th>Cliente</th><th>Responsable</th><th>Estado</th><th></th>';
   }
 
   const oldRenderObras=window.renderObras;
@@ -330,7 +355,13 @@
     if(estado) obras=obras.filter(o=>o.estado===estado); if(cli) obras=obras.filter(o=>(o.cliente||'').toLowerCase().includes(cli)); if(otQ) obras=obras.filter(o=>(o.ot||'').toLowerCase().includes(otQ)||(o.desc||'').toLowerCase().includes(otQ)); if(semDesde)obras=obras.filter(o=>(+o.semana||0)>=semDesde); if(semHasta)obras=obras.filter(o=>(+o.semana||0)<=semHasta);
     obras.sort((a,b)=>(+b.ot||0)-(+a.ot||0));
     const count=document.getElementById('obras-count'); if(count)count.textContent=obras.length+' obras';
-    tbody.innerHTML=obras.map(o=>`<tr><td>${o.semana||'—'}</td><td class="strong">${esc(String(o.ot||'—').replace(/^0+(?=\\d)/,''))}</td><td class="strong" style="max-width:230px">${esc(o.desc||'')}</td><td>${esc(o.cliente||'')}</td><td>${esc(o.vendedor||'')}</td><td onclick="event.stopPropagation()"><select class="quick-estado" onchange="quickChangeEstado('${o.id}',this.value)">${['Pendiente','Enviado','Aprobado','Entregado','Cobrado pendiente','Cobrado'].map(v=>`<option value="${v}" ${o.estado===v?'selected':''}>${v}</option>`).join('')}</select></td><td style="white-space:nowrap">${o.nrfc?`<span title="Facturado: FC ${esc(o.nrfc)}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>`:''}${renderDriveButtonsV9(o)}<button class="btn-icon" title="Resumen de obra" onclick="editObra('${o.id}')"><i class="ti ti-eye"></i></button><button class="btn-icon" title="Eliminar" onclick="delObra('${o.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras.</td></tr>';
+    tbody.innerHTML=obras.map(o=>{const sectores=getSectores(o), urgentes=Object.entries(sectores).filter(([,s])=>s?.urgente);const alerta=urgentes.map(([k,s])=>`${SECTOR_DEF[k]?.label||k}: ${s.problemaTipo||s.problemaDetalle||'Problema urgente'}`).join(' · ');return `<tr><td>${o.semana||'—'}</td><td class="strong">${esc(String(o.ot||'—').replace(/^0+(?=\\d)/,''))}</td><td class="strong" style="max-width:260px">${esc(o.desc||'')}${alerta?`<div style="margin-top:5px"><span class="sector-state danger" title="${esc(alerta)}">⚠ URGENTE · ${esc(alerta)}</span></div>`:''}</td><td>${esc(o.cliente||'')}</td><td onclick="event.stopPropagation()"><select class="quick-estado" aria-label="Responsable de la obra" onchange="asignarResponsableObraV82('${o.id}',this.value)">${RESPONSABLES_OBRA.map(v=>`<option value="${v}" ${String(o.responsableObra||'')===v?'selected':''}>${v||'Sin asignar'}</option>`).join('')}</select></td><td onclick="event.stopPropagation()"><select class="quick-estado" onchange="quickChangeEstado('${o.id}',this.value)">${['Pendiente','Enviado','Aprobado','Entregado','Cobrado pendiente','Cobrado'].map(v=>`<option value="${v}" ${o.estado===v?'selected':''}>${v}</option>`).join('')}</select></td><td style="white-space:nowrap">${o.nrfc?`<span title="Facturado: FC ${esc(o.nrfc)}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>`:''}${renderDriveButtonsV9(o)}<button class="btn-icon" title="Resumen de obra" onclick="editObra('${o.id}')"><i class="ti ti-eye"></i></button><button class="btn-icon" title="Eliminar" onclick="delObra('${o.id}')"><i class="ti ti-trash"></i></button></td></tr>`}).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras.</td></tr>';
+  };
+
+  window.asignarResponsableObraV82=async function(id,responsable){
+    const o=(window.DB?.obras||[]).find(x=>x.id===id); if(!o)return;
+    try{await window.updateDoc_('obras',id,{responsableObra:responsable,actualizadoResponsableAt:new Date().toISOString()});o.responsableObra=responsable;window.showToast?.(responsable?`Responsable asignado: ${responsable}`:'Obra sin responsable');}
+    catch(e){console.error(e);window.showToast?.('No se pudo guardar el responsable');window.renderObras?.();}
   };
 
   function overrideSectorTable(pageKey, tbodyId, sectorKey, dateMode=true){
