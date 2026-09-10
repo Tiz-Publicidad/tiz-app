@@ -1443,12 +1443,13 @@ window.generarPDF = async () => {
         </table>
       </td>
     </tr></table>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;border-radius:6px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;border-radius:6px;overflow:hidden;table-layout:fixed">
+      <colgroup><col style="width:59%"><col style="width:14%"><col style="width:12%"><col style="width:15%"></colgroup>
       <thead><tr style="background:#f5f5f5">
         <th style="padding:10px 12px;text-align:left;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Descripción</th>
         <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd;white-space:nowrap">$ Unit</th>
-        <th style="padding:10px 12px;text-align:center;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Unidades</th>
-        <th style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;border-bottom:2px solid #ddd">Subtotal</th>
+        <th style="padding:10px 8px;text-align:center;font-size:12px;font-weight:600;border-bottom:2px solid #ddd;white-space:nowrap">Unidades</th>
+        <th style="padding:10px 8px;text-align:right;font-size:12px;font-weight:600;border-bottom:2px solid #ddd;white-space:nowrap">Subtotal</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
