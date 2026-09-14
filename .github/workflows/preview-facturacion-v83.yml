@@ -8,6 +8,7 @@ on:
       - 'facturacionHomologacionUIV83.js'
       - 'facturadorIntegralV83.js'
       - 'facturacionPuestoV83.js'
+      - 'functions/index.js'
       - '.github/workflows/preview-facturacion-v83.yml'
   workflow_dispatch:
 
@@ -51,6 +52,15 @@ jobs:
             git commit -m "Load Facturacion V83 homologation test UI"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
+      - name: Install function dependencies
+        run: npm ci
+        working-directory: functions
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Deploy homologation function only
+        run: firebase deploy --only functions:arcaHomologacionEmitirPrueba --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
       - name: Prepare Firebase preview config
         shell: bash
         run: |
@@ -66,12 +76,19 @@ jobs:
                 ".github/**",
                 "functions/**",
                 "node_modules/**"
+              ],
+              "rewrites": [
+                {
+                  "source": "/api/homologacion",
+                  "function": {
+                    "functionId": "arcaHomologacionEmitirPrueba",
+                    "region": "us-central1"
+                  }
+                }
               ]
             }
           }
           EOF
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
       - name: Deploy isolated preview channel
         run: firebase hosting:channel:deploy facturacion-v83-pruebas --expires 7d --config firebase.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
         env:
