@@ -340,3 +340,8 @@ const { facturacionIntegralEmitirV83 } = require("./facturacionIntegralApiV83");
 exports.facturacionIntegralEmitirV83 = facturacionIntegralEmitirV83;
 const { facturacionReintentarDriveV83 } = require("./facturacionDriveRetryV83");
 exports.facturacionReintentarDriveV83 = facturacionReintentarDriveV83;
+
+// TIZ V84 delivery exports
+const { facturacionHomologacionArchivarV84, facturacionEnviarEmailV84 } = require("./facturacionEntregaV84");
+exports.facturacionHomologacionArchivarV84 = facturacionHomologacionArchivarV84;
+exports.facturacionEnviarEmailV84 = facturacionEnviarEmailV84;
