@@ -1,0 +1,78 @@
+name: Preview Facturacion V83
+
+on:
+  push:
+    branches:
+      - codex/facturacion-cobranzas-integral-v1
+    paths:
+      - 'facturacionHomologacionUIV83.js'
+      - 'facturadorIntegralV83.js'
+      - 'facturacionPuestoV83.js'
+      - '.github/workflows/preview-facturacion-v83.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/facturacion-cobranzas-integral-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Load homologation UI safely
+        shell: bash
+        run: |
+          node --check facturacionHomologacionUIV83.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text(encoding='utf-8')
+          tag='<script src="facturacionHomologacionUIV83.js?v=TIZ-FV83-HOMO-20260914"></script>'
+          anchor='<script src="facturadorIntegralV83.js?v=TIZ-FACTURACION-INTEGRAL-V83-20260914"></script>'
+          if tag not in s:
+              if s.count(anchor)!=1: raise SystemExit(f'anchor count {s.count(anchor)}')
+              s=s.replace(anchor,anchor+'\n'+tag,1)
+              p.write_text(s,encoding='utf-8')
+          if p.read_text(encoding='utf-8').count(tag)!=1: raise SystemExit('homologation tag invalid')
+          PY
+      - name: Commit preview loader to branch
+        shell: bash
+        run: |
+          if ! git diff --quiet -- index.html; then
+            git config user.name "TIZ Preview Validator"
+            git config user.email "actions@users.noreply.github.com"
+            git add index.html
+            git diff --cached --check
+            git commit -m "Load Facturacion V83 homologation test UI"
+            git push origin HEAD:codex/facturacion-cobranzas-integral-v1
+          fi
+      - name: Prepare Firebase preview config
+        shell: bash
+        run: |
+          cat > firebase.preview.json <<'EOF'
+          {
+            "hosting": {
+              "public": ".",
+              "ignore": [
+                "firebase.preview.json",
+                "firebase.json",
+                ".firebaserc",
+                ".git/**",
+                ".github/**",
+                "functions/**",
+                "node_modules/**"
+              ]
+            }
+          }
+          EOF
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Deploy isolated preview channel
+        run: firebase hosting:channel:deploy facturacion-v83-pruebas --expires 7d --config firebase.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
