@@ -33,7 +33,7 @@ jobs:
           from pathlib import Path
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
           tag='<script src="facturacionHomologacionUIV83.js?v=TIZ-FV83-HOMO-20260914"></script>'
-          anchor='<script src="facturadorIntegralV83.js?v=TIZ-FACTURACION-INTEGRAL-V83-20260914"></script>'
+          anchor='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914"></script>'
           if tag not in s:
               if s.count(anchor)!=1: raise SystemExit(f'anchor count {s.count(anchor)}')
               s=s.replace(anchor,anchor+'\n'+tag,1)
