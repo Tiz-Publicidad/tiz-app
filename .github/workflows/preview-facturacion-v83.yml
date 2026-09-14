@@ -47,8 +47,9 @@ jobs:
               if token not in js: raise SystemExit(f'facturadorIntegralV83.js missing required token: {token}')
 
           retry=Path('facturacionDriveRetryUIV83.js').read_text(encoding='utf-8')
-          for token in ['obtenerDriveAccessTokenTizV87','reauthenticateWithPopup','https://www.googleapis.com/auth/drive','Archivar PDF']:
+          for token in ['obtenerDriveAccessTokenTizV88','reauthenticateWithRedirect','getRedirectResult','https://www.googleapis.com/auth/drive','Archivar PDF']:
               if token not in retry: raise SystemExit(f'facturacionDriveRetryUIV83.js missing required token: {token}')
+          if 'reauthenticateWithPopup' in retry: raise SystemExit('Popup OAuth must not be used in V88')
 
           v85=Path('facturacionAnticiposV85.js').read_text(encoding='utf-8')
           for token in ['Anticipo facturado','Facturar saldo','Saldo por facturar','Archivar PDF','Usar saldo completo']:
@@ -61,7 +62,8 @@ jobs:
           delivery_old='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-ENTREGA-20260914"></script>'
           delivery_new='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-EMAIL-ONLY-20260914-R2"></script>'
           drive_old='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V83-20260914-R2-AUTO"></script>'
-          drive_new='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V87-OAUTH-20260914"></script>'
+          drive_v87='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V87-OAUTH-20260914"></script>'
+          drive_new='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V88-REDIRECT-20260914"></script>'
           anticipos='<script src="facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914"></script>'
 
           if fact_old in s: s=s.replace(fact_old,fact_new,1)
@@ -70,6 +72,7 @@ jobs:
           if delivery_old in s: s=s.replace(delivery_old,delivery_new,1)
           elif delivery_new not in s: raise SystemExit('Facturacion V84 delivery tag not found')
           if drive_old in s: s=s.replace(drive_old,drive_new,1)
+          elif drive_v87 in s: s=s.replace(drive_v87,drive_new,1)
           elif drive_new not in s: raise SystemExit('Drive OAuth script tag not found')
           if anticipos not in s: s=s.replace(drive_new,drive_new+'\n'+anticipos,1)
 
@@ -89,7 +92,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load Drive OAuth V87"
+            git commit -m "Load Drive OAuth redirect V88"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -133,7 +136,7 @@ jobs:
         run: |
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
           ASSET="$ORIGIN/facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V87-DRIVE-OAUTH-20260914"
-          RETRY="$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V87-OAUTH-20260914"
+          RETRY="$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V88-REDIRECT-20260914"
           V85="$ORIGIN/facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914"
           HTML="$ORIGIN/"
           curl -fsSL "$ASSET" -o /tmp/fv83.js
@@ -141,8 +144,10 @@ jobs:
           grep -F 'recuperarPdfFacturaV86' /tmp/fv83.js
           node --check /tmp/fv83.js
           curl -fsSL "$RETRY" -o /tmp/retry.js
-          grep -F 'obtenerDriveAccessTokenTizV87' /tmp/retry.js
-          grep -F 'reauthenticateWithPopup' /tmp/retry.js
+          grep -F 'obtenerDriveAccessTokenTizV88' /tmp/retry.js
+          grep -F 'reauthenticateWithRedirect' /tmp/retry.js
+          grep -F 'getRedirectResult' /tmp/retry.js
+          if grep -Fq 'reauthenticateWithPopup' /tmp/retry.js; then exit 1; fi
           node --check /tmp/retry.js
           curl -fsSL "$V85" -o /tmp/fv85.js
           grep -F 'Anticipo facturado' /tmp/fv85.js
@@ -150,6 +155,6 @@ jobs:
           node --check /tmp/fv85.js
           curl -fsSL "$HTML" -o /tmp/index.html
           grep -F 'facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V87-DRIVE-OAUTH-20260914' /tmp/index.html
-          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V87-OAUTH-20260914' /tmp/index.html
+          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V88-REDIRECT-20260914' /tmp/index.html
           grep -F 'facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914' /tmp/index.html
           if grep -Fq 'facturacionHomologacionUIV83.js' /tmp/index.html; then exit 1; fi
