@@ -1,7 +1,7 @@
 {
   "name": "tiz-arca-backend",
   "private": true,
-  "main": "index.js",
+  "main": "allFunctionsV86.js",
   "engines": { "node": "22" },
   "dependencies": {
     "firebase-admin": "^13.0.0",
