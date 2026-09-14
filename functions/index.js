@@ -338,3 +338,5 @@ exports.arcaHomologacionEmitirPrueba = onRequest({region:"us-central1", invoker:
 // TIZ V83 - Facturacion y Cobranzas integral
 const { facturacionIntegralEmitirV83 } = require("./facturacionIntegralApiV83");
 exports.facturacionIntegralEmitirV83 = facturacionIntegralEmitirV83;
+const { facturacionReintentarDriveV83 } = require("./facturacionDriveRetryV83");
+exports.facturacionReintentarDriveV83 = facturacionReintentarDriveV83;
