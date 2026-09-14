@@ -22,7 +22,6 @@ async function preloadAuth(){
   return authReadyPromise;
 }
 preloadAuth().catch(e=>console.error('[TIZ V92 auth preload]',e));
-
 function cachedDriveToken(){try{const x=JSON.parse(sessionStorage.getItem(DRIVE_CACHE)||'null');if(!x?.token||!x?.ts)return'';if(Date.now()-Number(x.ts)>45*60*1000){sessionStorage.removeItem(DRIVE_CACHE);return''}return x.token}catch(_){return''}}
 function cacheDriveToken(token,email){sessionStorage.setItem(DRIVE_CACHE,JSON.stringify({token,ts:Date.now(),email:email||''}))}
 async function firebaseToken(){const {auth}=await preloadAuth();if(!auth.currentUser)throw new Error('Sesión no iniciada');return auth.currentUser.getIdToken()}
@@ -36,6 +35,7 @@ async function authorizeDriveDirect(){
   cacheDriveToken(access,result.user?.email||u.email||'');window.showToast?.('Google Drive autorizado ✓');return access;
 }
 window.obtenerDriveAccessTokenTizV92=authorizeDriveDirect;
+window.obtenerDriveAccessTokenTizV91=authorizeDriveDirect;
 
 function comps(o){const a=Array.isArray(o?.comprobantesArca)?[...o.comprobantesArca]:Array.isArray(o?.facturasArca)?[...o.facturasArca]:[];if(o?.facturaArca?.cae&&!a.some(x=>String(x?.cae)===String(o.facturaArca.cae)))a.push(o.facturaArca);return a.filter(x=>x?.cae)}
 function latest(o){return [...comps(o)].sort((a,b)=>Number(b?.cbteNro||0)-Number(a?.cbteNro||0))[0]||o?.facturaArca||null}
@@ -58,7 +58,7 @@ window.recuperarPdfFacturaV86=async function(n,btn){
   finally{busy=false;if(btn&&document.contains(btn)){btn.disabled=false;btn.textContent=old}}
 };
 
-function pdfHtml(o){normalizeKnown(o);const c=latest(o);if(!c?.cae)return '<span style="color:var(--text3)">—</span>';const k=knownDrive(c);if(hasDrive(c)){const href=c.driveWebViewLink||k?.webViewLink||'';return href?`<a href="${href}" target="_blank" rel="noopener" class="badge badge-green" style="text-decoration:none" title="Abrir PDF archivado">En Drive</a>`:'<span class="badge badge-green">En Drive</span>'}return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge badge-amber">PDF pendiente</span><button type="button" class="btn btn-ghost btn-sm fv92-pdf-recover" data-n="${Number(c.cbteNro||0)}">Archivar PDF</button></div>`}
+function pdfHtml(o){normalizeKnown(o);const c=latest(o);if(!c?.cae)return '<span style="color:var(--text3)">—</span>';const k=knownDrive(c);if(hasDrive(c)){const href=c.driveWebViewLink||k?.webViewLink||'';return href?`<a href="${href}" target="_blank" rel="noopener" class="badge badge-green" style="text-decoration:none" title="Abrir PDF archivado">En Drive</a>`:'<span class="badge badge-green">En Drive</span>'}return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge badge-amber">PDF pendiente</span><button type="button" class="btn btn-ghost btn-sm fv91-pdf-recover fv92-pdf-recover" data-n="${Number(c.cbteNro||0)}">Archivar PDF</button></div>`}
 function obraForRow(tr){const ot=base(tr.cells?.[0]?.textContent||'');return (window.DB?.obras||[]).find(x=>base(x.ot)===ot)||null}
 function decorateTable(){
   scheduled=false;const mod=document.getElementById('cobr-modulo-v48');if(!mod)return;const table=mod.querySelector('table');if(!table)return;
@@ -66,9 +66,8 @@ function decorateTable(){
   table.querySelectorAll('tbody tr').forEach(tr=>{const o=obraForRow(tr);if(!o)return;[...tr.querySelectorAll('.fv91-pdf-cell,.fv90-pdf-cell,.fv86-pdf-cell')].forEach(x=>x.remove());let td=tr.querySelector('.fv92-pdf-cell');if(!td){td=document.createElement('td');td.className='fv92-pdf-cell';const action=tr.lastElementChild;action?tr.insertBefore(td,action):tr.appendChild(td)}const next=pdfHtml(o);if(td.innerHTML!==next)td.innerHTML=next});
 }
 function scheduleDecorate(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>setTimeout(decorateTable,20))}
-function bindClick(){if(window.__tizDrivePdfClickV92)return;window.__tizDrivePdfClickV92=true;document.addEventListener('click',e=>{const b=e.target?.closest?.('.fv92-pdf-recover');if(b){e.preventDefault();e.stopPropagation();window.recuperarPdfFacturaV86(Number(b.dataset.n||0),b);return}if(e.target?.closest?.('#page-cobranzas .page-tab,[data-page="cobranzas"],.nav-item'))scheduleDecorate()},true)}
-function install(){bindClick();(window.DB?.obras||[]).forEach(normalizeKnown);scheduleDecorate()}
-install();window.addEventListener('load',install,{once:true});document.addEventListener('DOMContentLoaded',install,{once:true});
-const mo=new MutationObserver(muts=>{if(!document.getElementById('page-cobranzas')?.classList.contains('active'))return;for(const m of muts){if([...m.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('#cobr-modulo-v48,table,tbody,tr')||n.querySelector?.('#cobr-modulo-v48,table')))){scheduleDecorate();break}}});
-mo.observe(document.documentElement,{childList:true,subtree:true});
+function bindClick(){if(window.__tizDrivePdfClickV92)return;window.__tizDrivePdfClickV92=true;document.addEventListener('click',e=>{const b=e.target?.closest?.('.fv92-pdf-recover,.fv91-pdf-recover');if(b){e.preventDefault();e.stopPropagation();window.recuperarPdfFacturaV86(Number(b.dataset.n||0),b);return}if(e.target?.closest?.('#page-cobranzas .page-tab,[data-page="cobranzas"],.nav-item')){setTimeout(scheduleDecorate,80);setTimeout(scheduleDecorate,350)}},true)}
+function install(){bindClick();(window.DB?.obras||[]).forEach(normalizeKnown);scheduleDecorate();if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__drivePdfV92){const old=window.renderCobranzas;const wrapped=function(){const r=old.apply(this,arguments);setTimeout(scheduleDecorate,50);return r};wrapped.__drivePdfV92=true;window.renderCobranzas=wrapped}}
+install();window.addEventListener('load',()=>{install();setTimeout(scheduleDecorate,150);setTimeout(scheduleDecorate,650)},{once:true});document.addEventListener('DOMContentLoaded',()=>{install();setTimeout(scheduleDecorate,150)},{once:true});
+setTimeout(install,600);setTimeout(install,1600);setTimeout(scheduleDecorate,2600);
 })();
