@@ -5,10 +5,10 @@ on:
     branches:
       - codex/facturacion-cobranzas-integral-v1
     paths:
-      - 'facturacionHomologacionUIV83.js'
-      - 'facturacionEntregaUIV84.js'
       - 'facturadorIntegralV83.js'
+      - 'facturacionEntregaUIV84.js'
       - 'facturacionPuestoV83.js'
+      - 'index.html'
       - 'functions/index.js'
       - 'functions/facturacionEntregaV84.js'
       - '.github/workflows/preview-facturacion-v83.yml'
@@ -28,59 +28,75 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Prepare homologation and delivery preview safely
+
+      - name: Validate and prepare production-only preview
         shell: bash
         run: |
-          node --check facturacionHomologacionUIV83.js
+          node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
           node --check functions/facturacionEntregaV84.js
           python3 - <<'PY'
           from pathlib import Path
 
-          p=Path('index.html'); s=p.read_text(encoding='utf-8')
+          js=Path('facturadorIntegralV83.js').read_text(encoding='utf-8')
+          required=[
+              "const base=v=>",
+              "idempotencyKey:`ot${base(o.ot)}-",
+              "EMITIR COMPROBANTE REAL · PV 00009"
+          ]
+          for token in required:
+              if token not in js:
+                  raise SystemExit(f'facturadorIntegralV83.js missing required token: {token}')
+
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914"></script>'
+          new='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX"></script>'
           homo='<script src="facturacionHomologacionUIV83.js?v=TIZ-FV83-HOMO-20260914"></script>'
           delivery='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-ENTREGA-20260914"></script>'
-          anchor='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914"></script>'
-          if homo not in s:
-              if s.count(anchor)!=1: raise SystemExit(f'anchor count {s.count(anchor)}')
-              s=s.replace(anchor,anchor+'\n'+homo,1)
-          if delivery not in s:
-              if homo not in s: raise SystemExit('homologation anchor missing')
-              s=s.replace(homo,homo+'\n'+delivery,1)
-          p.write_text(s,encoding='utf-8')
-          if p.read_text(encoding='utf-8').count(homo)!=1: raise SystemExit('homologation tag invalid')
-          if p.read_text(encoding='utf-8').count(delivery)!=1: raise SystemExit('delivery tag invalid')
+          delivery_new='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-EMAIL-ONLY-20260914-R2"></script>'
 
-          f=Path('functions/index.js'); fs=f.read_text(encoding='utf-8')
-          old='const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "http://localhost:5000", "http://127.0.0.1:5000"]);'
-          new='const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "https://tiz---app.web.app", "https://tiz---app.firebaseapp.com", "https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app", "http://localhost:5000", "http://127.0.0.1:5000"]);'
-          if old in fs:
-              fs=fs.replace(old,new,1)
-          elif new not in fs:
-              raise SystemExit('ALLOWED_ORIGINS signature not found')
-          marker='// TIZ V84 delivery exports'
-          block='''\n// TIZ V84 delivery exports\nconst { facturacionHomologacionArchivarV84, facturacionEnviarEmailV84 } = require("./facturacionEntregaV84");\nexports.facturacionHomologacionArchivarV84 = facturacionHomologacionArchivarV84;\nexports.facturacionEnviarEmailV84 = facturacionEnviarEmailV84;\n'''
-          if marker not in fs:
-              fs += block
-          f.write_text(fs,encoding='utf-8')
+          if old in s:
+              s=s.replace(old,new,1)
+          elif new not in s:
+              raise SystemExit('Facturador V83 script tag not found')
+
+          s=s.replace(homo+'\n','').replace(homo,'')
+          if delivery in s:
+              s=s.replace(delivery,delivery_new,1)
+          elif delivery_new not in s:
+              raise SystemExit('Facturacion V84 delivery tag not found')
+
+          p.write_text(s,encoding='utf-8')
+          final=p.read_text(encoding='utf-8')
+          if final.count(new)!=1:
+              raise SystemExit(f'Expected exactly one new V83 tag, got {final.count(new)}')
+          if 'facturacionHomologacionUIV83.js' in final:
+              raise SystemExit('Homologation UI is still loaded')
+          if final.count(delivery_new)!=1:
+              raise SystemExit(f'Expected exactly one V84 email tag, got {final.count(delivery_new)}')
           PY
           node --check functions/index.js
-      - name: Commit preview delivery changes to branch
+
+      - name: Commit preview cache/version changes to branch
         shell: bash
         run: |
-          if ! git diff --quiet -- index.html functions/index.js; then
+          if ! git diff --quiet -- index.html; then
             git config user.name "TIZ Preview Validator"
             git config user.email "actions@users.noreply.github.com"
-            git add index.html functions/index.js
+            git add index.html
             git diff --cached --check
-            git commit -m "Wire Facturacion V84 delivery preview"
+            git commit -m "Load corrected Facturacion V83 without homologation UI"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
+
       - name: Install function dependencies
         run: npm ci
         working-directory: functions
+
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
+
       - name: Configure issuer environment
         shell: bash
         working-directory: functions
@@ -91,10 +107,12 @@ jobs:
           ARCA_ISSUER_DOMICILIO=Mosconi 1234, Los Polvorines, Buenos Aires
           ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
           EOF
-      - name: Deploy homologation and delivery functions only
-        run: firebase deploy --only functions:arcaHomologacionEmitirPrueba,functions:facturacionHomologacionArchivarV84,functions:facturacionEnviarEmailV84 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
+
+      - name: Deploy email delivery function only
+        run: firebase deploy --only functions:facturacionEnviarEmailV84 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
       - name: Prepare Firebase preview config
         shell: bash
         run: |
@@ -110,35 +128,29 @@ jobs:
                 ".github/**",
                 "functions/**",
                 "node_modules/**"
-              ],
-              "rewrites": [
-                {
-                  "source": "/api/homologacion",
-                  "function": {
-                    "functionId": "arcaHomologacionEmitirPrueba",
-                    "region": "us-central1"
-                  }
-                }
               ]
             }
           }
           EOF
+
       - name: Deploy isolated preview channel
         run: firebase hosting:channel:deploy facturacion-v83-pruebas --expires 7d --config firebase.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-      - name: Smoke test homologation and delivery routes
+
+      - name: Smoke test exact served Facturacion V83 asset
         shell: bash
         run: |
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          HOMO="$ORIGIN/api/homologacion"
-          ARCHIVE='https://us-central1-tiz---app.cloudfunctions.net/facturacionHomologacionArchivarV84'
-          EMAIL='https://us-central1-tiz---app.cloudfunctions.net/facturacionEnviarEmailV84'
-          echo '--- homologation preflight ---'
-          curl -sS -i -X OPTIONS "$HOMO" -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type'
-          echo '--- homologation without auth: expect 401 JSON ---'
-          curl -sS -i -X POST "$HOMO" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' --data '{}'
-          echo '--- archive without auth: expect 401 JSON ---'
-          curl -sS -i -X POST "$ARCHIVE" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' --data '{}'
-          echo '--- email without auth: expect 401 JSON ---'
-          curl -sS -i -X POST "$EMAIL" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' --data '{}'
+          ASSET="$ORIGIN/facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX"
+          HTML="$ORIGIN/"
+          curl -fsSL "$ASSET" -o /tmp/fv83.js
+          grep -F 'const base=v=>' /tmp/fv83.js
+          grep -F 'idempotencyKey:`ot${base(o.ot)}-' /tmp/fv83.js
+          node --check /tmp/fv83.js
+          curl -fsSL "$HTML" -o /tmp/index.html
+          grep -F 'facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX' /tmp/index.html
+          if grep -Fq 'facturacionHomologacionUIV83.js' /tmp/index.html; then
+            echo 'Homologation UI unexpectedly present in served preview'
+            exit 1
+          fi
