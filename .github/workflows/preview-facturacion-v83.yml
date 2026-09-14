@@ -26,12 +26,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Load homologation UI safely
+      - name: Prepare homologation preview safely
         shell: bash
         run: |
           node --check facturacionHomologacionUIV83.js
           python3 - <<'PY'
           from pathlib import Path
+
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
           tag='<script src="facturacionHomologacionUIV83.js?v=TIZ-FV83-HOMO-20260914"></script>'
           anchor='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914"></script>'
@@ -40,16 +41,25 @@ jobs:
               s=s.replace(anchor,anchor+'\n'+tag,1)
               p.write_text(s,encoding='utf-8')
           if p.read_text(encoding='utf-8').count(tag)!=1: raise SystemExit('homologation tag invalid')
+
+          f=Path('functions/index.js'); fs=f.read_text(encoding='utf-8')
+          old='const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "http://localhost:5000", "http://127.0.0.1:5000"]);'
+          new='const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "https://tiz---app.web.app", "https://tiz---app.firebaseapp.com", "https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app", "http://localhost:5000", "http://127.0.0.1:5000"]);'
+          if old in fs:
+              fs=fs.replace(old,new,1)
+              f.write_text(fs,encoding='utf-8')
+          elif new not in fs:
+              raise SystemExit('ALLOWED_ORIGINS signature not found')
           PY
-      - name: Commit preview loader to branch
+      - name: Commit preview safety changes to branch
         shell: bash
         run: |
-          if ! git diff --quiet -- index.html; then
+          if ! git diff --quiet -- index.html functions/index.js; then
             git config user.name "TIZ Preview Validator"
             git config user.email "actions@users.noreply.github.com"
-            git add index.html
+            git add index.html functions/index.js
             git diff --cached --check
-            git commit -m "Load Facturacion V83 homologation test UI"
+            git commit -m "Allow Firebase preview for ARCA homologation"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
       - name: Install function dependencies
@@ -107,8 +117,9 @@ jobs:
         shell: bash
         run: |
           URL='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app/api/homologacion'
-          echo '--- OPTIONS ---'
-          curl -sS -i -X OPTIONS "$URL" || true
+          ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
+          echo '--- OPTIONS with preview Origin ---'
+          curl -sS -i -X OPTIONS "$URL" -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization,content-type' || true
           echo
-          echo '--- POST without auth (expected 401 JSON) ---'
-          curl -sS -i -X POST "$URL" -H 'Content-Type: application/json' --data '{}' || true
+          echo '--- POST without auth (expected 401 JSON + preview ACAO) ---'
+          curl -sS -i -X POST "$URL" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' --data '{}' || true
