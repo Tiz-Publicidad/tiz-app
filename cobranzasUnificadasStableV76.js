@@ -51,7 +51,7 @@ async function repairApproved(){
  }
  return changed;
 }
-async function saveEstado(o,sel){const map=approvedBudgetMap(),p=budgetFor(o,map),v=sel.value,prev=o.estadoGestionFactura||'',x=calc(o,p);o.estadoGestionFactura=v;sel.disabled=true;try{const patch={estadoGestionFactura:v,estadoGestionFacturaActualizadoAt:new Date().toISOString()};if(v==='Cobrado'){patch.estado='Cobrado';if(x.pend>0){const raw=o.finanzas||{};patch.finanzas={...raw,total:x.f.total,anticipo:{...x.f.anticipo},saldo:{...x.f.saldo,montoCobrado:num(x.f.saldo.montoCobrado)+x.pend,fechaCobro:x.f.saldo.fechaCobro||today()},retenciones:{...x.f.retenciones}};}}await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);window.showToast?.(v==='Cobrado'?'Cobro registrado y movido a Histórico':'Estado actualizado');render();}catch(e){console.error(e);o.estadoGestionFactura=prev;sel.value=prev||status(o,x);sel.disabled=false;alert('No se pudo guardar el estado.');}}
+async function saveEstado(o,sel){const map=approvedBudgetMap(),p=budgetFor(o,map),v=sel.value,prev=o.estadoGestionFactura||'',x=calc(o,p);o.estadoGestionFactura=v;sel.disabled=true;try{const patch={estadoGestionFactura:v,estadoGestionFacturaActualizadoAt:new Date().toISOString()};if(v==='Cobrado'){patch.estado='Cobrado';if(x.pend>0){const raw=o.finanzas||{};patch.finanzas={...raw,total:x.f.total,anticipo:{...x.f.anticipo},saldo:{...x.f.saldo,montoCobrado:num(x.f.saldo.montoCobrado)+x.pend,fechaCobro:x.f.saldo.fechaCobro||today()},retenciones:{...x.f.retenciones}};}}await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);window.showToast?.(v==='Cobrado'?'Cobro registrado y movido a Histórico':'Estado actualizado');window.renderCobranzas?.();}catch(e){console.error(e);o.estadoGestionFactura=prev;sel.value=prev||status(o,x);sel.disabled=false;alert('No se pudo guardar el estado.');}}
 function allEligible(){const map=approvedBudgetMap();return (window.DB?.obras||[]).map(o=>({o,p:budgetFor(o,map)})).filter(({o,p})=>o?.id&&(p||approved(o?.estado)||approved(o?.infoPresupuesto?.estado)||o?.origen==='presupuesto')).map(({o,p})=>({o,p,x:calc(o,p)}));}
 function render(){
  if(!['facturar','cobrar','gestiones'].includes(window.cobTab))return;
@@ -67,5 +67,6 @@ function render(){
  mod.querySelectorAll('tbody tr[data-v76]').forEach(tr=>{const o=(window.DB?.obras||[]).find(x=>x.id===tr.dataset.v76),sel=tr.querySelector('select');if(o&&sel)sel.onchange=()=>saveEstado(o,sel);});
 }
 function install(){if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__v77){const old=window.renderCobranzas;window.renderCobranzas=function(){const r=old.apply(this,arguments);setTimeout(render,0);return r};window.renderCobranzas.__v77=true;}repairApproved().then(()=>render()).catch(console.error);}
-install();window.addEventListener('load',()=>{install();[700,1800,3500].forEach(ms=>setTimeout(()=>repairApproved().then(render).catch(console.error),ms));});document.addEventListener('click',e=>{if(e.target?.closest?.('#page-cobranzas .page-tab'))setTimeout(()=>repairApproved().then(render).catch(console.error),100)});
+install();
+window.addEventListener('load',install,{once:true});
 })();
