@@ -1,8 +1,8 @@
-// TIZ V92 - PDF state estable + Drive OAuth directo, sin re-render completo
+// TIZ V93 - PDF estable + Drive OAuth directo, sin observers ni loops
 (function(){
 'use strict';
 const RECOVER_ENDPOINT='https://us-central1-tiz---app.cloudfunctions.net/facturacionRecuperarHistoricosV86';
-const DRIVE_CACHE='tiz-drive-oauth-v92';
+const DRIVE_CACHE='tiz-drive-oauth-v93';
 const KNOWN_DRIVE={1:{fileId:'1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn',webViewLink:'https://drive.google.com/file/d/1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn/view'}};
 const base=v=>String(v??'').match(/\d{4,7}/)?.[0].replace(/^0+/,'')||'';
 let authApi=null,authReadyPromise=null,busy=false,scheduled=false;
@@ -21,7 +21,7 @@ async function preloadAuth(){
   })();
   return authReadyPromise;
 }
-preloadAuth().catch(e=>console.error('[TIZ V92 auth preload]',e));
+preloadAuth().catch(e=>console.error('[TIZ V93 auth preload]',e));
 function cachedDriveToken(){try{const x=JSON.parse(sessionStorage.getItem(DRIVE_CACHE)||'null');if(!x?.token||!x?.ts)return'';if(Date.now()-Number(x.ts)>45*60*1000){sessionStorage.removeItem(DRIVE_CACHE);return''}return x.token}catch(_){return''}}
 function cacheDriveToken(token,email){sessionStorage.setItem(DRIVE_CACHE,JSON.stringify({token,ts:Date.now(),email:email||''}))}
 async function firebaseToken(){const {auth}=await preloadAuth();if(!auth.currentUser)throw new Error('Sesión no iniciada');return auth.currentUser.getIdToken()}
@@ -34,6 +34,7 @@ async function authorizeDriveDirect(){
   if(!access)throw new Error('Google no entregó autorización para Drive');
   cacheDriveToken(access,result.user?.email||u.email||'');window.showToast?.('Google Drive autorizado ✓');return access;
 }
+window.obtenerDriveAccessTokenTizV93=authorizeDriveDirect;
 window.obtenerDriveAccessTokenTizV92=authorizeDriveDirect;
 window.obtenerDriveAccessTokenTizV91=authorizeDriveDirect;
 
@@ -54,20 +55,19 @@ window.recuperarPdfFacturaV86=async function(n,btn){
     if(!row?.ok)throw new Error(row?.error||'No se pudo recuperar el comprobante');
     const o=findObraByCbte(n);if(o){const c=latest(o);if(c){c.driveFileId=row.fileId;c.driveFileName=row.fileName;c.driveWebViewLink=row.webViewLink;c.drivePendiente=false}if(o.facturaArca&&Number(o.facturaArca.cbteNro||0)===n){o.facturaArca.driveFileId=row.fileId;o.facturaArca.driveFileName=row.fileName;o.facturaArca.driveWebViewLink=row.webViewLink;o.facturaArca.drivePendiente=false;o.facturaDrivePendiente=false}}
     window.showToast?.(`FC ${row.numero}: PDF archivado en 2026 Facturacion ✓`);scheduleDecorate();return true;
-  }catch(e){console.error('[TIZ V92 archive]',e);alert('La factura ya existe en ARCA, pero no se pudo archivar su PDF.\n\n'+(e.message||e)+'\n\nNo se vuelve a emitir ningún comprobante.');return false}
+  }catch(e){console.error('[TIZ V93 archive]',e);alert('La factura ya existe en ARCA, pero no se pudo archivar su PDF.\n\n'+(e.message||e)+'\n\nNo se vuelve a emitir ningún comprobante.');return false}
   finally{busy=false;if(btn&&document.contains(btn)){btn.disabled=false;btn.textContent=old}}
 };
 
-function pdfHtml(o){normalizeKnown(o);const c=latest(o);if(!c?.cae)return '<span style="color:var(--text3)">—</span>';const k=knownDrive(c);if(hasDrive(c)){const href=c.driveWebViewLink||k?.webViewLink||'';return href?`<a href="${href}" target="_blank" rel="noopener" class="badge badge-green" style="text-decoration:none" title="Abrir PDF archivado">En Drive</a>`:'<span class="badge badge-green">En Drive</span>'}return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge badge-amber">PDF pendiente</span><button type="button" class="btn btn-ghost btn-sm fv91-pdf-recover fv92-pdf-recover" data-n="${Number(c.cbteNro||0)}">Archivar PDF</button></div>`}
+function pdfHtml(o){normalizeKnown(o);const c=latest(o);if(!c?.cae)return '<span style="color:var(--text3)">—</span>';const k=knownDrive(c);if(hasDrive(c)){const href=c.driveWebViewLink||k?.webViewLink||'';return href?`<a href="${href}" target="_blank" rel="noopener" class="badge badge-green" style="text-decoration:none" title="Abrir PDF archivado">En Drive</a>`:'<span class="badge badge-green">En Drive</span>'}return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge badge-amber">PDF pendiente</span><button type="button" class="btn btn-ghost btn-sm fv91-pdf-recover fv92-pdf-recover fv93-pdf-recover" data-n="${Number(c.cbteNro||0)}">Archivar PDF</button></div>`}
 function obraForRow(tr){const ot=base(tr.cells?.[0]?.textContent||'');return (window.DB?.obras||[]).find(x=>base(x.ot)===ot)||null}
 function decorateTable(){
   scheduled=false;const mod=document.getElementById('cobr-modulo-v48');if(!mod)return;const table=mod.querySelector('table');if(!table)return;
-  const hr=table.querySelector('thead tr');if(hr&&!hr.querySelector('.fv92-pdf-head')){[...hr.querySelectorAll('.fv91-pdf-head,.fv90-pdf-head,.fv86-pdf-head')].forEach(x=>x.remove());const th=document.createElement('th');th.className='fv92-pdf-head';th.textContent='PDF';const action=[...hr.children].find(x=>/acci[oó]n/i.test(x.textContent||''));action?hr.insertBefore(th,action):hr.appendChild(th)}
-  table.querySelectorAll('tbody tr').forEach(tr=>{const o=obraForRow(tr);if(!o)return;[...tr.querySelectorAll('.fv91-pdf-cell,.fv90-pdf-cell,.fv86-pdf-cell')].forEach(x=>x.remove());let td=tr.querySelector('.fv92-pdf-cell');if(!td){td=document.createElement('td');td.className='fv92-pdf-cell';const action=tr.lastElementChild;action?tr.insertBefore(td,action):tr.appendChild(td)}const next=pdfHtml(o);if(td.innerHTML!==next)td.innerHTML=next});
+  const hr=table.querySelector('thead tr');if(hr&&!hr.querySelector('.fv93-pdf-head')){[...hr.querySelectorAll('.fv92-pdf-head,.fv91-pdf-head,.fv90-pdf-head,.fv86-pdf-head')].forEach(x=>x.remove());const th=document.createElement('th');th.className='fv93-pdf-head';th.textContent='PDF';const action=[...hr.children].find(x=>/acci[oó]n/i.test(x.textContent||''));action?hr.insertBefore(th,action):hr.appendChild(th)}
+  table.querySelectorAll('tbody tr').forEach(tr=>{const o=obraForRow(tr);if(!o)return;[...tr.querySelectorAll('.fv92-pdf-cell,.fv91-pdf-cell,.fv90-pdf-cell,.fv86-pdf-cell')].forEach(x=>x.remove());let td=tr.querySelector('.fv93-pdf-cell');if(!td){td=document.createElement('td');td.className='fv93-pdf-cell';const action=tr.lastElementChild;action?tr.insertBefore(td,action):tr.appendChild(td)}const next=pdfHtml(o);if(td.innerHTML!==next)td.innerHTML=next});
 }
-function scheduleDecorate(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>setTimeout(decorateTable,20))}
-function bindClick(){if(window.__tizDrivePdfClickV92)return;window.__tizDrivePdfClickV92=true;document.addEventListener('click',e=>{const b=e.target?.closest?.('.fv92-pdf-recover,.fv91-pdf-recover');if(b){e.preventDefault();e.stopPropagation();window.recuperarPdfFacturaV86(Number(b.dataset.n||0),b);return}if(e.target?.closest?.('#page-cobranzas .page-tab,[data-page="cobranzas"],.nav-item')){setTimeout(scheduleDecorate,80);setTimeout(scheduleDecorate,350)}},true)}
-function install(){bindClick();(window.DB?.obras||[]).forEach(normalizeKnown);scheduleDecorate();if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__drivePdfV92){const old=window.renderCobranzas;const wrapped=function(){const r=old.apply(this,arguments);setTimeout(scheduleDecorate,50);return r};wrapped.__drivePdfV92=true;window.renderCobranzas=wrapped}}
-install();window.addEventListener('load',()=>{install();setTimeout(scheduleDecorate,150);setTimeout(scheduleDecorate,650)},{once:true});document.addEventListener('DOMContentLoaded',()=>{install();setTimeout(scheduleDecorate,150)},{once:true});
-setTimeout(install,600);setTimeout(install,1600);setTimeout(scheduleDecorate,2600);
+function scheduleDecorate(){if(scheduled)return;scheduled=true;requestAnimationFrame(decorateTable)}
+function bindClick(){if(window.__tizDrivePdfClickV93)return;window.__tizDrivePdfClickV93=true;document.addEventListener('click',e=>{const b=e.target?.closest?.('.fv93-pdf-recover,.fv92-pdf-recover,.fv91-pdf-recover');if(b){e.preventDefault();e.stopPropagation();window.recuperarPdfFacturaV86(Number(b.dataset.n||0),b);return}if(e.target?.closest?.('#page-cobranzas .page-tab,[data-page="cobranzas"],.nav-item'))setTimeout(scheduleDecorate,120)},true)}
+function install(){bindClick();(window.DB?.obras||[]).forEach(normalizeKnown);if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__drivePdfV93){const old=window.renderCobranzas;const wrapped=function(){const r=old.apply(this,arguments);setTimeout(scheduleDecorate,40);return r};wrapped.__drivePdfV93=true;window.renderCobranzas=wrapped}scheduleDecorate()}
+install();window.addEventListener('load',install,{once:true});document.addEventListener('DOMContentLoaded',install,{once:true});
 })();
