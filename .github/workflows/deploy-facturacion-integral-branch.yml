@@ -52,6 +52,16 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
+      - name: Configure issuer environment
+        shell: bash
+        working-directory: functions
+        run: |
+          cat > .env.tiz---app <<'EOF'
+          ARCA_ISSUER_RAZON_SOCIAL=SixSigma SRL
+          ARCA_ISSUER_DOMICILIO=Mosconi 1234, Los Polvorines, Buenos Aires
+          ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
+          EOF
+
       - name: Deploy only Facturacion V83 functions
         run: firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
         env:
