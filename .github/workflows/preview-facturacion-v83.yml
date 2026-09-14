@@ -103,3 +103,12 @@ jobs:
         run: firebase hosting:channel:deploy facturacion-v83-pruebas --expires 7d --config firebase.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: Smoke test homologation route
+        shell: bash
+        run: |
+          URL='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app/api/homologacion'
+          echo '--- OPTIONS ---'
+          curl -sS -i -X OPTIONS "$URL" || true
+          echo
+          echo '--- POST without auth (expected 401 JSON) ---'
+          curl -sS -i -X POST "$URL" -H 'Content-Type: application/json' --data '{}' || true
