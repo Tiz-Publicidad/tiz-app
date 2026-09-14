@@ -7,9 +7,10 @@ const { defineString } = require("firebase-functions/params");
 
 // Carpeta fiscal general. Nunca usar la carpeta de una OT para comprobantes fiscales.
 const FACTURAS_2026_FOLDER_ID = "1XYk0vAIsGZCAiJ4s7TGyQYJdVBYvYdGy";
-const issuerRazonSocial = defineString("ARCA_ISSUER_RAZON_SOCIAL", {default:"TIZ"});
+const issuerRazonSocial = defineString("ARCA_ISSUER_RAZON_SOCIAL", {default:"SixSigma SRL"});
+const issuerNombreFantasia = defineString("ARCA_ISSUER_NOMBRE_FANTASIA", {default:"TIZ Publicidad"});
 const issuerDomicilio = defineString("ARCA_ISSUER_DOMICILIO", {default:""});
-const issuerCondicionIva = defineString("ARCA_ISSUER_CONDICION_IVA", {default:"IVA Responsable Inscripto"});
+const issuerCondicionIva = defineString("ARCA_ISSUER_CONDICION_IVA", {default:"Responsable Inscripto"});
 
 const safe = value => String(value || "").replace(/[\\/:*?"<>|]+/g," ").replace(/\s+/g," ").trim();
 const money = value => new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",minimumFractionDigits:2}).format(Number(value)||0);
@@ -38,32 +39,35 @@ function pdfBuffer(factura, obra, issuerCuit) {
     try {
       const doc = new PDFDocument({size:"A4",margin:42,bufferPages:true});
       const chunks=[];doc.on("data",c=>chunks.push(c));doc.on("end",()=>resolve(Buffer.concat(chunks)));doc.on("error",reject);
-      const razon=issuerRazonSocial.value()||"TIZ";
+      const razon=issuerRazonSocial.value()||"SixSigma SRL";
+      const fantasia=issuerNombreFantasia.value()||"TIZ Publicidad";
       const domicilio=issuerDomicilio.value()||"";
-      const condicion=issuerCondicionIva.value()||"IVA Responsable Inscripto";
+      const condicion=issuerCondicionIva.value()||"Responsable Inscripto";
       const qr = await QRCode.toDataURL(qrUrl(factura,issuerCuit),{margin:0,width:180});
       const qrBytes=Buffer.from(qr.split(",")[1],"base64");
-      doc.fontSize(18).text(razon);
+      doc.fontSize(18).text(fantasia);
+      if(normName(razon)!==normName(fantasia)) doc.fontSize(10).text(`Razón social: ${razon}`);
       doc.fontSize(9).text(domicilio);
       doc.text(`CUIT: ${issuerCuit} · ${condicion}`);
       doc.moveDown(.7);
-      doc.rect(40,104,515,74).stroke();
-      doc.fontSize(16).text(factura.tipo||"Comprobante",52,118);
-      doc.fontSize(11).text(`PV ${String(factura.ptoVta).padStart(5,"0")} · N° ${String(factura.cbteNro).padStart(8,"0")}`,52,144);
-      doc.text(`Fecha: ${factura.fecha||""}`,360,118);
-      doc.text(`CAE: ${factura.cae||""}`,360,138);
-      doc.text(`Vto. CAE: ${factura.caeVto||""}`,360,156);
-      doc.fontSize(10).text(`Cliente: ${factura.cliente||obra.cliente||""}`,42,196);
+      doc.rect(40,116,515,74).stroke();
+      doc.fontSize(16).text(factura.tipo||"Comprobante",52,130);
+      doc.fontSize(11).text(`PV ${String(factura.ptoVta).padStart(5,"0")} · N° ${String(factura.cbteNro).padStart(8,"0")}`,52,156);
+      doc.text(`Fecha: ${factura.fecha||""}`,360,130);
+      doc.text(`CAE: ${factura.cae||""}`,360,150);
+      doc.text(`Vto. CAE: ${factura.caeVto||""}`,360,168);
+      doc.fontSize(10).text(`Cliente: ${factura.cliente||obra.cliente||""}`,42,208);
       doc.text(`CUIT receptor: ${factura.cuit||""}`);
       doc.text(`OT: ${String(obra.ot||"").replace(/^0+/,"")} · ${obra.desc||obra.descripcion||""}`);
       if(factura.asociado?.numeroCompleto) doc.text(`Comprobante asociado: ${factura.asociado.tipo||""} ${factura.asociado.numeroCompleto}`);
       const items=Array.isArray(factura.items)?factura.items:[];
-      doc.fontSize(9).text("DETALLE",42,258);let y=276;
+      doc.fontSize(9).text("DETALLE",42,270);let y=288;
       items.slice(0,30).forEach((it,i)=>{const desc=safe(it.descripcion||it.desc||`Ítem ${i+1}`),cant=Number(it.cantidad||1),unit=Number(it.unitario||0);doc.text(desc,42,y,{width:300});doc.text(String(cant),352,y,{width:45,align:"right"});doc.text(money(unit),405,y,{width:70,align:"right"});doc.text(money(cant*unit),480,y,{width:75,align:"right"});y+=Math.max(18,doc.heightOfString(desc,{width:300})+6);if(y>620){doc.addPage();y=70;}});
       y=Math.max(y+12,520);doc.fontSize(10).text(`Neto: ${money(factura.neto)}`,380,y,{width:175,align:"right"});y+=18;doc.text(`IVA: ${money(factura.iva)}`,380,y,{width:175,align:"right"});y+=18;doc.fontSize(12).text(`TOTAL: ${money(factura.total)}`,380,y,{width:175,align:"right"});doc.image(qrBytes,42,y-12,{width:105,height:105});doc.fontSize(7).text("Comprobante autorizado por ARCA. Código QR según especificación vigente.",42,y+98,{width:280});doc.end();
     } catch(e){reject(e);}
   });
 }
+function normName(v){return String(v||"").toLowerCase().replace(/[^a-z0-9]+/g,"");}
 
 async function archivarFacturaPdfEnDrive({factura,obra,issuerCuit}) {
   const auth=new google.auth.GoogleAuth({scopes:["https://www.googleapis.com/auth/drive"]});
@@ -77,4 +81,4 @@ async function archivarFacturaPdfEnDrive({factura,obra,issuerCuit}) {
   return {fileId:response.data.id,fileName:response.data.name,webViewLink:response.data.webViewLink||`https://drive.google.com/file/d/${response.data.id}/view`,folderId:FACTURAS_2026_FOLDER_ID};
 }
 
-module.exports={FACTURAS_2026_FOLDER_ID,issuerRazonSocial,issuerDomicilio,issuerCondicionIva,archivarFacturaPdfEnDrive,qrUrl};
+module.exports={FACTURAS_2026_FOLDER_ID,issuerRazonSocial,issuerNombreFantasia,issuerDomicilio,issuerCondicionIva,archivarFacturaPdfEnDrive,qrUrl};
