@@ -43,11 +43,11 @@ jobs:
           from pathlib import Path
 
           js=Path('facturadorIntegralV83.js').read_text(encoding='utf-8')
-          for token in ["const base=v=>","idempotencyKey:`ot${base(o.ot)}-","EMITIR COMPROBANTE REAL · PV 00009"]:
+          for token in ["const base=v=>","idempotencyKey:`ot${base(o.ot)}-","EMITIR COMPROBANTE REAL · PV 00009","Autorizando Drive","recuperarPdfFacturaV86"]:
               if token not in js: raise SystemExit(f'facturadorIntegralV83.js missing required token: {token}')
 
           retry=Path('facturacionDriveRetryUIV83.js').read_text(encoding='utf-8')
-          for token in ['autoRetry','serviceAccountEmail','Archivar PDF']:
+          for token in ['obtenerDriveAccessTokenTizV87','reauthenticateWithPopup','https://www.googleapis.com/auth/drive','Archivar PDF']:
               if token not in retry: raise SystemExit(f'facturacionDriveRetryUIV83.js missing required token: {token}')
 
           v85=Path('facturacionAnticiposV85.js').read_text(encoding='utf-8')
@@ -55,27 +55,27 @@ jobs:
               if token not in v85: raise SystemExit(f'facturacionAnticiposV85.js missing required token: {token}')
 
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
-          old='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914"></script>'
-          new='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX"></script>'
+          fact_old='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX"></script>'
+          fact_new='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V87-DRIVE-OAUTH-20260914"></script>'
           homo='<script src="facturacionHomologacionUIV83.js?v=TIZ-FV83-HOMO-20260914"></script>'
-          delivery='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-ENTREGA-20260914"></script>'
+          delivery_old='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-ENTREGA-20260914"></script>'
           delivery_new='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-EMAIL-ONLY-20260914-R2"></script>'
-          drive_old='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V83-20260914"></script>'
-          drive_new='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V83-20260914-R2-AUTO"></script>'
+          drive_old='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V83-20260914-R2-AUTO"></script>'
+          drive_new='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V87-OAUTH-20260914"></script>'
           anticipos='<script src="facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914"></script>'
 
-          if old in s: s=s.replace(old,new,1)
-          elif new not in s: raise SystemExit('Facturador V83 script tag not found')
+          if fact_old in s: s=s.replace(fact_old,fact_new,1)
+          elif fact_new not in s: raise SystemExit('Facturador script tag not found')
           s=s.replace(homo+'\n','').replace(homo,'')
-          if delivery in s: s=s.replace(delivery,delivery_new,1)
+          if delivery_old in s: s=s.replace(delivery_old,delivery_new,1)
           elif delivery_new not in s: raise SystemExit('Facturacion V84 delivery tag not found')
           if drive_old in s: s=s.replace(drive_old,drive_new,1)
-          elif drive_new not in s: raise SystemExit('Drive retry script tag not found')
+          elif drive_new not in s: raise SystemExit('Drive OAuth script tag not found')
           if anticipos not in s: s=s.replace(drive_new,drive_new+'\n'+anticipos,1)
 
           p.write_text(s,encoding='utf-8')
           final=p.read_text(encoding='utf-8')
-          for tag in [new,delivery_new,drive_new,anticipos]:
+          for tag in [fact_new,delivery_new,drive_new,anticipos]:
               if final.count(tag)!=1: raise SystemExit(f'Expected exactly one tag: {tag}')
           if 'facturacionHomologacionUIV83.js' in final: raise SystemExit('Homologation UI is still loaded')
           PY
@@ -89,7 +89,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load Drive PDF auto-retry"
+            git commit -m "Load Drive OAuth V87"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -132,23 +132,24 @@ jobs:
         shell: bash
         run: |
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          ASSET="$ORIGIN/facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX"
-          RETRY="$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V83-20260914-R2-AUTO"
+          ASSET="$ORIGIN/facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V87-DRIVE-OAUTH-20260914"
+          RETRY="$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V87-OAUTH-20260914"
           V85="$ORIGIN/facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914"
           HTML="$ORIGIN/"
           curl -fsSL "$ASSET" -o /tmp/fv83.js
-          grep -F 'const base=v=>' /tmp/fv83.js
-          grep -F 'idempotencyKey:`ot${base(o.ot)}-' /tmp/fv83.js
+          grep -F 'Autorizando Drive' /tmp/fv83.js
+          grep -F 'recuperarPdfFacturaV86' /tmp/fv83.js
           node --check /tmp/fv83.js
           curl -fsSL "$RETRY" -o /tmp/retry.js
-          grep -F 'autoRetry' /tmp/retry.js
-          grep -F 'serviceAccountEmail' /tmp/retry.js
+          grep -F 'obtenerDriveAccessTokenTizV87' /tmp/retry.js
+          grep -F 'reauthenticateWithPopup' /tmp/retry.js
           node --check /tmp/retry.js
           curl -fsSL "$V85" -o /tmp/fv85.js
           grep -F 'Anticipo facturado' /tmp/fv85.js
           grep -F 'Facturar saldo' /tmp/fv85.js
           node --check /tmp/fv85.js
           curl -fsSL "$HTML" -o /tmp/index.html
-          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V83-20260914-R2-AUTO' /tmp/index.html
+          grep -F 'facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V87-DRIVE-OAUTH-20260914' /tmp/index.html
+          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V87-OAUTH-20260914' /tmp/index.html
           grep -F 'facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914' /tmp/index.html
           if grep -Fq 'facturacionHomologacionUIV83.js' /tmp/index.html; then exit 1; fi
