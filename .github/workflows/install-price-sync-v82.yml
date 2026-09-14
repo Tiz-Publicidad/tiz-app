@@ -1,0 +1,42 @@
+name: Install price sync V82
+on:
+  push:
+    branches: [codex/produccion-integral-v1]
+permissions:
+  contents: write
+jobs:
+  install:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/produccion-integral-v1
+          fetch-depth: 0
+      - name: Insert and validate
+        run: |
+          node --check precioSyncV82.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text(encoding='utf-8')
+          tag='<script src="precioSyncV82.js?v=TIZ-PRECIO-SYNC-V82-20260914"></script>'
+          anchor='</body>'
+          if s.count(tag)>1: raise SystemExit('precioSyncV82 duplicated')
+          if tag not in s:
+              if s.count(anchor)!=1: raise SystemExit('body closing tag not unique')
+              s=s.replace(anchor,tag+'\n'+anchor,1);p.write_text(s,encoding='utf-8')
+          if p.read_text(encoding='utf-8').count(tag)!=1: raise SystemExit('price sync tag invalid')
+          PY
+          grep -F "precioSyncV82.js?v=TIZ-PRECIO-SYNC-V82-20260914" index.html
+          grep -F "window.tizSyncPriceV82" precioSyncV82.js
+          grep -F "updateDoc_('presupuestos'" precioSyncV82.js
+          grep -F "updateDoc_('obras'" precioSyncV82.js
+      - name: Commit clean result
+        run: |
+          rm -f .github/workflows/install-price-sync-v82.yml
+          git config user.name "TIZ Price Sync Validator"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html .github/workflows/install-price-sync-v82.yml
+          git diff --cached --check
+          git commit -m "Load bidirectional price synchronization"
+          git push origin HEAD:codex/produccion-integral-v1
