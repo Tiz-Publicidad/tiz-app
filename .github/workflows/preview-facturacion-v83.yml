@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate and prepare V91 preview
+      - name: Validate and prepare V94 preview
         shell: bash
         run: |
           node --check facturadorIntegralV83.js
@@ -42,22 +42,26 @@ jobs:
           node --check functions/facturaDrive2026.js
           python3 - <<'PY'
           from pathlib import Path
+          import re
           retry=Path('facturacionDriveRetryUIV83.js').read_text(encoding='utf-8')
           for token in ['obtenerDriveAccessTokenTizV91','reauthenticateWithPopup','fv91-pdf-recover','Archivar PDF']:
-              if token not in retry: raise SystemExit(f'missing V91 token: {token}')
+              if token not in retry: raise SystemExit(f'missing Drive token: {token}')
           for bad in ['reauthenticateWithRedirect','MutationObserver','setInterval(']:
-              if bad in retry: raise SystemExit(f'V91 must not contain: {bad}')
+              if bad in retry: raise SystemExit(f'Drive controller must not contain: {bad}')
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
-          import re
-          pattern=r'<script src="facturacionDriveRetryUIV83\.js\?v=[^"]+"></script>'
-          tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V91-STABLE-20260914"></script>'
-          if re.search(pattern,s): s=re.sub(pattern,tag,s,count=1)
-          else: raise SystemExit('Drive retry script tag not found')
+          pattern=r'\s*<script src="facturacionDriveRetryUIV83\.js\?v=[^"]+"></script>\s*'
+          s,n=re.subn(pattern,'\n',s)
+          if n<1: raise SystemExit('Drive retry script tag not found')
+          tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914"></script>'
+          if '</body>' not in s: raise SystemExit('body closing tag not found')
+          s=s.replace('</body>',tag+'\n</body>',1)
           p.write_text(s,encoding='utf-8')
-          if p.read_text(encoding='utf-8').count(tag)!=1: raise SystemExit('V91 script tag invalid')
+          out=p.read_text(encoding='utf-8')
+          if out.count(tag)!=1: raise SystemExit('V94 script tag invalid')
+          if out.rfind(tag) < out.rfind('<script'): raise SystemExit('Drive controller is not the last script')
           PY
 
-      - name: Commit cache bust
+      - name: Commit final script order
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -65,7 +69,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load Drive stable V91"
+            git commit -m "Load Drive controller last V94"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -104,11 +108,11 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Smoke test served V91 assets
+      - name: Smoke test served V94 assets
         shell: bash
         run: |
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          RETRY="$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V91-STABLE-20260914"
+          RETRY="$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914"
           curl -fsSL "$RETRY" -o /tmp/retry.js
           grep -F 'obtenerDriveAccessTokenTizV91' /tmp/retry.js
           grep -F 'reauthenticateWithPopup' /tmp/retry.js
@@ -118,4 +122,10 @@ jobs:
           if grep -Fq 'setInterval(' /tmp/retry.js; then exit 1; fi
           node --check /tmp/retry.js
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V91-STABLE-20260914' /tmp/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/index.html').read_text(encoding='utf-8')
+          tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914"></script>'
+          assert s.count(tag)==1
+          assert s.rfind(tag)>=s.rfind('<script')
+          PY
