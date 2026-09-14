@@ -8,6 +8,7 @@ on:
       - 'facturadorIntegralV83.js'
       - 'facturacionEntregaUIV84.js'
       - 'facturacionPuestoV83.js'
+      - 'facturacionAnticiposV85.js'
       - 'index.html'
       - 'functions/index.js'
       - 'functions/facturacionEntregaV84.js'
@@ -34,6 +35,7 @@ jobs:
         run: |
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
+          node --check facturacionAnticiposV85.js
           node --check functions/facturacionEntregaV84.js
           python3 - <<'PY'
           from pathlib import Path
@@ -48,6 +50,17 @@ jobs:
               if token not in js:
                   raise SystemExit(f'facturadorIntegralV83.js missing required token: {token}')
 
+          v85=Path('facturacionAnticiposV85.js').read_text(encoding='utf-8')
+          for token in [
+              'Anticipo facturado',
+              'Facturar saldo',
+              'Saldo por facturar',
+              'Archivar PDF',
+              'Usar saldo completo'
+          ]:
+              if token not in v85:
+                  raise SystemExit(f'facturacionAnticiposV85.js missing required token: {token}')
+
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           old='<script src="facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914"></script>'
@@ -55,6 +68,8 @@ jobs:
           homo='<script src="facturacionHomologacionUIV83.js?v=TIZ-FV83-HOMO-20260914"></script>'
           delivery='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-ENTREGA-20260914"></script>'
           delivery_new='<script src="facturacionEntregaUIV84.js?v=TIZ-FV84-EMAIL-ONLY-20260914-R2"></script>'
+          drive='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V83-20260914"></script>'
+          anticipos='<script src="facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914"></script>'
 
           if old in s:
               s=s.replace(old,new,1)
@@ -67,6 +82,11 @@ jobs:
           elif delivery_new not in s:
               raise SystemExit('Facturacion V84 delivery tag not found')
 
+          if anticipos not in s:
+              if drive not in s:
+                  raise SystemExit('Drive retry script tag not found')
+              s=s.replace(drive,drive+'\n'+anticipos,1)
+
           p.write_text(s,encoding='utf-8')
           final=p.read_text(encoding='utf-8')
           if final.count(new)!=1:
@@ -75,6 +95,8 @@ jobs:
               raise SystemExit('Homologation UI is still loaded')
           if final.count(delivery_new)!=1:
               raise SystemExit(f'Expected exactly one V84 email tag, got {final.count(delivery_new)}')
+          if final.count(anticipos)!=1:
+              raise SystemExit(f'Expected exactly one V85 anticipos tag, got {final.count(anticipos)}')
           PY
           node --check functions/index.js
 
@@ -86,7 +108,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load corrected Facturacion V83 without homologation UI"
+            git commit -m "Load Facturacion Anticipos V85"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -138,18 +160,25 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Smoke test exact served Facturacion V83 asset
+      - name: Smoke test served Facturacion assets
         shell: bash
         run: |
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
           ASSET="$ORIGIN/facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX"
+          V85="$ORIGIN/facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914"
           HTML="$ORIGIN/"
           curl -fsSL "$ASSET" -o /tmp/fv83.js
           grep -F 'const base=v=>' /tmp/fv83.js
           grep -F 'idempotencyKey:`ot${base(o.ot)}-' /tmp/fv83.js
           node --check /tmp/fv83.js
+          curl -fsSL "$V85" -o /tmp/fv85.js
+          grep -F 'Anticipo facturado' /tmp/fv85.js
+          grep -F 'Facturar saldo' /tmp/fv85.js
+          grep -F 'Archivar PDF' /tmp/fv85.js
+          node --check /tmp/fv85.js
           curl -fsSL "$HTML" -o /tmp/index.html
           grep -F 'facturadorIntegralV83.js?v=TIZ-FACTURADOR-INTEGRAL-V83-20260914-R2-BASEFIX' /tmp/index.html
+          grep -F 'facturacionAnticiposV85.js?v=TIZ-ANTICIPOS-SALDOS-V85-20260914' /tmp/index.html
           if grep -Fq 'facturacionHomologacionUIV83.js' /tmp/index.html; then
             echo 'Homologation UI unexpectedly present in served preview'
             exit 1
