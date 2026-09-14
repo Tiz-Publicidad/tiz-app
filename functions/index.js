@@ -335,3 +335,6 @@ exports.arcaHomologacionEmitirPrueba = onRequest({region:"us-central1", invoker:
     return res.status(error.status||502).json({ok:false,error:error.message||"No se pudo emitir la prueba"});
   }
 });
+// TIZ V83 - Facturacion y Cobranzas integral
+const { facturacionIntegralEmitirV83 } = require("./facturacionIntegralApiV83");
+exports.facturacionIntegralEmitirV83 = facturacionIntegralEmitirV83;
