@@ -57,6 +57,16 @@ jobs:
         working-directory: functions
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
+      - name: Configure issuer environment
+        shell: bash
+        working-directory: functions
+        run: |
+          cat > .env.tiz---app <<'EOF'
+          ARCA_ISSUER_RAZON_SOCIAL=SixSigma SRL
+          ARCA_ISSUER_NOMBRE_FANTASIA=TIZ Publicidad
+          ARCA_ISSUER_DOMICILIO=Mosconi 1234, Los Polvorines, Buenos Aires
+          ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
+          EOF
       - name: Deploy homologation function only
         run: firebase deploy --only functions:arcaHomologacionEmitirPrueba --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
         env:
