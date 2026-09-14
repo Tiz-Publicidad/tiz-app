@@ -15,7 +15,7 @@ const issuerCuit = defineSecret("ARCA_ISSUER_CUIT");
 const allowedEmails = defineSecret("ARCA_ALLOWED_EMAILS");
 const facturasWebhookSecret = defineSecret("TIZ_FACTURAS_SECRET");
 
-const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "http://localhost:5000", "http://127.0.0.1:5000"]);
+const ALLOWED_ORIGINS = new Set(["https://tiz-publicidad.github.io", "https://tiz---app.web.app", "https://tiz---app.firebaseapp.com", "https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app", "http://localhost:5000", "http://127.0.0.1:5000"]);
 const WSAA_URL = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms";
 const WSFE_URL = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx";
 const WSAA_PROD_URL = "https://wsaa.afip.gov.ar/ws/services/LoginCms";
