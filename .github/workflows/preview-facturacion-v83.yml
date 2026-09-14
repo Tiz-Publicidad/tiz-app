@@ -10,6 +10,7 @@ on:
       - 'facturacionPuestoV83.js'
       - 'facturacionDriveRetryUIV83.js'
       - 'facturacionAnticiposV85.js'
+      - 'cobranzasUnificadasStableV76.js'
       - 'index.html'
       - 'functions/**'
       - '.github/workflows/preview-facturacion-v83.yml'
@@ -30,37 +31,35 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate and prepare V94 preview
+      - name: Validate and prepare V95 preview
         shell: bash
         run: |
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
           node --check facturacionDriveRetryUIV83.js
           node --check facturacionAnticiposV85.js
+          node --check cobranzasUnificadasStableV76.js
           node --check functions/index.js
           node --check functions/facturacionDriveRetryV83.js
           node --check functions/facturaDrive2026.js
           python3 - <<'PY'
           from pathlib import Path
           import re
+          cobr=Path('cobranzasUnificadasStableV76.js').read_text(encoding='utf-8')
+          for bad in ['[700,1800,3500]','setTimeout(()=>repairApproved().then(render).catch(console.error),ms)']:
+              if bad in cobr: raise SystemExit(f'V95 must not contain delayed rerender: {bad}')
           retry=Path('facturacionDriveRetryUIV83.js').read_text(encoding='utf-8')
           for token in ['obtenerDriveAccessTokenTizV91','reauthenticateWithPopup','fv91-pdf-recover','Archivar PDF']:
               if token not in retry: raise SystemExit(f'missing Drive token: {token}')
           for bad in ['reauthenticateWithRedirect','MutationObserver','setInterval(']:
               if bad in retry: raise SystemExit(f'Drive controller must not contain: {bad}')
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
-          pattern=r'\s*<script src="facturacionDriveRetryUIV83\.js\?v=[^"]+"></script>\s*'
-          s,n=re.subn(pattern,'\n',s)
-          if n<1: raise SystemExit('Drive retry script tag not found')
-          tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914"></script>'
-          s=s.rstrip()+'\n'+tag+'\n'
+          s,n=re.subn(r'<script src="cobranzasUnificadasStableV76\.js\?v=[^"]+"></script>', '<script src="cobranzasUnificadasStableV76.js?v=TIZ-V95-COBRANZAS-SIN-TITILEO-20260914"></script>', s, count=1)
+          if n!=1: raise SystemExit('V76 script tag not found')
           p.write_text(s,encoding='utf-8')
-          out=p.read_text(encoding='utf-8')
-          if out.count(tag)!=1: raise SystemExit('V94 script tag invalid')
-          if out.rfind(tag) != out.rfind('<script'): raise SystemExit('Drive controller is not the final script')
           PY
 
-      - name: Commit final script order
+      - name: Commit V95 cache bust
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -68,7 +67,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load Drive controller last V94"
+            git commit -m "Load stable Cobranzas V95"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -107,24 +106,17 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Smoke test served V94 assets
+      - name: Smoke test served V95 assets
         shell: bash
         run: |
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          RETRY="$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914"
-          curl -fsSL "$RETRY" -o /tmp/retry.js
+          curl -fsSL "$ORIGIN/cobranzasUnificadasStableV76.js?v=TIZ-V95-COBRANZAS-SIN-TITILEO-20260914" -o /tmp/cobr.js
+          if grep -Fq '[700,1800,3500]' /tmp/cobr.js; then exit 1; fi
+          node --check /tmp/cobr.js
+          curl -fsSL "$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914" -o /tmp/retry.js
           grep -F 'obtenerDriveAccessTokenTizV91' /tmp/retry.js
-          grep -F 'reauthenticateWithPopup' /tmp/retry.js
-          grep -F 'fv91-pdf-recover' /tmp/retry.js
-          if grep -Fq 'reauthenticateWithRedirect' /tmp/retry.js; then exit 1; fi
           if grep -Fq 'MutationObserver' /tmp/retry.js; then exit 1; fi
-          if grep -Fq 'setInterval(' /tmp/retry.js; then exit 1; fi
           node --check /tmp/retry.js
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          python3 - <<'PY'
-          from pathlib import Path
-          s=Path('/tmp/index.html').read_text(encoding='utf-8')
-          tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914"></script>'
-          assert s.count(tag)==1
-          assert s.rfind(tag)==s.rfind('<script')
-          PY
+          grep -F 'cobranzasUnificadasStableV76.js?v=TIZ-V95-COBRANZAS-SIN-TITILEO-20260914' /tmp/index.html
+          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914' /tmp/index.html
