@@ -1,4 +1,4 @@
-// TIZ V77 logic inside V76 filename - approved quotes are authoritative for billing queue
+// TIZ V96 - Cobranzas estable con estado PDF integrado en el render principal
 (function(){
 'use strict';
 const MONEY=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
@@ -35,6 +35,15 @@ function invoice(o,x){const f=x.f,parts=[];if(f.anticipo.facturado||f.anticipo.n
 function status(o,x){if(o?.estadoGestionFactura)return o.estadoGestionFactura;if(x.pend<=0)return 'Cobrado';if(x.cob>0)return 'Pago parcial';if(o?.facturaArca?.emailUltimoEnvioAt)return 'Factura enviada';if(hasInvoice(o,x))return 'Facturada - falta enviar';return 'Pendiente de facturar';}
 function selectEstado(o,x){const cur=status(o,x);return `<select class="quick-estado estado-integral-v73" style="width:190px;min-width:190px;max-width:190px;box-sizing:border-box">${estados.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${s}</option>`).join('')}</select>`;}
 function actions(o,x){const fact=hasInvoice(o,x),sent=!!o?.facturaArca?.emailUltimoEnvioAt;const dot=fact?`<span title="${sent?'Factura enviada por correo':'Factura pendiente de envío por correo'}" style="width:11px;height:11px;border-radius:50%;display:inline-block;flex:0 0 11px;background:${sent?'#22a06b':'#e8b84b'}"></span>`:'';const send=o?.facturaArca?.cae?`<button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')">${sent?'Reenviar FC':'Enviar FC'}</button>`:'';const factBtn=!fact?`<button class="btn btn-primary btn-sm" onclick="abrirFacturacionGeneralV63('${o.id}')"><i class="ti ti-receipt"></i> Facturar</button>`:'';return `<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;white-space:nowrap">${dot}<button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button>${factBtn}${send}</div>`;}
+function comprobantes(o){const a=Array.isArray(o?.comprobantesArca)?[...o.comprobantesArca]:Array.isArray(o?.facturasArca)?[...o.facturasArca]:[];if(o?.facturaArca?.cae&&!a.some(x=>String(x?.cae)===String(o.facturaArca.cae)))a.push(o.facturaArca);return a.filter(x=>x?.cae);}
+function ultimoComprobante(o){return [...comprobantes(o)].sort((a,b)=>num(b?.cbteNro)-num(a?.cbteNro))[0]||o?.facturaArca||null;}
+function pdfEstado(o){
+ const c=ultimoComprobante(o);if(!c?.cae)return '<span style="color:var(--text3)">—</span>';
+ const nro=num(c.cbteNro);const known=nro===1?{fileId:'1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn',webViewLink:'https://drive.google.com/file/d/1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn/view'}:null;
+ const fileId=c.driveFileId||c.fileId||known?.fileId||'';const href=c.driveWebViewLink||c.webViewLink||known?.webViewLink||(fileId?`https://drive.google.com/file/d/${fileId}/view`:'');
+ if(fileId||href)return href?`<a href="${esc(href)}" target="_blank" rel="noopener" class="badge badge-green fv93-pdf-cell" style="text-decoration:none">En Drive</a>`:'<span class="badge badge-green fv93-pdf-cell">En Drive</span>';
+ return `<div class="fv93-pdf-cell" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge badge-amber">PDF pendiente</span><button type="button" class="btn btn-ghost btn-sm fv93-pdf-recover" data-n="${nro}" onclick="window.recuperarPdfFacturaV86&&window.recuperarPdfFacturaV86(${nro},this)">Archivar PDF</button></div>`;
+}
 async function repairApproved(){
  if(typeof window.updateDoc_!=='function')return 0;
  const map=approvedBudgetMap();let changed=0;
@@ -47,7 +56,7 @@ async function repairApproved(){
   const sf={...(o.sectores?.facturacion||o.gestionSectores?.facturacion||{}),estado:(o.sectores?.facturacion||{}).estado||'Pendiente',infoPresupuesto:info,importePresupuestado:total,condicionPago:info.condicionPago,anticipoPct:info.anticipoPct,diasPago:info.diasPago};
   const sc={...(o.sectores?.cobranzas||o.gestionSectores?.cobranzas||{}),estado:(o.sectores?.cobranzas||{}).estado||'Pendiente',infoPresupuesto:info,montoTotal:total,saldoPendiente:num((o.sectores?.cobranzas||{}).saldoPendiente||total),condicionPago:info.condicionPago,anticipoPct:info.anticipoPct,diasPago:info.diasPago};
   const raw=o.finanzas||{};const patch={neto:total,importe:total,infoPresupuesto:info,'sectores.facturacion':sf,'sectores.cobranzas':sc,finanzas:{...raw,total,anticipo:{facturado:false,nroFactura:'',fechaFactura:'',porcentaje:0,monto:0,fechaPrevistaCobro:'',fechaCobro:'',montoCobrado:0,...(raw.anticipo||{})},saldo:{facturado:false,nroFactura:'',fechaFactura:'',porcentaje:0,monto:total,fechaPrevistaCobro:'',fechaCobro:'',montoCobrado:0,...(raw.saldo||{})},retenciones:{suss:0,iibb:0,ganancias:0,iva:0,otras:0,...(raw.retenciones||{})}}};
-  try{await window.updateDoc_('obras',o.id,patch);o.finanzas=patch.finanzas;o.infoPresupuesto=info;o.neto=total;o.importe=total;o.sectores={...(o.sectores||{}),facturacion:sf,cobranzas:sc};changed++;}catch(e){console.error('[TIZ V77] reparar OT '+n,e);}
+  try{await window.updateDoc_('obras',o.id,patch);o.finanzas=patch.finanzas;o.infoPresupuesto=info;o.neto=total;o.importe=total;o.sectores={...(o.sectores||{}),facturacion:sf,cobranzas:sc};changed++;}catch(e){console.error('[TIZ V96] reparar OT '+n,e);}
  }
  return changed;
 }
@@ -62,11 +71,11 @@ function render(){
   const rows=pendientes.map(({o,x})=>`<tr><td class="strong">${esc(base(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td><span style="color:var(--text3)">Sin facturar</span></td><td>${MONEY.format(x.pend)}</td><td>${esc(date(x.f.saldo.fechaPrevistaCobro||x.f.anticipo.fechaPrevistaCobro||''))}</td><td><span class="badge">Sin cobrar</span></td><td>${actions(o,x)}</td></tr>`).join('');
   mod.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Cola de facturación</span></div><div class="table-wrap"><table><thead><tr><th>OT</th><th>Cliente / obra</th><th>Facturación actual</th><th>Saldo</th><th>Cobro previsto</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">No hay obras pendientes de facturar.</td></tr>'}</tbody></table></div></div>`;return;
  }
- const rows=eligible.map(({o,x})=>`<tr data-v76="${esc(o.id)}"><td class="strong">${esc(base(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>${invoice(o,x)}</td><td>${MONEY.format(x.pend)}</td><td>${esc(date(x.f.saldo.fechaPrevistaCobro||x.f.anticipo.fechaPrevistaCobro||''))}</td><td>${selectEstado(o,x)}</td><td>${actions(o,x)}</td></tr>`).join('');
- mod.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Seguimiento y compromisos</span></div><div class="table-wrap"><table><thead><tr><th>OT</th><th>Cliente / obra</th><th>Facturación</th><th>Saldo</th><th>Fecha comprometida</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows||'<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">No hay saldos pendientes.</td></tr>'}</tbody></table></div></div>`;
+ const rows=eligible.map(({o,x})=>`<tr data-v76="${esc(o.id)}"><td class="strong">${esc(base(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||'')}</span></td><td>${invoice(o,x)}</td><td>${MONEY.format(x.pend)}</td><td>${esc(date(x.f.saldo.fechaPrevistaCobro||x.f.anticipo.fechaPrevistaCobro||''))}</td><td>${selectEstado(o,x)}</td><td class="fv93-pdf-cell">${pdfEstado(o)}</td><td>${actions(o,x)}</td></tr>`).join('');
+ mod.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Seguimiento y compromisos</span></div><div class="table-wrap"><table><thead><tr><th>OT</th><th>Cliente / obra</th><th>Facturación</th><th>Saldo</th><th>Fecha comprometida</th><th>Estado</th><th class="fv93-pdf-head">PDF</th><th>Acción</th></tr></thead><tbody>${rows||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">No hay saldos pendientes.</td></tr>'}</tbody></table></div></div>`;
  mod.querySelectorAll('tbody tr[data-v76]').forEach(tr=>{const o=(window.DB?.obras||[]).find(x=>x.id===tr.dataset.v76),sel=tr.querySelector('select');if(o&&sel)sel.onchange=()=>saveEstado(o,sel);});
 }
-function install(){if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__v77){const old=window.renderCobranzas;window.renderCobranzas=function(){const r=old.apply(this,arguments);setTimeout(render,0);return r};window.renderCobranzas.__v77=true;}repairApproved().then(()=>render()).catch(console.error);}
+function install(){if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__v96){const old=window.renderCobranzas;window.renderCobranzas=function(){const r=old.apply(this,arguments);setTimeout(render,0);return r};window.renderCobranzas.__v96=true;}render();repairApproved().catch(console.error);}
 install();
 window.addEventListener('load',install,{once:true});
 })();
