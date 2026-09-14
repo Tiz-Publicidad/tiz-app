@@ -58,7 +58,8 @@ function pdfBuffer(factura, obra, issuerCuit) {
       doc.text(`Vto. CAE: ${factura.caeVto||""}`,360,168);
       doc.fontSize(10).text(`Cliente: ${factura.cliente||obra.cliente||""}`,42,208);
       doc.text(`CUIT receptor: ${factura.cuit||""}`);
-      doc.text(`OT: ${String(obra.ot||"").replace(/^0+/,"")} · ${obra.desc||obra.descripcion||""}`);
+      const ot=String(obra.ot||"").replace(/^0+/,"");
+      if(ot||obra.desc||obra.descripcion) doc.text(`OT: ${ot} · ${obra.desc||obra.descripcion||""}`);
       if(factura.asociado?.numeroCompleto) doc.text(`Comprobante asociado: ${factura.asociado.tipo||""} ${factura.asociado.numeroCompleto}`);
       const items=Array.isArray(factura.items)?factura.items:[];
       doc.fontSize(9).text("DETALLE",42,270);let y=288;
@@ -68,17 +69,22 @@ function pdfBuffer(factura, obra, issuerCuit) {
   });
 }
 function normName(v){return String(v||"").toLowerCase().replace(/[^a-z0-9]+/g,"");}
+function qEscape(v){return String(v||"").replace(/\\/g,"\\\\").replace(/'/g,"\\'");}
 
 async function archivarFacturaPdfEnDrive({factura,obra,issuerCuit}) {
   const auth=new google.auth.GoogleAuth({scopes:["https://www.googleapis.com/auth/drive"]});
   const drive=google.drive({version:"v3",auth});
-  const pdf=await pdfBuffer(factura,obra,issuerCuit);
   const ot=String(obra.ot||"").match(/\d{4,7}/)?.[0].replace(/^0+/,"")||"";
   const desc=safe(obra.desc||obra.descripcion||"").slice(0,70);
-  const fileName=`${String(factura.ptoVta).padStart(5,"0")}_${String(factura.cbteNro).padStart(8,"0")} - ${safe(factura.cliente||obra.cliente)}${ot?` - OT ${ot}`:""}${desc?` - ${desc}`:""}.pdf`;
+  const fileName=`${String(factura.ptoVta).padStart(5,"0")}_${String(factura.cbteNro).padStart(8,"0")} - ${safe(factura.cliente||obra.cliente||`CUIT ${factura.cuit||''}`)}${ot?` - OT ${ot}`:""}${desc?` - ${desc}`:""}.pdf`;
+  // Evita duplicar PDFs cuando se reintenta el archivado luego de un error de red.
+  const existing=await drive.files.list({q:`'${FACTURAS_2026_FOLDER_ID}' in parents and name='${qEscape(fileName)}' and trashed=false`,fields:"files(id,name,webViewLink,parents)",pageSize:5,supportsAllDrives:true,includeItemsFromAllDrives:true}).catch(()=>({data:{files:[]}}));
+  const hit=existing.data?.files?.[0];
+  if(hit) return {fileId:hit.id,fileName:hit.name,webViewLink:hit.webViewLink||`https://drive.google.com/file/d/${hit.id}/view`,folderId:FACTURAS_2026_FOLDER_ID,reused:true};
+  const pdf=await pdfBuffer(factura,obra,issuerCuit);
   const {Readable}=require("stream");
   const response=await drive.files.create({requestBody:{name:fileName,parents:[FACTURAS_2026_FOLDER_ID],mimeType:"application/pdf"},media:{mimeType:"application/pdf",body:Readable.from(pdf)},fields:"id,name,webViewLink,parents",supportsAllDrives:true});
-  return {fileId:response.data.id,fileName:response.data.name,webViewLink:response.data.webViewLink||`https://drive.google.com/file/d/${response.data.id}/view`,folderId:FACTURAS_2026_FOLDER_ID};
+  return {fileId:response.data.id,fileName:response.data.name,webViewLink:response.data.webViewLink||`https://drive.google.com/file/d/${response.data.id}/view`,folderId:FACTURAS_2026_FOLDER_ID,reused:false};
 }
 
-module.exports={FACTURAS_2026_FOLDER_ID,issuerRazonSocial,issuerNombreFantasia,issuerDomicilio,issuerCondicionIva,archivarFacturaPdfEnDrive,qrUrl};
+module.exports={FACTURAS_2026_FOLDER_ID,issuerRazonSocial,issuerNombreFantasia,issuerDomicilio,issuerCondicionIva,archivarFacturaPdfEnDrive,qrUrl,pdfBuffer};
