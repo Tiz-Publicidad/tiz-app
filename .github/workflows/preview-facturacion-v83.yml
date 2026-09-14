@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate and prepare V95 preview
+      - name: Validate and prepare V96 preview
         shell: bash
         run: |
           node --check facturadorIntegralV83.js
@@ -46,20 +46,22 @@ jobs:
           from pathlib import Path
           import re
           cobr=Path('cobranzasUnificadasStableV76.js').read_text(encoding='utf-8')
-          for bad in ['[700,1800,3500]','setTimeout(()=>repairApproved().then(render).catch(console.error),ms)']:
-              if bad in cobr: raise SystemExit(f'V95 must not contain delayed rerender: {bad}')
+          for token in ['function pdfEstado(o)','fv93-pdf-head','PDF pendiente','Archivar PDF','window.renderCobranzas.__v96']:
+              if token not in cobr: raise SystemExit(f'missing V96 Cobranzas token: {token}')
+          for bad in ['[700,1800,3500]','repairApproved().then(()=>render())']:
+              if bad in cobr: raise SystemExit(f'V96 must not contain delayed/final rerender: {bad}')
           retry=Path('facturacionDriveRetryUIV83.js').read_text(encoding='utf-8')
-          for token in ['obtenerDriveAccessTokenTizV91','reauthenticateWithPopup','fv91-pdf-recover','Archivar PDF']:
+          for token in ['obtenerDriveAccessTokenTizV91','reauthenticateWithPopup','fv93-pdf-recover']:
               if token not in retry: raise SystemExit(f'missing Drive token: {token}')
           for bad in ['reauthenticateWithRedirect','MutationObserver','setInterval(']:
               if bad in retry: raise SystemExit(f'Drive controller must not contain: {bad}')
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
-          s,n=re.subn(r'<script src="cobranzasUnificadasStableV76\.js\?v=[^"]+"></script>', '<script src="cobranzasUnificadasStableV76.js?v=TIZ-V95-COBRANZAS-SIN-TITILEO-20260914"></script>', s, count=1)
+          s,n=re.subn(r'<script src="cobranzasUnificadasStableV76\.js\?v=[^"]+"></script>', '<script src="cobranzasUnificadasStableV76.js?v=TIZ-V96-COBRANZAS-PDF-INTEGRADO-20260914"></script>', s, count=1)
           if n!=1: raise SystemExit('V76 script tag not found')
           p.write_text(s,encoding='utf-8')
           PY
 
-      - name: Commit V95 cache bust
+      - name: Commit V96 cache bust
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -67,7 +69,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load stable Cobranzas V95"
+            git commit -m "Load integrated Cobranzas PDF V96"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -106,17 +108,21 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Smoke test served V95 assets
+      - name: Smoke test served V96 assets
         shell: bash
         run: |
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          curl -fsSL "$ORIGIN/cobranzasUnificadasStableV76.js?v=TIZ-V95-COBRANZAS-SIN-TITILEO-20260914" -o /tmp/cobr.js
-          if grep -Fq '[700,1800,3500]' /tmp/cobr.js; then exit 1; fi
+          curl -fsSL "$ORIGIN/cobranzasUnificadasStableV76.js?v=TIZ-V96-COBRANZAS-PDF-INTEGRADO-20260914" -o /tmp/cobr.js
+          grep -F 'function pdfEstado(o)' /tmp/cobr.js
+          grep -F 'fv93-pdf-head' /tmp/cobr.js
+          grep -F 'PDF pendiente' /tmp/cobr.js
+          grep -F 'Archivar PDF' /tmp/cobr.js
+          if grep -Fq 'repairApproved().then(()=>render())' /tmp/cobr.js; then exit 1; fi
           node --check /tmp/cobr.js
           curl -fsSL "$ORIGIN/facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914" -o /tmp/retry.js
           grep -F 'obtenerDriveAccessTokenTizV91' /tmp/retry.js
           if grep -Fq 'MutationObserver' /tmp/retry.js; then exit 1; fi
           node --check /tmp/retry.js
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          grep -F 'cobranzasUnificadasStableV76.js?v=TIZ-V95-COBRANZAS-SIN-TITILEO-20260914' /tmp/index.html
+          grep -F 'cobranzasUnificadasStableV76.js?v=TIZ-V96-COBRANZAS-PDF-INTEGRADO-20260914' /tmp/index.html
           grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914' /tmp/index.html
