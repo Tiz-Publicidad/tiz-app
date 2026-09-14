@@ -1,40 +1,168 @@
-// TIZ V90 — Drive OAuth redirect robusto, reanuda operación pendiente y click delegado estable
+// TIZ V91 - Drive OAuth estable por popup directo, sin loops de render ni redirects
 (function(){
 'use strict';
 const ENDPOINT='https://us-central1-tiz---app.cloudfunctions.net/facturacionReintentarDriveV83';
 const RECOVER_ENDPOINT='https://us-central1-tiz---app.cloudfunctions.net/facturacionRecuperarHistoricosV86';
-const AUTO_KEY='tiz-drive-retry-v90';
-const DRIVE_CACHE='tiz-drive-oauth-v90';
-const DRIVE_REDIRECT='tiz-drive-oauth-redirect-v90';
-const DRIVE_PENDING='tiz-drive-pending-op-v90';
+const DRIVE_CACHE='tiz-drive-oauth-v91';
 const base=v=>String(v??'').match(/\d{4,7}/)?.[0].replace(/^0+/,'')||'';
-async function authModules(){return Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')])}
-async function readyAuth(){const [{getApp},{getAuth}]=await authModules();const auth=getAuth(getApp());if(typeof auth.authStateReady==='function')await auth.authStateReady();return auth}
-async function firebaseToken(){const auth=await readyAuth();const u=auth.currentUser;if(!u)throw new Error('Sesión no iniciada');return u.getIdToken()}
-function cachedDriveToken(){try{const x=JSON.parse(sessionStorage.getItem(DRIVE_CACHE)||'null');if(!x?.token||!x?.ts)return'';if(Date.now()-Number(x.ts)>50*60*1000){sessionStorage.removeItem(DRIVE_CACHE);return''}return x.token}catch(_){return''}}
+let authApi=null, authReadyPromise=null, busy=false;
+
+async function preloadAuth(){
+  if(authReadyPromise)return authReadyPromise;
+  authReadyPromise=(async()=>{
+    const [{getApp},{getAuth,GoogleAuthProvider,reauthenticateWithPopup}]=await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')
+    ]);
+    const auth=getAuth(getApp());
+    if(typeof auth.authStateReady==='function')await auth.authStateReady();
+    authApi={auth,GoogleAuthProvider,reauthenticateWithPopup};
+    return authApi;
+  })();
+  return authReadyPromise;
+}
+preloadAuth().catch(e=>console.error('[TIZ V91 preload auth]',e));
+
+function cachedDriveToken(){
+  try{
+    const x=JSON.parse(sessionStorage.getItem(DRIVE_CACHE)||'null');
+    if(!x?.token||!x?.ts)return'';
+    if(Date.now()-Number(x.ts)>45*60*1000){sessionStorage.removeItem(DRIVE_CACHE);return''}
+    return x.token;
+  }catch(_){return''}
+}
 function cacheDriveToken(token,email){sessionStorage.setItem(DRIVE_CACHE,JSON.stringify({token,ts:Date.now(),email:email||''}))}
-function setPending(op){try{sessionStorage.setItem(DRIVE_PENDING,JSON.stringify({...op,ts:Date.now()}))}catch(_){}}
-function getPending(){try{return JSON.parse(sessionStorage.getItem(DRIVE_PENDING)||'null')}catch(_){return null}}
-function clearPending(){sessionStorage.removeItem(DRIVE_PENDING)}
-async function driveToken(opts={interactive:true,pending:null}){const cached=cachedDriveToken();if(cached)return cached;if(opts.interactive===false)return'';const [{GoogleAuthProvider,reauthenticateWithRedirect}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);const auth=await readyAuth(),u=auth.currentUser;if(!u)throw new Error('Sesión no iniciada');const p=new GoogleAuthProvider();p.addScope('https://www.googleapis.com/auth/drive');p.setCustomParameters({prompt:'consent',login_hint:u.email||''});if(opts.pending)setPending(opts.pending);sessionStorage.setItem(DRIVE_REDIRECT,JSON.stringify({ts:Date.now(),email:u.email||''}));await reauthenticateWithRedirect(u,p);return''}
-async function consumeDriveRedirect(){const marker=sessionStorage.getItem(DRIVE_REDIRECT);if(!marker)return'';try{const [{GoogleAuthProvider,getRedirectResult}]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')]);const auth=await readyAuth();let result=null;for(let i=0;i<8&&!result;i++){result=await getRedirectResult(auth);if(!result&&i<7)await new Promise(r=>setTimeout(r,350*(i+1)))}if(!result)throw new Error('Google volvió a TIZ pero no entregó el resultado de autorización.');const cred=GoogleAuthProvider.credentialFromResult(result),access=cred?.accessToken||'';if(!access)throw new Error('Google no entregó autorización para Drive');cacheDriveToken(access,result.user?.email||auth.currentUser?.email||'');sessionStorage.removeItem(DRIVE_REDIRECT);window.showToast?.('Google Drive autorizado ✓');return access}catch(e){console.error('[TIZ Drive OAuth redirect]',e);setTimeout(()=>alert('No se pudo completar la autorización de Google Drive.\n\n'+(e.message||e)+'\n\nNo se emitió ni se vuelve a emitir ningún comprobante en ARCA.'),50);return''}}
-window.obtenerDriveAccessTokenTizV90=driveToken;window.obtenerDriveAccessTokenTizV89=driveToken;window.obtenerDriveAccessTokenTizV88=driveToken;window.obtenerDriveAccessTokenTizV87=driveToken;
-function comps(o){const a=Array.isArray(o?.comprobantesArca)?[...o.comprobantesArca]:Array.isArray(o?.facturasArca)?[...o.facturasArca]:[];if(o?.facturaArca?.cae&&!a.some(x=>String(x?.cae)===String(o.facturaArca.cae)))a.push(o.facturaArca);return a.filter(x=>x?.cae)}
+
+async function firebaseToken(){
+  const {auth}=await preloadAuth();
+  if(!auth.currentUser)throw new Error('Sesión no iniciada');
+  return auth.currentUser.getIdToken();
+}
+
+async function authorizeDriveDirect(){
+  const cached=cachedDriveToken();
+  if(cached)return cached;
+  const {auth,GoogleAuthProvider,reauthenticateWithPopup}=authApi||await preloadAuth();
+  const u=auth.currentUser;
+  if(!u)throw new Error('Sesión no iniciada');
+  const p=new GoogleAuthProvider();
+  p.addScope('https://www.googleapis.com/auth/drive');
+  p.setCustomParameters({prompt:'consent',login_hint:u.email||''});
+  const result=await reauthenticateWithPopup(u,p);
+  const cred=GoogleAuthProvider.credentialFromResult(result);
+  const access=cred?.accessToken||'';
+  if(!access)throw new Error('Google no entregó autorización para Drive');
+  cacheDriveToken(access,result.user?.email||u.email||'');
+  window.showToast?.('Google Drive autorizado ✓');
+  return access;
+}
+window.obtenerDriveAccessTokenTizV91=authorizeDriveDirect;
+window.obtenerDriveAccessTokenTizV90=authorizeDriveDirect;
+
+function comps(o){
+  const a=Array.isArray(o?.comprobantesArca)?[...o.comprobantesArca]:Array.isArray(o?.facturasArca)?[...o.facturasArca]:[];
+  if(o?.facturaArca?.cae&&!a.some(x=>String(x?.cae)===String(o.facturaArca.cae)))a.push(o.facturaArca);
+  return a.filter(x=>x?.cae);
+}
 function latest(o){return [...comps(o)].sort((a,b)=>Number(b?.cbteNro||0)-Number(a?.cbteNro||0))[0]||o?.facturaArca||null}
 function hasDrive(c){return !!(c?.driveFileId||c?.fileId||c?.driveWebViewLink)}
-async function callRetry(id,opts={}){const access=opts.driveAccessToken||await driveToken({interactive:opts.interactive!==false,pending:{type:'retry',obraId:id}});if(!access)throw new Error('Se inició la autorización de Google Drive');const r=await fetch(ENDPOINT,{method:'POST',headers:{Authorization:'Bearer '+await firebaseToken(),'Content-Type':'application/json'},body:JSON.stringify({obraId:id,driveAccessToken:access})}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok){const err=new Error(d.error||'No se pudo archivar el PDF');err.meta=d;throw err}return d}
-async function callRecover(nums,opts={}){const numbers=nums.map(Number);const access=opts.driveAccessToken||await driveToken({interactive:opts.interactive!==false,pending:{type:'recover',numeros:numbers}});if(!access)throw new Error('Se inició la autorización de Google Drive');const r=await fetch(RECOVER_ENDPOINT,{method:'POST',headers:{Authorization:'Bearer '+await firebaseToken(),'Content-Type':'application/json'},body:JSON.stringify({cbteTipo:1,numeros:numbers,driveAccessToken:access})}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'No se pudo consultar ARCA');return d}
-function applySuccess(o,d){o.facturaArca=o.facturaArca||{};o.facturaArca.driveFileId=d.fileId;o.facturaArca.driveWebViewLink=d.webViewLink;o.facturaArca.drivePendiente=false;o.facturaDrivePendiente=false;window.showToast?.('PDF archivado en 2026 Facturacion ✓')}
-function errorText(e){return 'No se pudo archivar el PDF.\n\n'+(e.message||e)+'\n\nNo se vuelve a emitir el comprobante en ARCA.'}
-window.reintentarPdfFacturaV83=async function(id,btn,opts={}){const o=(window.DB?.obras||[]).find(x=>x.id===id);if(!o)return false;if(!o.facturaArca?.cae){if(!opts.silent)alert('La OT no tiene un comprobante ARCA autorizado.');return false}const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='Archivando…'}try{const d=await callRetry(id,{driveAccessToken:opts.driveAccessToken,interactive:opts.silent?false:true});applySuccess(o,d);clearPending();if(!opts.silent)setTimeout(()=>window.renderCobranzas?.(),80);return true}catch(e){if(String(e?.message||'').includes('Se inició la autorización'))return false;console.error('[TIZ Drive OAuth retry]',e);if(!opts.silent)alert(errorText(e));else{o.__driveRetryError=errorText(e);window.showToast?.('PDF pendiente en Drive')}return false}finally{if(btn&&document.contains(btn)){btn.disabled=false;btn.textContent=old}}};
-window.recuperarPdfFacturaV86=async function(n,btn,opts={}){n=Number(n);if(!n){if(!opts.silent)alert('No se encontró el número de comprobante.');return false}const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='Archivando…'}try{const d=await callRecover([n],{driveAccessToken:opts.driveAccessToken,interactive:opts.silent?false:true}),row=d.resultados?.[0];if(!row?.ok)throw new Error(row?.error||'No se pudo recuperar el comprobante');clearPending();window.showToast?.(`FC ${row.numero}: PDF archivado en 2026 Facturacion ✓`);setTimeout(()=>window.renderCobranzas?.(),300);return true}catch(e){if(String(e?.message||'').includes('Se inició la autorización'))return false;console.error('[TIZ V90 recover]',e);if(!opts.silent)alert('La factura ya existe en ARCA, pero no se pudo archivar su PDF.\n\n'+(e.message||e));return false}finally{if(btn&&document.contains(btn)){btn.disabled=false;btn.textContent=old}}};
-async function resumePending(access){const p=getPending();if(!access||!p)return;if(Date.now()-Number(p.ts||0)>30*60*1000){clearPending();return}try{if(p.type==='recover'&&Array.isArray(p.numeros)){for(const n of p.numeros)await window.recuperarPdfFacturaV86(n,null,{silent:true,driveAccessToken:access})}else if(p.type==='retry'&&p.obraId)await window.reintentarPdfFacturaV83(p.obraId,null,{silent:true,driveAccessToken:access});clearPending();setTimeout(()=>window.renderCobranzas?.(),250)}catch(e){console.error('[TIZ resume pending]',e)}}
-async function autoRetry(){const access=cachedDriveToken();if(!access)return;for(const o of (window.DB?.obras||[])){const c=latest(o);if(!o?.id||!c?.cae||hasDrive(c)||(!o.facturaDrivePendiente&&!c.drivePendiente))continue;const key=`${AUTO_KEY}:${o.id}:${c.cae}`;if(sessionStorage.getItem(key))continue;sessionStorage.setItem(key,'1');if(Number(c.cbteTipo||1)===1&&Number(c.cbteNro)>0)await window.recuperarPdfFacturaV86(c.cbteNro,null,{silent:true,driveAccessToken:access});else await window.reintentarPdfFacturaV83(o.id,null,{silent:true,driveAccessToken:access})}}
-function pdfHtml(o){const c=latest(o);if(!c?.cae)return '<span style="color:var(--text3)">—</span>';if(hasDrive(c))return '<span class="badge badge-green" title="PDF archivado en 2026 Facturacion">En Drive</span>';return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge badge-amber">PDF pendiente</span><button type="button" class="btn btn-ghost btn-sm fv86-pdf-recover" data-n="${Number(c.cbteNro||0)}" title="Autoriza tu Google Drive y archiva solamente el PDF. No emite nada nuevo.">Archivar PDF</button></div>`}
+
+async function postJson(url,body){
+  const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+await firebaseToken(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||'Error del servidor');
+  return d;
+}
+
+window.recuperarPdfFacturaV86=async function(n,btn,opts={}){
+  n=Number(n); if(!n)return false;
+  if(busy&&!opts.silent)return false;
+  const old=btn?.textContent;
+  try{
+    busy=true;
+    if(btn){btn.disabled=true;btn.textContent='Autorizando…'}
+    const access=opts.driveAccessToken||cachedDriveToken()||await authorizeDriveDirect();
+    if(btn)btn.textContent='Archivando…';
+    const d=await postJson(RECOVER_ENDPOINT,{cbteTipo:1,numeros:[n],driveAccessToken:access});
+    const row=d.resultados?.[0];
+    if(!row?.ok)throw new Error(row?.error||'No se pudo recuperar el comprobante');
+    window.showToast?.(`FC ${row.numero}: PDF archivado en 2026 Facturacion ✓`);
+    setTimeout(()=>window.renderCobranzas?.(),100);
+    return true;
+  }catch(e){
+    console.error('[TIZ V91 recover]',e);
+    if(!opts.silent)alert('La factura ya existe en ARCA, pero no se pudo archivar su PDF.\n\n'+(e.message||e)+'\n\nNo se vuelve a emitir ningún comprobante.');
+    return false;
+  }finally{
+    busy=false;
+    if(btn&&document.contains(btn)){btn.disabled=false;btn.textContent=old}
+  }
+};
+
+window.reintentarPdfFacturaV83=async function(id,btn,opts={}){
+  const o=(window.DB?.obras||[]).find(x=>x.id===id); if(!o?.facturaArca?.cae)return false;
+  const old=btn?.textContent;
+  try{
+    busy=true;
+    if(btn){btn.disabled=true;btn.textContent='Autorizando…'}
+    const access=opts.driveAccessToken||cachedDriveToken()||await authorizeDriveDirect();
+    if(btn)btn.textContent='Archivando…';
+    const d=await postJson(ENDPOINT,{obraId:id,driveAccessToken:access});
+    o.facturaArca.driveFileId=d.fileId;o.facturaArca.driveWebViewLink=d.webViewLink;o.facturaArca.drivePendiente=false;o.facturaDrivePendiente=false;
+    window.showToast?.('PDF archivado en 2026 Facturacion ✓');
+    setTimeout(()=>window.renderCobranzas?.(),100);
+    return true;
+  }catch(e){
+    console.error('[TIZ V91 retry]',e);
+    if(!opts.silent)alert('No se pudo archivar el PDF.\n\n'+(e.message||e)+'\n\nNo se vuelve a emitir el comprobante en ARCA.');
+    return false;
+  }finally{
+    busy=false;
+    if(btn&&document.contains(btn)){btn.disabled=false;btn.textContent=old}
+  }
+};
+
+function pdfHtml(o){
+  const c=latest(o);
+  if(!c?.cae)return '<span style="color:var(--text3)">—</span>';
+  if(hasDrive(c))return '<span class="badge badge-green" title="PDF archivado en 2026 Facturacion">En Drive</span>';
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="badge badge-amber">PDF pendiente</span><button type="button" class="btn btn-ghost btn-sm fv91-pdf-recover" data-n="${Number(c.cbteNro||0)}">Archivar PDF</button></div>`;
+}
 function obraForRow(tr){const ot=base(tr.cells?.[0]?.textContent||'');return (window.DB?.obras||[]).find(x=>base(x.ot)===ot)||null}
-function decorateTable(){const mod=document.getElementById('cobr-modulo-v48');if(!mod)return;const table=mod.querySelector('table');if(!table)return;const hr=table.querySelector('thead tr');if(hr&&!hr.querySelector('.fv86-pdf-head')){const th=document.createElement('th');th.className='fv86-pdf-head';th.textContent='PDF';const action=[...hr.children].find(x=>/acci[oó]n/i.test(x.textContent||''));action?hr.insertBefore(th,action):hr.appendChild(th)}table.querySelectorAll('tbody tr').forEach(tr=>{const o=obraForRow(tr);if(!o)return;let td=tr.querySelector('.fv86-pdf-cell');if(!td){td=document.createElement('td');td.className='fv86-pdf-cell';const action=tr.lastElementChild;action?tr.insertBefore(td,action):tr.appendChild(td)}const next=pdfHtml(o);if(td.innerHTML!==next)td.innerHTML=next})}
-function bindDelegatedClick(){if(window.__tizDrivePdfClickV90)return;window.__tizDrivePdfClickV90=true;document.addEventListener('click',e=>{const b=e.target?.closest?.('.fv86-pdf-recover');if(!b)return;e.preventDefault();e.stopPropagation();const n=Number(b.dataset.n||0);window.recuperarPdfFacturaV86(n,b)},true)}
-function hook(){bindDelegatedClick();if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__driveRetryV90){const old=window.renderCobranzas,w=function(){const r=old.apply(this,arguments);setTimeout(decorateTable,80);setTimeout(autoRetry,250);return r};w.__driveRetryV90=true;window.renderCobranzas=w}decorateTable();setTimeout(autoRetry,300)}
-async function boot(){bindDelegatedClick();const access=await consumeDriveRedirect();hook();if(access)await resumePending(access);setTimeout(hook,700);setTimeout(hook,1700);setTimeout(autoRetry,2100)}
-boot();window.addEventListener('load',()=>{hook();setTimeout(hook,700);setTimeout(autoRetry,900)});let n=0;const t=setInterval(()=>{hook();if(++n>30)clearInterval(t)},500);const mo=new MutationObserver(()=>{if(document.getElementById('page-cobranzas')?.classList.contains('active'))setTimeout(decorateTable,60)});mo.observe(document.documentElement,{childList:true,subtree:true});
+function decorateTable(){
+  const mod=document.getElementById('cobr-modulo-v48'); if(!mod)return;
+  const table=mod.querySelector('table'); if(!table)return;
+  const hr=table.querySelector('thead tr');
+  if(hr&&!hr.querySelector('.fv91-pdf-head')){
+    const th=document.createElement('th');th.className='fv91-pdf-head';th.textContent='PDF';
+    const action=[...hr.children].find(x=>/acci[oó]n/i.test(x.textContent||''));action?hr.insertBefore(th,action):hr.appendChild(th);
+  }
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    const o=obraForRow(tr); if(!o)return;
+    let td=tr.querySelector('.fv91-pdf-cell');
+    if(!td){td=document.createElement('td');td.className='fv91-pdf-cell';const action=tr.lastElementChild;action?tr.insertBefore(td,action):tr.appendChild(td)}
+    const next=pdfHtml(o); if(td.innerHTML!==next)td.innerHTML=next;
+  });
+}
+function bindClick(){
+  if(window.__tizDrivePdfClickV91)return;window.__tizDrivePdfClickV91=true;
+  document.addEventListener('click',e=>{
+    const b=e.target?.closest?.('.fv91-pdf-recover'); if(!b)return;
+    e.preventDefault();e.stopPropagation();
+    window.recuperarPdfFacturaV86(Number(b.dataset.n||0),b);
+  },true);
+}
+function install(){
+  bindClick();
+  if(typeof window.renderCobranzas==='function'&&!window.renderCobranzas.__driveRetryV91){
+    const old=window.renderCobranzas;
+    const wrapped=function(){const r=old.apply(this,arguments);requestAnimationFrame(()=>decorateTable());return r};
+    wrapped.__driveRetryV91=true;window.renderCobranzas=wrapped;
+  }
+  decorateTable();
+}
+install();
+window.addEventListener('load',install,{once:true});
+setTimeout(install,600);
+setTimeout(install,1600);
 })();
