@@ -7,7 +7,7 @@ const {validateType,validateAssociated,ivaConfig,round2,saldoFiscal}=require("./
 const {archivarFacturaPdfEnDrive}=require("./facturaDrive2026");
 if(!admin.apps.length)admin.initializeApp();
 const cert=defineSecret("ARCA_PROD_CERTIFICATE_PEM"),key=defineSecret("ARCA_PROD_PRIVATE_KEY_PEM"),issuer=defineSecret("ARCA_ISSUER_CUIT"),allowed=defineSecret("ARCA_ALLOWED_EMAILS");
-const PTO=9,WSAA="https://wsaa.afip.gov.ar/ws/services/LoginCms",WSFE="https://servicios1.afip.gov.ar/wsfev1/service.asmx",ORIGINS=new Set(["https://tiz-publicidad.github.io","http://localhost:5000","http://127.0.0.1:5000"]);
+const PTO=9,WSAA="https://wsaa.afip.gov.ar/ws/services/LoginCms",WSFE="https://servicios1.afip.gov.ar/wsfev1/service.asmx",ORIGINS=new Set(["https://tiz-publicidad.github.io","https://tiz---app.web.app","https://tiz---app.firebaseapp.com","https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app","http://localhost:5000","http://127.0.0.1:5000"]);
 const esc=v=>String(v??"").replace(/[<>&'\"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"})[c]);
 const dec=v=>String(v||"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&");
 function tag(xml,n){const m=String(xml||"").match(new RegExp(`<(?:\\w+:)?${n}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${n}>`,"i"));return m?dec(m[1].trim()):""}
