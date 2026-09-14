@@ -53,8 +53,8 @@ jobs:
           s,n=re.subn(pattern,'\n',s)
           if n<1: raise SystemExit('Drive retry script tag not found')
           tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-FACTURACION-DRIVE-V94-FINAL-20260914"></script>'
-          if '</body>' not in s: raise SystemExit('body closing tag not found')
-          s=s.replace('</body>',tag+'\n</body>',1)
+          if '</html>' not in s: raise SystemExit('html closing tag not found')
+          s=s.replace('</html>',tag+'\n</html>',1)
           p.write_text(s,encoding='utf-8')
           out=p.read_text(encoding='utf-8')
           if out.count(tag)!=1: raise SystemExit('V94 script tag invalid')
