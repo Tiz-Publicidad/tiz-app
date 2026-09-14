@@ -32,9 +32,11 @@ jobs:
 
       - name: Validate syntax
         run: |
+          node --check allFunctionsV86.js
           node --check index.js
           node --check facturacionIntegralApiV83.js
           node --check facturacionDriveRetryV83.js
+          node --check facturacionRecuperarV86.js
           node --check facturaDrive2026.js
           node --check arcaFiscalCoreV83.js
         working-directory: functions
@@ -63,7 +65,7 @@ jobs:
           ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
           EOF
 
-      - name: Deploy only Facturacion V83 functions
-        run: firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
+      - name: Deploy Facturacion V83 and recovery V86 functions
+        run: firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
