@@ -58,6 +58,7 @@ jobs:
         run: |
           cat > .env.tiz---app <<'EOF'
           ARCA_ISSUER_RAZON_SOCIAL=SixSigma SRL
+          ARCA_ISSUER_NOMBRE_FANTASIA=TIZ Publicidad
           ARCA_ISSUER_DOMICILIO=Mosconi 1234, Los Polvorines, Buenos Aires
           ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
           EOF
