@@ -20,12 +20,14 @@ jobs:
           from pathlib import Path
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
           tag='<script src="precioSyncV82.js?v=TIZ-PRECIO-SYNC-V82-20260914"></script>'
-          anchor='</body>'
+          anchor='<script src="cobranzasUnificadasStableV76.js?v=TIZ-V77-APROBADAS-AUTORITATIVAS-20260907-2325"></script>'
           if s.count(tag)>1: raise SystemExit('precioSyncV82 duplicated')
+          if s.count(anchor)!=1: raise SystemExit(f'anchor count invalid: {s.count(anchor)}')
           if tag not in s:
-              if s.count(anchor)!=1: raise SystemExit('body closing tag not unique')
-              s=s.replace(anchor,tag+'\n'+anchor,1);p.write_text(s,encoding='utf-8')
-          if p.read_text(encoding='utf-8').count(tag)!=1: raise SystemExit('price sync tag invalid')
+              s=s.replace(anchor,anchor+'\n'+tag,1);p.write_text(s,encoding='utf-8')
+          final=p.read_text(encoding='utf-8')
+          if final.count(tag)!=1: raise SystemExit('price sync tag invalid')
+          if anchor+'\n'+tag not in final: raise SystemExit('price sync load order invalid')
           PY
           grep -F "precioSyncV82.js?v=TIZ-PRECIO-SYNC-V82-20260914" index.html
           grep -F "window.tizSyncPriceV82" precioSyncV82.js
@@ -38,5 +40,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add index.html .github/workflows/install-price-sync-v82.yml
           git diff --cached --check
+          git diff --cached --name-only
           git commit -m "Load bidirectional price synchronization"
           git push origin HEAD:codex/produccion-integral-v1
