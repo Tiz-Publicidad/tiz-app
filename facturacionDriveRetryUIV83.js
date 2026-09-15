@@ -36,6 +36,7 @@ window.obtenerDriveAccessTokenTizV97=authorizeDriveDirect;
 window.obtenerDriveAccessTokenTizV93=authorizeDriveDirect;
 window.obtenerDriveAccessTokenTizV92=authorizeDriveDirect;
 window.obtenerDriveAccessTokenTizV91=authorizeDriveDirect;
+window.obtenerDriveAccessTokenTizV87=authorizeDriveDirect;
 
 function comps(o){const a=Array.isArray(o?.comprobantesArca)?[...o.comprobantesArca]:Array.isArray(o?.facturasArca)?[...o.facturasArca]:[];if(o?.facturaArca?.cae&&!a.some(x=>String(x?.cae)===String(o.facturaArca.cae)))a.push(o.facturaArca);return a.filter(x=>x?.cae)}
 function latest(o){return [...comps(o)].sort((a,b)=>Number(b?.cbteNro||0)-Number(a?.cbteNro||0))[0]||o?.facturaArca||null}
