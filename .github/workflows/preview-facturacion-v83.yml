@@ -36,7 +36,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate unified Por cobrar V98
+      - name: Validate unified Cobranzas V99
         shell: bash
         run: |
           set -e
@@ -50,23 +50,23 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          v98=Path('cobranzasVistaUnificadaV98.js').read_text(encoding='utf-8')
-          required=['Por cobrar · facturación y gestión','PDF en Drive y factura enviada','Facturar saldo','window.renderCobranzas=render','/gestiones/i','PDF pendiente','En Drive']
+          v99=Path('cobranzasVistaUnificadaV98.js').read_text(encoding='utf-8')
+          required=['TIZ V99','Por cobrar · facturación y gestión','00009-00000001','1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn','Buscar OT, cliente o descripción','priorRender','PDF pendiente','En Drive']
           for token in required:
-              if token not in v98: raise SystemExit(f'V98 missing: {token}')
+              if token not in v99: raise SystemExit(f'V99 missing: {token}')
           for bad in ['MutationObserver','setInterval(']:
-              if bad in v98: raise SystemExit(f'V98 must not poll/mutate continuously: {bad}')
-          if "const factBtn=!fact" in v98:
-              raise SystemExit('V98 must never offer Facturar when an invoice already exists')
+              if bad in v99: raise SystemExit(f'V99 must not poll/mutate continuously: {bad}')
+          if ".filter(o=>status(o)!=='Cobrado'" in v99:
+              raise SystemExit('V99 must not hide an outstanding balance only because of stale status')
           p=Path('index.html'); s=p.read_text(encoding='utf-8')
-          tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V98-POR-COBRAR-UNIFICADO-20260915"></script>'
+          tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>'
           s=re.sub(r'\n?<script src="cobranzasVistaUnificadaV98\.js\?v=[^"]+"></script>\n?','\n',s)
           if '</body>' not in s: raise SystemExit('index.html missing </body>')
           s=s.replace('</body>',tag+'\n</body>',1)
           p.write_text(s,encoding='utf-8')
           PY
 
-      - name: Commit V98 loader
+      - name: Commit V99 loader
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -74,7 +74,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load unified Por cobrar V98"
+            git commit -m "Load Cobranzas V99"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -113,16 +113,16 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Smoke test unified Por cobrar V98
+      - name: Smoke test unified Cobranzas V99
         shell: bash
         run: |
           set -e
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          curl -fsSL "$ORIGIN/cobranzasVistaUnificadaV98.js?v=TIZ-V98-POR-COBRAR-UNIFICADO-20260915" -o /tmp/v98.js
-          node --check /tmp/v98.js
-          grep -F 'Por cobrar · facturación y gestión' /tmp/v98.js
-          grep -F 'Facturar saldo' /tmp/v98.js
-          grep -F 'window.renderCobranzas=render' /tmp/v98.js
-          if grep -Eq 'MutationObserver|setInterval\(' /tmp/v98.js; then exit 1; fi
+          curl -fsSL "$ORIGIN/cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915" -o /tmp/v99.js
+          node --check /tmp/v99.js
+          grep -F '00009-00000001' /tmp/v99.js
+          grep -F 'Buscar OT, cliente o descripción' /tmp/v99.js
+          grep -F 'priorRender' /tmp/v99.js
+          if grep -Eq 'MutationObserver|setInterval\(' /tmp/v99.js; then exit 1; fi
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          grep -F 'cobranzasVistaUnificadaV98.js?v=TIZ-V98-POR-COBRAR-UNIFICADO-20260915' /tmp/index.html
+          grep -F 'cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915' /tmp/index.html
