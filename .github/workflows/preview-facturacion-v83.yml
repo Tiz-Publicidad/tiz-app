@@ -58,15 +58,39 @@ jobs:
               if bad in v99: raise SystemExit(f'V99 must not poll/mutate continuously: {bad}')
           if ".filter(o=>status(o)!=='Cobrado'" in v99:
               raise SystemExit('V99 must not hide an outstanding balance only because of stale status')
-          p=Path('index.html'); s=p.read_text(encoding='utf-8')
-          tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>'
-          s=re.sub(r'\n?<script src="cobranzasVistaUnificadaV98\.js\?v=[^"]+"></script>\n?','\n',s)
-          if '</body>' not in s: raise SystemExit('index.html missing </body>')
-          s=s.replace('</body>',tag+'\n</body>',1)
+
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          v99_tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>'
+          drive_tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>'
+
+          # Remove any previous loader copies, including the bad copy that was
+          # accidentally inserted inside the print-window template literal.
+          s=re.sub(r'\n?<script src="cobranzasVistaUnificadaV98\.js\?v=[^"]+"></script>\n?', '\n', s)
+          s=re.sub(r'\n?<script src="facturacionDriveRetryUIV83\.js\?v=[^"]+"></script>\n?', '\n', s)
+
+          body_idx=s.rfind('</body>')
+          html_idx=s.rfind('</html>')
+          if body_idx < 0 or html_idx < 0 or body_idx > html_idx:
+              raise SystemExit('index.html has invalid final body/html structure')
+
+          # Only the final real </body> may receive runtime module loaders.
+          loaders=drive_tag+'\n'+v99_tag+'\n'
+          s=s[:body_idx]+loaders+s[body_idx:]
+
+          if s.count(v99_tag) != 1:
+              raise SystemExit('V99 loader must appear exactly once')
+          if s.count(drive_tag) != 1:
+              raise SystemExit('Drive retry loader must appear exactly once')
+          if s.find(v99_tag) < s.find('printWin.document.close()'):
+              raise SystemExit('V99 loader was inserted inside printable HTML/inline script')
+          if not (s.find(v99_tag) < s.rfind('</body>') < s.rfind('</html>')):
+              raise SystemExit('V99 loader is not inside final document body')
+
           p.write_text(s,encoding='utf-8')
           PY
 
-      - name: Commit V99 loader
+      - name: Commit repaired V99 loader placement
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -74,7 +98,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load Cobranzas V99"
+            git commit -m "Repair Cobranzas V99 loader placement"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -175,4 +199,13 @@ jobs:
           grep -F 'priorRender' /tmp/v99.js
           if grep -Eq 'MutationObserver|setInterval\(' /tmp/v99.js; then exit 1; fi
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          grep -F 'cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915' /tmp/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/index.html').read_text(encoding='utf-8')
+          tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>'
+          drive='<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>'
+          if s.count(tag) != 1: raise SystemExit('deployed V99 loader count is not 1')
+          if s.count(drive) != 1: raise SystemExit('deployed Drive loader count is not 1')
+          if s.find(tag) < s.find('printWin.document.close()'): raise SystemExit('deployed loader leaked into printable HTML')
+          if not (s.find(tag) < s.rfind('</body>') < s.rfind('</html>')): raise SystemExit('deployed loader is outside final body')
+          PY
