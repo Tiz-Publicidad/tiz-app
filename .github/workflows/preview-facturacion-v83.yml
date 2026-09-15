@@ -15,6 +15,7 @@ on:
       - 'cobranzasEstadoGestionV70.js'
       - 'cobranzasIntegralV73.js'
       - 'cobranzasUnificadasStableV76.js'
+      - 'cobranzasVistaUnificadaV98.js'
       - 'index.html'
       - 'functions/**'
       - '.github/workflows/preview-facturacion-v83.yml'
@@ -35,17 +36,12 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate single-owner Cobranzas V97
+      - name: Validate unified Por cobrar V98
         shell: bash
         run: |
           set -e
-          node --check cobranzasUnificadasStableV76.js
+          node --check cobranzasVistaUnificadaV98.js
           node --check facturacionDriveRetryUIV83.js
-          node --check facturacionCobranzasBridgeV68.js
-          node --check cobranzasUnificadasV69.js
-          node --check cobranzasEstadoGestionV70.js
-          node --check cobranzasIntegralV73.js
-          node --check facturacionAnticiposV85.js
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
           node --check functions/index.js
@@ -53,43 +49,24 @@ jobs:
           node --check functions/facturaDrive2026.js
           python3 - <<'PY'
           from pathlib import Path
-          legacy=['facturacionCobranzasBridgeV68.js','cobranzasUnificadasV69.js','cobranzasEstadoGestionV70.js','cobranzasIntegralV73.js','facturacionAnticiposV85.js','facturacionDriveRetryUIV83.js']
-          forbidden=['MutationObserver','setInterval(','cobr-modulo-v48 table tbody','querySelectorAll(\'#cobr-modulo-v48 table','function decorateTable','scheduleDecorate']
-          for name in legacy:
-              s=Path(name).read_text(encoding='utf-8')
-              for bad in forbidden:
-                  if bad in s:
-                      raise SystemExit(f'{name} still mutates/polls Cobranzas: {bad}')
-          stable=Path('cobranzasUnificadasStableV76.js').read_text(encoding='utf-8')
-          required=['<th class="fv93-pdf-head">PDF</th>','${pdfEstado(o)}','${selectEstado(o,x)}','Archivar PDF']
-          for token in required:
-              if token not in stable: raise SystemExit(f'stable Cobranzas missing: {token}')
-          if stable.count('${selectEstado(o,x)}') != 1:
-              raise SystemExit('Estado selector must exist exactly once in stable row')
-          drive=Path('facturacionDriveRetryUIV83.js').read_text(encoding='utf-8')
-          for token in ['reauthenticateWithPopup','recuperarPdfFacturaV86','window.renderCobranzas?.()']:
-              if token not in drive: raise SystemExit(f'Drive module missing: {token}')
-          for bad in ['MutationObserver','setInterval(','decorateTable','scheduleDecorate']:
-              if bad in drive: raise SystemExit(f'Drive module must not touch table: {bad}')
-          p=Path('index.html');s=p.read_text(encoding='utf-8')
-          versions={
-            'facturacionCobranzasBridgeV68.js':'TIZ-V97-SINGLE-OWNER-20260914',
-            'cobranzasUnificadasV69.js':'TIZ-V97-SINGLE-OWNER-20260914',
-            'cobranzasEstadoGestionV70.js':'TIZ-V97-SINGLE-OWNER-20260914',
-            'cobranzasIntegralV73.js':'TIZ-V97-SINGLE-OWNER-20260914',
-            'cobranzasUnificadasStableV76.js':'TIZ-V97-COBRANZAS-ESTABLE-20260914',
-            'facturacionAnticiposV85.js':'TIZ-V97-SINGLE-OWNER-20260914',
-            'facturacionDriveRetryUIV83.js':'TIZ-V97-DRIVE-SIN-DOM-20260914',
-          }
           import re
-          for file,ver in versions.items():
-              pat=rf'<script src="{re.escape(file)}\?v=[^"]+"></script>'
-              s,n=re.subn(pat,f'<script src="{file}?v={ver}"></script>',s,count=1)
-              if n!=1: raise SystemExit(f'script tag missing: {file}')
+          v98=Path('cobranzasVistaUnificadaV98.js').read_text(encoding='utf-8')
+          required=['Por cobrar · facturación y gestión','PDF en Drive y factura enviada','Facturar saldo','window.renderCobranzas=render','/gestiones/i','PDF pendiente','En Drive']
+          for token in required:
+              if token not in v98: raise SystemExit(f'V98 missing: {token}')
+          for bad in ['MutationObserver','setInterval(']:
+              if bad in v98: raise SystemExit(f'V98 must not poll/mutate continuously: {bad}')
+          if "const factBtn=!fact" in v98:
+              raise SystemExit('V98 must never offer Facturar when an invoice already exists')
+          p=Path('index.html'); s=p.read_text(encoding='utf-8')
+          tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V98-POR-COBRAR-UNIFICADO-20260915"></script>'
+          s=re.sub(r'\n?<script src="cobranzasVistaUnificadaV98\.js\?v=[^"]+"></script>\n?','\n',s)
+          if '</body>' not in s: raise SystemExit('index.html missing </body>')
+          s=s.replace('</body>',tag+'\n</body>',1)
           p.write_text(s,encoding='utf-8')
           PY
 
-      - name: Commit V97 cache bust
+      - name: Commit V98 loader
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -97,7 +74,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Load single-owner Cobranzas V97"
+            git commit -m "Load unified Por cobrar V98"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -136,26 +113,16 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Smoke test served single-owner Cobranzas V97
+      - name: Smoke test unified Por cobrar V98
         shell: bash
         run: |
           set -e
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          for asset in \
-            'facturacionCobranzasBridgeV68.js?v=TIZ-V97-SINGLE-OWNER-20260914' \
-            'cobranzasUnificadasV69.js?v=TIZ-V97-SINGLE-OWNER-20260914' \
-            'cobranzasEstadoGestionV70.js?v=TIZ-V97-SINGLE-OWNER-20260914' \
-            'cobranzasIntegralV73.js?v=TIZ-V97-SINGLE-OWNER-20260914' \
-            'facturacionAnticiposV85.js?v=TIZ-V97-SINGLE-OWNER-20260914' \
-            'facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914'; do
-            curl -fsSL "$ORIGIN/$asset" -o /tmp/a.js
-            if grep -Eq 'MutationObserver|setInterval\(|decorateTable|scheduleDecorate' /tmp/a.js; then exit 1; fi
-            node --check /tmp/a.js
-          done
-          curl -fsSL "$ORIGIN/cobranzasUnificadasStableV76.js?v=TIZ-V97-COBRANZAS-ESTABLE-20260914" -o /tmp/stable.js
-          grep -F '<th class="fv93-pdf-head">PDF</th>' /tmp/stable.js
-          grep -F '${pdfEstado(o)}' /tmp/stable.js
-          node --check /tmp/stable.js
+          curl -fsSL "$ORIGIN/cobranzasVistaUnificadaV98.js?v=TIZ-V98-POR-COBRAR-UNIFICADO-20260915" -o /tmp/v98.js
+          node --check /tmp/v98.js
+          grep -F 'Por cobrar · facturación y gestión' /tmp/v98.js
+          grep -F 'Facturar saldo' /tmp/v98.js
+          grep -F 'window.renderCobranzas=render' /tmp/v98.js
+          if grep -Eq 'MutationObserver|setInterval\(' /tmp/v98.js; then exit 1; fi
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          grep -F 'cobranzasUnificadasStableV76.js?v=TIZ-V97-COBRANZAS-ESTABLE-20260914' /tmp/index.html
-          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914' /tmp/index.html
+          grep -F 'cobranzasVistaUnificadaV98.js?v=TIZ-V98-POR-COBRAR-UNIFICADO-20260915' /tmp/index.html
