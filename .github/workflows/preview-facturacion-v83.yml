@@ -64,8 +64,6 @@ jobs:
           v99_tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>'
           drive_tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>'
 
-          # Remove any previous loader copies, including the bad copy that was
-          # accidentally inserted inside the print-window template literal.
           s=re.sub(r'\n?<script src="cobranzasVistaUnificadaV98\.js\?v=[^"]+"></script>\n?', '\n', s)
           s=re.sub(r'\n?<script src="facturacionDriveRetryUIV83\.js\?v=[^"]+"></script>\n?', '\n', s)
 
@@ -74,7 +72,6 @@ jobs:
           if body_idx < 0 or html_idx < 0 or body_idx > html_idx:
               raise SystemExit('index.html has invalid final body/html structure')
 
-          # Only the final real </body> may receive runtime module loaders.
           loaders=drive_tag+'\n'+v99_tag+'\n'
           s=s[:body_idx]+loaders+s[body_idx:]
 
@@ -82,10 +79,9 @@ jobs:
               raise SystemExit('V99 loader must appear exactly once')
           if s.count(drive_tag) != 1:
               raise SystemExit('Drive retry loader must appear exactly once')
-          if s.find(v99_tag) < s.find('printWin.document.close()'):
-              raise SystemExit('V99 loader was inserted inside printable HTML/inline script')
-          if not (s.find(v99_tag) < s.rfind('</body>') < s.rfind('</html>')):
-              raise SystemExit('V99 loader is not inside final document body')
+          expected_tail=drive_tag+'\n'+v99_tag+'\n</body>\n</html>'
+          if not s.rstrip().endswith(expected_tail):
+              raise SystemExit('runtime loaders are not immediately before the final body/html close')
 
           p.write_text(s,encoding='utf-8')
           PY
@@ -206,6 +202,6 @@ jobs:
           drive='<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>'
           if s.count(tag) != 1: raise SystemExit('deployed V99 loader count is not 1')
           if s.count(drive) != 1: raise SystemExit('deployed Drive loader count is not 1')
-          if s.find(tag) < s.find('printWin.document.close()'): raise SystemExit('deployed loader leaked into printable HTML')
-          if not (s.find(tag) < s.rfind('</body>') < s.rfind('</html>')): raise SystemExit('deployed loader is outside final body')
+          expected_tail=drive+'\n'+tag+'\n</body>\n</html>'
+          if not s.rstrip().endswith(expected_tail): raise SystemExit('deployed runtime loaders are not at the final document boundary')
           PY
