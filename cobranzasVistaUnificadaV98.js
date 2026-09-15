@@ -30,11 +30,19 @@ function indicator(o){if(!hasInvoice(o))return '';const d=drive(o),s=sent(o);con
 function actions(o){const inv=hasInvoice(o),sf=saldoFacturar(o),c=latest(o);const fact=!inv?`<button class="btn btn-primary btn-sm" onclick="abrirFacturacionGeneralV63('${o.id}')"><i class="ti ti-receipt"></i> Facturar</button>`:(sf>.01?`<button class="btn btn-primary btn-sm" onclick="abrirFacturacionGeneralV63('${o.id}')">Facturar saldo</button>`:'');const mail=c?.cae||isFc0001(o,c)?`<button class="btn btn-ghost btn-sm" onclick="abrirEnvioFacturaEmailV61('${o.id}')">${sent(o)?'Reenviar FC':'Enviar FC'}</button>`:'';return `<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;white-space:nowrap">${indicator(o)}<button class="btn btn-ghost btn-sm" onclick="editarCobranzaObraV41('${o.id}')">Gestionar</button>${fact}${mail}</div>`}
 async function saveEstado(o,sel){const prev=o.estadoGestionFactura||'';const v=sel.value;o.estadoGestionFactura=v;sel.disabled=true;try{const patch={estadoGestionFactura:v,estadoGestionFacturaActualizadoAt:new Date().toISOString()};if(v==='Cobrado')patch.estado='Cobrado';await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);window.showToast?.('Estado actualizado');render()}catch(e){console.error(e);o.estadoGestionFactura=prev;sel.value=prev||status(o);alert('No se pudo guardar el estado.')}finally{sel.disabled=false}}
 let searchTerm='';
-function ensureSearch(){const page=document.getElementById('page-cobranzas');if(!page||document.getElementById('tiz-cobr-search'))return;const tabs=page.querySelector('.page-tabs');if(!tabs)return;const wrap=document.createElement('div');wrap.id='tiz-cobr-search-wrap';wrap.style.cssText='display:flex;align-items:center;gap:8px;margin:-8px 0 14px;position:sticky;top:48px;z-index:34;background:var(--bg);padding:8px 0';wrap.innerHTML='<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border2);background:var(--surface);border-radius:999px;padding:7px 12px;min-width:320px;max-width:520px;width:min(520px,100%)"><i class="ti ti-search" style="color:var(--text3)"></i><input id="tiz-cobr-search" autocomplete="off" placeholder="Buscar OT, cliente o descripción..." style="border:0;background:transparent;color:var(--text);outline:none;width:100%;font-size:12px"></div><span id="tiz-cobr-search-count" style="font-size:10px;color:var(--text3)"></span>';tabs.insertAdjacentElement('afterend',wrap);const input=wrap.querySelector('#tiz-cobr-search');input.value=searchTerm;input.addEventListener('input',()=>{searchTerm=norm(input.value);applySearch()});}
+function tabs(){return [...document.querySelectorAll('#page-cobranzas .page-tabs .page-tab')];}
+function ensureUnifiedTabs(){
+ const all=tabs();
+ all.filter(b=>/gestiones/i.test(b.textContent||'')).forEach(b=>b.remove());
+ const current=tabs();
+ const por=current.find(b=>/por cobrar/i.test(b.textContent||''));
+ if(por){por.style.display='';por.textContent='Por cobrar';if(window.cobTab==='cobrar'||window.cobTab==='gestiones'){current.forEach(b=>b.classList.remove('active'));por.classList.add('active')}}
+}
+function ensureSearch(){const page=document.getElementById('page-cobranzas');if(!page||document.getElementById('tiz-cobr-search'))return;const tabBox=page.querySelector('.page-tabs');if(!tabBox)return;const wrap=document.createElement('div');wrap.id='tiz-cobr-search-wrap';wrap.style.cssText='display:flex;align-items:center;gap:8px;margin:-8px 0 14px;position:sticky;top:48px;z-index:34;background:var(--bg);padding:8px 0';wrap.innerHTML='<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border2);background:var(--surface);border-radius:999px;padding:7px 12px;min-width:320px;max-width:520px;width:min(520px,100%)"><i class="ti ti-search" style="color:var(--text3)"></i><input id="tiz-cobr-search" autocomplete="off" placeholder="Buscar OT, cliente o descripción..." style="border:0;background:transparent;color:var(--text);outline:none;width:100%;font-size:12px"></div><span id="tiz-cobr-search-count" style="font-size:10px;color:var(--text3)"></span>';tabBox.insertAdjacentElement('afterend',wrap);const input=wrap.querySelector('#tiz-cobr-search');input.value=searchTerm;input.addEventListener('input',()=>{searchTerm=norm(input.value);applySearch()});}
 function applySearch(){ensureSearch();const mod=document.getElementById('cobr-modulo-v48');if(!mod)return;const rows=[...mod.querySelectorAll('tbody tr')];let shown=0;rows.forEach(tr=>{if(tr.cells.length<=1){tr.style.display='';return}const txt=norm(tr.textContent);const ok=!searchTerm||txt.includes(searchTerm);tr.style.display=ok?'':'none';if(ok)shown++});const count=document.getElementById('tiz-cobr-search-count');if(count)count.textContent=searchTerm?`${shown} resultado${shown===1?'':'s'}`:'';}
 function render(){
  if(window.cobTab!=='cobrar'&&window.cobTab!=='gestiones')return;
- window.cobTab='cobrar';hideGestiones();ensureSearch();
+ window.cobTab='cobrar';ensureUnifiedTabs();ensureSearch();
  const mod=document.getElementById('cobr-modulo-v48');if(!mod)return;
  const rows=(window.DB?.obras||[]).filter(eligible).filter(o=>saldoCobro(o)>.01).sort((a,b)=>num(base(b.ot))-num(base(a.ot))).map(o=>`<tr data-v98="${esc(o.id)}"><td class="strong">${esc(base(o.ot))}</td><td><b>${esc(o.cliente||'')}</b><br><span style="color:var(--text3)">${esc(o.desc||o.descripcion||'')}</span></td><td>${facturacion(o)}</td><td>${MONEY.format(saldoCobro(o))}</td><td>${esc(date(o?.finanzas?.saldo?.fechaPrevistaCobro||o?.finanzas?.anticipo?.fechaPrevistaCobro||''))}</td><td>${selectEstado(o)}</td><td>${pdf(o)}</td><td>${actions(o)}</td></tr>`).join('');
  mod.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">Por cobrar · facturación y gestión</span><span style="font-size:10px;color:var(--text3)"><span style="color:#22a06b">●</span> En Drive + enviada &nbsp; <span style="color:#e8b84b">●</span> Falta enviar / revisar PDF</span></div><div class="table-wrap"><table><thead><tr><th>OT</th><th>Cliente / obra</th><th>Facturación</th><th>Saldo a cobrar</th><th>Cobro previsto</th><th>Estado</th><th>PDF</th><th>Acción</th></tr></thead><tbody>${rows||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">No hay saldos pendientes.</td></tr>'}</tbody></table></div></div>`;
@@ -42,13 +50,27 @@ function render(){
  mod.querySelectorAll('.tiz-v98-archive').forEach(btn=>btn.onclick=async()=>{const ok=await window.recuperarPdfFacturaV86?.(Number(btn.dataset.n||0),btn);if(ok)render()});
  applySearch();
 }
-function hideGestiones(){document.querySelectorAll('#page-cobranzas .page-tabs .page-tab').forEach(b=>{if(/gestiones/i.test(b.textContent||''))b.style.display='none';if(/por cobrar/i.test(b.textContent||'')){b.style.display='';if(window.cobTab==='cobrar')b.classList.add('active')}})}
 const priorSet=window.setCobTab;
 const priorRender=window.renderCobranzas;
-window.setCobTab=function(tab,button){if(tab==='gestiones')tab='cobrar';if(tab==='cobrar'){window.cobTab='cobrar';document.querySelectorAll('#page-cobranzas .page-tab').forEach(x=>x.classList.remove('active'));const p=[...document.querySelectorAll('#page-cobranzas .page-tab')].find(x=>/por cobrar/i.test(x.textContent||''));(p||button)?.classList.add('active');hideGestiones();ensureSearch();render();return}const r=priorSet?.apply(this,[tab,button]);hideGestiones();ensureSearch();setTimeout(applySearch,0);return r};
-window.renderCobranzas=function(){if(window.cobTab==='cobrar'||window.cobTab==='gestiones')return render();const r=priorRender?.apply(this,arguments);ensureSearch();setTimeout(applySearch,0);return r};
-hideGestiones();ensureSearch();
+window.setCobTab=function(tab,button){
+ if(tab==='gestiones')tab='cobrar';
+ if(tab==='cobrar'){
+   window.cobTab='cobrar';tabs().forEach(x=>x.classList.remove('active'));
+   const p=tabs().find(x=>/por cobrar/i.test(x.textContent||''));(p||button)?.classList.add('active');
+   ensureUnifiedTabs();ensureSearch();render();return;
+ }
+ const r=priorSet?.apply(this,[tab,button]);
+ ensureUnifiedTabs();ensureSearch();setTimeout(()=>{ensureUnifiedTabs();applySearch();},0);return r;
+};
+window.renderCobranzas=function(){
+ if(window.cobTab==='gestiones')window.cobTab='cobrar';
+ if(window.cobTab==='cobrar')return render();
+ const r=priorRender?.apply(this,arguments);
+ ensureUnifiedTabs();ensureSearch();setTimeout(()=>{ensureUnifiedTabs();applySearch();},0);return r;
+};
+ensureUnifiedTabs();ensureSearch();
 if(window.cobTab==='gestiones')window.cobTab='cobrar';
 if(window.cobTab==='cobrar')render();
-window.addEventListener('load',()=>{hideGestiones();ensureSearch();if(window.cobTab==='cobrar'||window.cobTab==='gestiones'){window.cobTab='cobrar';render()}else applySearch()},{once:true});
+window.addEventListener('load',()=>{ensureUnifiedTabs();ensureSearch();if(window.cobTab==='cobrar'||window.cobTab==='gestiones'){window.cobTab='cobrar';render()}else{ensureUnifiedTabs();applySearch()}},{once:true});
+document.addEventListener('click',e=>{const b=e.target?.closest?.('.nav-item');if(b&&/cobran/i.test(b.textContent||''))setTimeout(()=>{ensureUnifiedTabs();if(window.cobTab==='gestiones')window.cobTab='cobrar';window.renderCobranzas?.()},0)},true);
 })();
