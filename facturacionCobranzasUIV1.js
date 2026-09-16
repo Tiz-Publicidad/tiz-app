@@ -5,17 +5,13 @@ const M=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFr
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let tab='dashboard',search='';
 const dot=c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};margin-right:6px"></span>`;
-function data(){return window.TIZFactCobDataV1?.build?.()||{workItems:[],invoices:[],payments:[]}}
+function data(){return window.TIZFacturacionCobranzasDataV1?.build?.()||{workItems:[],invoices:[],payments:[]}}
 function page(){return document.getElementById('page-cobranzas')}
 function shell(){
   const p=page();if(!p)return null;
   const title=p.querySelector('.page-title');if(title)title.textContent='Facturacion y Cobranzas';
   let root=document.getElementById('fcv1-root');
-  if(!root){
-    root=document.createElement('div');root.id='fcv1-root';
-    const old=p.querySelector('.page-header')?.nextElementSibling;
-    if(old) old.replaceWith(root); else p.appendChild(root);
-  }
+  if(!root){root=document.createElement('div');root.id='fcv1-root';const old=p.querySelector('.page-header')?.nextElementSibling;if(old)old.replaceWith(root);else p.appendChild(root)}
   return root;
 }
 function statusDotFact(s){return s==='completa'?dot('#22a06b'):s==='parcial'?dot('#e8b84b'):dot('#777')}
@@ -30,12 +26,12 @@ function dashboard(d){
 }
 function facturar(d){
   const list=d.workItems.filter(w=>w.porFacturar>.01).filter(match).sort((a,b)=>Number(b.ot)-Number(a.ot));
-  const rows=list.map(w=>`<tr><td class="strong">${esc(w.ot)}</td><td><b>${esc(w.clienteNombre)}</b><br><span style="color:var(--text3)">${esc(w.descripcion)}</span></td><td>${M.format(w.importeAprobado)}</td><td>${statusDotFact(w.facturacionEstado)}${M.format(w.facturado)}</td><td><b>${M.format(w.porFacturar)}</b></td><td>${w.facturado>.01?'Saldo':'Total'}</td><td>${w.oc?esc(w.oc):(w.requiereOC?'<span class="badge badge-red">Falta OC</span>':'—')}</td><td>${esc(w.cuit||'—')}<br><span style="font-size:11px;color:var(--text3)">${esc(w.condicionIVA||'')}</span></td><td>${w.diasPago||0} dias</td><td>${w.obraId?`<button class="btn btn-primary btn-sm" onclick="abrirFacturacionGeneralV63('${esc(w.obraId)}')">${w.facturado>.01?'Facturar saldo':'Facturar'}</button> <button class="btn btn-ghost btn-sm" onclick="TIZFactCobUIV1.open('${esc(w.obraId)}')">Detalle</button>`:'<span class="badge badge-red">Obra pendiente de crear</span>'}</td></tr>`).join('');
+  const rows=list.map(w=>`<tr><td class="strong">${esc(w.ot)}</td><td><b>${esc(w.clienteNombre)}</b><br><span style="color:var(--text3)">${esc(w.descripcion)}</span></td><td>${M.format(w.importeAprobado)}</td><td>${statusDotFact(w.facturacionEstado)}${M.format(w.facturadoNeto)}</td><td><b>${M.format(w.porFacturar)}</b></td><td>${w.facturadoNeto>.01?'Saldo':'Total'}</td><td>${w.oc?esc(w.oc):(w.requiereOC?'<span class="badge badge-red">Falta OC</span>':'—')}</td><td>${esc(w.cuit||'—')}<br><span style="font-size:11px;color:var(--text3)">${esc(w.condicionIVA||'')}</span></td><td>${w.diasPago||0} dias</td><td>${w.obraId?`<button class="btn btn-primary btn-sm" onclick="abrirFacturacionGeneralV63('${esc(w.obraId)}')">${w.facturadoNeto>.01?'Facturar saldo':'Facturar'}</button> <button class="btn btn-ghost btn-sm" onclick="TIZFactCobUIV1.open('${esc(w.obraId)}')">Detalle</button>`:'<span class="badge badge-red">Obra pendiente de crear</span>'}</td></tr>`).join('');
   return table('Para facturar',['OT','Cliente / obra','Presupuesto','Facturado','Por facturar','Tipo','OC','CUIT / IVA','Pago','Accion'],rows,'No hay trabajos pendientes de facturar.');
 }
 function cobrar(d){
-  const list=d.workItems.filter(w=>w.totalFacturado>.01).filter(match).sort((a,b)=>Number(b.ot)-Number(a.ot));
-  const rows=list.map(w=>`<tr><td class="strong">${esc(w.ot)}</td><td><b>${esc(w.clienteNombre)}</b><br><span style="color:var(--text3)">${esc(w.descripcion)}</span></td><td>${M.format(w.importeAprobado)}</td><td>${statusDotFact(w.facturacionEstado)}${M.format(w.facturado)}</td><td>${statusDotCob(w.cobranzaEstado)}${M.format(w.cobrado)}</td><td><b>${M.format(w.porCobrar)}</b></td><td>${esc(w.proximoVencimiento||'—')}</td><td>${esc(w.cobranzaEstado.replace('_',' '))}</td><td>${w.facturas.some(i=>i.driveUrl)?'PDF':'—'}</td><td><button class="btn btn-ghost btn-sm" onclick="TIZFactCobUIV1.open('${esc(w.obraId)}')">Gestionar</button></td></tr>`).join('');
+  const list=d.workItems.filter(w=>w.facturadoTotal>.01).filter(match).sort((a,b)=>Number(b.ot)-Number(a.ot));
+  const rows=list.map(w=>`<tr><td class="strong">${esc(w.ot)}</td><td><b>${esc(w.clienteNombre)}</b><br><span style="color:var(--text3)">${esc(w.descripcion)}</span></td><td>${M.format(w.importeAprobado)}</td><td>${statusDotFact(w.facturacionEstado)}${M.format(w.facturadoNeto)}</td><td>${statusDotCob(w.cobranzaEstado)}${M.format(w.cobrado+w.retenciones)}</td><td><b>${M.format(w.porCobrar)}</b></td><td>${esc(w.proximoVencimiento||'—')}</td><td>${esc(w.cobranzaEstado.replace('_',' '))}</td><td>${w.invoices.some(i=>i.driveUrl)?'PDF':'—'}</td><td><button class="btn btn-ghost btn-sm" onclick="TIZFactCobUIV1.open('${esc(w.obraId)}')">Gestionar</button></td></tr>`).join('');
   return table('Por cobrar',['OT','Cliente / obra','Presupuesto','Facturacion','Cobranza','Saldo a cobrar','Proximo venc.','Estado','PDF','Accion'],rows,'No hay facturas registradas.');
 }
 function historico(d){
@@ -52,11 +48,10 @@ function render(){
 }
 function open(obraId){
   const d=data(),w=d.workItems.find(x=>x.obraId===obraId);if(!w)return;
-  document.getElementById('fcv1-drawer')?.remove();
-  const root=document.createElement('div');root.id='fcv1-drawer';root.className='modal-overlay open';
-  const inv=w.facturas.map(i=>`<tr><td>${esc(i.numeroCompleto||'—')}</td><td>${esc(i.fechaEmision||'—')}</td><td>${M.format(i.neto)}</td><td>${M.format(i.total)}</td><td>${esc(i.estadoEnvio)}</td></tr>`).join('');
-  const pay=w.cobros.map(p=>`<tr><td>${esc(p.fecha||'—')}</td><td>${M.format(p.importe)}</td><td>${esc(p.medio||'—')}</td><td>${esc(p.referencia||'')}</td></tr>`).join('');
-  root.innerHTML=`<div class="modal" style="max-width:900px"><div class="modal-title">OT ${esc(w.ot)} · ${esc(w.clienteNombre)}</div><div style="color:var(--text3);margin-bottom:12px">${esc(w.descripcion)}</div><div class="kpi-grid">${kpi('Presupuesto',M.format(w.importeAprobado))}${kpi('Facturado',M.format(w.facturado))}${kpi('Por facturar',M.format(w.porFacturar))}${kpi('Por cobrar',M.format(w.porCobrar))}</div>${table('Facturas',['Factura','Fecha','Neto','Total','Envio'],inv,'Sin facturas')}${table('Cobros',['Fecha','Importe','Medio','Referencia'],pay,'Sin cobros')}<div class="modal-actions"><button class="btn btn-ghost" id="fcv1-close">Cerrar</button>${w.obraId?`<button class="btn btn-primary" onclick="abrirFacturacionGeneralV63('${esc(w.obraId)}')">${w.facturado>.01?'Facturar saldo':'Facturar'}</button>`:''}</div></div>`;
+  document.getElementById('fcv1-drawer')?.remove();const root=document.createElement('div');root.id='fcv1-drawer';root.className='modal-overlay open';
+  const inv=w.invoices.map(i=>`<tr><td>${esc(i.numeroCompleto||'—')}</td><td>${esc(i.fechaEmision||'—')}</td><td>${M.format(i.neto)}</td><td>${M.format(i.total)}</td><td>${esc(i.estadoEnvio)}</td></tr>`).join('');
+  const pay=w.payments.map(p=>`<tr><td>${esc(p.fecha||'—')}</td><td>${M.format(p.importe)}</td><td>${esc(p.medio||'—')}</td><td>${esc(p.referencia||'')}</td></tr>`).join('');
+  root.innerHTML=`<div class="modal" style="max-width:900px"><div class="modal-title">OT ${esc(w.ot)} · ${esc(w.clienteNombre)}</div><div style="color:var(--text3);margin-bottom:12px">${esc(w.descripcion)}</div><div class="kpi-grid">${kpi('Presupuesto',M.format(w.importeAprobado))}${kpi('Facturado',M.format(w.facturadoNeto))}${kpi('Por facturar',M.format(w.porFacturar))}${kpi('Por cobrar',M.format(w.porCobrar))}</div>${table('Facturas',['Factura','Fecha','Neto','Total','Envio'],inv,'Sin facturas')}${table('Cobros',['Fecha','Importe','Medio','Referencia'],pay,'Sin cobros')}<div class="modal-actions"><button class="btn btn-ghost" id="fcv1-close">Cerrar</button>${w.obraId?`<button class="btn btn-primary" onclick="abrirFacturacionGeneralV63('${esc(w.obraId)}')">${w.facturadoNeto>.01?'Facturar saldo':'Facturar'}</button>`:''}</div></div>`;
   document.body.appendChild(root);root.querySelector('#fcv1-close').onclick=()=>root.remove();
 }
 window.TIZFactCobUIV1={render,open};
