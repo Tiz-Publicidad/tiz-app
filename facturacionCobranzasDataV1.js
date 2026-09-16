@@ -77,7 +77,7 @@ function addInvoice(out,seen,raw,ctx={}){
     fechaEmision:iso(raw?.fecha||raw?.fechaEmision||raw?.fechaFactura||ctx.fecha),
     fechaVencimientoPago:iso(raw?.fechaVencimientoPago||raw?.vencimiento||ctx.vencimiento),
     driveFileId:text(raw?.driveFileId||raw?.fileId),driveUrl:text(raw?.driveWebViewLink||raw?.driveUrl||raw?.webViewLink),
-    estadoEnvio:sentAt?'enviado':(norm(ctx.estadoGestionFactura)==='factura enviada'?'enviado':'pendiente'),
+    estadoEnvio:sentAt?'enviado':(norm(ctx.estadoGestionFactura)==='factura enviada'?'enviado':(raw?.estadoEnvio||'pendiente')),
     emailUltimoEnvioAt:sentAt,
     raw
   });
@@ -86,6 +86,7 @@ function invoicesFor(o,work){
   const out=[],seen=new Set(),ctx={obraId:o?.id||'',presupuestoId:work.presupuestoId,ot:work.ot,estadoGestionFactura:o?.estadoGestionFactura};
   for(const x of (Array.isArray(o?.facturasArca)?o.facturasArca:[]))addInvoice(out,seen,x,{...ctx,origen:'arca'});
   for(const x of (Array.isArray(o?.comprobantesArca)?o.comprobantesArca:[]))addInvoice(out,seen,x,{...ctx,origen:x?.cae?'arca':'historica'});
+  for(const x of (Array.isArray(o?.facturasManual)?o.facturasManual:[]))addInvoice(out,seen,x,{...ctx,origen:'manual'});
   addInvoice(out,seen,o?.facturaArca,{...ctx,origen:'arca'});
   const f=o?.finanzas||{};
   const a=f?.anticipo||{},s=f?.saldo||{};
@@ -98,7 +99,10 @@ function invoicesFor(o,work){
 }
 function paymentsFor(o,work,invoices){
   const out=[]; const f=o?.finanzas||{};
-  const push=(p)=>{if(num(p?.importe)>0)out.push({...p,importe:round(p.importe),retenciones:round(p.retenciones)});};
+  const push=(p)=>{if(num(p?.importe)>0||num(p?.retenciones)>0)out.push({...p,importe:round(p.importe),retenciones:round(p.retenciones)});};
+  for(const c of (Array.isArray(o?.cobros)?o.cobros:[])){
+    push({id:c?.id||`obra-cob-${work.ot}-${out.length}`,obraId:o?.id||'',invoiceId:text(c?.invoiceId),fecha:iso(c?.fecha||c?.fechaCobro),importe:num(c?.importe||c?.monto),medio:text(c?.medio),referencia:text(c?.referencia),retenciones:num(c?.retenciones),observaciones:text(c?.observaciones)});
+  }
   for(const [tipo,part] of [['anticipo',f?.anticipo||{}],['saldo',f?.saldo||{}]]){
     if(num(part?.montoCobrado)>0)push({id:`fin-${tipo}-${o?.id||work.ot}`,obraId:o?.id||'',invoiceId:'',fecha:iso(part?.fechaCobro),importe:num(part?.montoCobrado),medio:'',referencia:'',retenciones:0,observaciones:`Cobro ${tipo} (histórico)`});
   }
