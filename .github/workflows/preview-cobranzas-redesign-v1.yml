@@ -1,0 +1,163 @@
+name: Preview Cobranzas Redesign V1
+
+on:
+  push:
+    branches:
+      - codex/cobranzas-redesign-v1
+    paths:
+      - 'facturacionCobranzasDataV1.js'
+      - 'facturacionCobranzasActionsV1.js'
+      - 'facturacionCobranzasUIV1.js'
+      - 'facturacionProduccionV67.js'
+      - 'facturadorIntegralV83.js'
+      - 'facturacionEntregaUIV84.js'
+      - 'facturacionDriveRetryUIV83.js'
+      - 'index.html'
+      - '.github/workflows/preview-cobranzas-redesign-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/cobranzas-redesign-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate redesign modules
+        shell: bash
+        run: |
+          set -e
+          node --check facturacionCobranzasDataV1.js
+          node --check facturacionCobranzasActionsV1.js
+          node --check facturacionCobranzasUIV1.js
+          node --check facturacionProduccionV67.js
+          node --check facturadorIntegralV83.js
+          node --check facturacionEntregaUIV84.js
+          node --check facturacionDriveRetryUIV83.js
+          grep -q 'TIZFacturacionCobranzasDataV1' facturacionCobranzasDataV1.js
+          grep -q 'facturasManual' facturacionCobranzasDataV1.js
+          grep -q 'o?.cobros' facturacionCobranzasDataV1.js
+          grep -q 'Por facturar' facturacionCobranzasUIV1.js
+          grep -q 'Por cobrar' facturacionCobranzasUIV1.js
+
+      - name: Replace legacy Cobranzas loader chain
+        shell: bash
+        run: |
+          set -e
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old=[
+            'cobranzasDesdeObrasV41.js','facturacionProduccionV67.js','facturacionCobranzasBridgeV68.js',
+            'cobranzasUnificadasV69.js','cobranzasEstadoGestionV70.js','cobranzasRecuperarFacturadasV71.js',
+            'precioSyncV82.js','facturadorIntegralV83.js','facturacionEntregaUIV84.js','facturacionPuestoV83.js',
+            'facturacionAnticiposV85.js','facturacionDriveRetryUIV83.js','cobranzasVistaUnificadaV98.js',
+            'cobranzasIndicadorEnvioV100.js','cobranzasPorCobrarV101.js','cobranzasCompatFacturasV102.js',
+            'cobranzasCompatPresupuestosV103.js','cobranzasGestionUnificadaV104.js','cobranzasEstabilidadV105.js',
+            'cobranzasFuenteUnicaV106.js','facturacionCobranzasDataV1.js','facturacionCobranzasActionsV1.js',
+            'facturacionCobranzasUIV1.js'
+          ]
+          for name in old:
+            s=re.sub(r'\n?<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\n?', '\n', s)
+            s=re.sub(r'\n?<script src="'+re.escape(name)+r'"></script>\n?', '\n', s)
+          tags=[
+            '<script src="facturacionProduccionV67.js?v=TIZ-ARCA-PROD-20260916"></script>',
+            '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-20260916"></script>',
+            '<script src="facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-20260916"></script>',
+            '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-20260916"></script>',
+            '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V1-20260916"></script>',
+            '<script src="facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V1-20260916"></script>',
+            '<script src="facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V1-20260916"></script>'
+          ]
+          body=s.rfind('</body>')
+          if body < 0: raise SystemExit('index.html without </body>')
+          chain='\n'.join(tags)+'\n'
+          s=s[:body]+chain+s[body:]
+          p.write_text(s,encoding='utf-8')
+          banned=['cobranzasDesdeObrasV41.js','cobranzasUnificadasV69.js','cobranzasEstadoGestionV70.js','cobranzasRecuperarFacturadasV71.js','precioSyncV82.js','facturacionPuestoV83.js','facturacionAnticiposV85.js','cobranzasVistaUnificadaV98.js','cobranzasIndicadorEnvioV100.js','cobranzasPorCobrarV101.js','cobranzasCompatFacturasV102.js','cobranzasCompatPresupuestosV103.js','cobranzasGestionUnificadaV104.js','cobranzasEstabilidadV105.js','cobranzasFuenteUnicaV106.js']
+          for name in banned:
+            if name in s: raise SystemExit('legacy loader still active: '+name)
+          for tag in tags:
+            if s.count(tag)!=1: raise SystemExit('V1 loader count invalid: '+tag)
+          PY
+
+      - name: Commit clean V1 loader chain
+        shell: bash
+        run: |
+          if ! git diff --quiet -- index.html; then
+            git config user.name "TIZ Redesign Validator"
+            git config user.email "actions@users.noreply.github.com"
+            git add index.html
+            git diff --cached --check
+            git commit -m "Activate clean Facturacion y Cobranzas V1 loader"
+            git push origin HEAD:codex/cobranzas-redesign-v1
+          fi
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Configure Firebase authentication
+        shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TIZ_APP }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          set -e
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+            echo "FIREBASE_AUTH_MODE=service-account" >> "$GITHUB_ENV"
+          elif [ -n "$FIREBASE_TOKEN" ]; then
+            echo "FIREBASE_TOKEN=$FIREBASE_TOKEN" >> "$GITHUB_ENV"
+            echo "FIREBASE_AUTH_MODE=token" >> "$GITHUB_ENV"
+          else
+            echo "No Firebase credential configured"
+            exit 1
+          fi
+
+      - name: Prepare Firebase preview config
+        shell: bash
+        run: |
+          cat > firebase.redesign.preview.json <<'EOF'
+          {"hosting":{"public":".","ignore":["firebase.redesign.preview.json","firebase.json",".firebaserc",".git/**",".github/**","functions/**","node_modules/**"]}}
+          EOF
+
+      - name: Deploy isolated redesign preview
+        shell: bash
+        run: |
+          set -e
+          if [ "$FIREBASE_AUTH_MODE" = "service-account" ]; then
+            firebase hosting:channel:deploy cobranzas-redesign-v1 --expires 7d --config firebase.redesign.preview.json --project tiz---app --non-interactive
+          else
+            firebase hosting:channel:deploy cobranzas-redesign-v1 --expires 7d --config firebase.redesign.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
+          fi
+
+      - name: Smoke test clean redesign preview
+        shell: bash
+        run: |
+          set -e
+          ORIGIN='https://tiz---app--cobranzas-redesign-v1-h6sjmm0g.web.app'
+          curl -fsSL "$ORIGIN/" -o /tmp/index.html
+          for file in facturacionCobranzasDataV1.js facturacionCobranzasActionsV1.js facturacionCobranzasUIV1.js facturacionProduccionV67.js; do
+            curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
+            node --check "/tmp/$file"
+          done
+          grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V1-20260916' /tmp/index.html
+          grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V1-20260916' /tmp/index.html
+          grep -F 'facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V1-20260916' /tmp/index.html
+          grep -F 'TIZFacturacionCobranzasDataV1' /tmp/facturacionCobranzasDataV1.js
+          grep -F 'Para facturar' /tmp/facturacionCobranzasUIV1.js
+          grep -F 'Por cobrar' /tmp/facturacionCobranzasUIV1.js
+          for old in cobranzasDesdeObrasV41.js cobranzasUnificadasV69.js cobranzasVistaUnificadaV98.js cobranzasPorCobrarV101.js cobranzasFuenteUnicaV106.js; do
+            if grep -Fq "$old" /tmp/index.html; then echo "Legacy loader active: $old"; exit 1; fi
+          done
