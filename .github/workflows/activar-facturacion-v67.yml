@@ -35,7 +35,7 @@ jobs:
         with:
           ref: main
 
-      - name: Dejar V101 como unico renderer final de Por cobrar
+      - name: Dejar V101-V105 como cadena final de Cobranzas
         shell: python
         run: |
           from pathlib import Path
@@ -74,7 +74,7 @@ jobs:
           text=text[:pos]+'\n'.join(tags)+'\n'+text[pos:]
           p.write_text(text,encoding='utf-8')
 
-      - name: Verificar renderer unico
+      - name: Verificar cadena final
         shell: bash
         run: |
           set -e
