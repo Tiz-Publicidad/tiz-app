@@ -22,6 +22,7 @@ on:
       - 'cobranzasCompatPresupuestosV103.js'
       - 'cobranzasGestionUnificadaV104.js'
       - 'cobranzasEstabilidadV105.js'
+      - 'cobranzasFuenteUnicaV106.js'
 
 permissions:
   contents: write
@@ -35,7 +36,7 @@ jobs:
         with:
           ref: main
 
-      - name: Dejar V101-V105 como cadena final de Cobranzas
+      - name: Dejar V101-V106 como cadena final de Cobranzas
         shell: python
         run: |
           from pathlib import Path
@@ -56,7 +57,8 @@ jobs:
               'cobranzasCompatFacturasV102.js',
               'cobranzasCompatPresupuestosV103.js',
               'cobranzasGestionUnificadaV104.js',
-              'cobranzasEstabilidadV105.js'
+              'cobranzasEstabilidadV105.js',
+              'cobranzasFuenteUnicaV106.js'
           ]
           for name in legacy+final:
               text=re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*','',text)
@@ -67,14 +69,15 @@ jobs:
               '<script src="cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916"></script>',
               '<script src="cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916"></script>',
               '<script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>',
-              '<script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>'
+              '<script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>',
+              '<script src="cobranzasFuenteUnicaV106.js?v=TIZ-V106-FUENTE-UNICA-20260916"></script>'
           ]
           pos=text.rfind('</body>')
           if pos<0: raise SystemExit('No se encontro </body> en index.html')
           text=text[:pos]+'\n'.join(tags)+'\n'+text[pos:]
           p.write_text(text,encoding='utf-8')
 
-      - name: Verificar cadena final
+      - name: Verificar cadena final y fuente unica
         shell: bash
         run: |
           set -e
@@ -86,11 +89,15 @@ jobs:
           grep -q 'cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916' index.html
           grep -q 'cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916' index.html
           grep -q 'cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916' index.html
+          grep -q 'cobranzasFuenteUnicaV106.js?v=TIZ-V106-FUENTE-UNICA-20260916' index.html
           node --check cobranzasPorCobrarV101.js
           node --check cobranzasCompatFacturasV102.js
           node --check cobranzasCompatPresupuestosV103.js
           node --check cobranzasGestionUnificadaV104.js
           node --check cobranzasEstabilidadV105.js
+          node --check cobranzasFuenteUnicaV106.js
+          grep -q '00009-00000001' cobranzasFuenteUnicaV106.js
+          grep -q 'ensureObraFromPresupuestoV358' cobranzasFuenteUnicaV106.js
 
       - name: Commit y push si hubo cambios
         run: |
@@ -101,5 +108,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Agregar estabilidad V105 a Cobranzas"
+          git commit -m "Agregar fuente unica V106 a Cobranzas"
           git push origin main
