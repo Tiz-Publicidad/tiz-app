@@ -19,6 +19,7 @@ on:
       - 'cobranzasIndicadorEnvioV100.js'
       - 'cobranzasPorCobrarV101.js'
       - 'cobranzasCompatFacturasV102.js'
+      - 'cobranzasCompatPresupuestosV103.js'
 
 permissions:
   contents: write
@@ -50,7 +51,8 @@ jobs:
               'cobranzasVistaUnificadaV98.js',
               'cobranzasIndicadorEnvioV100.js',
               'cobranzasPorCobrarV101.js',
-              'cobranzasCompatFacturasV102.js'
+              'cobranzasCompatFacturasV102.js',
+              'cobranzasCompatPresupuestosV103.js'
           ]
           for name in legacy+final:
               text=re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*','',text)
@@ -58,7 +60,8 @@ jobs:
               '<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>',
               '<script src="cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916"></script>',
               '<script src="cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916"></script>',
-              '<script src="cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916"></script>'
+              '<script src="cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916"></script>',
+              '<script src="cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916"></script>'
           ]
           pos=text.rfind('</body>')
           if pos<0: raise SystemExit('No se encontro </body> en index.html')
@@ -74,8 +77,10 @@ jobs:
           ! grep -q 'cobranzasRestaurar4680y4701V72.js?v=' index.html
           grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916' index.html
           grep -q 'cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916' index.html
+          grep -q 'cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916' index.html
           node --check cobranzasPorCobrarV101.js
           node --check cobranzasCompatFacturasV102.js
+          node --check cobranzasCompatPresupuestosV103.js
 
       - name: Commit y push si hubo cambios
         run: |
@@ -86,5 +91,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Dejar V101 como renderer unico de Cobranzas"
+          git commit -m "Agregar compatibilidad V103 a Cobranzas"
           git push origin main
