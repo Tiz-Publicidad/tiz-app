@@ -34,8 +34,10 @@ jobs:
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' index.html
           grep -q 'cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915' index.html
+          grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-POR-COBRAR-20260916' index.html
           node --check produccionV34.js
           node --check cobranzasVistaUnificadaV98.js
+          node --check cobranzasPorCobrarV101.js
           if [ -f cobranzasIndicadorEnvioV100.js ]; then node --check cobranzasIndicadorEnvioV100.js; fi
 
       - name: Prepare site
@@ -56,9 +58,11 @@ jobs:
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" site/produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' site/index.html
           grep -q 'cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915' site/index.html
+          grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-POR-COBRAR-20260916' site/index.html
           test -f site/index.html
           test -f site/app.js
           test -f site/sectorizacionV35.js
+          test -f site/cobranzasPorCobrarV101.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
