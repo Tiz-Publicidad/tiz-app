@@ -17,6 +17,7 @@ on:
       - 'cobranzasUnificadasStableV76.js'
       - 'cobranzasVistaUnificadaV98.js'
       - 'cobranzasIndicadorEnvioV100.js'
+      - 'cobranzasPorCobrarV101.js'
 
 permissions:
   contents: write
@@ -37,13 +38,14 @@ jobs:
           import re
           p=Path('index.html')
           text=p.read_text(encoding='utf-8')
-          names=['cobranzasWatchdogV74.js','cobranzas4680V75.js','cobranzasUnificadasStableV76.js','cobranzasVistaUnificadaV98.js','cobranzasIndicadorEnvioV100.js']
+          names=['cobranzasWatchdogV74.js','cobranzas4680V75.js','cobranzasUnificadasStableV76.js','cobranzasVistaUnificadaV98.js','cobranzasIndicadorEnvioV100.js','cobranzasPorCobrarV101.js']
           for name in names:
               text=re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*','',text)
           tags=[
               '<script src="cobranzasUnificadasStableV76.js?v=TIZ-V77-APROBADAS-AUTORITATIVAS-20260907-2325"></script>',
               '<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>',
-              '<script src="cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916"></script>'
+              '<script src="cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916"></script>',
+              '<script src="cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916"></script>'
           ]
           pos=text.rfind('</body>')
           if pos<0: raise SystemExit('No se encontro </body> en index.html')
@@ -59,5 +61,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Ordenar Cobranzas V99 y activar indicador V100"
+          git commit -m "Activar vista Por cobrar V101"
           git push origin main
