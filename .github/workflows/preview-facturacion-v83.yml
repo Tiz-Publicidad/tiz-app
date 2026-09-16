@@ -59,6 +59,7 @@ jobs:
           node --check functions/index.js
           node --check functions/facturacionDriveRetryV83.js
           node --check functions/facturaDrive2026.js
+          grep -q 'TIZ V106.1' cobranzasFuenteUnicaV106.js
           grep -q '00009-00000001' cobranzasFuenteUnicaV106.js
           grep -q 'ensureObraFromPresupuestoV358' cobranzasFuenteUnicaV106.js
           python3 - <<'PY'
@@ -75,7 +76,7 @@ jobs:
               '<script src="cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916"></script>',
               '<script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>',
               '<script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>',
-              '<script src="cobranzasFuenteUnicaV106.js?v=TIZ-V106-FUENTE-UNICA-20260916"></script>'
+              '<script src="cobranzasFuenteUnicaV106.js?v=TIZ-V1061-RUNTIME-20260916"></script>'
           ]
           names=[
               'facturacionDriveRetryUIV83.js','cobranzasVistaUnificadaV98.js','cobranzasIndicadorEnvioV100.js',
@@ -195,7 +196,7 @@ jobs:
             firebase hosting:channel:deploy facturacion-v83-pruebas --expires 7d --config firebase.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
           fi
 
-      - name: Smoke test final Cobranzas view and canonical reconciliation
+      - name: Smoke test final Cobranzas view and runtime reconciliation
         shell: bash
         run: |
           set -e
@@ -207,9 +208,13 @@ jobs:
           grep -F 'Saldo a cobrar' /tmp/cobranzasPorCobrarV101.js
           grep -F 'tizV101Open' /tmp/cobranzasPorCobrarV101.js
           grep -F 'Estado de la factura' /tmp/cobranzasEstabilidadV105.js
+          grep -F 'TIZ V106.1' /tmp/cobranzasFuenteUnicaV106.js
+          grep -F 'TIZ V106.1 · FACTURACION/COBRANZAS · 16/09/2026' /tmp/cobranzasFuenteUnicaV106.js
+          grep -F 'window.DB.obras.push' /tmp/cobranzasFuenteUnicaV106.js
           grep -F '00009-00000001' /tmp/cobranzasFuenteUnicaV106.js
           grep -F 'ensureObraFromPresupuestoV358' /tmp/cobranzasFuenteUnicaV106.js
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
+          grep -F 'cobranzasFuenteUnicaV106.js?v=TIZ-V1061-RUNTIME-20260916' /tmp/index.html
           python3 - <<'PY'
           from pathlib import Path
           s=Path('/tmp/index.html').read_text(encoding='utf-8')
@@ -222,7 +227,7 @@ jobs:
               '<script src="cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916"></script>',
               '<script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>',
               '<script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>',
-              '<script src="cobranzasFuenteUnicaV106.js?v=TIZ-V106-FUENTE-UNICA-20260916"></script>'
+              '<script src="cobranzasFuenteUnicaV106.js?v=TIZ-V1061-RUNTIME-20260916"></script>'
           ]
           for tag in tags:
               if s.count(tag)!=1: raise SystemExit('deployed loader count invalid: '+tag)
