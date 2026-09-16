@@ -21,6 +21,7 @@ on:
       - 'cobranzasCompatFacturasV102.js'
       - 'cobranzasCompatPresupuestosV103.js'
       - 'cobranzasGestionUnificadaV104.js'
+      - 'cobranzasEstabilidadV105.js'
 
 permissions:
   contents: write
@@ -54,7 +55,8 @@ jobs:
               'cobranzasPorCobrarV101.js',
               'cobranzasCompatFacturasV102.js',
               'cobranzasCompatPresupuestosV103.js',
-              'cobranzasGestionUnificadaV104.js'
+              'cobranzasGestionUnificadaV104.js',
+              'cobranzasEstabilidadV105.js'
           ]
           for name in legacy+final:
               text=re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*','',text)
@@ -64,7 +66,8 @@ jobs:
               '<script src="cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916"></script>',
               '<script src="cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916"></script>',
               '<script src="cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916"></script>',
-              '<script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>'
+              '<script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>',
+              '<script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>'
           ]
           pos=text.rfind('</body>')
           if pos<0: raise SystemExit('No se encontro </body> en index.html')
@@ -82,10 +85,12 @@ jobs:
           grep -q 'cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916' index.html
           grep -q 'cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916' index.html
           grep -q 'cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916' index.html
+          grep -q 'cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916' index.html
           node --check cobranzasPorCobrarV101.js
           node --check cobranzasCompatFacturasV102.js
           node --check cobranzasCompatPresupuestosV103.js
           node --check cobranzasGestionUnificadaV104.js
+          node --check cobranzasEstabilidadV105.js
 
       - name: Commit y push si hubo cambios
         run: |
@@ -96,5 +101,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Agregar gestion unificada V104 a Cobranzas"
+          git commit -m "Agregar estabilidad V105 a Cobranzas"
           git push origin main
