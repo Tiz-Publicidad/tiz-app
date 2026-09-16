@@ -18,6 +18,7 @@ on:
       - 'cobranzasVistaUnificadaV98.js'
       - 'cobranzasIndicadorEnvioV100.js'
       - 'cobranzasPorCobrarV101.js'
+      - 'cobranzasCompatFacturasV102.js'
 
 permissions:
   contents: write
@@ -31,26 +32,50 @@ jobs:
         with:
           ref: main
 
-      - name: Ordenar scripts finales de cobranzas en index.html
+      - name: Dejar V101 como unico renderer final de Por cobrar
         shell: python
         run: |
           from pathlib import Path
           import re
           p=Path('index.html')
           text=p.read_text(encoding='utf-8')
-          names=['cobranzasWatchdogV74.js','cobranzas4680V75.js','cobranzasUnificadasStableV76.js','cobranzasVistaUnificadaV98.js','cobranzasIndicadorEnvioV100.js','cobranzasPorCobrarV101.js']
-          for name in names:
+          legacy=[
+              'cobranzasRestaurar4680y4701V72.js',
+              'cobranzasIntegralV73.js',
+              'cobranzasWatchdogV74.js',
+              'cobranzas4680V75.js',
+              'cobranzasUnificadasStableV76.js'
+          ]
+          final=[
+              'cobranzasVistaUnificadaV98.js',
+              'cobranzasIndicadorEnvioV100.js',
+              'cobranzasPorCobrarV101.js',
+              'cobranzasCompatFacturasV102.js'
+          ]
+          for name in legacy+final:
               text=re.sub(r'<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\s*','',text)
           tags=[
-              '<script src="cobranzasUnificadasStableV76.js?v=TIZ-V77-APROBADAS-AUTORITATIVAS-20260907-2325"></script>',
               '<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>',
               '<script src="cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916"></script>',
-              '<script src="cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916"></script>'
+              '<script src="cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916"></script>',
+              '<script src="cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916"></script>'
           ]
           pos=text.rfind('</body>')
           if pos<0: raise SystemExit('No se encontro </body> en index.html')
           text=text[:pos]+'\n'.join(tags)+'\n'+text[pos:]
           p.write_text(text,encoding='utf-8')
+
+      - name: Verificar renderer unico
+        shell: bash
+        run: |
+          set -e
+          ! grep -q 'cobranzasUnificadasStableV76.js?v=' index.html
+          ! grep -q 'cobranzasIntegralV73.js?v=' index.html
+          ! grep -q 'cobranzasRestaurar4680y4701V72.js?v=' index.html
+          grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916' index.html
+          grep -q 'cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916' index.html
+          node --check cobranzasPorCobrarV101.js
+          node --check cobranzasCompatFacturasV102.js
 
       - name: Commit y push si hubo cambios
         run: |
@@ -61,5 +86,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Activar vista Por cobrar V101"
+          git commit -m "Dejar V101 como renderer unico de Cobranzas"
           git push origin main
