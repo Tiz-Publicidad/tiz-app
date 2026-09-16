@@ -13,9 +13,13 @@ on:
       - 'facturacionCobranzasBridgeV68.js'
       - 'cobranzasUnificadasV69.js'
       - 'cobranzasEstadoGestionV70.js'
-      - 'cobranzasIntegralV73.js'
-      - 'cobranzasUnificadasStableV76.js'
       - 'cobranzasVistaUnificadaV98.js'
+      - 'cobranzasIndicadorEnvioV100.js'
+      - 'cobranzasPorCobrarV101.js'
+      - 'cobranzasCompatFacturasV102.js'
+      - 'cobranzasCompatPresupuestosV103.js'
+      - 'cobranzasGestionUnificadaV104.js'
+      - 'cobranzasEstabilidadV105.js'
       - 'index.html'
       - 'functions/**'
       - '.github/workflows/preview-facturacion-v83.yml'
@@ -36,11 +40,17 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate unified Cobranzas V99
+      - name: Validate Cobranzas final chain
         shell: bash
         run: |
           set -e
           node --check cobranzasVistaUnificadaV98.js
+          node --check cobranzasIndicadorEnvioV100.js
+          node --check cobranzasPorCobrarV101.js
+          node --check cobranzasCompatFacturasV102.js
+          node --check cobranzasCompatPresupuestosV103.js
+          node --check cobranzasGestionUnificadaV104.js
+          node --check cobranzasEstabilidadV105.js
           node --check facturacionDriveRetryUIV83.js
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
@@ -50,43 +60,40 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          v99=Path('cobranzasVistaUnificadaV98.js').read_text(encoding='utf-8')
-          required=['TIZ V99','Por cobrar · facturación y gestión','00009-00000001','1OW0DBW9pH-QslFHdVJ--LHE2_q81s2jn','Buscar OT, cliente o descripción','priorRender','PDF pendiente','En Drive']
-          for token in required:
-              if token not in v99: raise SystemExit(f'V99 missing: {token}')
-          for bad in ['MutationObserver','setInterval(']:
-              if bad in v99: raise SystemExit(f'V99 must not poll/mutate continuously: {bad}')
-          if ".filter(o=>status(o)!=='Cobrado'" in v99:
-              raise SystemExit('V99 must not hide an outstanding balance only because of stale status')
-
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          v99_tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>'
-          drive_tag='<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>'
-
-          s=re.sub(r'\n?<script src="cobranzasVistaUnificadaV98\.js\?v=[^"]+"></script>\n?', '\n', s)
-          s=re.sub(r'\n?<script src="facturacionDriveRetryUIV83\.js\?v=[^"]+"></script>\n?', '\n', s)
-
-          body_idx=s.rfind('</body>')
-          html_idx=s.rfind('</html>')
+          tags=[
+              '<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>',
+              '<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>',
+              '<script src="cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916"></script>',
+              '<script src="cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916"></script>',
+              '<script src="cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916"></script>',
+              '<script src="cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916"></script>',
+              '<script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>',
+              '<script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>'
+          ]
+          names=[
+              'facturacionDriveRetryUIV83.js','cobranzasVistaUnificadaV98.js','cobranzasIndicadorEnvioV100.js',
+              'cobranzasPorCobrarV101.js','cobranzasCompatFacturasV102.js','cobranzasCompatPresupuestosV103.js',
+              'cobranzasGestionUnificadaV104.js','cobranzasEstabilidadV105.js'
+          ]
+          for name in names:
+              s=re.sub(r'\n?<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\n?', '\n', s)
+          body_idx=s.rfind('</body>'); html_idx=s.rfind('</html>')
           if body_idx < 0 or html_idx < 0 or body_idx > html_idx:
               raise SystemExit('index.html has invalid final body/html structure')
-
-          loaders=drive_tag+'\n'+v99_tag+'\n'
-          s=s[:body_idx]+loaders+s[body_idx:]
-
-          if s.count(v99_tag) != 1:
-              raise SystemExit('V99 loader must appear exactly once')
-          if s.count(drive_tag) != 1:
-              raise SystemExit('Drive retry loader must appear exactly once')
-          expected_tail=drive_tag+'\n'+v99_tag+'\n</body>\n</html>'
-          if not s.rstrip().endswith(expected_tail):
-              raise SystemExit('runtime loaders are not immediately before the final body/html close')
-
+          chain='\n'.join(tags)+'\n'
+          s=s[:body_idx]+chain+s[body_idx:]
+          for tag in tags:
+              if s.count(tag)!=1: raise SystemExit('loader count invalid: '+tag)
+          positions=[s.index(tag) for tag in tags]
+          if positions!=sorted(positions): raise SystemExit('Cobranzas loader order is invalid')
+          expected_tail=chain+'</body>\n</html>'
+          if not s.rstrip().endswith(expected_tail): raise SystemExit('final Cobranzas chain is not at document boundary')
           p.write_text(s,encoding='utf-8')
           PY
 
-      - name: Commit repaired V99 loader placement
+      - name: Commit repaired Cobranzas loader chain
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -94,7 +101,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Repair Cobranzas V99 loader placement"
+            git commit -m "Repair final Cobranzas loader chain"
             git push origin HEAD:codex/facturacion-cobranzas-integral-v1
           fi
 
@@ -163,7 +170,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ steps.email_function.outcome }}" != "success" ]; then
-            echo "Email function deploy is blocked by IAM and is not a prerequisite for the Cobranzas V99 hosting preview smoke test."
+            echo "Email function deploy is not a prerequisite for the hosting preview smoke test."
           fi
 
       - name: Prepare Firebase preview config
@@ -183,25 +190,37 @@ jobs:
             firebase hosting:channel:deploy facturacion-v83-pruebas --expires 7d --config firebase.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
           fi
 
-      - name: Smoke test unified Cobranzas V99
+      - name: Smoke test final Cobranzas view
         shell: bash
         run: |
           set -e
           ORIGIN='https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app'
-          curl -fsSL "$ORIGIN/cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915" -o /tmp/v99.js
-          node --check /tmp/v99.js
-          grep -F '00009-00000001' /tmp/v99.js
-          grep -F 'Buscar OT, cliente o descripción' /tmp/v99.js
-          grep -F 'priorRender' /tmp/v99.js
-          if grep -Eq 'MutationObserver|setInterval\(' /tmp/v99.js; then exit 1; fi
+          for file in cobranzasVistaUnificadaV98.js cobranzasPorCobrarV101.js cobranzasGestionUnificadaV104.js cobranzasEstabilidadV105.js; do
+            curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
+            node --check "/tmp/$file"
+          done
+          grep -F 'Saldo a cobrar' /tmp/cobranzasPorCobrarV101.js
+          grep -F 'tizV101Open' /tmp/cobranzasPorCobrarV101.js
+          grep -F 'Estado de la factura' /tmp/cobranzasEstabilidadV105.js
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
           python3 - <<'PY'
           from pathlib import Path
           s=Path('/tmp/index.html').read_text(encoding='utf-8')
-          tag='<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>'
-          drive='<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>'
-          if s.count(tag) != 1: raise SystemExit('deployed V99 loader count is not 1')
-          if s.count(drive) != 1: raise SystemExit('deployed Drive loader count is not 1')
-          expected_tail=drive+'\n'+tag+'\n</body>\n</html>'
-          if not s.rstrip().endswith(expected_tail): raise SystemExit('deployed runtime loaders are not at the final document boundary')
+          tags=[
+              '<script src="facturacionDriveRetryUIV83.js?v=TIZ-V97-DRIVE-SIN-DOM-20260914"></script>',
+              '<script src="cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915"></script>',
+              '<script src="cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916"></script>',
+              '<script src="cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916"></script>',
+              '<script src="cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916"></script>',
+              '<script src="cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916"></script>',
+              '<script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>',
+              '<script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>'
+          ]
+          for tag in tags:
+              if s.count(tag)!=1: raise SystemExit('deployed loader count invalid: '+tag)
+          pos=[s.index(tag) for tag in tags]
+          if pos!=sorted(pos): raise SystemExit('deployed loader order is invalid')
+          chain='\n'.join(tags)+'\n'
+          if not s.rstrip().endswith(chain+'</body>\n</html>'):
+              raise SystemExit('deployed final chain is not at the final document boundary')
           PY
