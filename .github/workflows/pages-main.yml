@@ -37,6 +37,7 @@ jobs:
           grep -q 'cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916' index.html
           grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916' index.html
           grep -q 'cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916' index.html
+          grep -q 'cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916' index.html
           ! grep -q 'cobranzasUnificadasStableV76.js?v=' index.html
           ! grep -q 'cobranzasIntegralV73.js?v=' index.html
           ! grep -q 'cobranzasRestaurar4680y4701V72.js?v=' index.html
@@ -45,6 +46,7 @@ jobs:
           node --check cobranzasIndicadorEnvioV100.js
           node --check cobranzasPorCobrarV101.js
           node --check cobranzasCompatFacturasV102.js
+          node --check cobranzasCompatPresupuestosV103.js
 
       - name: Prepare site
         shell: bash
@@ -67,6 +69,7 @@ jobs:
           grep -q 'cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916' site/index.html
           grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916' site/index.html
           grep -q 'cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916' site/index.html
+          grep -q 'cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916' site/index.html
           ! grep -q 'cobranzasUnificadasStableV76.js?v=' site/index.html
           ! grep -q 'cobranzasIntegralV73.js?v=' site/index.html
           ! grep -q 'cobranzasRestaurar4680y4701V72.js?v=' site/index.html
@@ -75,6 +78,7 @@ jobs:
           test -f site/sectorizacionV35.js
           test -f site/cobranzasPorCobrarV101.js
           test -f site/cobranzasCompatFacturasV102.js
+          test -f site/cobranzasCompatPresupuestosV103.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
