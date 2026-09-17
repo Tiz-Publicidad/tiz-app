@@ -12,6 +12,7 @@ on:
       - 'facturadorIntegralV83.js'
       - 'facturacionEntregaUIV84.js'
       - 'facturacionDriveRetryUIV83.js'
+      - 'scripts/facturacionContractV89.js'
       - 'index.html'
       - '.github/workflows/preview-cobranzas-redesign-v1.yml'
   workflow_dispatch:
@@ -31,7 +32,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate redesign modules
+      - name: Validate billing workspace and behavioral contracts
         shell: bash
         run: |
           set -e
@@ -42,15 +43,18 @@ jobs:
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
           node --check facturacionDriveRetryUIV83.js
+          node --check scripts/facturacionContractV89.js
+          node scripts/facturacionContractV89.js
           grep -q 'V1.2' facturacionCobranzasDataV1.js
           grep -q 'guardarGestionFactura' facturacionCobranzasActionsV1.js
           grep -q 'Pendientes de facturar' facturacionCobranzasUIV1.js
           grep -q 'Cuentas a cobrar' facturacionCobranzasUIV1.js
           grep -q 'Gestion integral' facturacionCobranzasUIV1.js
-          grep -q 'TIZ V88' facturadorIntegralV83.js
+          grep -q 'TIZ V89' facturadorIntegralV83.js
+          grep -q "PTO=3" facturadorIntegralV83.js
           grep -q 'initializeApp(FIREBASE_CONFIG)' facturadorIntegralV83.js
           grep -q 'driveAccessToken' facturadorIntegralV83.js
-          grep -q 'TIZ V98' facturacionDriveRetryUIV83.js
+          grep -q 'TIZ V99' facturacionDriveRetryUIV83.js
 
       - name: Replace legacy Cobranzas loader chain
         shell: bash
@@ -76,9 +80,9 @@ jobs:
             s=re.sub(r'\n?<script src="'+re.escape(name)+r'"></script>\n?', '\n', s)
           tags=[
             '<script src="facturacionProduccionV67.js?v=TIZ-ARCA-PROD-20260916"></script>',
-            '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V88-20260917"></script>',
+            '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V89-20260917"></script>',
             '<script src="facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-20260916"></script>',
-            '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-V98-20260917"></script>',
+            '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-V99-20260917"></script>',
             '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V12-20260916"></script>',
             '<script src="facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V12-20260916"></script>',
             '<script src="facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V12-20260916"></script>'
@@ -102,7 +106,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Activate Facturacion V88 and Drive V98 in preview"
+            git commit -m "Activate Facturacion V89 and Drive V99 in preview"
             git push origin HEAD:codex/cobranzas-redesign-v1
           fi
 
@@ -132,7 +136,7 @@ jobs:
         shell: bash
         run: |
           cat > firebase.redesign.preview.json <<'EOF'
-          {"hosting":{"public":".","ignore":["firebase.redesign.preview.json","firebase.json",".firebaserc",".git/**",".github/**","functions/**","node_modules/**"]}}
+          {"hosting":{"public":".","ignore":["firebase.redesign.preview.json","firebase.json",".firebaserc",".git/**",".github/**","functions/**","node_modules/**","scripts/**"]}}
           EOF
 
       - name: Deploy isolated redesign preview
@@ -155,11 +159,12 @@ jobs:
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
             node --check "/tmp/$file"
           done
-          grep -F 'facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V88-20260917' /tmp/index.html
-          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-V98-20260917' /tmp/index.html
+          grep -F 'facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V89-20260917' /tmp/index.html
+          grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-V99-20260917' /tmp/index.html
+          grep -F "const PTO=3" /tmp/facturadorIntegralV83.js
           grep -F 'initializeApp(FIREBASE_CONFIG)' /tmp/facturadorIntegralV83.js
           grep -F 'driveAccessToken' /tmp/facturadorIntegralV83.js
-          grep -F 'TIZ V98' /tmp/facturacionDriveRetryUIV83.js
+          grep -F 'TIZ V99' /tmp/facturacionDriveRetryUIV83.js
           grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V12-20260916' /tmp/index.html
           grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V12-20260916' /tmp/index.html
           grep -F 'facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V12-20260916' /tmp/index.html
