@@ -146,7 +146,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          ORIGIN='https://tiz---app--cobranzas-redesign-v1-h6sjmm0g.web.app'
+          ORIGIN='https://tiz---app--cobranzas-redesign-v1-dr1okhce.web.app'
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
           for file in facturacionCobranzasDataV1.js facturacionCobranzasActionsV1.js facturacionCobranzasUIV1.js facturacionProduccionV67.js; do
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
