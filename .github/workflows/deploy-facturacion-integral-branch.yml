@@ -49,26 +49,25 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Configure Firebase authentication for functions
+      - name: Configure Firebase service account
         shell: bash
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TIZ_APP }}
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
           set -e
-          # The service account used by Hosting lacks iam.serviceAccounts.ActAs.
-          # Prefer the existing Firebase CLI token for Cloud Functions deploys.
-          if [ -n "$FIREBASE_TOKEN" ]; then
-            echo "FIREBASE_TOKEN=$FIREBASE_TOKEN" >> "$GITHUB_ENV"
-            echo "FIREBASE_AUTH_MODE=token" >> "$GITHUB_ENV"
-          elif [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
-            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
-            echo "FIREBASE_AUTH_MODE=service-account" >> "$GITHUB_ENV"
-          else
-            echo "No Firebase credential configured"
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "Falta FIREBASE_SERVICE_ACCOUNT_TIZ_APP"
             exit 1
           fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+          DEPLOYER_EMAIL=$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/firebase-service-account.json','utf8'));process.stdout.write(x.client_email||'')")
+          if [ -z "$DEPLOYER_EMAIL" ]; then
+            echo "La credencial no contiene client_email"
+            exit 1
+          fi
+          echo "DEPLOYER_EMAIL=$DEPLOYER_EMAIL" >> "$GITHUB_ENV"
+          echo "Deployer service account: $DEPLOYER_EMAIL"
 
       - name: Configure issuer environment
         shell: bash
@@ -85,8 +84,4 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ "$FIREBASE_AUTH_MODE" = "token" ]; then
-            firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
-          else
-            firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --non-interactive
-          fi
+          firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --non-interactive
