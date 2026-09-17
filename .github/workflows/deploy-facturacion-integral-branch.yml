@@ -8,6 +8,7 @@ on:
       - 'functions/**'
       - 'facturadorIntegralV83.js'
       - 'facturacionDriveRetryUIV83.js'
+      - 'facturacionEntregaUIV84.js'
       - 'facturacionCobranzasDataV1.js'
       - 'scripts/facturacionContractV89.js'
       - '.github/workflows/deploy-facturacion-integral-branch.yml'
@@ -44,9 +45,11 @@ jobs:
           node --check functions/facturacionDriveRetryV83.js
           node --check functions/facturacionRecuperarV86.js
           node --check functions/facturaDrive2026.js
+          node --check functions/facturacionEntregaV84.js
           node --check functions/arcaFiscalCoreV83.js
           node --check facturadorIntegralV83.js
           node --check facturacionDriveRetryUIV83.js
+          node --check facturacionEntregaUIV84.js
           node --check scripts/facturacionContractV89.js
           node scripts/facturacionContractV89.js
           grep -q 'cobranzas-redesign-v1-dr1okhce.web.app' functions/facturacionIntegralApiV83.js
@@ -55,6 +58,7 @@ jobs:
           grep -q 'facturasArca:allDrive' functions/facturacionIntegralApiV83.js
           grep -q 'receptorIva' functions/facturaDrive2026.js
           grep -q 'LOGO_URL' functions/facturaDrive2026.js
+          grep -q 'facturasArca:updated' functions/facturacionEntregaV84.js
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
@@ -90,11 +94,11 @@ jobs:
           ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
           EOF
 
-      - name: Deploy Facturacion V89 backend and recovery functions
+      - name: Deploy Facturacion V89 backend, recovery and delivery functions
         shell: bash
         run: |
           set +e
-          OUT=$(firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --non-interactive 2>&1)
+          OUT=$(firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86,functions:facturacionEnviarEmailV84 --project tiz---app --non-interactive 2>&1)
           CODE=$?
           printf '%s\n' "$OUT"
           if [ $CODE -ne 0 ] && printf '%s' "$OUT" | grep -q 'iam.serviceAccounts.ActAs'; then
