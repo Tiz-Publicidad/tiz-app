@@ -1,9 +1,9 @@
-name: Deploy Facturacion Integral Branch
+name: Deploy Facturacion Integral Redesign
 
 on:
   push:
     branches:
-      - codex/facturacion-cobranzas-integral-v1
+      - codex/cobranzas-redesign-v1
     paths:
       - 'functions/**'
       - '.github/workflows/deploy-facturacion-integral-branch.yml'
@@ -16,10 +16,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout branch
+      - name: Checkout redesign branch
         uses: actions/checkout@v4
         with:
-          ref: codex/facturacion-cobranzas-integral-v1
+          ref: codex/cobranzas-redesign-v1
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -30,7 +30,7 @@ jobs:
         run: npm ci
         working-directory: functions
 
-      - name: Validate syntax
+      - name: Validate syntax and V88 billing changes
         run: |
           node --check allFunctionsV86.js
           node --check index.js
@@ -39,20 +39,34 @@ jobs:
           node --check facturacionRecuperarV86.js
           node --check facturaDrive2026.js
           node --check arcaFiscalCoreV83.js
+          grep -q 'cobranzas-redesign-v1-dr1okhce.web.app' facturacionIntegralApiV83.js
+          grep -q 'driveAccessToken' facturacionIntegralApiV83.js
+          grep -q 'saldoPresupuestoNeto' facturacionIntegralApiV83.js
+          grep -q 'receptorIva' facturaDrive2026.js
+          grep -q 'LOGO_URL' facturaDrive2026.js
         working-directory: functions
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Validate Firebase credentials
+      - name: Configure Firebase authentication
         shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TIZ_APP }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
-          if [ -z "$FIREBASE_TOKEN" ]; then
-            echo "Falta FIREBASE_TOKEN"
+          set -e
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+            echo "FIREBASE_AUTH_MODE=service-account" >> "$GITHUB_ENV"
+          elif [ -n "$FIREBASE_TOKEN" ]; then
+            echo "FIREBASE_TOKEN=$FIREBASE_TOKEN" >> "$GITHUB_ENV"
+            echo "FIREBASE_AUTH_MODE=token" >> "$GITHUB_ENV"
+          else
+            echo "No Firebase credential configured"
             exit 1
           fi
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
       - name: Configure issuer environment
         shell: bash
@@ -65,7 +79,12 @@ jobs:
           ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
           EOF
 
-      - name: Deploy Facturacion V83 and recovery V86 functions
-        run: firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: Deploy Facturacion V88 backend and recovery functions
+        shell: bash
+        run: |
+          set -e
+          if [ "$FIREBASE_AUTH_MODE" = "service-account" ]; then
+            firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --non-interactive
+          else
+            firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionRecuperarHistoricosV86 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
+          fi
