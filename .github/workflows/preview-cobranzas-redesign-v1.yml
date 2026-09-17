@@ -47,6 +47,9 @@ jobs:
           grep -q 'Pendientes de facturar' facturacionCobranzasUIV1.js
           grep -q 'Cuentas a cobrar' facturacionCobranzasUIV1.js
           grep -q 'Gestion integral' facturacionCobranzasUIV1.js
+          grep -q 'TIZ V88' facturadorIntegralV83.js
+          grep -q 'initializeApp(FIREBASE_CONFIG)' facturadorIntegralV83.js
+          grep -q 'driveAccessToken' facturadorIntegralV83.js
 
       - name: Replace legacy Cobranzas loader chain
         shell: bash
@@ -72,7 +75,7 @@ jobs:
             s=re.sub(r'\n?<script src="'+re.escape(name)+r'"></script>\n?', '\n', s)
           tags=[
             '<script src="facturacionProduccionV67.js?v=TIZ-ARCA-PROD-20260916"></script>',
-            '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-20260916"></script>',
+            '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V88-20260917"></script>',
             '<script src="facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-20260916"></script>',
             '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-20260916"></script>',
             '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V12-20260916"></script>',
@@ -98,7 +101,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Activate Facturacion y Cobranzas V1.2 loader"
+            git commit -m "Activate Facturacion V88 in Cobranzas preview"
             git push origin HEAD:codex/cobranzas-redesign-v1
           fi
 
@@ -147,10 +150,13 @@ jobs:
           set -e
           ORIGIN='https://tiz---app--cobranzas-redesign-v1-dr1okhce.web.app'
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          for file in facturacionCobranzasDataV1.js facturacionCobranzasActionsV1.js facturacionCobranzasUIV1.js facturacionProduccionV67.js; do
+          for file in facturacionCobranzasDataV1.js facturacionCobranzasActionsV1.js facturacionCobranzasUIV1.js facturacionProduccionV67.js facturadorIntegralV83.js; do
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
             node --check "/tmp/$file"
           done
+          grep -F 'facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V88-20260917' /tmp/index.html
+          grep -F 'initializeApp(FIREBASE_CONFIG)' /tmp/facturadorIntegralV83.js
+          grep -F 'driveAccessToken' /tmp/facturadorIntegralV83.js
           grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V12-20260916' /tmp/index.html
           grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V12-20260916' /tmp/index.html
           grep -F 'facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V12-20260916' /tmp/index.html
