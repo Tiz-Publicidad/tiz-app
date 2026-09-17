@@ -45,8 +45,12 @@ jobs:
           grep -q 'TIZFacturacionCobranzasDataV1' facturacionCobranzasDataV1.js
           grep -q 'facturasManual' facturacionCobranzasDataV1.js
           grep -q 'o?.cobros' facturacionCobranzasDataV1.js
-          grep -q 'Por facturar' facturacionCobranzasUIV1.js
-          grep -q 'Por cobrar' facturacionCobranzasUIV1.js
+          grep -q 'candidateKeys' facturacionCobranzasDataV1.js
+          grep -q 'pendienteCobrar' facturacionCobranzasDataV1.js
+          grep -q 'guardarSeguimiento' facturacionCobranzasActionsV1.js
+          grep -q 'Pendientes de facturar' facturacionCobranzasUIV1.js
+          grep -q 'Cuentas a cobrar' facturacionCobranzasUIV1.js
+          grep -q 'Proxima gestion' facturacionCobranzasUIV1.js
 
       - name: Replace legacy Cobranzas loader chain
         shell: bash
@@ -75,9 +79,9 @@ jobs:
             '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-20260916"></script>',
             '<script src="facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-20260916"></script>',
             '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-20260916"></script>',
-            '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V1-20260916"></script>',
-            '<script src="facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V1-20260916"></script>',
-            '<script src="facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V1-20260916"></script>'
+            '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V11-20260917"></script>',
+            '<script src="facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V11-20260917"></script>',
+            '<script src="facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V11-20260917"></script>'
           ]
           body=s.rfind('</body>')
           if body < 0: raise SystemExit('index.html without </body>')
@@ -88,7 +92,7 @@ jobs:
           for name in banned:
             if name in s: raise SystemExit('legacy loader still active: '+name)
           for tag in tags:
-            if s.count(tag)!=1: raise SystemExit('V1 loader count invalid: '+tag)
+            if s.count(tag)!=1: raise SystemExit('V1.1 loader count invalid: '+tag)
           PY
 
       - name: Commit clean V1 loader chain
@@ -99,7 +103,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Activate clean Facturacion y Cobranzas V1 loader"
+            git commit -m "Activate Facturacion y Cobranzas V1.1 loader"
             git push origin HEAD:codex/cobranzas-redesign-v1
           fi
 
@@ -152,12 +156,14 @@ jobs:
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
             node --check "/tmp/$file"
           done
-          grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V1-20260916' /tmp/index.html
-          grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V1-20260916' /tmp/index.html
-          grep -F 'facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V1-20260916' /tmp/index.html
-          grep -F 'TIZFacturacionCobranzasDataV1' /tmp/facturacionCobranzasDataV1.js
-          grep -F 'Para facturar' /tmp/facturacionCobranzasUIV1.js
-          grep -F 'Por cobrar' /tmp/facturacionCobranzasUIV1.js
+          grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V11-20260917' /tmp/index.html
+          grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V11-20260917' /tmp/index.html
+          grep -F 'facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V11-20260917' /tmp/index.html
+          grep -F 'candidateKeys' /tmp/facturacionCobranzasDataV1.js
+          grep -F 'pendienteCobrar' /tmp/facturacionCobranzasDataV1.js
+          grep -F 'guardarSeguimiento' /tmp/facturacionCobranzasActionsV1.js
+          grep -F 'Pendientes de facturar' /tmp/facturacionCobranzasUIV1.js
+          grep -F 'Cuentas a cobrar' /tmp/facturacionCobranzasUIV1.js
           for old in cobranzasDesdeObrasV41.js cobranzasUnificadasV69.js cobranzasVistaUnificadaV98.js cobranzasPorCobrarV101.js cobranzasFuenteUnicaV106.js; do
             if grep -Fq "$old" /tmp/index.html; then echo "Legacy loader active: $old"; exit 1; fi
           done
