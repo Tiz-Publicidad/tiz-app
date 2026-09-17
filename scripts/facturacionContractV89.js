@@ -7,7 +7,7 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 function must(file,needle,msg){assert(read(file).includes(needle),msg||`${file} debe contener ${needle}`)}
 function mustNot(file,needle,msg){assert(!read(file).includes(needle),msg||`${file} no debe contener ${needle}`)}
 
-// Contratos estáticos: evitamos que frontend/backend vuelvan a divergir.
+// Contratos estáticos: frontend/backend no pueden volver a divergir.
 must('facturadorIntegralV83.js',"const PTO=3, PTO_LABEL='00003'",'El facturador debe usar PV 00003');
 must('facturadorIntegralV83.js','initializeApp(FIREBASE_CONFIG)','El preview debe inicializar Firebase de forma segura');
 must('facturadorIntegralV83.js','driveAccessToken','La emisión debe llevar autorización Drive');
@@ -28,6 +28,11 @@ must('functions/facturaDrive2026.js','Facturación parcial','El PDF debe informa
 must('functions/facturacionRecuperarV86.js','PTO_DEFAULT=3','Recuperación debe usar PV 00003 por defecto');
 must('functions/facturacionDriveRetryV83.js','facturasArca:all','Retry Drive debe actualizar historial de facturas');
 
+must('facturacionEntregaUIV84.js','getApps,initializeApp','El envío de email debe iniciar Firebase de forma segura en preview');
+must('functions/facturacionEntregaV84.js','cobranzas-redesign-v1-dr1okhce.web.app','La función de email debe aceptar el preview actual');
+must('functions/facturacionEntregaV84.js','facturasArca:updated','El estado de envío debe persistirse en la factura exacta, no sólo en la última');
+must('functions/facturacionEntregaV84.js','emailsFacturacion','Los destinatarios deben poder recordarse por cliente');
+
 // Contratos de cálculo fiscal.
 const core=require(path.join(root,'functions/arcaFiscalCoreV83.js'));
 let s=core.saldoFiscal(1137499,[]);assert.strictEqual(s.saldo,1137499);
@@ -35,8 +40,7 @@ s=core.saldoFiscal(1137499,[{familia:'factura',neto:568749.5}]);assert.strictEqu
 s=core.saldoFiscal(1137499,[{familia:'factura',neto:568749.5},{familia:'factura',neto:568749.5}]);assert.strictEqual(s.saldo,0);
 s=core.saldoFiscal(1000,[{familia:'factura',neto:500},{familia:'credito',neto:100}]);assert.strictEqual(s.emitido,400);assert.strictEqual(s.saldo,600);
 
-// Contrato de fuente canónica: una misma FC repetida en varias estructuras no se duplica
-// y conserva el vínculo de Drive más completo.
+// Contrato de fuente canónica: una misma FC repetida no se duplica y conserva Drive.
 global.window={DB:{
   clientes:[{id:'c1',nombre:'Ferna Hnos',cuit:'30715027573',diasPago:30}],
   presupuestos:[
