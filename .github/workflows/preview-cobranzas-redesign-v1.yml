@@ -42,15 +42,11 @@ jobs:
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
           node --check facturacionDriveRetryUIV83.js
-          grep -q 'TIZFacturacionCobranzasDataV1' facturacionCobranzasDataV1.js
-          grep -q 'facturasManual' facturacionCobranzasDataV1.js
-          grep -q 'o?.cobros' facturacionCobranzasDataV1.js
-          grep -q 'candidateKeys' facturacionCobranzasDataV1.js
-          grep -q 'pendienteCobrar' facturacionCobranzasDataV1.js
-          grep -q 'guardarSeguimiento' facturacionCobranzasActionsV1.js
+          grep -q 'V1.2' facturacionCobranzasDataV1.js
+          grep -q 'guardarGestionFactura' facturacionCobranzasActionsV1.js
           grep -q 'Pendientes de facturar' facturacionCobranzasUIV1.js
           grep -q 'Cuentas a cobrar' facturacionCobranzasUIV1.js
-          grep -q 'Proxima gestion' facturacionCobranzasUIV1.js
+          grep -q 'Gestion integral' facturacionCobranzasUIV1.js
 
       - name: Replace legacy Cobranzas loader chain
         shell: bash
@@ -79,23 +75,22 @@ jobs:
             '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-20260916"></script>',
             '<script src="facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-20260916"></script>',
             '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-20260916"></script>',
-            '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V11-20260917"></script>',
-            '<script src="facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V11-20260917"></script>',
-            '<script src="facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V11-20260917"></script>'
+            '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V12-20260916"></script>',
+            '<script src="facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V12-20260916"></script>',
+            '<script src="facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V12-20260916"></script>'
           ]
           body=s.rfind('</body>')
           if body < 0: raise SystemExit('index.html without </body>')
-          chain='\n'.join(tags)+'\n'
-          s=s[:body]+chain+s[body:]
+          s=s[:body]+'\n'.join(tags)+'\n'+s[body:]
           p.write_text(s,encoding='utf-8')
           banned=['cobranzasDesdeObrasV41.js','cobranzasUnificadasV69.js','cobranzasEstadoGestionV70.js','cobranzasRecuperarFacturadasV71.js','precioSyncV82.js','facturacionPuestoV83.js','facturacionAnticiposV85.js','cobranzasVistaUnificadaV98.js','cobranzasIndicadorEnvioV100.js','cobranzasPorCobrarV101.js','cobranzasCompatFacturasV102.js','cobranzasCompatPresupuestosV103.js','cobranzasGestionUnificadaV104.js','cobranzasEstabilidadV105.js','cobranzasFuenteUnicaV106.js']
           for name in banned:
             if name in s: raise SystemExit('legacy loader still active: '+name)
           for tag in tags:
-            if s.count(tag)!=1: raise SystemExit('V1.1 loader count invalid: '+tag)
+            if s.count(tag)!=1: raise SystemExit('V1.2 loader count invalid: '+tag)
           PY
 
-      - name: Commit clean V1 loader chain
+      - name: Commit clean V1.2 loader chain
         shell: bash
         run: |
           if ! git diff --quiet -- index.html; then
@@ -103,7 +98,7 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add index.html
             git diff --cached --check
-            git commit -m "Activate Facturacion y Cobranzas V1.1 loader"
+            git commit -m "Activate Facturacion y Cobranzas V1.2 loader"
             git push origin HEAD:codex/cobranzas-redesign-v1
           fi
 
@@ -146,7 +141,7 @@ jobs:
             firebase hosting:channel:deploy cobranzas-redesign-v1 --expires 7d --config firebase.redesign.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
           fi
 
-      - name: Smoke test clean redesign preview
+      - name: Smoke test complete billing workspace
         shell: bash
         run: |
           set -e
@@ -156,14 +151,11 @@ jobs:
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
             node --check "/tmp/$file"
           done
-          grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V11-20260917' /tmp/index.html
-          grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V11-20260917' /tmp/index.html
-          grep -F 'facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V11-20260917' /tmp/index.html
-          grep -F 'candidateKeys' /tmp/facturacionCobranzasDataV1.js
-          grep -F 'pendienteCobrar' /tmp/facturacionCobranzasDataV1.js
-          grep -F 'guardarSeguimiento' /tmp/facturacionCobranzasActionsV1.js
-          grep -F 'Pendientes de facturar' /tmp/facturacionCobranzasUIV1.js
+          grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V12-20260916' /tmp/index.html
+          grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V12-20260916' /tmp/index.html
+          grep -F 'facturacionCobranzasUIV1.js?v=TIZ-FC-UI-V12-20260916' /tmp/index.html
           grep -F 'Cuentas a cobrar' /tmp/facturacionCobranzasUIV1.js
+          grep -F 'guardarGestionFactura' /tmp/facturacionCobranzasActionsV1.js
           for old in cobranzasDesdeObrasV41.js cobranzasUnificadasV69.js cobranzasVistaUnificadaV98.js cobranzasPorCobrarV101.js cobranzasFuenteUnicaV106.js; do
             if grep -Fq "$old" /tmp/index.html; then echo "Legacy loader active: $old"; exit 1; fi
           done
