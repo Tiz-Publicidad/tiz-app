@@ -1,33 +1,14 @@
-// TIZ Facturacion y Cobranzas V1.1 - acciones operativas
+// TIZ Facturacion y Cobranzas V1.2 - acciones operativas
 (function(){
 'use strict';
-function obra(id){return (window.DB?.obras||[]).find(o=>o.id===id)||null}
-async function registrarCobro(obraId,payload){
-  const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');
-  if(typeof window.updateDoc_!=='function')throw new Error('Firestore no disponible');
-  const cobros=Array.isArray(o.cobros)?[...o.cobros]:[];
-  const row={id:'cob-'+Date.now(),fecha:String(payload?.fecha||new Date().toISOString().slice(0,10)),importe:Number(payload?.importe)||0,medio:String(payload?.medio||''),referencia:String(payload?.referencia||''),retenciones:Number(payload?.retenciones)||0,observaciones:String(payload?.observaciones||''),creadoAt:new Date().toISOString()};
-  if(!(row.importe>0||row.retenciones>0))throw new Error('El cobro o la retencion debe ser mayor a cero');
-  cobros.push(row);await window.updateDoc_('obras',obraId,{cobros});o.cobros=cobros;window.TIZFactCobUIV1?.render?.();return row;
-}
-async function registrarFacturaManual(obraId,payload){
-  const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');
-  if(typeof window.updateDoc_!=='function')throw new Error('Firestore no disponible');
-  const facturas=Array.isArray(o.facturasManual)?[...o.facturasManual]:[];
-  const numero=String(payload?.numeroCompleto||payload?.nroFactura||'').trim();if(!numero)throw new Error('Falta el numero de factura');
-  const row={id:'manual-'+Date.now(),origen:'manual',numeroCompleto:numero,fecha:String(payload?.fecha||new Date().toISOString().slice(0,10)),neto:Number(payload?.neto)||0,iva:Number(payload?.iva)||0,total:Number(payload?.total)||((Number(payload?.neto)||0)+(Number(payload?.iva)||0)),porcentaje:Number(payload?.porcentaje)||0,tipoParte:String(payload?.tipoParte||'otro'),estadoEnvio:String(payload?.estadoEnvio||'pendiente')};
-  facturas.push(row);await window.updateDoc_('obras',obraId,{facturasManual:facturas});o.facturasManual=facturas;window.TIZFactCobUIV1?.render?.();return row;
-}
-async function guardarSeguimiento(obraId,payload){
-  const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');
-  if(typeof window.updateDoc_!=='function')throw new Error('Firestore no disponible');
-  const now=new Date().toISOString();
-  const seguimientoCobranzas={accion:String(payload?.accion||''),fecha:String(payload?.fecha||''),nota:String(payload?.nota||''),actualizadoAt:now};
-  const historial=Array.isArray(o.seguimientoCobranzasHistorial)?[...o.seguimientoCobranzasHistorial]:[];
-  historial.push({...seguimientoCobranzas,id:'seg-'+Date.now()});
-  await window.updateDoc_('obras',obraId,{seguimientoCobranzas,seguimientoCobranzasHistorial:historial.slice(-100)});
-  o.seguimientoCobranzas=seguimientoCobranzas;o.seguimientoCobranzasHistorial=historial.slice(-100);window.TIZFactCobUIV1?.render?.();return seguimientoCobranzas;
-}
+const obra=id=>(window.DB?.obras||[]).find(o=>o.id===id)||null;
+const now=()=>new Date().toISOString();
+async function save(o,patch){if(!o)throw new Error('No se encontro la OT');if(typeof window.updateDoc_!=='function')throw new Error('Firestore no disponible');await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);window.TIZFactCobUIV1?.render?.();return patch}
+async function registrarCobro(obraId,payload){const o=obra(obraId);const cobros=Array.isArray(o?.cobros)?[...o.cobros]:[];const row={id:'cob-'+Date.now(),fecha:String(payload?.fecha||new Date().toISOString().slice(0,10)),importe:Number(payload?.importe)||0,medio:String(payload?.medio||''),referencia:String(payload?.referencia||''),retenciones:Number(payload?.retenciones)||0,observaciones:String(payload?.observaciones||''),creadoAt:now()};if(!(row.importe>0||row.retenciones>0))throw new Error('El cobro o la retencion debe ser mayor a cero');cobros.push(row);await save(o,{cobros});return row}
+async function registrarFacturaManual(obraId,payload){const o=obra(obraId);const facturas=Array.isArray(o?.facturasManual)?[...o.facturasManual]:[];const numero=String(payload?.numeroCompleto||payload?.nroFactura||'').trim();if(!numero)throw new Error('Falta el numero de factura');const row={id:'manual-'+Date.now(),origen:'manual',numeroCompleto:numero,fecha:String(payload?.fecha||new Date().toISOString().slice(0,10)),neto:Number(payload?.neto)||0,iva:Number(payload?.iva)||0,total:Number(payload?.total)||((Number(payload?.neto)||0)+(Number(payload?.iva)||0)),porcentaje:Number(payload?.porcentaje)||0,tipoParte:String(payload?.tipoParte||'otro'),estadoEnvio:String(payload?.estadoEnvio||'pendiente'),creadoAt:now()};facturas.push(row);await save(o,{facturasManual:facturas});return row}
+async function guardarSeguimiento(obraId,payload){const o=obra(obraId);const seguimientoCobranzas={accion:String(payload?.accion||''),fecha:String(payload?.fecha||''),nota:String(payload?.nota||''),actualizadoAt:now()};const historial=Array.isArray(o?.seguimientoCobranzasHistorial)?[...o.seguimientoCobranzasHistorial]:[];historial.push({...seguimientoCobranzas,id:'seg-'+Date.now()});await save(o,{seguimientoCobranzas,seguimientoCobranzasHistorial:historial.slice(-100)});return seguimientoCobranzas}
+async function guardarGestionFactura(obraId,invoiceKey,payload){const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');const facturacionGestion={...(o.facturacionGestion||{})};const key=String(invoiceKey||'').trim();if(!key)throw new Error('No se pudo identificar la factura');facturacionGestion[key]={...(facturacionGestion[key]||{}),estadoEnvio:String(payload?.estadoEnvio||facturacionGestion[key]?.estadoEnvio||''),fechaVencimientoPago:String(payload?.fechaVencimientoPago||facturacionGestion[key]?.fechaVencimientoPago||''),nota:String(payload?.nota||''),driveUrl:String(payload?.driveUrl||facturacionGestion[key]?.driveUrl||''),driveFileId:String(payload?.driveFileId||facturacionGestion[key]?.driveFileId||''),actualizadoAt:now()};await save(o,{facturacionGestion});return facturacionGestion[key]}
+async function guardarCondicionPago(obraId,dias){const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');const finanzas={...(o.finanzas||{}),diasPago:Number(dias)||0};await save(o,{finanzas,diasPago:Number(dias)||0});return finanzas}
 function emitirArca(obraId){if(typeof window.abrirFacturacionGeneralV63!=='function')throw new Error('El facturador ARCA no esta disponible');return window.abrirFacturacionGeneralV63(obraId)}
-window.TIZFactCobActionsV1={registrarCobro,registrarFacturaManual,guardarSeguimiento,emitirArca};
+window.TIZFactCobActionsV1={registrarCobro,registrarFacturaManual,guardarSeguimiento,guardarGestionFactura,guardarCondicionPago,emitirArca};
 })();
