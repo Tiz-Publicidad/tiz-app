@@ -51,8 +51,8 @@ jobs:
           grep -q 'Pendientes de facturar' facturacionCobranzasUIV1.js
           grep -q 'Cuentas a cobrar' facturacionCobranzasUIV1.js
           grep -q 'Gestion integral' facturacionCobranzasUIV1.js
-          grep -q 'TIZ V89' facturadorIntegralV83.js
-          grep -q "PTO=3" facturadorIntegralV83.js
+          grep -q 'TIZ V90' facturadorIntegralV83.js
+          grep -q "PTO=9" facturadorIntegralV83.js
           grep -q 'initializeApp(FIREBASE_CONFIG)' facturadorIntegralV83.js
           grep -q 'driveAccessToken' facturadorIntegralV83.js
           grep -q 'TIZ V99' facturacionDriveRetryUIV83.js
@@ -82,7 +82,7 @@ jobs:
             s=re.sub(r'\n?<script src="'+re.escape(name)+r'"></script>\n?', '\n', s)
           tags=[
             '<script src="facturacionProduccionV67.js?v=TIZ-ARCA-PROD-20260916"></script>',
-            '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V89-20260917"></script>',
+            '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V90-20260918"></script>',
             '<script src="facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-V85-20260917"></script>',
             '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-V99-20260917"></script>',
             '<script src="facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V13-20260917"></script>',
@@ -161,12 +161,12 @@ jobs:
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
             node --check "/tmp/$file"
           done
-          grep -F 'facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V89-20260917' /tmp/index.html
+          grep -F 'facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V90-20260918' /tmp/index.html
           grep -F 'facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-V85-20260917' /tmp/index.html
           grep -F 'facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-V99-20260917' /tmp/index.html
           grep -F 'facturacionCobranzasDataV1.js?v=TIZ-FC-DATA-V13-20260917' /tmp/index.html
           grep -F 'facturacionCobranzasActionsV1.js?v=TIZ-FC-ACTIONS-V13-20260917' /tmp/index.html
-          grep -F "const PTO=3" /tmp/facturadorIntegralV83.js
+          grep -F "const PTO=9" /tmp/facturadorIntegralV83.js
           grep -F 'initializeApp(FIREBASE_CONFIG)' /tmp/facturadorIntegralV83.js
           grep -F 'TIZ V99' /tmp/facturacionDriveRetryUIV83.js
           grep -F 'TIZ V85' /tmp/facturacionEntregaUIV84.js
