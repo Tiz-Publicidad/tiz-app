@@ -1,8 +1,8 @@
-// TIZ V89 — Facturador integral · puesto operativo · PV 00003
+// TIZ V90 — Facturador integral · puesto operativo · PV 00009
 (function(){
 'use strict';
 const ENDPOINT='https://us-central1-tiz---app.cloudfunctions.net/facturacionIntegralEmitirV83';
-const PTO=3, PTO_LABEL='00003';
+const PTO=9, PTO_LABEL='00009';
 const FIREBASE_CONFIG={apiKey:'AIzaSyBkTVxyE0Qd6SBTw5jf-hdn1aCP5Y9g42E',authDomain:'tiz---app.firebaseapp.com',projectId:'tiz---app',storageBucket:'tiz---app.firebasestorage.app',messagingSenderId:'52620104053',appId:'1:52620104053:web:d62bf8b7ca296581f1833c',measurementId:'G-EXPT46ZFJT'};
 const money=v=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(Number(v)||0);
 const num=v=>Number(v)||0;
