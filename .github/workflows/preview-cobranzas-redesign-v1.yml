@@ -8,7 +8,6 @@ on:
       - 'facturacionCobranzasDataV1.js'
       - 'facturacionCobranzasActionsV1.js'
       - 'facturacionCobranzasUIV1.js'
-      - 'facturacionProduccionV67.js'
       - 'facturadorIntegralV83.js'
       - 'facturacionEntregaUIV84.js'
       - 'facturacionDriveRetryUIV83.js'
@@ -39,7 +38,6 @@ jobs:
           node --check facturacionCobranzasDataV1.js
           node --check facturacionCobranzasActionsV1.js
           node --check facturacionCobranzasUIV1.js
-          node --check facturacionProduccionV67.js
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
           node --check facturacionDriveRetryUIV83.js
@@ -81,7 +79,6 @@ jobs:
             s=re.sub(r'\n?<script src="'+re.escape(name)+r'\?v=[^"]+"></script>\n?', '\n', s)
             s=re.sub(r'\n?<script src="'+re.escape(name)+r'"></script>\n?', '\n', s)
           tags=[
-            '<script src="facturacionProduccionV67.js?v=TIZ-ARCA-PROD-20260916"></script>',
             '<script src="facturadorIntegralV83.js?v=TIZ-ARCA-FACTURADOR-V90-20260918"></script>',
             '<script src="facturacionEntregaUIV84.js?v=TIZ-ARCA-ENTREGA-V85-20260917"></script>',
             '<script src="facturacionDriveRetryUIV83.js?v=TIZ-ARCA-DRIVE-V99-20260917"></script>',
@@ -157,7 +154,7 @@ jobs:
           set -e
           ORIGIN='https://tiz---app--cobranzas-redesign-v1-dr1okhce.web.app'
           curl -fsSL "$ORIGIN/" -o /tmp/index.html
-          for file in facturacionCobranzasDataV1.js facturacionCobranzasActionsV1.js facturacionCobranzasUIV1.js facturacionProduccionV67.js facturadorIntegralV83.js facturacionDriveRetryUIV83.js facturacionEntregaUIV84.js; do
+          for file in facturacionCobranzasDataV1.js facturacionCobranzasActionsV1.js facturacionCobranzasUIV1.js facturadorIntegralV83.js facturacionDriveRetryUIV83.js facturacionEntregaUIV84.js; do
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
             node --check "/tmp/$file"
           done
@@ -172,6 +169,6 @@ jobs:
           grep -F 'TIZ V85' /tmp/facturacionEntregaUIV84.js
           grep -F 'Cuentas a cobrar' /tmp/facturacionCobranzasUIV1.js
           grep -F 'guardarGestionFactura' /tmp/facturacionCobranzasActionsV1.js
-          for old in cobranzasDesdeObrasV41.js cobranzasUnificadasV69.js cobranzasVistaUnificadaV98.js cobranzasPorCobrarV101.js cobranzasFuenteUnicaV106.js; do
+          for old in facturacionProduccionV67.js cobranzasDesdeObrasV41.js cobranzasUnificadasV69.js cobranzasVistaUnificadaV98.js cobranzasPorCobrarV101.js cobranzasFuenteUnicaV106.js; do
             if grep -Fq "$old" /tmp/index.html; then echo "Legacy loader active: $old"; exit 1; fi
           done
