@@ -1,0 +1,40 @@
+name: Import Historico Excel 20260918
+
+on:
+  push:
+    branches:
+      - codex/cobranzas-redesign-v1
+    paths:
+      - 'scripts/importHistoricoExcel20260918.js'
+      - '.github/workflows/import-historico-excel-20260918.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/cobranzas-redesign-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Firebase Admin dependencies
+        run: npm ci
+        working-directory: functions
+      - name: Configure Firebase service account
+        shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TIZ_APP }}
+        run: |
+          set -e
+          test -n "$FIREBASE_SERVICE_ACCOUNT"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+          echo "NODE_PATH=$GITHUB_WORKSPACE/functions/node_modules" >> "$GITHUB_ENV"
+      - name: Validate migration
+        run: node --check scripts/importHistoricoExcel20260918.js
+      - name: Apply historical billing and collection statuses
+        run: node scripts/importHistoricoExcel20260918.js
