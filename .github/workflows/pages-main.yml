@@ -35,7 +35,7 @@ jobs:
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' index.html
           grep -q 'cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915' index.html
           grep -q 'cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916' index.html
-          grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916' index.html
+          grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V1012-SOLO-FACTURAS-20260918' index.html
           grep -q 'cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916' index.html
           grep -q 'cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916' index.html
           ! grep -q 'cobranzasUnificadasStableV76.js?v=' index.html
@@ -67,7 +67,7 @@ jobs:
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' site/index.html
           grep -q 'cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915' site/index.html
           grep -q 'cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916' site/index.html
-          grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V101-FACTURACION-COBRANZA-20260916' site/index.html
+          grep -q 'cobranzasPorCobrarV101.js?v=TIZ-V1012-SOLO-FACTURAS-20260918' site/index.html
           grep -q 'cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916' site/index.html
           grep -q 'cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916' site/index.html
           ! grep -q 'cobranzasUnificadasStableV76.js?v=' site/index.html
