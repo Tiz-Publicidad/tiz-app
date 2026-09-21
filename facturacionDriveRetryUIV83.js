@@ -1,22 +1,26 @@
 // TIZ V97 - Drive PDF: solo autorizacion + archivado. No modifica la tabla ni renderiza por su cuenta.
 (function(){
 'use strict';
-const RECOVER_ENDPOINT='https://us-central1-tiz---app.cloudfunctions.net/facturacionRecuperarHistoricosV86';
+const RECOVER_ENDPOINT='https://us-central1-tiz---app.cloudfunctions.net/facturacionReintentarDriveV83';
 const DRIVE_CACHE='tiz-drive-oauth-v97';
 let authApi=null,authReadyPromise=null,busy=false;
 
 async function preloadAuth(){
   if(authReadyPromise)return authReadyPromise;
   authReadyPromise=(async()=>{
-    const [{getApp},{getAuth,GoogleAuthProvider,reauthenticateWithPopup}]=await Promise.all([
+    const [{getApp,getApps},{getAuth,GoogleAuthProvider,reauthenticateWithPopup}]=await Promise.all([
       import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
       import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js')
     ]);
+    // Este script clásico puede ejecutarse antes que el módulo que inicializa
+    // Firebase en index.html. Esperar evita dejar cacheada una promesa rechazada.
+    for(let n=0;!getApps().length&&n<200;n++)await new Promise(r=>setTimeout(r,25));
+    if(!getApps().length)throw new Error('Firebase todavía no está inicializado');
     const auth=getAuth(getApp());
     if(typeof auth.authStateReady==='function')await auth.authStateReady();
     authApi={auth,GoogleAuthProvider,reauthenticateWithPopup};
     return authApi;
-  })();
+  })().catch(e=>{authReadyPromise=null;throw e});
   return authReadyPromise;
 }
 preloadAuth().catch(e=>console.error('[TIZ V97 auth preload]',e));
@@ -43,28 +47,34 @@ function latest(o){return [...comps(o)].sort((a,b)=>Number(b?.cbteNro||0)-Number
 function findObraByCbte(n){return (window.DB?.obras||[]).find(o=>comps(o).some(c=>Number(c?.cbteNro||0)===Number(n))||Number(o?.facturaArca?.cbteNro||0)===Number(n))||null}
 async function postJson(url,body){const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+await firebaseToken(),'Content-Type':'application/json'},body:JSON.stringify(body)}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Error del servidor');return d}
 
-window.recuperarPdfFacturaV86=async function(n,btn){
-  n=Number(n);if(!n||busy)return false;const old=btn?.textContent;
+window.recuperarPdfFacturaV2=async function(obraId,invoiceKey,btn){
+  if(busy)return false;
+  const w=window.TIZFacturacionCobranzasDataV2?.build?.().workItems?.find(x=>x.obraId===obraId);
+  const inv=w?.invoices?.find(x=>x.key===invoiceKey);
+  if(!w||!inv){alert('No se encontró la factura seleccionada.');return false;}
+  const old=btn?.textContent;
   try{
     busy=true;if(btn){btn.disabled=true;btn.textContent='Autorizando...'}
-    const access=cachedDriveToken()||await authorizeDriveDirect();if(btn)btn.textContent='Archivando...';
-    const d=await postJson(RECOVER_ENDPOINT,{cbteTipo:1,numeros:[n],driveAccessToken:access}),row=d.resultados?.[0];
-    if(!row?.ok)throw new Error(row?.error||'No se pudo recuperar el comprobante');
-    const o=findObraByCbte(n);
-    if(o){
-      const c=latest(o);
-      if(c){c.driveFileId=row.fileId;c.driveFileName=row.fileName;c.driveWebViewLink=row.webViewLink;c.drivePendiente=false;}
-      if(o.facturaArca&&Number(o.facturaArca.cbteNro||0)===n){o.facturaArca.driveFileId=row.fileId;o.facturaArca.driveFileName=row.fileName;o.facturaArca.driveWebViewLink=row.webViewLink;o.facturaArca.drivePendiente=false;o.facturaDrivePendiente=false;}
-    }
-    window.showToast?.(`FC ${row.numero}: PDF archivado en 2026 Facturacion`);
-    window.renderCobranzas?.();
+    const access=cachedDriveToken()||await authorizeDriveDirect();
+    if(btn)btn.textContent='Archivando...';
+    const d=await postJson(RECOVER_ENDPOINT,{obraId,invoiceKey,numeroCompleto:inv.numeroCompleto,cbteTipo:inv.cbteTipo,cbteNro:inv.cbteNro,driveAccessToken:access});
+    if(inv.raw){inv.raw.driveFileId=d.fileId;inv.raw.driveFileName=d.fileName;inv.raw.driveWebViewLink=d.webViewLink;inv.raw.drivePendiente=false;}
+    window.showToast?.('FC '+(d.numeroCompleto||inv.numeroCompleto)+': PDF archivado en 2026 Facturacion');
+    window.TIZFactCobUIV2?.render?.();
     return true;
   }catch(e){
-    console.error('[TIZ V97 archive]',e);
-    alert('La factura ya existe en ARCA, pero no se pudo archivar su PDF.\n\n'+(e.message||e)+'\n\nNo se vuelve a emitir ningun comprobante.');
+    console.error('[TIZ V2 archive]',e);
+    alert('La factura ya existe en ARCA, pero no se pudo archivar su PDF.\n\n'+(e.message||e)+'\n\nNo se vuelve a emitir ningún comprobante.');
     return false;
   }finally{
     busy=false;if(btn&&document.contains(btn)){btn.disabled=false;btn.textContent=old;}
   }
+};
+window.recuperarPdfFacturaV86=async function(n,btn){
+  n=Number(n);
+  const w=window.TIZFacturacionCobranzasDataV2?.build?.().workItems?.find(w=>w.invoices?.some(i=>Number(i.cbteNro)===n));
+  const inv=w?.invoices?.find(i=>Number(i.cbteNro)===n);
+  if(!w||!inv){alert('No se encontró la factura para recuperar.');return false;}
+  return window.recuperarPdfFacturaV2(w.obraId,inv.key,btn);
 };
 })();
