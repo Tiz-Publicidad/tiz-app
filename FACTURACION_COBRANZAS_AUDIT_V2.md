@@ -355,3 +355,46 @@ Esa rama ya implementa el enfoque correcto:
 - conciliación de fuentes legacy.
 
 La auditoría V2 debe portar lo útil a una rama fresca basada en el `main` actual, revisar diferencias y evitar traer de vuelta wrappers o hacks descartados.
+
+
+## Regla central de gestión: los comprobantes nunca desaparecen
+
+El módulo no debe usar el texto de estado como fuente de navegación. Una factura autorizada o registrada es un movimiento permanente de la OT y debe seguir visible en:
+- detalle de la OT;
+- histórico de comprobantes;
+- búsqueda global;
+- reportes.
+
+Cambiar el estado operativo no borra, reemplaza ni oculta movimientos existentes.
+
+### Estado operativo canónico
+
+El estado se deriva de movimientos reales:
+
+1. **Pendiente de facturación**: saldo por facturar > 0 y no hay facturación completa.
+2. **Facturado parcial**: existe factura y queda saldo por facturar.
+3. **Facturado**: saldo por facturar = 0 y queda saldo por cobrar.
+4. **Cobrado pendiente**: existe cobro/retención parcial y queda saldo por cobrar.
+5. **Cobrado**: saldo por cobrar = 0.
+6. **Histórico**: cierre administrativo; conserva todos los movimientos.
+
+La interfaz puede permitir una acción del operador para cambiar/confirmar gestión, pero debe validar consistencia:
+- no permitir marcar "Facturado" si no existe factura;
+- no permitir marcar "Cobrado" si queda saldo por cobrar, salvo cierre excepcional explícito y auditado;
+- no permitir volver a "Pendiente de facturación" borrando facturas existentes;
+- para corregir una factura se usa NC/ND o ajuste histórico explícito, nunca se oculta el comprobante.
+
+### Vista "Todas las OT"
+
+Debe existir una vista maestra independiente de las colas operativas. Sirve para buscar cualquier OT y ver:
+- estado operativo;
+- facturas;
+- cobros;
+- retenciones;
+- saldo por facturar;
+- saldo por cobrar;
+- vencimiento;
+- estado de envío;
+- próxima gestión.
+
+Así una OT puede salir de una cola porque completó una etapa, pero nunca desaparecer del módulo.
