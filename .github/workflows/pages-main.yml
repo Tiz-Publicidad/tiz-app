@@ -42,10 +42,10 @@ jobs:
           ! grep -q 'cobranzasIntegralV73.js?v=' index.html
           ! grep -q 'cobranzasRestaurar4680y4701V72.js?v=' index.html
           node --check produccionV34.js
-          node --check baseMadreSyncV111.js
+          node --check baseMadreSyncV115.js
           node --check sectorizacionV35.js
           grep -q 'sectorizacionV35.js?v=TIZ-V35-21-CONTACTOS-TODAS-MODALIDADES-20260921' index.html
-          grep -q 'baseMadreSyncV111.js?v=TIZ-BASE-MADRE-SYNC-V115-20260921' index.html
+          grep -q 'baseMadreSyncV115.js?v=TIZ-BASE-MADRE-SYNC-V115-FRESH-20260921' index.html
           node --check cobranzasVistaUnificadaV98.js
           node --check cobranzasIndicadorEnvioV100.js
           node --check cobranzasPorCobrarV101.js
@@ -80,8 +80,8 @@ jobs:
           test -f site/index.html
           test -f site/app.js
           test -f site/sectorizacionV35.js
-          test -f site/baseMadreSyncV111.js
-          grep -q 'baseMadreSyncV111.js?v=TIZ-BASE-MADRE-SYNC-V115-20260921' site/index.html
+          test -f site/baseMadreSyncV115.js
+          grep -q 'baseMadreSyncV115.js?v=TIZ-BASE-MADRE-SYNC-V115-FRESH-20260921' site/index.html
           test -f site/cobranzasPorCobrarV101.js
           test -f site/cobranzasCompatFacturasV102.js
           test -f site/cobranzasCompatPresupuestosV103.js
