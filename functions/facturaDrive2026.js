@@ -3,6 +3,7 @@
 const { google } = require("googleapis");
 const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
+const TIZ_LOGO_BASE64 = require("./tizLogoBase64");
 const { defineString } = require("firebase-functions/params");
 
 const FACTURAS_2026_FOLDER_ID = "1XYk0vAIsGZCAiJ4s7TGyQYJdVBYvYdGy";
@@ -53,10 +54,11 @@ function pdfBuffer(factura, obra, issuerCuit) {
       line(doc,left,42,right,42); line(doc,left,20,right,20); line(doc,left,20,left,246); line(doc,right,20,right,246);
       line(doc,mid,42,mid,172); line(doc,left,172,right,172); line(doc,left,202,right,202); line(doc,left,246,right,246);
 
-      doc.font("Helvetica-Bold").fontSize(10).text(razon.toUpperCase(),left+10,62,{width:mid-left-20,align:"center"});
-      labelValue(doc,"Razón Social:",razon,left+8,104,245);
-      labelValue(doc,"Domicilio Comercial:",domicilio,left+8,126,245);
-      labelValue(doc,"Condición frente al IVA:",`IVA ${condicion}`,left+8,153,245);
+      try{const logoBytes=Buffer.from(TIZ_LOGO_BASE64,"base64");doc.image(logoBytes,left+12,53,{fit:[118,42],align:"left"});}catch(e){console.warn("No se pudo insertar logo TIZ en PDF",e?.message||e)}
+      doc.font("Helvetica-Bold").fontSize(10).text(razon.toUpperCase(),left+10,98,{width:mid-left-20,align:"center"});
+      labelValue(doc,"Razón Social:",razon,left+8,116,245);
+      labelValue(doc,"Domicilio Comercial:",domicilio,left+8,136,245);
+      labelValue(doc,"Condición frente al IVA:",`IVA ${condicion}`,left+8,158,245);
 
       doc.rect(mid-28,48,56,57).stroke();
       doc.font("Helvetica-Bold").fontSize(24).text(letra,mid-28,54,{width:56,align:"center"});
@@ -75,7 +77,7 @@ function pdfBuffer(factura, obra, issuerCuit) {
       const cliente=factura.cliente||obra.cliente||"";
       labelValue(doc,"CUIT:",factura.cuit,left+8,211,245);
       labelValue(doc,"Apellido y Nombre / Razón Social:",cliente,left+215,211,330);
-      labelValue(doc,"Condición frente al IVA:",factura.condicionIVAReceptorId===4?"IVA Exento":factura.condicionIVAReceptorId===6?"Monotributo":"IVA Responsable Inscripto",left+8,231,245);
+      labelValue(doc,"Condición frente al IVA:",receptorCondicionLabel(factura.condicionIVAReceptorId),left+8,231,245);
       const ot=String(obra.ot||"").replace(/^0+/,"");
       const ref=[ot?`OT ${ot}`:"",obra.desc||obra.descripcion||""].filter(Boolean).join(" - ");
       if(ref) doc.font("Helvetica").fontSize(6.5).text(ref,left+215,231,{width:335,height:13,ellipsis:true});
