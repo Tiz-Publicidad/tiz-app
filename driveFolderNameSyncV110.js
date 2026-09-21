@@ -83,7 +83,7 @@ function wrapSaveObra(){
   const wrapped=async function(){
     const id=window.editingId?.obra||'',o=id?(window.DB?.obras||[]).find(x=>x.id===id):null;
     const cliente=T(document.getElementById('f-cliente')?.value),desc=T(document.getElementById('f-desc')?.value),ot=T(document.getElementById('f-ot')?.value);
-    const changed=!!(o&&folderId(o)&&(norm(cliente)!==norm(o.cliente)||norm(desc)!==norm(o.desc)||base(ot)!==base(o.ot)));
+    const changed=!!(o&&folderId(o));
     const result=await old.apply(this,arguments);
     if(changed){
       const target={...o,ot:ot||o.ot,cliente:cliente||o.cliente,desc:desc||o.desc};
@@ -103,7 +103,7 @@ function wrapBudgetSave(){
   const wrapped=async function(){
     const nro=T(document.getElementById('pp-nro')?.value),cliente=T(document.getElementById('pp-cliente')?.value),desc=T(document.getElementById('pp-desc')?.value);
     const p=(window.DB?.presupuestos||[]).filter(x=>base(x.nro)===base(nro)).sort((a,b)=>String(b.revision||'').localeCompare(String(a.revision||''),undefined,{numeric:true}))[0]||null;
-    const o=linkedObraForBudget(p,nro),changed=!!(o&&folderId(o)&&(norm(cliente)!==norm(o.cliente)||norm(desc)!==norm(o.desc)));
+    const o=linkedObraForBudget(p,nro),changed=!!(o&&folderId(o));
     const result=await old.apply(this,arguments);
     if(changed){
       const patch={cliente:cliente||o.cliente,desc:desc||o.desc};
