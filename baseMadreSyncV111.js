@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V1112-20260921';
+const VERSION='BASE-MADRE-SYNC-V112-20260921';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
@@ -141,6 +141,7 @@ async function syncBudget(p,{interactive=true,silent=false,token=''}={}){
   return{ok:true,row,updated:!!existing,payload};
 }
 window.sincronizarBaseMadreTIZV111=syncBudget;
+window.autorizarBaseMadreTIZV111=async function(){return getToken(true)};
 window.repararBaseMadreAprobadaV111=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
   if(!p)throw new Error('No se encontro la cotizacion');
@@ -239,8 +240,6 @@ function wrapFirestoreWrites(){
     wrapped.__baseMadreSyncV1111=true;wrapped.__baseMadreSyncOriginal=oldAdd;window.addDoc_=wrapped;
   }
 }
-function install(){wrapFirestoreWrites();wrapSave();wrapEnsure()}
-install();window.addEventListener('load',()=>{install();setTimeout(install,800);setTimeout(install,1800)});
-let n=0;const t=setInterval(()=>{install();if(++n>40)clearInterval(t)},250);
-window.__TIZ_BASE_MADRE_SYNC_V111={version:VERSION,spreadsheetId:SPREADSHEET_ID,sheet:SHEET,syncBudget,payloadFromBudget,wrapFirestoreWrites};
+function install(){/* V112: sincronizacion disparada explicitamente por sectorizacionV35 al guardar. */}
+window.__TIZ_BASE_MADRE_SYNC_V111={version:VERSION,spreadsheetId:SPREADSHEET_ID,sheet:SHEET,syncBudget,payloadFromBudget};
 })();
