@@ -3,6 +3,7 @@
 'use strict';
 const M=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const N=v=>Number(v)||0;
 let tab='dashboard',q='',cobFilter='abiertos',drawerId='',drawerTab='resumen';
 const today=()=>new Date().toISOString().slice(0,10);
 function D(){return window.TIZFacturacionCobranzasDataV2?.build?.()||{workItems:[],invoices:[],payments:[]}}
