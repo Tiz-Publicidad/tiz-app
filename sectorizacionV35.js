@@ -190,7 +190,7 @@
   }
 
   function entregaLogisticaActual(){
-    return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),contactoTelefono:val('pp-entrega-contacto-tel').trim(),contactoEmail:val('pp-entrega-contacto-email').trim(),retira:val('pp-entrega-retira').trim(),detalle:val('pp-entrega-detalle').trim()};
+    return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),contactoTelefono:val('pp-entrega-contacto-tel').trim(),contactoEmail:val('pp-entrega-contacto-email').trim(),retira:val('pp-entrega-retira').trim(),retiraTelefono:val('pp-entrega-retira-tel').trim(),retiraEmail:val('pp-entrega-retira-email').trim(),detalle:val('pp-entrega-detalle').trim()};
   }
   window.collectEntregaLogisticaPP=entregaLogisticaActual;
   window.actualizarEntregaLogisticaPP=function(){
@@ -212,31 +212,47 @@
   }
   function contactosClienteActual(){
     const c=clienteCotizacionActual();if(!c)return[];
-    const list=Array.isArray(c.contactosEntrega)?c.contactosEntrega:Array.isArray(c.contactos)?c.contactos:[];
+    const pools=[];
+    if(Array.isArray(c.contactosEntrega))pools.push(...c.contactosEntrega);
+    if(Array.isArray(c.contactosRetiro))pools.push(...c.contactosRetiro);
+    if(Array.isArray(c.contactos))pools.push(...c.contactos);
     const seen=new Set(),out=[];
-    for(const x of list){const nombre=String(x?.nombre||x?.contacto||'').trim();if(!nombre)continue;const k=normContacto(nombre);if(seen.has(k))continue;seen.add(k);out.push({nombre,telefono:String(x?.telefono||x?.tel||x?.cel||'').trim(),email:String(x?.email||x?.correo||'').trim()});}
+    for(const x of pools){const nombre=String(x?.nombre||x?.contacto||'').trim();if(!nombre)continue;const k=normContacto(nombre);if(seen.has(k))continue;seen.add(k);out.push({nombre,telefono:String(x?.telefono||x?.tel||x?.cel||'').trim(),email:String(x?.email||x?.correo||'').trim()});}
     if(c.contacto){const nombre=String(c.contacto).trim(),k=normContacto(nombre);if(nombre&&!seen.has(k))out.push({nombre,telefono:String(c.cel||'').trim(),email:String(c.email||'').trim()});}
     return out;
   }
-  window.sugerirContactoClientePP=function(){
-    const list=document.getElementById('pp-entrega-contactos-list'),input=document.getElementById('pp-entrega-contacto');if(!list||!input)return;
+  function aplicarContactoClientePP(inputId,telId,emailId,listId){
+    const input=document.getElementById(inputId),list=document.getElementById(listId);if(!input||!list)return;
     const contactos=contactosClienteActual();list.innerHTML=contactos.map(x=>'<option value="'+esc(x.nombre)+'">'+esc([x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('');
     const exact=contactos.find(x=>normContacto(x.nombre)===normContacto(input.value));
-    if(exact){const tel=document.getElementById('pp-entrega-contacto-tel'),mail=document.getElementById('pp-entrega-contacto-email');if(tel&&!tel.value)tel.value=exact.telefono||'';if(mail&&!mail.value)mail.value=exact.email||'';}
-  };
+    if(exact){const tel=document.getElementById(telId),mail=document.getElementById(emailId);if(tel&&!tel.value)tel.value=exact.telefono||'';if(mail&&!mail.value)mail.value=exact.email||'';}
+  }
+  window.sugerirContactoClientePP=function(){aplicarContactoClientePP('pp-entrega-contacto','pp-entrega-contacto-tel','pp-entrega-contacto-email','pp-entrega-contactos-list')};
+  window.sugerirRetiraClientePP=function(){aplicarContactoClientePP('pp-entrega-retira','pp-entrega-retira-tel','pp-entrega-retira-email','pp-entrega-retira-list')};
+  function mergeContacto(lista,nombre,telefono,email){
+    nombre=String(nombre||'').trim();if(!nombre)return Array.isArray(lista)?lista:[];
+    const arr=Array.isArray(lista)?lista:[],key=normContacto(nombre),out=arr.filter(x=>normContacto(x?.nombre||x?.contacto)!==key);
+    out.unshift({nombre,telefono:String(telefono||'').trim(),email:String(email||'').trim(),actualizadoAt:new Date().toISOString()});
+    return out.slice(0,30);
+  }
   async function recordarContactoEntregaCliente(clienteNombre,e){
-    const nombre=String(e?.contacto||'').trim();if(!nombre)return false;
     const cliente=clienteCotizacionActual();if(!cliente?.id||typeof window.updateDoc_!=='function')return false;
-    const telefono=String(e?.contactoTelefono||'').trim(),email=String(e?.contactoEmail||'').trim(),actual=Array.isArray(cliente.contactosEntrega)?cliente.contactosEntrega:[];
-    const key=normContacto(nombre),contactos=actual.filter(x=>normContacto(x?.nombre||x?.contacto)!==key);
-    contactos.unshift({nombre,telefono,email,actualizadoAt:new Date().toISOString()});
-    const patch={contactosEntrega:contactos.slice(0,30),contactoEntregaActualizadoAt:new Date().toISOString()};
+    const patch={};
+    if(String(e?.contacto||'').trim()){
+      patch.contactosEntrega=mergeContacto(cliente.contactosEntrega,e.contacto,e.contactoTelefono,e.contactoEmail);
+      patch.contactoEntregaActualizadoAt=new Date().toISOString();
+    }
+    if(String(e?.retira||'').trim()){
+      patch.contactosRetiro=mergeContacto(cliente.contactosRetiro,e.retira,e.retiraTelefono,e.retiraEmail);
+      patch.contactoRetiroActualizadoAt=new Date().toISOString();
+    }
+    if(!Object.keys(patch).length)return false;
     await window.updateDoc_('clientes',cliente.id,patch);Object.assign(cliente,patch);return true;
   }
   function cargarEntregaLogisticaPP(data={}){
     const e=data.entregaLogistica||data.logistica||{}, set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||'';};
-    set('pp-entrega-tipo',e.tipo||'a_definir');set('pp-entrega-domicilio',e.domicilio);set('pp-entrega-fecha',e.fecha);set('pp-entrega-contacto',e.contacto);set('pp-entrega-contacto-tel',e.contactoTelefono||e.telefonoContacto);set('pp-entrega-contacto-email',e.contactoEmail||e.emailContacto);set('pp-entrega-retira',e.retira);set('pp-entrega-detalle',e.detalle);
-    window.actualizarEntregaLogisticaPP();window.sugerirContactoClientePP?.();
+    set('pp-entrega-tipo',e.tipo||'a_definir');set('pp-entrega-domicilio',e.domicilio);set('pp-entrega-fecha',e.fecha);set('pp-entrega-contacto',e.contacto);set('pp-entrega-contacto-tel',e.contactoTelefono||e.telefonoContacto);set('pp-entrega-contacto-email',e.contactoEmail||e.emailContacto);set('pp-entrega-retira',e.retira);set('pp-entrega-retira-tel',e.retiraTelefono||e.telefonoRetira);set('pp-entrega-retira-email',e.retiraEmail||e.emailRetira);set('pp-entrega-detalle',e.detalle);
+    window.actualizarEntregaLogisticaPP();window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
   }
 
   function cleanObraModal(){
