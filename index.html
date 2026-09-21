@@ -873,7 +873,9 @@ td.strong { color: var(--text); font-weight: 500; }
         <div class="form-group full"><label>Modalidad</label><select id="pp-entrega-tipo" onchange="actualizarEntregaLogisticaPP()"><option value="a_definir">A definir</option><option value="retiro_fabrica">Retira en fábrica</option><option value="envio">Envío a domicilio</option><option value="colocacion">Con colocación</option></select></div>
         <div class="form-group pp-entrega-domicilio" style="display:none"><label>Domicilio</label><input id="pp-entrega-domicilio" placeholder="Calle, número, localidad y referencia"></div>
         <div class="form-group pp-entrega-fecha" style="display:none"><label id="pp-entrega-fecha-label">Fecha prevista</label><input id="pp-entrega-fecha" type="date"></div>
-        <div class="form-group pp-entrega-contacto" style="display:none"><label>Contacto en destino</label><input id="pp-entrega-contacto" placeholder="Nombre y teléfono"></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label>Contacto en destino</label><input id="pp-entrega-contacto" list="pp-entrega-contactos-list" placeholder="Nombre del contacto" oninput="sugerirContactoClientePP()"><datalist id="pp-entrega-contactos-list"></datalist></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label>Teléfono contacto</label><input id="pp-entrega-contacto-tel" placeholder="Teléfono / WhatsApp"></div>
+        <div class="form-group pp-entrega-contacto full" style="display:none"><label>Email contacto</label><input id="pp-entrega-contacto-email" type="email" placeholder="correo@cliente.com"></div>
         <div class="form-group pp-entrega-retira" style="display:none"><label>Persona que retira</label><input id="pp-entrega-retira" placeholder="Nombre y teléfono"></div>
         <div class="form-group full pp-entrega-detalle" style="display:none"><label id="pp-entrega-detalle-label">Indicaciones adicionales</label><textarea id="pp-entrega-detalle" placeholder="Horarios, acceso, permisos, equipos necesarios u otras indicaciones"></textarea></div>
       </div><div style="font-size:11px;color:var(--text3);margin-top:4px">Esta información se comparte en la OT con Producción, Colocaciones y los demás sectores que la necesiten.</div></div>
@@ -3562,7 +3564,7 @@ async function syncToSheets(data) {
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V81-BUSCAR-PRESUPUESTO-20260909"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-17-OBRAS-LIMPIAS-20260903"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-18-CONTACTOS-CLIENTE-20260921"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-V38-1-VINCULOS-DRIVE-20260903"></script>
 <script src="cobranzasDesdeObrasV41.js?v=TIZ-V64-BOTON-FACTURAR-20260907"></script>
 <script src="facturacionProduccionV67.js?v=TIZ-V67-ARCA-PROD-PV9-20260907"></script>
