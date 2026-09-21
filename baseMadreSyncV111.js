@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V113-20260921';
+const VERSION='BASE-MADRE-SYNC-V114-20260921';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
