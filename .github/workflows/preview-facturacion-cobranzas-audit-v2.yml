@@ -8,6 +8,7 @@ on:
       - 'facturacionCobranzasDataV2.js'
       - 'facturacionCobranzasActionsV2.js'
       - 'facturacionCobranzasUIV2.js'
+      - 'facturacionBaseMadreReconcileV2.js'
       - 'facturadorIntegralV83.js'
       - 'facturacionEntregaUIV84.js'
       - 'facturacionDriveRetryUIV83.js'
@@ -45,6 +46,7 @@ jobs:
           node --check facturacionCobranzasDataV2.js
           node --check facturacionCobranzasActionsV2.js
           node --check facturacionCobranzasUIV2.js
+          node --check facturacionBaseMadreReconcileV2.js
           node --check facturadorIntegralV83.js
           node --check facturacionEntregaUIV84.js
           node --check facturacionDriveRetryUIV83.js
@@ -61,7 +63,8 @@ jobs:
           set -e
           grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-DATA-V20-20260921' index.html
           grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V20-20260921' index.html
-          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V21-DARK-20260921' index.html
+          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V22-RECONCILE-20260921' index.html
+          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-FC-BASE-MADRE-V20-20260921' index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-V2-ARCA-V87-20260921' index.html
           grep -q 'facturacionEntregaUIV84.js?v=TIZ-FC-V2-EMAIL-V84-20260921' index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-V2-DRIVE-V97-20260921' index.html
@@ -132,11 +135,12 @@ jobs:
           set -e
           ORIGIN='https://tiz---app--facturacion-cobranzas-v2-n8fm9m8n.web.app'
           curl -fsSL "$ORIGIN/" -o /tmp/fc-index.html
-          for file in facturacionCobranzasDataV2.js facturacionCobranzasActionsV2.js facturacionCobranzasUIV2.js facturadorIntegralV83.js facturacionEntregaUIV84.js facturacionDriveRetryUIV83.js; do
+          for file in facturacionCobranzasDataV2.js facturacionCobranzasActionsV2.js facturacionCobranzasUIV2.js facturacionBaseMadreReconcileV2.js facturadorIntegralV83.js facturacionEntregaUIV84.js facturacionDriveRetryUIV83.js; do
             curl -fsSL "$ORIGIN/$file" -o "/tmp/$file"
             node --check "/tmp/$file"
           done
-          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V21-DARK-20260921' /tmp/fc-index.html
+          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V22-RECONCILE-20260921' /tmp/fc-index.html
+          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-FC-BASE-MADRE-V20-20260921' /tmp/fc-index.html
           grep -q 'Proyección' /tmp/facturacionCobranzasUIV2.js
           grep -q 'Alertas operativas' /tmp/facturacionCobranzasUIV2.js
           grep -q 'Resultados de búsqueda' /tmp/facturacionCobranzasUIV2.js
@@ -144,6 +148,8 @@ jobs:
           grep -q 'Cómo leer Facturación y Cobranzas' /tmp/facturacionCobranzasUIV2.js
           grep -q 'color-scheme:dark' /tmp/facturacionCobranzasUIV2.js
           grep -q 'fc-drawer select' /tmp/facturacionCobranzasUIV2.js
+          grep -q 'Conciliación Base Madre' /tmp/facturacionCobranzasUIV2.js
+          grep -q 'TIZFactBaseMadreV2' /tmp/facturacionBaseMadreReconcileV2.js
           grep -q 'cambiarEstadoGestion' /tmp/facturacionCobranzasActionsV2.js
           grep -q 'estadoOperativo' /tmp/facturacionCobranzasDataV2.js
           grep -q 'abrirEnvioFacturaEspecificaV2' /tmp/facturacionEntregaUIV84.js
