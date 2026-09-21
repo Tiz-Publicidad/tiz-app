@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V111-20260921';
+const VERSION='BASE-MADRE-SYNC-V1111-20260921';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
@@ -197,8 +197,42 @@ function wrapEnsure(){
   };
   wrapped.__baseMadreSyncV111=true;window.ensureObraFromPresupuestoV358=wrapped;
 }
-function install(){wrapSave();wrapEnsure()}
+
+function budgetById(id){return (window.DB?.presupuestos||[]).find(p=>p.id===id)||null}
+function wrapFirestoreWrites(){
+  const oldUpdate=window.updateDoc_;
+  if(typeof oldUpdate==='function'&&!oldUpdate.__baseMadreSyncV1111){
+    const wrapped=async function(collection,id,data){
+      if(collection!=='presupuestos'||!approved(data?.estado))return oldUpdate.apply(this,arguments);
+      const prev=budgetById(id),wasApproved=approved(prev?.estado||prev?.status||prev?.estadoRevision);
+      let token='';
+      if(!wasApproved){try{token=await getToken(true)}catch(e){console.warn('[TIZ V111.1] No se pudo autorizar Sheets antes de aprobar',e)}}
+      const result=await oldUpdate.apply(this,arguments);
+      const merged={...(prev||{}),...(data||{}),id,estado:data?.estado||prev?.estado||'Aprobado'};
+      if(!wasApproved){
+        if(token)syncBudget(merged,{interactive:false,silent:false,token}).catch(e=>{console.error('[TIZ V111.1 update]',e);window.showToast?.('Aprobado, pero no se pudo actualizar la planilla madre: '+(e.message||e))});
+        else window.showToast?.('Aprobado; falta autorizar Google Sheets para cargar la planilla madre');
+      }
+      return result;
+    };
+    wrapped.__baseMadreSyncV1111=true;wrapped.__baseMadreSyncOriginal=oldUpdate;window.updateDoc_=wrapped;
+  }
+  const oldAdd=window.addDoc_;
+  if(typeof oldAdd==='function'&&!oldAdd.__baseMadreSyncV1111){
+    const wrapped=async function(collection,data){
+      if(collection!=='presupuestos'||!approved(data?.estado))return oldAdd.apply(this,arguments);
+      let token='';try{token=await getToken(true)}catch(e){console.warn('[TIZ V111.1] No se pudo autorizar Sheets antes de crear aprobada',e)}
+      const result=await oldAdd.apply(this,arguments);
+      const p={...(data||{}),id:result?.id||'',estado:data?.estado||'Aprobado'};
+      if(token)syncBudget(p,{interactive:false,silent:false,token}).catch(e=>{console.error('[TIZ V111.1 add]',e);window.showToast?.('Aprobado, pero no se pudo actualizar la planilla madre: '+(e.message||e))});
+      else window.showToast?.('Aprobado; falta autorizar Google Sheets para cargar la planilla madre');
+      return result;
+    };
+    wrapped.__baseMadreSyncV1111=true;wrapped.__baseMadreSyncOriginal=oldAdd;window.addDoc_=wrapped;
+  }
+}
+function install(){wrapFirestoreWrites();wrapSave();wrapEnsure()}
 install();window.addEventListener('load',()=>{install();setTimeout(install,800);setTimeout(install,1800)});
 let n=0;const t=setInterval(()=>{install();if(++n>40)clearInterval(t)},250);
-window.__TIZ_BASE_MADRE_SYNC_V111={version:VERSION,spreadsheetId:SPREADSHEET_ID,sheet:SHEET,syncBudget,payloadFromBudget};
+window.__TIZ_BASE_MADRE_SYNC_V111={version:VERSION,spreadsheetId:SPREADSHEET_ID,sheet:SHEET,syncBudget,payloadFromBudget,wrapFirestoreWrites};
 })();
