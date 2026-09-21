@@ -194,16 +194,19 @@
   }
   window.collectEntregaLogisticaPP=entregaLogisticaActual;
   window.actualizarEntregaLogisticaPP=function(){
-    const tipo=val('pp-entrega-tipo')||'a_definir', envio=tipo==='envio', colocacion=tipo==='colocacion', retiro=tipo==='retiro_fabrica';
+    const tipo=val('pp-entrega-tipo')||'a_definir', envio=tipo==='envio', colocacion=tipo==='colocacion', retiro=tipo==='retiro_fabrica', indef=tipo==='a_definir';
     document.querySelectorAll('.pp-entrega-domicilio').forEach(e=>e.style.display=(envio||colocacion)?'':'none');
-    document.querySelectorAll('.pp-entrega-fecha').forEach(e=>e.style.display=tipo==='a_definir'?'none':'');
-    document.querySelectorAll('.pp-entrega-contacto').forEach(e=>e.style.display=(envio||colocacion)?'':'none');
+    document.querySelectorAll('.pp-entrega-fecha').forEach(e=>e.style.display=indef?'none':'');
+    // Todas las modalidades permiten elegir/crear un contacto del cliente.
+    document.querySelectorAll('.pp-entrega-contacto').forEach(e=>e.style.display=retiro?'none':'');
     document.querySelectorAll('.pp-entrega-retira').forEach(e=>e.style.display=retiro?'':'none');
-    document.querySelectorAll('.pp-entrega-detalle').forEach(e=>e.style.display=(envio||colocacion)?'':'none');
+    document.querySelectorAll('.pp-entrega-detalle').forEach(e=>e.style.display=(envio||colocacion||indef)?'':'none');
     const etiquetas={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
     const resumen=document.getElementById('pp-entrega-resumen');if(resumen)resumen.textContent='— '+etiquetas[tipo];
     const fecha=document.getElementById('pp-entrega-fecha-label');if(fecha)fecha.textContent=retiro?'Fecha prevista de retiro':envio?'Fecha prevista de entrega':'Fecha prevista de colocación';
-    const detalle=document.getElementById('pp-entrega-detalle-label');if(detalle)detalle.textContent=colocacion?'Acceso, horarios, permisos y equipos':'Indicaciones para la entrega';
+    const contactoLabel=document.querySelector('.pp-entrega-contacto label');if(contactoLabel)contactoLabel.textContent=indef?'Contacto de referencia':colocacion?'Contacto en obra':'Contacto en destino';
+    const detalle=document.getElementById('pp-entrega-detalle-label');if(detalle)detalle.textContent=colocacion?'Acceso, horarios, permisos y equipos':indef?'Indicaciones / referencia':'Indicaciones para la entrega';
+    window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
   };
   function normContacto(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();}
   function clienteCotizacionActual(){
@@ -523,7 +526,7 @@
         try{baseMadreToken=await window.autorizarBaseMadreTIZV111();}
         catch(e){console.warn('[TIZ Base Madre] No se autorizó Google Sheets',e);window.showToast?.('Se guardará la aprobación, pero falta autorizar la planilla madre');}
       }
-      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;try{await recordarContactoEntregaCliente(cliente,data.entregaLogistica)}catch(e){console.warn('[TIZ contactos cliente] No se pudo recordar el contacto',e)}if(normEstado(data.estado)==='Aprobado'){await window.ensureObraFromPresupuestoV358(presupuestoId,data);if(baseMadreToken&&typeof window.sincronizarBaseMadreTIZV111==='function'){try{await window.sincronizarBaseMadreTIZV111({...data,id:presupuestoId},{interactive:false,silent:true,token:baseMadreToken});window.showToast?.('Presupuesto aprobado y sincronizado con TIZ 2026 Base de Datos ✓')}catch(e){console.error('[TIZ Base Madre] Falló la sincronización',e);window.showToast?.('Presupuesto aprobado; falló la planilla madre: '+(e.message||e))}}}document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
+      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;try{await recordarContactoEntregaCliente(cliente,data.entregaLogistica)}catch(e){console.warn('[TIZ contactos cliente] No se pudo recordar el contacto',e)}let baseMadreOk=false,baseMadreError='';if(normEstado(data.estado)==='Aprobado'){await window.ensureObraFromPresupuestoV358(presupuestoId,data);if(baseMadreToken&&typeof window.sincronizarBaseMadreTIZV111==='function'){try{await window.sincronizarBaseMadreTIZV111({...data,id:presupuestoId},{interactive:false,silent:true,token:baseMadreToken});baseMadreOk=true}catch(e){baseMadreError=e?.message||String(e);console.error('[TIZ Base Madre] Falló la sincronización',e)}}else baseMadreError='No se obtuvo autorización de Google Sheets';}document.getElementById('modal-prespdf').classList.remove('open');if(normEstado(data.estado)==='Aprobado'){if(baseMadreOk)window.showToast?.('Presupuesto aprobado + Base de Datos sincronizada ✓');else{window.showToast?.('Presupuesto aprobado; Base de Datos pendiente');setTimeout(()=>alert('La OT fue aprobada, pero NO se cargó en TIZ 2026 Base de Datos.\n\n'+baseMadreError+'\n\nNo hace falta volver a crear la OT; corregiremos sólo la sincronización.'),50)}}else window.showToast?.(id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
     };
   }
 
