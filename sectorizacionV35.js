@@ -190,7 +190,7 @@
   }
 
   function entregaLogisticaActual(){
-    return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),retira:val('pp-entrega-retira').trim(),detalle:val('pp-entrega-detalle').trim()};
+    return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),contactoTelefono:val('pp-entrega-contacto-tel').trim(),contactoEmail:val('pp-entrega-contacto-email').trim(),retira:val('pp-entrega-retira').trim(),detalle:val('pp-entrega-detalle').trim()};
   }
   window.collectEntregaLogisticaPP=entregaLogisticaActual;
   window.actualizarEntregaLogisticaPP=function(){
@@ -205,10 +205,38 @@
     const fecha=document.getElementById('pp-entrega-fecha-label');if(fecha)fecha.textContent=retiro?'Fecha prevista de retiro':envio?'Fecha prevista de entrega':'Fecha prevista de colocación';
     const detalle=document.getElementById('pp-entrega-detalle-label');if(detalle)detalle.textContent=colocacion?'Acceso, horarios, permisos y equipos':'Indicaciones para la entrega';
   };
+  function normContacto(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();}
+  function clienteCotizacionActual(){
+    const nombre=val('pp-cliente').trim(),n=normContacto(nombre);
+    return (window.DB?.clientes||[]).find(c=>[c.nombre,c.razonSocial,c.razon_social,c.nombreFiscal].some(x=>normContacto(x)===n))||null;
+  }
+  function contactosClienteActual(){
+    const c=clienteCotizacionActual();if(!c)return[];
+    const list=Array.isArray(c.contactosEntrega)?c.contactosEntrega:Array.isArray(c.contactos)?c.contactos:[];
+    const seen=new Set(),out=[];
+    for(const x of list){const nombre=String(x?.nombre||x?.contacto||'').trim();if(!nombre)continue;const k=normContacto(nombre);if(seen.has(k))continue;seen.add(k);out.push({nombre,telefono:String(x?.telefono||x?.tel||x?.cel||'').trim(),email:String(x?.email||x?.correo||'').trim()});}
+    if(c.contacto){const nombre=String(c.contacto).trim(),k=normContacto(nombre);if(nombre&&!seen.has(k))out.push({nombre,telefono:String(c.cel||'').trim(),email:String(c.email||'').trim()});}
+    return out;
+  }
+  window.sugerirContactoClientePP=function(){
+    const list=document.getElementById('pp-entrega-contactos-list'),input=document.getElementById('pp-entrega-contacto');if(!list||!input)return;
+    const contactos=contactosClienteActual();list.innerHTML=contactos.map(x=>'<option value="'+esc(x.nombre)+'">'+esc([x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('');
+    const exact=contactos.find(x=>normContacto(x.nombre)===normContacto(input.value));
+    if(exact){const tel=document.getElementById('pp-entrega-contacto-tel'),mail=document.getElementById('pp-entrega-contacto-email');if(tel&&!tel.value)tel.value=exact.telefono||'';if(mail&&!mail.value)mail.value=exact.email||'';}
+  };
+  async function recordarContactoEntregaCliente(clienteNombre,e){
+    const nombre=String(e?.contacto||'').trim();if(!nombre)return false;
+    const cliente=clienteCotizacionActual();if(!cliente?.id||typeof window.updateDoc_!=='function')return false;
+    const telefono=String(e?.contactoTelefono||'').trim(),email=String(e?.contactoEmail||'').trim(),actual=Array.isArray(cliente.contactosEntrega)?cliente.contactosEntrega:[];
+    const key=normContacto(nombre),contactos=actual.filter(x=>normContacto(x?.nombre||x?.contacto)!==key);
+    contactos.unshift({nombre,telefono,email,actualizadoAt:new Date().toISOString()});
+    const patch={contactosEntrega:contactos.slice(0,30),contactoEntregaActualizadoAt:new Date().toISOString()};
+    await window.updateDoc_('clientes',cliente.id,patch);Object.assign(cliente,patch);return true;
+  }
   function cargarEntregaLogisticaPP(data={}){
     const e=data.entregaLogistica||data.logistica||{}, set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||'';};
-    set('pp-entrega-tipo',e.tipo||'a_definir');set('pp-entrega-domicilio',e.domicilio);set('pp-entrega-fecha',e.fecha);set('pp-entrega-contacto',e.contacto);set('pp-entrega-retira',e.retira);set('pp-entrega-detalle',e.detalle);
-    window.actualizarEntregaLogisticaPP();
+    set('pp-entrega-tipo',e.tipo||'a_definir');set('pp-entrega-domicilio',e.domicilio);set('pp-entrega-fecha',e.fecha);set('pp-entrega-contacto',e.contacto);set('pp-entrega-contacto-tel',e.contactoTelefono||e.telefonoContacto);set('pp-entrega-contacto-email',e.contactoEmail||e.emailContacto);set('pp-entrega-retira',e.retira);set('pp-entrega-detalle',e.detalle);
+    window.actualizarEntregaLogisticaPP();window.sugerirContactoClientePP?.();
   }
 
   function cleanObraModal(){
@@ -474,7 +502,7 @@
       const id=window.editingId?.presupuesto||existente?.id||'';
       const actual=(window.DB?.presupuestos||[]).find(p=>p.id===id)||existente||{};
       const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,calculosAuxiliares:window.collectCalculosAuxPP?.()||window.ppCalculosAux||[],vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),entregaLogistica:entregaLogisticaActual(),creadoPor:window.currentUser?.email||'',obraId:actual.obraId||'',cotizacionBase:numero};
-      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;if(normEstado(data.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(presupuestoId,data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
+      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;try{await recordarContactoEntregaCliente(cliente,data.entregaLogistica)}catch(e){console.warn('[TIZ contactos cliente] No se pudo recordar el contacto',e)}if(normEstado(data.estado)==='Aprobado')await window.ensureObraFromPresupuestoV358(presupuestoId,data);document.getElementById('modal-prespdf').classList.remove('open');window.showToast?.(normEstado(data.estado)==='Aprobado'?'Presupuesto aprobado y enviado a Obras':id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
     };
   }
 
@@ -515,6 +543,7 @@
       window.refreshCurrent=function(){ normalizeDBV35(); return oldRefresh.apply(this,arguments); };
     }
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
+    const cli=document.getElementById('pp-cliente');if(cli&&!cli.dataset.contactosEntregaV3518){cli.dataset.contactosEntregaV3518='1';cli.addEventListener('change',()=>window.sugerirContactoClientePP?.());cli.addEventListener('blur',()=>window.sugerirContactoClientePP?.());}
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
     patchEditObra(); patchPresupuestoFunctions(); bloquearGeneracionDuplicada();
     const VERSION_LABEL='TIZ V35.16 · DATOS DE PRESUPUESTO POR SECTOR · 03/09/2026';
