@@ -1,0 +1,75 @@
+name: Deploy Facturacion Cobranzas V2 Backend
+
+on:
+  push:
+    branches:
+      - codex/facturacion-cobranzas-audit-v2
+    paths:
+      - 'functions/facturacionIntegralApiV83.js'
+      - 'functions/facturacionDriveRetryV83.js'
+      - 'functions/facturacionEntregaV84.js'
+      - 'functions/facturaDrive2026.js'
+      - 'functions/tizLogoBase64.js'
+      - 'functions/arcaFiscalCoreV83.js'
+      - 'functions/index.js'
+      - 'functions/allFunctionsV86.js'
+      - 'functions/testFacturaPdfV2.js'
+      - '.github/workflows/deploy-facturacion-cobranzas-audit-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/facturacion-cobranzas-audit-v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install function dependencies
+        working-directory: functions
+        run: npm ci
+      - name: Validate fiscal backend
+        working-directory: functions
+        run: |
+          set -e
+          node --check facturacionIntegralApiV83.js
+          node --check facturacionDriveRetryV83.js
+          node --check facturacionEntregaV84.js
+          node --check facturaDrive2026.js
+          node --check arcaFiscalCoreV83.js
+          node --check index.js
+          node --check allFunctionsV86.js
+          node testFacturaPdfV2.js
+          grep -q 'const PTO=9' facturacionIntegralApiV83.js
+          grep -q 'CondicionIVAReceptorId' facturacionIntegralApiV83.js
+          grep -q 'driveAccessToken' facturacionIntegralApiV83.js
+          grep -q 'TIZ_LOGO_BASE64' facturaDrive2026.js
+          grep -q 'Consumidor Final' facturaDrive2026.js
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Validate Firebase token
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "Falta FIREBASE_TOKEN"
+            exit 1
+          fi
+      - name: Configure issuer environment
+        working-directory: functions
+        run: |
+          cat > .env.tiz---app <<'EOF'
+          ARCA_ISSUER_RAZON_SOCIAL=SixSigma SRL
+          ARCA_ISSUER_NOMBRE_FANTASIA=TIZ Publicidad
+          ARCA_ISSUER_DOMICILIO=Mosconi 1234, Los Polvorines, Buenos Aires
+          ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
+          EOF
+      - name: Deploy production billing functions
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:facturacionEnviarEmailV84 --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
