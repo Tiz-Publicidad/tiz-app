@@ -280,3 +280,78 @@ Debe pasar:
 - No tocar `main` mientras dure la auditoría integral.
 - No publicar cambios parciales de Facturación/Cobranzas en producción.
 - ARCA producción no se invoca en pruebas automáticas.
+
+
+## Hallazgos P0/P1 agregados tras revisar el historial y el código
+
+### P0 — múltiples owners de Cobranzas
+Además de la documentación anterior, se confirmó que varias capas siguen reemplazando o envolviendo `window.renderCobranzas` y `window.setCobTab`. Este patrón es una causa directa de regresiones, pantallas inconsistentes y fixes que dejan de surtir efecto según el orden de carga.
+
+**Regla V2:** un único renderer activo. Los módulos legacy pueden seguir existiendo para rollback, pero no formar parte del loader productivo del módulo nuevo.
+
+### P0 — escrituras dentro del render
+`cobranzasFuenteUnicaV106.js` ejecuta reconciliaciones y escrituras de Firestore desde hooks asociados a render/refresco. Esto puede generar loops, alertas repetidas, cambios de estado no solicitados y resultados dependientes del timing.
+
+**Regla V2:** render = sólo lectura. Las reparaciones de datos deben ser comandos/migraciones explícitos, idempotentes y auditables.
+
+### P0 — hardcodes operativos
+Se detectaron facturas históricas concretas hardcodeadas dentro de runtime productivo.
+
+**Regla V2:** no debe existir ninguna factura/OT específica en lógica general. Todo histórico entra por migración o datos persistidos.
+
+### P0 — FCE y vencimiento de pago
+El backend ARCA productivo construye `FchVtoPago` para 201/206 usando la fecha del comprobante. Debe revisarse con los días de pago reales del cliente/operación antes de considerar la FCE validada para producción.
+
+### P1 — notas de crédito/débito
+El backend actual soporta 1, 6, 201 y 206. Si se incorporan NC/ND, deben implementarse como flujos separados, con comprobante asociado obligatorio y pruebas fiscales propias. No se agregan sólo por UI.
+
+### P1 — post-CAE
+PDF, Drive y email son pasos posteriores a la autorización fiscal. Si alguno falla:
+- no reemitir;
+- recuperar la factura autorizada;
+- reintentar PDF/Drive/email sobre la misma FC;
+- mostrar tarea pendiente al operador.
+
+### P1 — modelo financiero duplicado
+Hoy una factura puede aparecer en varios campos legacy. La rama `codex/cobranzas-redesign-v1` ya tiene un adaptador V1.3 que deduplica por PV+número/CAE y es una mejor base que seguir extendiendo V100–V106.
+
+## Errores y fricciones históricas que V2 debe evitar
+
+Del trabajo de esta conversación se incorporan como casos obligatorios:
+
+- Error Firebase `No Firebase App '[DEFAULT]' has been created` al intentar emitir.
+- Facturación desde PV incorrecto: se fija **PV 00009**.
+- Obras sin factura apareciendo en `Por cobrar`.
+- Obras realmente pendientes de factura faltando en `Para facturar`.
+- Estados históricos del Excel no respetados.
+- Anticipo/saldo históricos tratados como dos OT cuando deben ser una sola OT con movimientos.
+- Facturas emitidas sin PDF de Drive visible.
+- Factura emitida pero no enviada sin indicador claro.
+- Riesgo de reemitir cuando ARCA pudo haber autorizado pero falló el paso siguiente.
+- Pantalla negra/owners duplicados de Facturación y Cobranzas.
+- Estados que entran en loop o cambian solos.
+- Alertas repetidas de sincronización.
+- Datos de cliente incompletos: CUIT, condición IVA, email, días de pago.
+- Necesidad de editar cliente/estado desde Obras y Presupuestos.
+- Reportes y dashboards que no reflejan saldos reales.
+- Necesidad de búsqueda por OT, cliente, descripción y factura.
+- Históricos previos al sistema que no deben contaminar la cola operativa.
+- Necesidad de un verdadero puesto de operador, no sólo una tabla.
+
+## Reutilización recomendada
+
+Tomar como base la arquitectura ya desarrollada en `codex/cobranzas-redesign-v1`:
+
+- `facturacionCobranzasDataV1.js`
+- `facturacionCobranzasActionsV1.js`
+- `facturacionCobranzasUIV1.js`
+
+Esa rama ya implementa el enfoque correcto:
+- adaptador canónico;
+- UI única;
+- acciones separadas;
+- una OT como fila principal;
+- facturas/cobros como movimientos;
+- conciliación de fuentes legacy.
+
+La auditoría V2 debe portar lo útil a una rama fresca basada en el `main` actual, revisar diferencias y evitar traer de vuelta wrappers o hacks descartados.
