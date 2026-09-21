@@ -897,6 +897,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <button class="btn btn-ghost" onclick="document.getElementById('modal-prespdf').classList.remove('open')">Cancelar</button>
       <button id="pp-btn-nueva-revision" class="btn btn-ghost" onclick="crearNuevaRevisionDesdeCotizador()" style="display:none"><i class="ti ti-copy-plus"></i> Nueva revisión</button>
       <button class="btn btn-ghost" onclick="guardarPresupuestoCompleto()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-device-floppy"></i> Guardar presupuesto</button>
+      <button class="btn btn-ghost" id="btn-sync-base-madre" onclick="sincronizarCotizacionActualBaseMadreV114()" style="color:#7cc7ff;border-color:#375b73"><i class="ti ti-table"></i> Sincronizar Base Madre</button>
       <button class="btn btn-primary" onclick="generarPDF()"><i class="ti ti-printer"></i> Generar PDF + Excel</button>
     </div>
   </div>
@@ -1246,6 +1247,22 @@ function initListeners() {
 window.addDoc_    = async (col_, data) => { const ref = await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); return ref; };
 window.updateDoc_ = async (col_, id, data) => { await updateDoc(doc(db, col_, id), data); };
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
+window.sincronizarCotizacionActualBaseMadreV114=async function(){
+  const nro=String(document.getElementById('pp-nro')?.value||'').trim();
+  const revision=String(document.getElementById('pp-revision')?.value||'1.1').trim();
+  const digits=v=>String(v||'').replace(/\D/g,'');
+  const p=(window.DB?.presupuestos||[]).find(x=>digits(x.nro)===digits(nro)&&String(x.revision||'1.1')===revision)
+    ||(window.DB?.presupuestos||[]).find(x=>digits(x.nro)===digits(nro));
+  if(!p){alert('No encontré la cotización guardada. Guardala primero y volvé a intentar.');return;}
+  if(typeof window.repararBaseMadreAprobadaV111!=='function'){alert('El módulo de Base Madre no está cargado en esta versión de TIZ. Hacé Ctrl+F5 y volvé a intentar.');return;}
+  try{
+    const r=await window.repararBaseMadreAprobadaV111(p.id||p.nro);
+    alert('Base Madre sincronizada correctamente. Fila '+(r?.row||'actualizada')+'.');
+  }catch(e){
+    console.error('[TIZ V114 Base Madre]',e);
+    alert('No se pudo sincronizar TIZ 2026 Base de Datos.\n\n'+(e?.message||e));
+  }
+};
 
 // Helpers
 function parseDate(s) { if (!s) return null; const [d,m,y] = s.split('/'); return new Date(+y,+m-1,+d); }
@@ -3593,5 +3610,5 @@ async function syncToSheets(data) {
 <script src="cobranzasGestionUnificadaV104.js?v=TIZ-V104-ESTADO-UNIFICADO-20260916"></script>
 <script src="cobranzasEstabilidadV105.js?v=TIZ-V105-ESTABILIDAD-20260916"></script>
 <script src="cobranzasFuenteUnicaV106.js?v=TIZ-V1061-RUNTIME-20260916"></script>
-<script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1102-20260921"></script>\n<script src="baseMadreSyncV111.js?v=TIZ-BASE-MADRE-SYNC-V113-20260921"></script>\n</body>
+<script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1102-20260921"></script>\n<script src="baseMadreSyncV111.js?v=TIZ-BASE-MADRE-SYNC-V114-20260921"></script>\n</body>
 </html>
