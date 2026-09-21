@@ -81,4 +81,21 @@ d=build({clientes:clients,presupuestos:[budget(5008,1000)],obras:[obra(5008,1000
 assert.equal(d.workItems[0].invoices.length,1);
 assert.equal(d.workItems[0].facturadoNeto,1000);
 
+
+// Estados operativos derivados no deben hacer desaparecer comprobantes.
+d=build({clientes:clients,presupuestos:[budget(5009,1000)],obras:[obra(5009,1000,{facturasArca:[{cae:'s1',ptoVta:9,cbteTipo:1,cbteNro:30,numeroCompleto:'00009-00000030',familia:'factura',neto:500,iva:105,total:605}]})],cobranzas:[]});
+w=d.workItems[0];
+assert.equal(w.estadoOperativo,'facturado_parcial');
+assert.equal(w.invoices.length,1);
+
+d=build({clientes:clients,presupuestos:[budget(5010,1000)],obras:[obra(5010,1000,{facturasArca:[{cae:'s2',ptoVta:9,cbteTipo:1,cbteNro:31,numeroCompleto:'00009-00000031',familia:'factura',neto:1000,iva:210,total:1210}],cobros:[{importe:400,retenciones:10,fecha:'2026-09-21'}]})],cobranzas:[]});
+w=d.workItems[0];
+assert.equal(w.estadoOperativo,'cobrado_pendiente');
+assert.equal(w.invoices.length,1);
+
+d=build({clientes:clients,presupuestos:[budget(5011,1000)],obras:[obra(5011,1000,{facturasArca:[{cae:'s3',ptoVta:9,cbteTipo:1,cbteNro:32,numeroCompleto:'00009-00000032',familia:'factura',neto:1000,iva:210,total:1210}],cobros:[{importe:1210,fecha:'2026-09-21'}]})],cobranzas:[]});
+w=d.workItems[0];
+assert.equal(w.estadoOperativo,'cobrado');
+assert.equal(w.invoices.length,1);
+
 console.log('Facturacion/Cobranzas V2 contract: OK');
