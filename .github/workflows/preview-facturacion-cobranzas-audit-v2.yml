@@ -1,0 +1,116 @@
+name: Preview Facturacion Cobranzas Audit V2
+
+on:
+  push:
+    branches:
+      - codex/facturacion-cobranzas-audit-v2
+    paths:
+      - 'facturacionCobranzasDataV2.js'
+      - 'facturacionCobranzasActionsV2.js'
+      - 'facturacionCobranzasUIV2.js'
+      - 'facturadorIntegralV83.js'
+      - 'facturacionEntregaUIV84.js'
+      - 'facturacionDriveRetryUIV83.js'
+      - 'functions/facturacionIntegralApiV83.js'
+      - 'functions/arcaFiscalCoreV83.js'
+      - 'scripts/facturacionCobranzasV2.contract.js'
+      - 'index.html'
+      - 'FACTURACION_COBRANZAS_AUDIT_V2.md'
+      - 'CODEX_FACTURACION_COBRANZAS_V2.md'
+      - '.github/workflows/preview-facturacion-cobranzas-audit-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/facturacion-cobranzas-audit-v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax and canonical data contracts
+        shell: bash
+        run: |
+          set -e
+          node --check facturacionCobranzasDataV2.js
+          node --check facturacionCobranzasActionsV2.js
+          node --check facturacionCobranzasUIV2.js
+          node --check facturadorIntegralV83.js
+          node --check facturacionEntregaUIV84.js
+          node --check facturacionDriveRetryUIV83.js
+          node --check functions/facturacionIntegralApiV83.js
+          node --check functions/arcaFiscalCoreV83.js
+          node scripts/facturacionCobranzasV2.contract.js
+
+      - name: Verify single active billing owner
+        shell: bash
+        run: |
+          set -e
+          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-DATA-V20-20260921' index.html
+          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V20-20260921' index.html
+          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V20-20260921' index.html
+          grep -q 'facturadorIntegralV83.js?v=TIZ-FC-V2-ARCA-V87-20260921' index.html
+          grep -q 'facturacionEntregaUIV84.js?v=TIZ-FC-V2-EMAIL-V84-20260921' index.html
+          grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-V2-DRIVE-V97-20260921' index.html
+          for old in             cobranzasDesdeObrasV41.js facturacionProduccionV67.js facturacionCobranzasBridgeV68.js             cobranzasUnificadasV69.js cobranzasEstadoGestionV70.js cobranzasRecuperarFacturadasV71.js             precioSyncV82.js facturacionPuestoV83.js facturacionAnticiposV85.js cobranzasVistaUnificadaV98.js             cobranzasIndicadorEnvioV100.js cobranzasPorCobrarV101.js cobranzasCompatFacturasV102.js             cobranzasCompatPresupuestosV103.js cobranzasGestionUnificadaV104.js cobranzasEstabilidadV105.js             cobranzasFuenteUnicaV106.js
+          do
+            if grep -Fq "<script src=\"$old" index.html; then
+              echo "Legacy billing owner still active: $old"
+              exit 1
+            fi
+          done
+          test "$(grep -c 'facturacionCobranzasUIV2.js' index.html)" -eq 1
+
+      - name: Fiscal guardrails
+        shell: bash
+        run: |
+          set -e
+          grep -q 'const PTO=9' functions/facturacionIntegralApiV83.js
+          grep -q 'idempotencyKey' facturadorIntegralV83.js
+          grep -q 'FECompUltimoAutorizado' functions/facturacionIntegralApiV83.js
+          grep -q 'FchVtoPago' functions/facturacionIntegralApiV83.js
+          grep -q 'CondicionIVAReceptorId' functions/facturacionIntegralApiV83.js
+          grep -q 'drivePendiente' functions/facturacionIntegralApiV83.js
+          grep -q 'emailPendiente' functions/facturacionIntegralApiV83.js
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Configure Firebase auth
+        shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TIZ_APP }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          set -e
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+            echo "FIREBASE_AUTH_MODE=service-account" >> "$GITHUB_ENV"
+          elif [ -n "$FIREBASE_TOKEN" ]; then
+            echo "FIREBASE_TOKEN=$FIREBASE_TOKEN" >> "$GITHUB_ENV"
+            echo "FIREBASE_AUTH_MODE=token" >> "$GITHUB_ENV"
+          else
+            echo "No Firebase credential configured"
+            exit 1
+          fi
+
+      - name: Deploy isolated V2 preview
+        shell: bash
+        run: |
+          set -e
+          cat > firebase.audit-v2.preview.json <<'EOF'
+          {"hosting":{"public":".","ignore":["firebase.audit-v2.preview.json","firebase.json",".firebaserc",".git/**",".github/**","functions/**","node_modules/**","scripts/**"]}}
+          EOF
+          if [ "$FIREBASE_AUTH_MODE" = "service-account" ]; then
+            firebase hosting:channel:deploy facturacion-cobranzas-v2 --expires 7d --config firebase.audit-v2.preview.json --project tiz---app --non-interactive
+          else
+            firebase hosting:channel:deploy facturacion-cobranzas-v2 --expires 7d --config firebase.audit-v2.preview.json --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
+          fi
