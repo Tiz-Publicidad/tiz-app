@@ -12,6 +12,8 @@ on:
       - 'facturacionEntregaUIV84.js'
       - 'facturacionDriveRetryUIV83.js'
       - 'functions/facturacionIntegralApiV83.js'
+      - 'functions/facturacionDriveRetryV83.js'
+      - 'functions/facturacionEntregaV84.js'
       - 'functions/arcaFiscalCoreV83.js'
       - 'scripts/facturacionCobranzasV2.contract.js'
       - 'index.html'
@@ -46,6 +48,8 @@ jobs:
           node --check facturacionEntregaUIV84.js
           node --check facturacionDriveRetryUIV83.js
           node --check functions/facturacionIntegralApiV83.js
+          node --check functions/facturacionDriveRetryV83.js
+          node --check functions/facturacionEntregaV84.js
           node --check functions/arcaFiscalCoreV83.js
           node scripts/facturacionCobranzasV2.contract.js
 
@@ -77,8 +81,13 @@ jobs:
           grep -q 'FECompUltimoAutorizado' functions/facturacionIntegralApiV83.js
           grep -q 'FchVtoPago' functions/facturacionIntegralApiV83.js
           grep -q 'CondicionIVAReceptorId' functions/facturacionIntegralApiV83.js
+          grep -q 'driveAccessToken' functions/facturacionIntegralApiV83.js
           grep -q 'drivePendiente' functions/facturacionIntegralApiV83.js
           grep -q 'emailPendiente' functions/facturacionIntegralApiV83.js
+          grep -q 'pickComp' functions/facturacionDriveRetryV83.js
+          grep -q 'selectInvoice' functions/facturacionEntregaV84.js
+          grep -q 'abrirEnvioFacturaEspecificaV2' facturacionEntregaUIV84.js
+          grep -q 'recuperarPdfFacturaV2' facturacionDriveRetryUIV83.js
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
