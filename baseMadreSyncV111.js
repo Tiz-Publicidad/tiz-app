@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V1111-20260921';
+const VERSION='BASE-MADRE-SYNC-V1112-20260921';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
@@ -141,6 +141,13 @@ async function syncBudget(p,{interactive=true,silent=false,token=''}={}){
   return{ok:true,row,updated:!!existing,payload};
 }
 window.sincronizarBaseMadreTIZV111=syncBudget;
+window.repararBaseMadreAprobadaV111=async function(idOrNro){
+  const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
+  if(!p)throw new Error('No se encontro la cotizacion');
+  if(!approved(p.estado||p.status||p.estadoRevision))throw new Error('La cotizacion no esta aprobada');
+  const token=await getToken(true);
+  return syncBudget(p,{interactive:false,silent:false,token});
+};
 
 function currentBudgetFromForm(){
   const nro=T(document.getElementById('pp-nro')?.value),revision=T(document.getElementById('pp-revision')?.value||'1.1');
@@ -165,14 +172,14 @@ function formSnapshot(){
 function wrapSave(){
   const old=window.guardarPresupuestoCompleto;if(typeof old!=='function'||old.__baseMadreSyncV111)return;
   const wrapped=async function(){
-    const snap=formSnapshot(),shouldSync=approved(snap.estado);
+    const snap=formSnapshot(),current=currentBudgetFromForm(),shouldSync=approved(snap.estado),needsSync=shouldSync&&(!current?.baseMadreSyncAt||!current?.baseMadreRow);
     let token='',authError=null;
-    if(shouldSync){
+    if(needsSync){
       try{token=await getToken(true)}
-      catch(e){authError=e;console.warn('[TIZ V111] Aprobacion sin autorizacion de planilla madre',e)}
+      catch(e){authError=e;console.warn('[TIZ V111.2] Aprobacion/sync sin autorizacion de planilla madre',e)}
     }
     const result=await old.apply(this,arguments);
-    if(shouldSync){
+    if(needsSync){
       const p=currentBudgetFromForm()||{...snap,id:window.editingId?.presupuesto||snap.id};
       Object.assign(p,{...snap,id:p.id||window.editingId?.presupuesto||snap.id,estado:'Aprobado'});
       if(token){
@@ -205,12 +212,13 @@ function wrapFirestoreWrites(){
     const wrapped=async function(collection,id,data){
       if(collection!=='presupuestos'||!approved(data?.estado))return oldUpdate.apply(this,arguments);
       const prev=budgetById(id),wasApproved=approved(prev?.estado||prev?.status||prev?.estadoRevision);
+      const needsSync=!wasApproved||!prev?.baseMadreSyncAt||!prev?.baseMadreRow;
       let token='';
-      if(!wasApproved){try{token=await getToken(true)}catch(e){console.warn('[TIZ V111.1] No se pudo autorizar Sheets antes de aprobar',e)}}
+      if(needsSync){try{token=await getToken(true)}catch(e){console.warn('[TIZ V111.2] No se pudo autorizar Sheets antes de sincronizar',e)}}
       const result=await oldUpdate.apply(this,arguments);
       const merged={...(prev||{}),...(data||{}),id,estado:data?.estado||prev?.estado||'Aprobado'};
-      if(!wasApproved){
-        if(token)syncBudget(merged,{interactive:false,silent:false,token}).catch(e=>{console.error('[TIZ V111.1 update]',e);window.showToast?.('Aprobado, pero no se pudo actualizar la planilla madre: '+(e.message||e))});
+      if(needsSync){
+        if(token)syncBudget(merged,{interactive:false,silent:false,token}).catch(e=>{console.error('[TIZ V111.2 update]',e);window.showToast?.('Aprobado, pero no se pudo actualizar la planilla madre: '+(e.message||e))});
         else window.showToast?.('Aprobado; falta autorizar Google Sheets para cargar la planilla madre');
       }
       return result;
