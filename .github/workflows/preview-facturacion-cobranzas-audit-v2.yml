@@ -139,7 +139,9 @@ jobs:
           grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V20-20260921' /tmp/fc-index.html
           grep -q 'Proyección' /tmp/facturacionCobranzasUIV2.js
           grep -q 'Alertas operativas' /tmp/facturacionCobranzasUIV2.js
-          grep -q 'Todas las OT' /tmp/facturacionCobranzasUIV2.js
+          grep -q 'Resultados de búsqueda' /tmp/facturacionCobranzasUIV2.js
+          grep -q 'Configuración y ayuda' /tmp/facturacionCobranzasUIV2.js
+          grep -q 'Cómo leer Facturación y Cobranzas' /tmp/facturacionCobranzasUIV2.js
           grep -q 'cambiarEstadoGestion' /tmp/facturacionCobranzasActionsV2.js
           grep -q 'estadoOperativo' /tmp/facturacionCobranzasDataV2.js
           grep -q 'abrirEnvioFacturaEspecificaV2' /tmp/facturacionEntregaUIV84.js
