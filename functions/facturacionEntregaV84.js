@@ -18,6 +18,7 @@ const ORIGINS = new Set([
   "https://tiz---app.web.app",
   "https://tiz---app.firebaseapp.com",
   "https://tiz---app--facturacion-v83-pruebas-h6sjmm0g.web.app",
+  "https://tiz---app--facturacion-cobranzas-v2-n8fm9m8n.web.app",
   "http://localhost:5000",
   "http://127.0.0.1:5000",
 ]);
@@ -45,6 +46,10 @@ async function requireAdmin(req) {
 const money = value => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 }).format(Number(value) || 0);
 const safe = value => String(value || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
 const otBase = value => String(value || "").match(/\d{4,7}/)?.[0].replace(/^0+/, "") || "";
+function invoiceList(obra){const out=[];for(const x of(Array.isArray(obra.comprobantesArca)?obra.comprobantesArca:[]))if(x?.cae)out.push(x);for(const x of(Array.isArray(obra.facturasArca)?obra.facturasArca:[]))if(x?.cae&&!out.some(y=>String(y.cae)===String(x.cae)))out.push(x);if(obra.facturaArca?.cae&&!out.some(y=>String(y.cae)===String(obra.facturaArca.cae)))out.push(obra.facturaArca);return out}
+function selectInvoice(obra,body){const numero=String(body?.numeroCompleto||"").trim(),tipo=Number(body?.cbteTipo||0),nro=Number(body?.cbteNro||0),list=invoiceList(obra);return list.find(x=>numero&&String(x.numeroCompleto||"")===numero)||list.find(x=>tipo&&nro&&Number(x.cbteTipo)===tipo&&Number(x.cbteNro)===nro)||obra.facturaArca||null}
+function markSent(arr,factura,data){return(Array.isArray(arr)?arr:[]).map(x=>String(x?.cae)===String(factura?.cae)?{...x,emailUltimoDestinatario:data.destinatario,emailUltimoDestinatarios:data.destinatarios,emailUltimoRemitente:"info@tizpublicidad.com",emailUltimoEnvioAt:data.iso,emailUltimoEnvioPor:data.por,emailPendiente:false}:x)}
+
 
 function homologationPdf({ factura, obra }) {
   return new Promise((resolve, reject) => {
@@ -169,8 +174,8 @@ const facturacionEnviarEmailV84 = onRequest({ region: "us-central1", invoker: "p
     const snap = await obraRef.get();
     if (!snap.exists) throw Object.assign(new Error("No se encontró la OT"), { status: 404 });
     const obra = snap.data() || {};
-    const factura = prueba ? (obra.ultimaPruebaFacturacionV84 || {}) : (obra.facturaArca || {});
-    if (!prueba && (!factura.cae || !factura.numeroCompleto)) throw Object.assign(new Error("La OT no tiene una factura ARCA autorizada"), { status: 400 });
+    const factura = prueba ? (obra.ultimaPruebaFacturacionV84 || {}) : selectInvoice(obra,req.body||{});
+    if (!prueba && (!factura?.cae || !factura?.numeroCompleto)) throw Object.assign(new Error("La OT no tiene una factura ARCA autorizada"), { status: 400 });
     if (prueba && factura.fileId && factura.fileId !== fileId) throw Object.assign(new Error("El PDF no coincide con la última prueba homologada"), { status: 409 });
     if (!prueba && factura.driveFileId && factura.driveFileId !== fileId) throw Object.assign(new Error("El PDF no coincide con la factura autorizada"), { status: 409 });
     const numero = prueba ? `PRUEBA HOMOLOGACION OT ${otBase(obra.ot)}` : factura.numeroCompleto;
@@ -193,17 +198,18 @@ const facturacionEnviarEmailV84 = onRequest({ region: "us-central1", invoker: "p
     if (!response.ok || !result?.ok) throw new Error(result?.error || "No se pudo enviar la factura");
 
     const emailData = { destinatarios: destinatario.split(","), ultimoEnvioPor: user.email, ultimoEnvioAt: admin.firestore.FieldValue.serverTimestamp() };
+    const sentIso = new Date().toISOString();
     if (prueba) {
       await obraRef.set({ ultimaPruebaFacturacionV84: { ...factura, email: emailData } }, { merge: true });
     } else {
-      await obraRef.update({
-        "facturaArca.emailUltimoDestinatario": destinatario,
-        "facturaArca.emailUltimoDestinatarios": destinatario.split(","),
-        "facturaArca.emailUltimoRemitente": "info@tizpublicidad.com",
-        "facturaArca.emailUltimoEnvioAt": admin.firestore.FieldValue.serverTimestamp(),
-        "facturaArca.emailUltimoEnvioPor": user.email,
-        estadoGestionFactura: "Factura enviada",
-      });
+      const sent={destinatario,destinatarios:destinatario.split(","),por:user.email,iso:sentIso};
+      const patch={
+        comprobantesArca:markSent(obra.comprobantesArca,factura,sent),
+        facturasArca:markSent(obra.facturasArca,factura,sent),
+        estadoGestionFactura:"Factura enviada",
+      };
+      if(String(obra.facturaArca?.cae||"")===String(factura.cae)) patch.facturaArca={...obra.facturaArca,emailUltimoDestinatario:destinatario,emailUltimoDestinatarios:sent.destinatarios,emailUltimoRemitente:"info@tizpublicidad.com",emailUltimoEnvioAt:sentIso,emailUltimoEnvioPor:user.email,emailPendiente:false};
+      await obraRef.update(patch);
     }
     if (req.body?.guardarEnCliente && obra.clienteId) {
       await admin.firestore().collection("clientes").doc(String(obra.clienteId)).set({ emailsFacturacion: destinatario.split(",") }, { merge: true }).catch(() => {});
