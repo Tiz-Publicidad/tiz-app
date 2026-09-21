@@ -30,6 +30,11 @@ function qrUrl(factura, issuerCuit) {
 
 function line(doc,x1,y1,x2,y2,w=.7){doc.lineWidth(w).moveTo(x1,y1).lineTo(x2,y2).stroke();}
 function labelValue(doc,label,value,x,y,width=230){doc.font("Helvetica-Bold").fontSize(7.5).text(label,x,y,{continued:true});doc.font("Helvetica").text(` ${value||""}`,{width});}
+function receptorCondicionLabel(id) {
+  const labels={1:"IVA Responsable Inscripto",4:"IVA Exento",5:"Consumidor Final",6:"Monotributo"};
+  return labels[Number(id)]||`Condición IVA ${id||"sin informar"}`;
+}
+
 function tipoInfo(factura){
   const letra=String(factura.letra||(/\bB\b/i.test(factura.tipo||"")?"B":"A")).toUpperCase();
   const cod=String(Number(factura.cbteTipo)||1).padStart(2,"0");
