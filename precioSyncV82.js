@@ -1,4 +1,4 @@
-// TIZ V82 — sincronización bidireccional de precios Cotizaciones <-> Obras <-> Cobranzas
+// TIZ V82.1 — sincronización de precios sin alertas repetidas ni loops
 (function(){
 'use strict';
 const num=v=>Number(v)||0;
@@ -6,6 +6,7 @@ const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLo
 const base=v=>{const m=String(v??'').match(/\d{4,7}/);return m?String(Number(m[0])):''};
 const rev=v=>String(v||'1.1').split('.').map(x=>parseInt(x,10)||0);
 const newer=(a,b)=>{const ra=rev(a?.revision),rb=rev(b?.revision);return ra[0]!==rb[0]?ra[0]>rb[0]:ra[1]>rb[1]};
+const inFlight=new Set();
 function budgetByBase(n){
   let best=null;
   (window.DB?.presupuestos||[]).forEach(p=>{if(base(p?.nro||p?.cotizacionBase)!==base(n))return;if(!best||newer(p,best))best=p;});
@@ -23,22 +24,34 @@ function pricePatch(o,total,p){
   if(!fin.saldo.facturado&&!fin.saldo.nroFactura)fin.saldo.monto=Math.max(0,total-num(fin.anticipo.monto));
   return {neto:total,importe:total,infoPresupuesto:info,finanzas:fin,'sectores.facturacion':sf,'sectores.cobranzas':sc,precioSincronizadoAt:new Date().toISOString()};
 }
-async function syncFromBudget(p,{preserveApproved=false}={}){
+async function syncFromBudget(p,{preserveApproved=false,silent=false,force=false}={}){
   if(!p?.id||typeof window.updateDoc_!=='function')return false;
   const total=num(p.importe||p.neto||p.total);if(total<=0)return false;
   const o=obraByBase(p.nro||p.cotizacionBase);if(!o?.id)return false;
-  if(preserveApproved&&norm(p.estado)!=='aprobado'){
-    await window.updateDoc_('presupuestos',p.id,{estado:'Aprobado',precioSincronizadoAt:new Date().toISOString()});p.estado='Aprobado';
+  const key=o.id||base(o.ot);if(inFlight.has(key))return false;
+  const current=num(o?.finanzas?.total||o?.neto||o?.importe);
+  if(!force&&Math.abs(current-total)<=.01){
+    if(preserveApproved&&norm(p.estado)!=='aprobado'){await window.updateDoc_('presupuestos',p.id,{estado:'Aprobado',precioSincronizadoAt:new Date().toISOString()});p.estado='Aprobado';}
+    return false;
   }
-  const patch=pricePatch(o,total,p);await window.updateDoc_('obras',o.id,patch);Object.assign(o,{neto:total,importe:total,infoPresupuesto:patch.infoPresupuesto,finanzas:patch.finanzas});
-  window.showToast?.(`Precio sincronizado en OT ${base(o.ot)} y Cobranzas`);setTimeout(()=>window.renderCobranzas?.(),0);return true;
+  inFlight.add(key);
+  try{
+    if(preserveApproved&&norm(p.estado)!=='aprobado'){
+      await window.updateDoc_('presupuestos',p.id,{estado:'Aprobado',precioSincronizadoAt:new Date().toISOString()});p.estado='Aprobado';
+    }
+    const patch=pricePatch(o,total,p);await window.updateDoc_('obras',o.id,patch);Object.assign(o,{neto:total,importe:total,infoPresupuesto:patch.infoPresupuesto,finanzas:patch.finanzas});
+    if(!silent)window.showToast?.(`Precio sincronizado en OT ${base(o.ot)} y Cobranzas`);
+    if(!silent)setTimeout(()=>window.renderCobranzas?.(),0);return true;
+  }finally{inFlight.delete(key)}
 }
-async function syncFromCobranza(o,total){
+async function syncFromCobranza(o,total,{silent=false}={}){
   total=num(total);if(!o?.id||total<=0||typeof window.updateDoc_!=='function')return false;
+  const key=o.id||base(o.ot);if(inFlight.has(key))return false;const current=num(o?.finanzas?.total||o?.neto||o?.importe);if(Math.abs(current-total)<=.01)return false;inFlight.add(key);try{
   const p=budgetByBase(o.ot||o.infoPresupuesto?.nro);
   const patch=pricePatch(o,total,p);await window.updateDoc_('obras',o.id,patch);Object.assign(o,{neto:total,importe:total,infoPresupuesto:patch.infoPresupuesto,finanzas:patch.finanzas});
   if(p?.id){await window.updateDoc_('presupuestos',p.id,{importe:total,total,precioSincronizadoAt:new Date().toISOString()});p.importe=total;p.total=total;}
-  window.showToast?.(`Precio actualizado en Cobranzas${p?.id?' y Cotización':''}`);setTimeout(()=>window.renderCobranzas?.(),0);return true;
+  if(!silent)window.showToast?.(`Precio actualizado en Cobranzas${p?.id?' y Cotización':''}`);if(!silent)setTimeout(()=>window.renderCobranzas?.(),0);return true;
+  }finally{inFlight.delete(key)}
 }
 function wrapBudgetSave(name){
   const old=window[name];if(typeof old!=='function'||old.__priceSyncV82)return;
@@ -61,7 +74,7 @@ async function repairMismatch(){
   if(typeof window.updateDoc_!=='function')return;
   for(const p of (window.DB?.presupuestos||[])){
     const o=obraByBase(p?.nro);if(!o?.id)continue;const latest=budgetByBase(p.nro);if(latest?.id!==p.id)continue;const total=num(p.importe||p.neto||p.total);if(total<=0)continue;
-    const current=num(o?.finanzas?.total||o?.neto||o?.importe);if(Math.abs(current-total)>.01)try{await syncFromBudget(p,{preserveApproved:false});}catch(e){console.error('[TIZ V82] reparación',e);}
+    const current=num(o?.finanzas?.total||o?.neto||o?.importe);if(Math.abs(current-total)>.01)try{await syncFromBudget(p,{preserveApproved:false,silent:true});}catch(e){console.error('[TIZ V82] reparación',e);}
   }
 }
 function install(){wrapBudgetSave('guardarPresupuestoCompleto');wrapBudgetSave('generarPDF');wrapGestion();hookCobranzaModal();}
