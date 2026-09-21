@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V112-20260921';
+const VERSION='BASE-MADRE-SYNC-V113-20260921';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
@@ -40,8 +40,15 @@ async function authApi(){
   })();
   return authPromise;
 }
+async function validateToken(token){
+  if(!token)return false;
+  try{await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A1:A2')+'?majorDimension=ROWS',token);return true}
+  catch(e){console.warn('[TIZ V113] token Sheets invalido o sin permiso',e);return false}
+}
 async function getToken(interactive=true){
-  const cached=cachedToken();if(cached)return cached;
+  const cached=cachedToken();
+  if(cached&&await validateToken(cached))return cached;
+  if(cached)try{sessionStorage.removeItem(CACHE_KEY)}catch(_){}
   if(!interactive)throw new Error('Falta autorizar Google Sheets');
   const {auth,GoogleAuthProvider,reauthenticateWithPopup}=await authApi(),u=auth.currentUser;
   if(!u)throw new Error('Sesion de Google no iniciada');
@@ -50,6 +57,7 @@ async function getToken(interactive=true){
   p.setCustomParameters({prompt:'consent',login_hint:u.email||''});
   const result=await reauthenticateWithPopup(u,p),cred=GoogleAuthProvider.credentialFromResult(result),token=cred?.accessToken||'';
   if(!token)throw new Error('Google no entrego autorizacion para la planilla madre');
+  if(!await validateToken(token))throw new Error('Google autorizo la cuenta, pero no dio acceso de escritura a TIZ 2026 Base de Datos');
   cacheToken(token,result.user?.email||u.email||'');return token;
 }
 
@@ -59,7 +67,7 @@ async function sheetsFetch(path,token,options={}){
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(options.headers||{})}
   });
   const d=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(d?.error?.message||'No se pudo actualizar TIZ 2026 Base de Datos');
+  if(!r.ok){const msg=d?.error?.message||'No se pudo actualizar TIZ 2026 Base de Datos';throw new Error('Google Sheets: '+msg)}
   return d;
 }
 function fmtDate(d=new Date()){
