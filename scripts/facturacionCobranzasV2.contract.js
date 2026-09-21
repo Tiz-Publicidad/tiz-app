@@ -63,4 +63,22 @@ assert.equal(w.porFacturar,0);
 assert.equal(w.porCobrar,0);
 assert.equal(w.cobranzaEstado,'cobrado');
 
+
+// Mismo PV/número en tipos distintos no debe colisionar.
+d=build({clientes:clients,presupuestos:[budget(5007,1000)],obras:[obra(5007,1000,{facturasArca:[
+ {cae:'fa',ptoVta:9,cbteTipo:1,cbteNro:20,numeroCompleto:'00009-00000020',familia:'factura',neto:1000,iva:210,total:1210},
+ {cae:'nc',ptoVta:9,cbteTipo:3,cbteNro:20,numeroCompleto:'00009-00000020',familia:'credito',neto:200,iva:42,total:242}
+]})],cobranzas:[]});
+w=d.workItems[0];
+assert.equal(w.invoices.length,2);
+assert.equal(w.facturadoNeto,800);
+assert.equal(w.facturadoTotal,968);
+assert.equal(w.porFacturar,200);
+assert.equal(w.porCobrar,968);
+
+// Referencia legacy nrfc sin tipo se fusiona con la única factura tipada compatible.
+d=build({clientes:clients,presupuestos:[budget(5008,1000)],obras:[obra(5008,1000,{nrfc:'00009-00000021',ffc:'2026-09-21',facturasArca:[{cae:'typed',ptoVta:9,cbteTipo:1,cbteNro:21,numeroCompleto:'00009-00000021',familia:'factura',neto:1000,iva:210,total:1210}]})],cobranzas:[]});
+assert.equal(d.workItems[0].invoices.length,1);
+assert.equal(d.workItems[0].facturadoNeto,1000);
+
 console.log('Facturacion/Cobranzas V2 contract: OK');
