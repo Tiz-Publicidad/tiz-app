@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V116-20260921';
+const VERSION='BASE-MADRE-SYNC-V117-FACTURACION-COBRANZAS-20260922';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
@@ -112,6 +112,50 @@ async function findRow(ot,token){
   for(let i=0;i<vals.length;i++)if(base(vals[i]?.[0])===base(ot))return i+3;
   return null;
 }
+function dateIso(v){
+  const s=T(v);if(!s)return'';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(!m)return'';
+  let y=Number(m[3]);if(y<100)y+=2000;
+  return `${y}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+}
+function sheetDate(v){const s=dateIso(v);if(!s)return'';const [y,m,d]=s.split('-');return `${d}/${m}/${y}`}
+function weekFromIso(v){const s=dateIso(v);if(!s)return'';const [y,m,d]=s.split('-').map(Number);return String(isoWeek(new Date(y,m-1,d)))}
+function invoiceNumber(x={}){return T(x.numeroCompleto||x.nroFactura||x.numero||x.cbteNro)}
+function invoiceList(o={}){
+  const all=[...(Array.isArray(o.comprobantesArca)?o.comprobantesArca:[]),...(Array.isArray(o.facturasArca)?o.facturasArca:[]),...(Array.isArray(o.facturasManual)?o.facturasManual:[])];
+  if(o.facturaArca)all.push(o.facturaArca);
+  const seen=new Set();return all.filter(x=>{const k=invoiceNumber(x).replace(/\D/g,'');if(!k||seen.has(k))return false;seen.add(k);return true}).sort((a,b)=>dateIso(a.fecha).localeCompare(dateIso(b.fecha)));
+}
+function billingPayload(o={}){
+  const invoices=invoiceList(o),payments=Array.isArray(o.cobros)?o.cobros:[],last=invoices[invoices.length-1]||{},lastPay=[...payments].sort((a,b)=>dateIso(a.fecha).localeCompare(dateIso(b.fecha))).pop()||{};
+  const dueDates=invoices.map(x=>dateIso(x.fechaPrevistaCobro||x.fechaVencimientoPago)).filter(Boolean).sort();
+  const due=dueDates[0]||dateIso(o.fechaPrevistaCobro||o.finanzas?.fechaPrevistaCobro);
+  const numbers=invoices.map(invoiceNumber).filter(Boolean).join(' / ');
+  const paid=payments.reduce((a,x)=>a+N(x.importe)+N(x.retenciones),0),invoiced=invoices.reduce((a,x)=>a+N(x.total||x.neto),0);
+  const signature=[numbers||T(o.nrfc),last.fecha||o.ffc||'',due||'',payments.length,paid,o.cobranzaEstadoManual||'',o.estadoGestionFactCob||''].join('|');
+  return{ot:base(o.ot||o.nroCotizacion||o.infoPresupuesto?.nro),fechaFactura:sheetDate(last.fecha||o.ffc),numeroFactura:numbers||T(o.nrfc),fechaProyectada:sheetDate(due),semanaProyectada:weekFromIso(due),semanaConfirmada:lastPay.fecha?weekFromIso(lastPay.fecha):'',paid,invoiced,cobrado:invoiced>0&&paid>=invoiced-.01,cobroParcial:paid>0,signature};
+}
+async function syncBilling(obraOrId,{interactive=true,silent=false,token=''}={}){
+  const o=typeof obraOrId==='string'?(window.DB?.obras||[]).find(x=>x.id===obraOrId||base(x.ot)===base(obraOrId)):obraOrId;
+  if(!o)throw new Error('No se encontró la OT para sincronizar Facturación/Cobranzas');
+  const p=billingPayload(o);if(!p.ot)throw new Error('La OT no tiene número válido');
+  token=token||await getToken(interactive);const row=await findRow(p.ot,token);if(!row)throw new Error('La OT '+p.ot+' no existe en Base de datos');
+  const data=[];
+  if(p.numeroFactura)data.push({range:escSheetName(SHEET)+'!T'+row+':U'+row,majorDimension:'ROWS',values:[[p.fechaFactura,p.numeroFactura]]});
+  if(p.fechaProyectada)data.push({range:escSheetName(SHEET)+'!V'+row+':W'+row,majorDimension:'ROWS',values:[[p.fechaProyectada,p.semanaProyectada]]});
+  if(p.semanaConfirmada)data.push({range:escSheetName(SHEET)+'!X'+row,majorDimension:'ROWS',values:[[p.semanaConfirmada]]});
+  if(p.cobrado)data.push({range:escSheetName(SHEET)+'!AA'+row,majorDimension:'ROWS',values:[['Cobrado']]});
+  else if(p.cobroParcial)data.push({range:escSheetName(SHEET)+'!AA'+row,majorDimension:'ROWS',values:[['Cobrado pendiente']]});
+  if(!data.length)return{ok:true,row,skipped:true,payload:p};
+  await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
+  const actual=await readRow(row,token);
+  if(p.numeroFactura&&T(actual[20])!==p.numeroFactura)throw new Error('La verificación de Nro FC falló en la fila '+row);
+  const mark={baseMadreFactCobSyncAt:new Date().toISOString(),baseMadreFactCobSignature:p.signature,baseMadreRow:row,baseMadreFactCobSyncVersion:VERSION};
+  if(o.id&&typeof window.updateDoc_==='function')try{await window.updateDoc_('obras',o.id,mark);Object.assign(o,mark)}catch(e){console.warn('[TIZ V117] No se pudo guardar marca de sincronización',e)}
+  if(!silent)window.showToast?.('Facturación/Cobranzas de OT '+p.ot+' sincronizada con la planilla ✓');
+  return{ok:true,row,payload:p,actual:{fechaFactura:actual[19],numeroFactura:actual[20],fechaProyectada:actual[21],semanaProyectada:actual[22],semanaConfirmada:actual[23],estado:actual[26]}};
+}
 async function readRow(row,token){
   const range=encodeURIComponent(escSheetName(SHEET)+'!A'+row+':AD'+row);
   const d=await sheetsFetch('/values/'+range+'?valueRenderOption=UNFORMATTED_VALUE',token);
@@ -167,6 +211,15 @@ async function syncBudget(p,{interactive=true,silent=false,token=''}={}){
   return{ok:true,row,updated:!!existing,payload,verified};
 }
 window.sincronizarBaseMadreTIZV111=syncBudget;
+window.sincronizarFacturacionBaseMadreTIZV117=syncBilling;
+let billingMonitorBusy=false;
+async function syncPendingBilling(){
+  if(billingMonitorBusy)return;const token=cachedToken();if(!token)return;
+  const pending=(window.DB?.obras||[]).find(o=>{const p=billingPayload(o);return p.numeroFactura&&p.signature!==T(o.baseMadreFactCobSignature)});
+  if(!pending)return;billingMonitorBusy=true;
+  try{await syncBilling(pending,{interactive:false,silent:true,token})}catch(e){console.warn('[TIZ V117 monitor]',e)}finally{billingMonitorBusy=false}
+}
+setInterval(syncPendingBilling,5000);
 window.autorizarBaseMadreTIZV111=async function(){return getToken(true)};
 window.verificarBaseMadreTIZV116=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
