@@ -34,14 +34,14 @@ jobs:
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' index.html
           grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-DATA-V20-20260921' index.html
-          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V20-20260921' index.html
+          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V21-SHEET-SYNC-20260922' index.html
           grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-FC-BASE-MADRE-V20-20260921' index.html
           grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V23-DASHBOARD-20260921' index.html
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
           node --check sectorizacionV35.js
           grep -q 'sectorizacionV35.js?v=TIZ-V35-21-CONTACTOS-TODAS-MODALIDADES-20260921' index.html
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V116-VERIFY-20260921' index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V117-FACTCOB-20260922' index.html
           node --check facturacionCobranzasDataV2.js
           node --check facturacionCobranzasActionsV2.js
           node --check facturacionBaseMadreReconcileV2.js
@@ -66,14 +66,14 @@ jobs:
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" site/produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' site/index.html
           grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-DATA-V20-20260921' site/index.html
-          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V20-20260921' site/index.html
+          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V21-SHEET-SYNC-20260922' site/index.html
           grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-FC-BASE-MADRE-V20-20260921' site/index.html
           grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V23-DASHBOARD-20260921' site/index.html
           test -f site/index.html
           test -f site/app.js
           test -f site/sectorizacionV35.js
           test -f site/baseMadreSyncV116.js
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V116-VERIFY-20260921' site/index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V117-FACTCOB-20260922' site/index.html
           test -f site/facturacionCobranzasDataV2.js
           test -f site/facturacionCobranzasActionsV2.js
           test -f site/facturacionBaseMadreReconcileV2.js
