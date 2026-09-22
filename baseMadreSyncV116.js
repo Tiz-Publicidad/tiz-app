@@ -3,6 +3,7 @@
 'use strict';
 
 const VERSION='BASE-MADRE-SYNC-V119-CLIENT-CONTACT-20260922';
+const BACKEND_URL='https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
@@ -214,9 +215,21 @@ async function syncBudget(p,{interactive=true,silent=false,token=''}={}){
   if(!silent)window.showToast?.('OT '+payload.ot+' sincronizada con TIZ 2026 Base de Datos ✓');
   return{ok:true,row,updated:!!existing,payload,verified};
 }
+async function syncBudgetBackend(p,{silent=false}={}){
+  if(!p||!approved(p.estado||p.status||p.estadoRevision))return{ok:false,skipped:true,reason:'no aprobado'};
+  const ot=base(p.nro||p.nroPresupuesto||p.cotizacionBase);if(!ot)throw new Error('La OT no tiene número válido');
+  const {auth}=await authApi(),user=auth.currentUser;if(!user)throw new Error('Sesión de TIZ no iniciada');
+  const idToken=await user.getIdToken();
+  const response=await fetch(BACKEND_URL,{method:'POST',headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},body:JSON.stringify({ot})});
+  const result=await response.json().catch(()=>({}));if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo sincronizar la Base Madre');
+  const mark={baseMadreSyncAt:new Date().toISOString(),baseMadreRow:result.row||null,baseMadreSpreadsheetId:SPREADSHEET_ID,baseMadreSyncVersion:'BACKEND-V120'};
+  Object.assign(p,mark);if(!silent)window.showToast?.('OT '+ot+' sincronizada con TIZ 2026 Base de Datos ✓');return result;
+}
+window.sincronizarBaseMadreBackendV120=syncBudgetBackend;
 window.sincronizarBaseMadreTIZV111=syncBudget;
 window.sincronizarFacturacionBaseMadreTIZV117=syncBilling;
 let billingMonitorBusy=false;
+let repairMonitorBusy=false;
 async function syncPendingBilling(){
   if(billingMonitorBusy)return;const token=cachedToken();if(!token)return;
   const pending=(window.DB?.obras||[]).find(o=>{const p=billingPayload(o);return p.numeroFactura&&p.signature!==T(o.baseMadreFactCobSignature)});
@@ -224,6 +237,14 @@ async function syncPendingBilling(){
   try{await syncBilling(pending,{interactive:false,silent:true,token})}catch(e){console.warn('[TIZ V117 monitor]',e)}finally{billingMonitorBusy=false}
 }
 setInterval(syncPendingBilling,5000);
+async function repairKnownPendingOts(){
+  if(repairMonitorBusy)return;
+  const p=(window.DB?.presupuestos||[]).filter(x=>approved(x?.estado||x?.status||x?.estadoRevision)&&base(x?.nro||x?.cotizacionBase)==='4730').sort((a,b)=>T(b?.revision).localeCompare(T(a?.revision),undefined,{numeric:true}))[0];
+  if(!p||p.baseMadreSyncAt||p.baseMadreRow)return;
+  repairMonitorBusy=true;
+  try{await syncBudgetBackend(p,{silent:false})}catch(e){console.warn('[TIZ V120 reparación OT 4730]',e)}finally{repairMonitorBusy=false}
+}
+setInterval(repairKnownPendingOts,7000);
 window.autorizarBaseMadreTIZV111=async function(){return getToken(true)};
 window.verificarBaseMadreTIZV116=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
@@ -237,8 +258,7 @@ window.repararBaseMadreAprobadaV111=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
   if(!p)throw new Error('No se encontro la cotizacion');
   if(!approved(p.estado||p.status||p.estadoRevision))throw new Error('La cotizacion no esta aprobada');
-  const token=await getToken(true);
-  return syncBudget(p,{interactive:false,silent:false,token});
+  return syncBudgetBackend(p,{silent:false});
 };
 
 function currentBudgetFromForm(){
@@ -332,5 +352,5 @@ function wrapFirestoreWrites(){
   }
 }
 function install(){/* V112: sincronizacion disparada explicitamente por sectorizacionV35 al guardar. */}
-window.__TIZ_BASE_MADRE_SYNC_V111={version:VERSION,spreadsheetId:SPREADSHEET_ID,sheet:SHEET,syncBudget,payloadFromBudget};
+window.__TIZ_BASE_MADRE_SYNC_V111={version:VERSION,spreadsheetId:SPREADSHEET_ID,sheet:SHEET,syncBudget,syncBudgetBackend,payloadFromBudget};
 })();
