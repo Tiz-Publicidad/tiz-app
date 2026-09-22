@@ -40,8 +40,8 @@ jobs:
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
           node --check sectorizacionV35.js
-          grep -q 'sectorizacionV35.js?v=TIZ-V35-21-CONTACTOS-TODAS-MODALIDADES-20260921' index.html
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V118-AUTH-STABLE-20260922' index.html
+          grep -q 'sectorizacionV35.js?v=TIZ-V35-22-LOGISTICA-OBLIGATORIA-20260922' index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V119-CLIENT-CONTACT-20260922' index.html
           node --check facturacionCobranzasDataV2.js
           node --check facturacionCobranzasActionsV2.js
           node --check facturacionBaseMadreReconcileV2.js
@@ -73,7 +73,7 @@ jobs:
           test -f site/app.js
           test -f site/sectorizacionV35.js
           test -f site/baseMadreSyncV116.js
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V118-AUTH-STABLE-20260922' site/index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V119-CLIENT-CONTACT-20260922' site/index.html
           test -f site/facturacionCobranzasDataV2.js
           test -f site/facturacionCobranzasActionsV2.js
           test -f site/facturacionBaseMadreReconcileV2.js

@@ -179,7 +179,7 @@
     wrap.innerHTML=`
       <div class="form-group"><label>Vendedor</label><select id="pp-vendedor"><option>G</option><option>J</option><option>G/J</option></select></div>
       <div class="form-group"><label>Fecha presupuesto</label><input id="pp-fecha" placeholder="DD/MM/AAAA"></div>
-      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option>Borrador</option><option selected>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option></select></div>
+      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option></select></div>
       <div class="form-group"><label>Moneda</label><select id="pp-moneda"><option value="ARS">ARS $</option><option value="USD">USD</option></select></div>
       <div class="form-group"><label>Plazo estimado</label><input id="pp-plazo" placeholder="Ej: 15 días hábiles"></div>
       <div class="form-group"><label>Anticipo %</label><input id="pp-anticipo" type="number" min="0" max="100" value="50"></div>
@@ -192,6 +192,21 @@
   function entregaLogisticaActual(){
     return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),contactoTelefono:val('pp-entrega-contacto-tel').trim(),contactoEmail:val('pp-entrega-contacto-email').trim(),retira:val('pp-entrega-retira').trim(),retiraTelefono:val('pp-entrega-retira-tel').trim(),retiraEmail:val('pp-entrega-retira-email').trim(),detalle:val('pp-entrega-detalle').trim()};
   }
+  function validarLogisticaCotizacion({permitirBorrador=false}={}){
+    const estado=normEstado(val('pp-estado'));
+    if(permitirBorrador&&estado==='Borrador')return true;
+    const e=entregaLogisticaActual(),retiro=e.tipo==='retiro_fabrica';
+    let mensaje='',campo='';
+    if(!e.tipo||e.tipo==='a_definir'){mensaje='Elegí si la cotización es con retiro, envío o colocación.';campo='pp-entrega-tipo';}
+    else if(retiro&&!e.retira){mensaje='Cargá la persona del cliente que retira.';campo='pp-entrega-retira';}
+    else if(!retiro&&!e.contacto){mensaje='Cargá el contacto del cliente en destino.';campo='pp-entrega-contacto';}
+    if(!mensaje)return true;
+    const panel=document.getElementById('pp-entrega-wrap');if(panel)panel.open=true;
+    document.getElementById(campo)?.focus();
+    window.showToast?.(mensaje);setTimeout(()=>alert('Faltan datos básicos de la cotización.\n\n'+mensaje),50);
+    return false;
+  }
+  window.validarLogisticaCotizacionTIZ=validarLogisticaCotizacion;
   window.collectEntregaLogisticaPP=entregaLogisticaActual;
   window.actualizarEntregaLogisticaPP=function(){
     const tipo=val('pp-entrega-tipo')||'a_definir', envio=tipo==='envio', colocacion=tipo==='colocacion', retiro=tipo==='retiro_fabrica', indef=tipo==='a_definir';
@@ -506,12 +521,13 @@
       return obraId;
     };
     const oldNew=window.abrirNuevoPresupuestoCompleto;
-    window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments); setTimeout(()=>{document.getElementById('pp-fecha').value=new Date().toLocaleDateString('es-AR'); document.getElementById('pp-estado').value='Enviado'; document.getElementById('pp-moneda').value='ARS'; document.getElementById('pp-vendedor').value='G'; document.getElementById('pp-plazo').value=''; document.getElementById('pp-anticipo').value='50'; document.getElementById('pp-dias-pago').value=''; document.getElementById('pp-oc').value=''; document.getElementById('pp-obs-comercial').value='';cargarEntregaLogisticaPP({});},0);return r;};
+    window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments); setTimeout(()=>{document.getElementById('pp-fecha').value=new Date().toLocaleDateString('es-AR'); document.getElementById('pp-estado').value='Borrador'; document.getElementById('pp-moneda').value='ARS'; document.getElementById('pp-vendedor').value='G'; document.getElementById('pp-plazo').value=''; document.getElementById('pp-anticipo').value='50'; document.getElementById('pp-dias-pago').value=''; document.getElementById('pp-oc').value=''; document.getElementById('pp-obs-comercial').value='';cargarEntregaLogisticaPP({});},0);return r;};
     const oldOpenRevision=window.abrirRevisionCotizacionV354;
     if(oldOpenRevision)window.abrirRevisionCotizacionV354=function(id){const data=(window.DB?.presupuestos||[]).find(p=>p.id===id)||{};const r=oldOpenRevision.apply(this,arguments);setTimeout(()=>cargarEntregaLogisticaPP(data),0);return r;};
     const oldSave=window.guardarPresupuestoCompleto;
     window.guardarPresupuestoCompleto=async function(){
       if(window.__tizPresupuestoGuardando){window.showToast?.('El presupuesto ya se está guardando. Esperá un momento.');return;}
+      if(!validarLogisticaCotizacion({permitirBorrador:true}))return;
       window.__tizPresupuestoGuardando=true;
       const nro=val('pp-nro').trim()||'0000', cliente=val('pp-cliente').trim(), desc=val('pp-desc').trim(), items=(window.ppItems||[]).filter(i=>(i.desc||'').trim()||(+i.precio||0)>0); if(!cliente||!items.length){window.__tizPresupuestoGuardando=false;return oldSave?.apply(this,arguments);}
       const total=items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
@@ -535,6 +551,7 @@
     if(typeof original!=='function'||original.__tizBloqueado)return;
     const wrapped=async function(){
       if(window.__tizPresupuestoGuardando){window.showToast?.('El presupuesto ya se está procesando. Esperá un momento.');return;}
+      if(!validarLogisticaCotizacion())return;
       window.__tizPresupuestoGuardando=true;
       try{return await original.apply(this,arguments);}finally{window.__tizPresupuestoGuardando=false;}
     };

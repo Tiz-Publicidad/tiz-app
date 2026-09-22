@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V118-AUTH-STABLE-20260922';
+const VERSION='BASE-MADRE-SYNC-V119-CLIENT-CONTACT-20260922';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
@@ -102,7 +102,7 @@ function payloadFromBudget(p={}){
   return{
     ot:base(p.nro||p.nroPresupuesto||p.cotizacionBase),
     descripcion:T(p.desc||p.descripcion),
-    contacto:T(e.contacto||p.contacto||p.vendedor),
+    contacto:T(e.contacto||e.retira||p.contacto),
     cliente:T(p.cliente),
     neto,
     bruto:Math.round(neto*(1+ivaPct/100)*100)/100,
