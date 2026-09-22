@@ -2,11 +2,11 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V117-FACTURACION-COBRANZAS-20260922';
+const VERSION='BASE-MADRE-SYNC-V118-AUTH-STABLE-20260922';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
 const SHEET_SCOPE='https://www.googleapis.com/auth/spreadsheets';
-const CACHE_KEY='tiz-master-sheet-oauth-v111';
+const CACHE_KEY='tiz-master-sheet-oauth-v118';
 const FIREBASE_CONFIG={apiKey:'AIzaSyBkTVxyE0Qd6SBTw5jf-hdn1aCP5Y9g42E',authDomain:'tiz---app.firebaseapp.com',projectId:'tiz---app',storageBucket:'tiz---app.firebasestorage.app',messagingSenderId:'52620104053',appId:'1:52620104053:web:d62bf8b7ca296581f1833c',measurementId:'G-EXPT46ZFJT'};
 let authPromise=null, syncPromise=null;
 
@@ -19,13 +19,18 @@ const escSheetName=s=>"'"+String(s).replace(/'/g,"''")+"'";
 
 function cachedToken(){
   try{
-    const x=JSON.parse(sessionStorage.getItem(CACHE_KEY)||'null');
+    const raw=sessionStorage.getItem(CACHE_KEY)||localStorage.getItem(CACHE_KEY)||'null';
+    const x=JSON.parse(raw);
     if(!x?.token||!x?.ts)return'';
-    if(Date.now()-Number(x.ts)>45*60*1000){sessionStorage.removeItem(CACHE_KEY);return''}
+    if(Date.now()-Number(x.ts)>50*60*1000){sessionStorage.removeItem(CACHE_KEY);localStorage.removeItem(CACHE_KEY);return''}
     return x.token;
   }catch(_){return''}
 }
-function cacheToken(token,email){try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({token,ts:Date.now(),email:email||''}))}catch(_){}}
+function cacheToken(token,email){
+  const value=JSON.stringify({token,ts:Date.now(),email:email||''});
+  try{sessionStorage.setItem(CACHE_KEY,value)}catch(_){}
+  try{localStorage.setItem(CACHE_KEY,value)}catch(_){}
+}
 
 async function authApi(){
   if(authPromise)return authPromise;
@@ -53,13 +58,13 @@ async function validateToken(token){
 async function getToken(interactive=true){
   const cached=cachedToken(),cachedCheck=cached?await validateToken(cached):{ok:false,error:''};
   if(cached&&cachedCheck.ok)return cached;
-  if(cached)try{sessionStorage.removeItem(CACHE_KEY)}catch(_){}
+  if(cached){try{sessionStorage.removeItem(CACHE_KEY)}catch(_){}try{localStorage.removeItem(CACHE_KEY)}catch(_){}}
   if(!interactive)throw new Error(cachedCheck.error||'Falta autorizar Google Sheets');
   const {auth,GoogleAuthProvider,reauthenticateWithPopup}=await authApi(),u=auth.currentUser;
   if(!u)throw new Error('Sesion de Google no iniciada');
   const p=new GoogleAuthProvider();
   p.addScope(SHEET_SCOPE);
-  p.setCustomParameters({prompt:'consent',login_hint:u.email||''});
+  p.setCustomParameters({login_hint:u.email||''});
   const result=await reauthenticateWithPopup(u,p),cred=GoogleAuthProvider.credentialFromResult(result),token=cred?.accessToken||'';
   if(!token)throw new Error('Google no entrego autorizacion para la planilla madre');
   const check=await validateToken(token);
@@ -101,7 +106,7 @@ function payloadFromBudget(p={}){
     cliente:T(p.cliente),
     neto,
     bruto:Math.round(neto*(1+ivaPct/100)*100)/100,
-    estado:'Aprobado'
+    estado:'Pendiente'
   };
 }
 async function findRow(ot,token){
@@ -168,15 +173,14 @@ async function verifyRow(row,payload,token){
   if(ot!==base(payload.ot))errors.push('OT distinta');
   if(cliente!==norm(payload.cliente))errors.push('cliente distinto');
   if(Math.abs(neto-N(payload.neto))>0.01)errors.push('neto distinto');
-  if(!approved(estado))errors.push('estado no aprobado');
+  if(!['pendiente','entregado','cobrado','cobrado pendiente'].includes(estado))errors.push('estado operativo inválido');
   if(errors.length)throw new Error('Base Madre escribió la fila '+row+' pero la verificación falló: '+errors.join(', '));
   return {ok:true,row,ot,cliente:values[5],neto,estado:values[26]};
 }
 async function updateExisting(row,payload,token){
   const old=await readRow(row,token),fecha=T(old[0])||fmtDate(),sem=T(old[1])||String(isoWeek());
   const body={valueInputOption:'USER_ENTERED',data:[
-    {range:escSheetName(SHEET)+'!A'+row+':H'+row,majorDimension:'ROWS',values:[[fecha,sem,payload.ot,payload.descripcion,payload.contacto,payload.cliente,payload.neto,payload.bruto]]},
-    {range:escSheetName(SHEET)+'!AA'+row,majorDimension:'ROWS',values:[[payload.estado]]}
+    {range:escSheetName(SHEET)+'!A'+row+':H'+row,majorDimension:'ROWS',values:[[fecha,sem,payload.ot,payload.descripcion,payload.contacto,payload.cliente,payload.neto,payload.bruto]]}
   ]};
   await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify(body)});
   return row;
