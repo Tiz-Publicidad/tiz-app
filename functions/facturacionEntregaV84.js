@@ -205,10 +205,32 @@ const facturacionEnviarEmailV84 = onRequest({ region: "us-central1", invoker: "p
         estadoGestionFactura: "Factura enviada",
       });
     }
+    let emailsCliente = [];
     if (req.body?.guardarEnCliente && obra.clienteId) {
-      await admin.firestore().collection("clientes").doc(String(obra.clienteId)).set({ emailsFacturacion: destinatario.split(",") }, { merge: true }).catch(() => {});
+      const clienteRef = admin.firestore().collection("clientes").doc(String(obra.clienteId));
+      await admin.firestore().runTransaction(async tx => {
+        const clienteSnap = await tx.get(clienteRef);
+        const cliente = clienteSnap.exists ? (clienteSnap.data() || {}) : {};
+        const existentes = [
+          cliente.email,
+          cliente.correo,
+          cliente.mail,
+          cliente.emailFacturacion,
+          ...(Array.isArray(cliente.emails) ? cliente.emails : []),
+          ...(Array.isArray(cliente.correos) ? cliente.correos : []),
+          ...(Array.isArray(cliente.mails) ? cliente.mails : []),
+          ...(Array.isArray(cliente.emailsFacturacion) ? cliente.emailsFacturacion : []),
+        ].flatMap(v => String(v || "").split(/[;,\n]+/)).map(v => v.trim().toLowerCase()).filter(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
+        emailsCliente = [...new Set([...existentes, ...destinatario.split(",")])].slice(0, 25);
+        tx.set(clienteRef, {
+          emailsFacturacion: emailsCliente,
+          emailFacturacionPredeterminado: destinatario.split(",")[0],
+          emailsFacturacionActualizadosAt: admin.firestore.FieldValue.serverTimestamp(),
+          emailsFacturacionActualizadosPor: user.email,
+        }, { merge: true });
+      });
     }
-    return res.json({ ok: true, prueba, destinatario, remitente: "info@tizpublicidad.com", fileId, fileName: result.fileName || "", numero });
+    return res.json({ ok: true, prueba, destinatario, emailsCliente, remitente: "info@tizpublicidad.com", fileId, fileName: result.fileName || "", numero });
   } catch (error) {
     console.error("Invoice email V84 failed", error);
     return res.status(error.status || 502).json({ ok: false, error: error.message || "No se pudo enviar la factura" });
