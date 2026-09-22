@@ -82,7 +82,20 @@
         if (!r.ok || !d.ok) throw new Error(d.error || `Correo respondió HTTP ${r.status}`);
         if (!prueba) {
           o.facturaArca = o.facturaArca || {}; o.facturaArca.emailUltimoDestinatarios = d.destinatario.split(','); o.estadoGestionFactura = 'Factura enviada';
-          if ($('#fv84-save-email').checked) { c.emailsFacturacion = d.emailsCliente?.length ? d.emailsCliente : [...new Set([...emailsDe(c), ...destinatarios])]; c.emailFacturacionPredeterminado = destinatarios[0]; }
+          if ($('#fv84-save-email').checked) {
+            const emailsCliente = d.emailsCliente?.length ? d.emailsCliente : [...new Set([...emailsDe(c), ...destinatarios])];
+            c.emailsFacturacion = emailsCliente;
+            c.emailFacturacionPredeterminado = destinatarios[0];
+            const clienteId = c.id || o.clienteId;
+            if (clienteId && typeof window.updateDoc_ === 'function') {
+              await window.updateDoc_('clientes', String(clienteId), {
+                emailsFacturacion: emailsCliente,
+                emailFacturacionPredeterminado: destinatarios[0],
+                emailsFacturacionActualizadosAt: new Date().toISOString(),
+                emailsFacturacionActualizadosPor: window.currentUser?.email || '',
+              });
+            }
+          }
           window.renderCobranzas?.();
         }
         window.showToast?.('Correo enviado y asociado al cliente ✓');
