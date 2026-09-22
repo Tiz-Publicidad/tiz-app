@@ -3,6 +3,8 @@
 const { google } = require("googleapis");
 const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
+const fs = require("fs");
+const path = require("path");
 const { defineString } = require("firebase-functions/params");
 
 const FACTURAS_2026_FOLDER_ID = "1XYk0vAIsGZCAiJ4s7TGyQYJdVBYvYdGy";
@@ -10,6 +12,7 @@ const issuerRazonSocial = defineString("ARCA_ISSUER_RAZON_SOCIAL", {default:"Six
 const issuerNombreFantasia = defineString("ARCA_ISSUER_NOMBRE_FANTASIA", {default:"TIZ Publicidad"});
 const issuerDomicilio = defineString("ARCA_ISSUER_DOMICILIO", {default:""});
 const issuerCondicionIva = defineString("ARCA_ISSUER_CONDICION_IVA", {default:"Responsable Inscripto"});
+const TIZ_LOGO_PATH = path.join(__dirname,"assets","tiz-logo-factura.png");
 
 const safe = value => String(value || "").replace(/[\\/:*?"<>|]+/g," ").replace(/\s+/g," ").trim();
 const n = value => Number(value) || 0;
@@ -35,6 +38,9 @@ function tipoInfo(factura){
   const titulo=String(factura.tipo||"Factura").replace(/\s+[AB]$/i,"").toUpperCase();
   return {letra,cod,titulo};
 }
+function condicionIvaReceptor(id){
+  return ({1:"IVA Responsable Inscripto",4:"IVA Exento",5:"Consumidor Final",6:"Responsable Monotributo"})[Number(id)]||"IVA Responsable Inscripto";
+}
 
 function pdfBuffer(factura, obra, issuerCuit) {
   return new Promise(async (resolve,reject)=>{
@@ -49,13 +55,15 @@ function pdfBuffer(factura, obra, issuerCuit) {
       const qrBytes=Buffer.from(qr.split(",")[1],"base64");
       const left=28,right=567,width=right-left,mid=296;
 
-      doc.font("Helvetica-Bold").fontSize(14).text("ORIGINAL",left,20,{width,align:"center"});
-      line(doc,left,42,right,42); line(doc,left,20,right,20); line(doc,left,20,left,246); line(doc,right,20,right,246);
-      line(doc,mid,42,mid,172); line(doc,left,172,right,172); line(doc,left,202,right,202); line(doc,left,246,right,246);
+      doc.font("Helvetica-Bold").fontSize(factura.preview?10:14).fillColor(factura.preview?"#df2074":"#111").text(factura.preview?"PREVIEW - SIN VALIDEZ FISCAL":"ORIGINAL",left,24,{width,align:"center"});
+      doc.fillColor("#111");
+      line(doc,left,42,right,42); line(doc,left,20,right,20); line(doc,left,20,left,262); line(doc,right,20,right,262);
+      line(doc,left,172,right,172); line(doc,left,202,right,202); line(doc,left,262,right,262);
 
-      doc.font("Helvetica-Bold").fontSize(10).text(razon.toUpperCase(),left+10,62,{width:mid-left-20,align:"center"});
-      labelValue(doc,"Razón Social:",razon,left+8,104,245);
-      labelValue(doc,"Domicilio Comercial:",domicilio,left+8,126,245);
+      if(fs.existsSync(TIZ_LOGO_PATH))doc.image(TIZ_LOGO_PATH,left+18,51,{fit:[78,54],align:"center",valign:"center"});
+      doc.font("Helvetica-Bold").fontSize(8).text(razon,left+116,78,{width:mid-left-126,align:"left"});
+      labelValue(doc,"Razón Social:",razon,left+8,112,245);
+      labelValue(doc,"Domicilio Comercial:",domicilio,left+8,134,245);
       labelValue(doc,"Condición frente al IVA:",`IVA ${condicion}`,left+8,153,245);
 
       doc.rect(mid-28,48,56,57).stroke();
@@ -73,15 +81,17 @@ function pdfBuffer(factura, obra, issuerCuit) {
       doc.font("Helvetica-Bold").text("Fecha de Vto. para el pago:",left+372,181); doc.font("Helvetica").text(fPago,left+500,181);
 
       const cliente=factura.cliente||obra.cliente||"";
-      labelValue(doc,"CUIT:",factura.cuit,left+8,211,245);
-      labelValue(doc,"Apellido y Nombre / Razón Social:",cliente,left+215,211,330);
-      labelValue(doc,"Condición frente al IVA:",factura.condicionIVAReceptorId===4?"IVA Exento":factura.condicionIVAReceptorId===6?"Monotributo":"IVA Responsable Inscripto",left+8,231,245);
+      doc.save().fillColor("#eeeeee").rect(left+.5,202.5,width-1,16).fill().restore();
+      doc.font("Helvetica-Bold").fillColor("#111").fontSize(7).text("DATOS DEL RECEPTOR",left+8,207,{width:width-16});
+      labelValue(doc,"CUIT:",factura.cuit,left+8,226,185);
+      labelValue(doc,"Apellido y Nombre / Razón Social:",cliente,left+195,226,350);
+      labelValue(doc,"Condición frente al IVA:",condicionIvaReceptor(factura.condicionIVAReceptorId),left+8,246,275);
       const ot=String(obra.ot||"").replace(/^0+/,"");
       const ref=[ot?`OT ${ot}`:"",obra.desc||obra.descripcion||""].filter(Boolean).join(" - ");
-      if(ref) doc.font("Helvetica").fontSize(6.5).text(ref,left+215,231,{width:335,height:13,ellipsis:true});
+      if(ref) doc.font("Helvetica").fontSize(6.5).text(ref,left+290,246,{width:260,height:13,ellipsis:true});
 
-      let y=278;
-      const cols=[left,left+38,left+240,left+287,left+334,left+402,left+442,left+492,right];
+      let y=290;
+      const cols=[left,left+34,left+214,left+252,left+292,left+347,left+382,left+427,left+467,right];
       const headers=["Código","Producto / Servicio","Cantidad","U. medida","Precio Unit.","% Bonif","Subtotal","Alícuota IVA","Subtotal c/IVA"];
       doc.save().fillColor("#d9d9d9").rect(left,y,width,20).fill().restore();
       doc.strokeColor("#555").rect(left,y,width,20).stroke();
@@ -94,21 +104,22 @@ function pdfBuffer(factura, obra, issuerCuit) {
       items.slice(0,40).forEach((it,i)=>{
         const desc=safe(it.descripcion||it.desc||`Ítem ${i+1}`),cant=n(it.cantidad)||1,unit=n(it.unitario),sub=cant*unit,totalItem=sub*(1+ivaPct/100);
         const h=Math.max(18,doc.heightOfString(desc,{width:194})+6);
-        if(y+h>650){doc.addPage();y=55;}
-        doc.font("Helvetica").fontSize(6.8).fillColor("#111");
+        if(y+h>560){doc.addPage();y=55;}
+        doc.font("Helvetica").fontSize(6.2).fillColor("#111");
         doc.text(String(i+1).padStart(4,"0"),cols[0]+2,y+3,{width:34});
-        doc.text(desc,cols[1]+2,y+3,{width:198});
-        doc.text(cant.toFixed(2).replace(".",","),cols[2]+2,y+3,{width:43,align:"right"});
-        doc.text("unidades",cols[3]+2,y+3,{width:43,align:"center"});
-        doc.text(money(unit),cols[4]+2,y+3,{width:64,align:"right"});
-        doc.text("0,00",cols[5]+2,y+3,{width:36,align:"right"});
-        doc.text(money(sub),cols[6]+2,y+3,{width:46,align:"right"});
-        doc.text(String(factura.alicuota)==="exento"?"Exento":`${ivaPct}%`,cols[7]+2,y+3,{width:71,align:"center"});
-        doc.text(money(totalItem),cols[8]+2,y+3,{width:71,align:"right"});
+        doc.text(desc,cols[1]+2,y+3,{width:cols[2]-cols[1]-4});
+        doc.text(cant.toFixed(2).replace(".",","),cols[2]+2,y+3,{width:cols[3]-cols[2]-4,align:"right"});
+        doc.text("unidades",cols[3]+2,y+3,{width:cols[4]-cols[3]-4,align:"center"});
+        doc.text(money(unit),cols[4]+2,y+3,{width:cols[5]-cols[4]-4,align:"right"});
+        doc.text("0,00",cols[5]+2,y+3,{width:cols[6]-cols[5]-4,align:"right"});
+        doc.text(money(sub),cols[6]+2,y+3,{width:cols[7]-cols[6]-4,align:"right"});
+        doc.text(String(factura.alicuota)==="exento"?"Exento":`${ivaPct}%`,cols[7]+2,y+3,{width:cols[8]-cols[7]-4,align:"center"});
+        doc.text(money(totalItem),cols[8]+2,y+3,{width:cols[9]-cols[8]-4,align:"right"});
         y+=h;
       });
 
-      const totalsTop=Math.max(y+18,655);
+      let totalsTop=Math.max(y+18,570);
+      if(totalsTop>590){doc.addPage();totalsTop=55;}
       doc.rect(left,totalsTop,width,128).stroke();
       const tx=385, valx=478;
       const rows=[
