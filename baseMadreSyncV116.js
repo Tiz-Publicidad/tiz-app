@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V121-NO-POPUPS-20260923';
+const VERSION='BASE-MADRE-SYNC-V122-AUTO-RETRY-20260923';
 const BACKEND_URL='https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
@@ -248,14 +248,16 @@ async function syncPendingBilling(){
   try{await syncBillingBackend(pending,{silent:true})}catch(e){console.warn('[TIZ V121 monitor]',e)}finally{billingMonitorBusy=false}
 }
 setInterval(syncPendingBilling,5000);
-async function repairKnownPendingOts(){
+async function repairPendingApproved(){
   if(repairMonitorBusy)return;
-  const p=(window.DB?.presupuestos||[]).filter(x=>approved(x?.estado||x?.status||x?.estadoRevision)&&base(x?.nro||x?.cotizacionBase)==='4730').sort((a,b)=>T(b?.revision).localeCompare(T(a?.revision),undefined,{numeric:true}))[0];
-  if(!p||p.baseMadreSyncAt||p.baseMadreRow)return;
+  const p=(window.DB?.presupuestos||[])
+    .filter(x=>approved(x?.estado||x?.status||x?.estadoRevision)&&!x?.baseMadreSyncAt&&!x?.baseMadreRow)
+    .sort((a,b)=>N(base(b?.nro||b?.cotizacionBase))-N(base(a?.nro||a?.cotizacionBase))||T(b?.revision).localeCompare(T(a?.revision),undefined,{numeric:true}))[0];
+  if(!p)return;
   repairMonitorBusy=true;
-  try{await syncBudgetBackend(p,{silent:false})}catch(e){console.warn('[TIZ V120 reparación OT 4730]',e)}finally{repairMonitorBusy=false}
+  try{await syncBudgetBackend(p,{silent:true})}catch(e){console.warn('[TIZ V122 reintento automático]',e)}finally{repairMonitorBusy=false}
 }
-setInterval(repairKnownPendingOts,7000);
+setInterval(repairPendingApproved,7000);
 window.autorizarBaseMadreTIZV111=async function(){throw new Error('La Base Madre se sincroniza automáticamente desde Firebase')};
 window.verificarBaseMadreTIZV116=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
