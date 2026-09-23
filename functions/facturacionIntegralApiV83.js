@@ -503,6 +503,7 @@ const facturacionIntegralEmitirV83 = onRequest(
           factura: comp,
           obra,
           issuerCuit: issuer.value(),
+          accessToken: String(req.body?.driveAccessToken || "").trim(),
         });
         await ref.update({
           "facturaArca.driveFileId": drive.fileId,
