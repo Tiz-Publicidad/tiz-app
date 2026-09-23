@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 
-const VERSION='BASE-MADRE-SYNC-V119-CLIENT-CONTACT-20260922';
+const VERSION='BASE-MADRE-SYNC-V121-NO-POPUPS-20260923';
 const BACKEND_URL='https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120';
 const SPREADSHEET_ID='1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M';
 const SHEET='Base de datos';
@@ -237,7 +237,8 @@ async function syncBillingBackend(obraOrId,{silent=false}={}){
 }
 window.sincronizarBaseMadreBackendV120=syncBudgetBackend;
 window.sincronizarFacturacionBaseMadreTIZV117=syncBillingBackend;
-window.sincronizarBaseMadreTIZV111=syncBudget;
+// Compatibilidad: cualquier módulo antiguo también usa el backend y no abre OAuth de Sheets.
+window.sincronizarBaseMadreTIZV111=syncBudgetBackend;
 let billingMonitorBusy=false;
 let repairMonitorBusy=false;
 async function syncPendingBilling(){
