@@ -308,6 +308,12 @@ const facturacionIntegralEmitirV83 = onRequest(
           status: 400,
         });
       const cond = Number(req.body?.condicionIVAReceptorId || 1),
+        domicilioFiscal = String(
+          req.body?.domicilioFiscal ||
+            obra.clienteDomicilioFiscal ||
+            obra.domicilioFiscal ||
+            "",
+        ).trim(),
         exento = String(req.body?.tratamientoIva || "gravado") === "exento",
         ivaCfg = ivaConfig(req.body?.alicuota ?? 21, exento),
         neto = round2(req.body?.neto);
@@ -315,6 +321,11 @@ const facturacionIntegralEmitirV83 = onRequest(
         throw Object.assign(new Error("Importe neto inválido"), {
           status: 400,
         });
+      if (!domicilioFiscal)
+        throw Object.assign(
+          new Error("Falta el domicilio fiscal del receptor"),
+          { status: 400 },
+        );
       const items = (Array.isArray(req.body?.items) ? req.body.items : [])
         .slice(0, 60)
         .map((x) => ({
@@ -446,6 +457,7 @@ const facturacionIntegralEmitirV83 = onRequest(
           caeVto,
           cliente: String(obra.cliente || ""),
           cuit,
+          domicilioFiscal,
           neto,
           iva,
           total,
@@ -485,6 +497,8 @@ const facturacionIntegralEmitirV83 = onRequest(
         ffc: hoy.iso,
         facturado: nextFiscal.saldo <= 0.01,
         facturaDrivePendiente: true,
+        clienteDomicilioFiscal: domicilioFiscal,
+        domicilioFiscal,
         estadoGestionFactura: "Facturada - falta enviar",
         facturacionActualizadaAt: new Date().toISOString(),
       });
@@ -519,7 +533,11 @@ const facturacionIntegralEmitirV83 = onRequest(
         comp.drivePendiente = false;
       } catch (e) {
         driveError = e.message || String(e);
-        console.error("PDF Drive pendiente", { obraId, numero, error: driveError });
+        console.error("PDF Drive pendiente", {
+          obraId,
+          numero,
+          error: driveError,
+        });
         await ref
           .set(
             {
