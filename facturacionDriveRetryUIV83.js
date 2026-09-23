@@ -38,10 +38,15 @@
   preloadAuth().catch((e) => console.error("[TIZ V97 auth preload]", e));
   function cachedDriveToken() {
     try {
-      const x = JSON.parse(sessionStorage.getItem(DRIVE_CACHE) || "null");
+      const x = JSON.parse(
+        sessionStorage.getItem(DRIVE_CACHE) ||
+          localStorage.getItem(DRIVE_CACHE) ||
+          "null",
+      );
       if (!x?.token || !x?.ts) return "";
-      if (Date.now() - Number(x.ts) > 45 * 60 * 1000) {
+      if (Date.now() - Number(x.ts) > 50 * 60 * 1000) {
         sessionStorage.removeItem(DRIVE_CACHE);
+        localStorage.removeItem(DRIVE_CACHE);
         return "";
       }
       return x.token;
@@ -50,10 +55,9 @@
     }
   }
   function cacheDriveToken(token, email) {
-    sessionStorage.setItem(
-      DRIVE_CACHE,
-      JSON.stringify({ token, ts: Date.now(), email: email || "" }),
-    );
+    const value = JSON.stringify({ token, ts: Date.now(), email: email || "" });
+    sessionStorage.setItem(DRIVE_CACHE, value);
+    localStorage.setItem(DRIVE_CACHE, value);
   }
   async function firebaseToken() {
     const { auth } = await preloadAuth();
@@ -69,7 +73,7 @@
     if (!u) throw new Error("Sesion no iniciada");
     const p = new GoogleAuthProvider();
     p.addScope("https://www.googleapis.com/auth/drive");
-    p.setCustomParameters({ prompt: "consent", login_hint: u.email || "" });
+    p.setCustomParameters({ login_hint: u.email || "" });
     const result = await reauthenticateWithPopup(u, p);
     const cred = GoogleAuthProvider.credentialFromResult(result),
       access = cred?.accessToken || "";
@@ -83,6 +87,7 @@
   window.obtenerDriveAccessTokenTizV92 = authorizeDriveDirect;
   window.obtenerDriveAccessTokenTizV91 = authorizeDriveDirect;
   window.obtenerDriveAccessTokenTizV87 = authorizeDriveDirect;
+  window.obtenerDriveAccessTokenCacheTizV123 = cachedDriveToken;
 
   function comps(o) {
     const a = Array.isArray(o?.comprobantesArca)
@@ -146,13 +151,30 @@
         btn.disabled = true;
         btn.textContent = "Archivando...";
       }
-      const d = await postJson(RECOVER_ENDPOINT, {
-        obraId,
-        invoiceKey,
-        numeroCompleto: inv.numeroCompleto,
-        cbteTipo: inv.cbteTipo,
-        cbteNro: inv.cbteNro,
-      });
+      let d;
+      try {
+        d = await postJson(RECOVER_ENDPOINT, {
+          obraId,
+          invoiceKey,
+          numeroCompleto: inv.numeroCompleto,
+          cbteTipo: inv.cbteTipo,
+          cbteNro: inv.cbteNro,
+        });
+      } catch (firstError) {
+        if (!/service accounts? do not have storage quota|storage quota|use oauth/i.test(String(firstError?.message || firstError)))
+          throw firstError;
+        if (btn) btn.textContent = "Autorizando Drive...";
+        const access = await authorizeDriveDirect();
+        if (btn) btn.textContent = "Archivando...";
+        d = await postJson(RECOVER_ENDPOINT, {
+          obraId,
+          invoiceKey,
+          numeroCompleto: inv.numeroCompleto,
+          cbteTipo: inv.cbteTipo,
+          cbteNro: inv.cbteNro,
+          driveAccessToken: access,
+        });
+      }
       if (inv.raw) {
         inv.raw.driveFileId = d.fileId;
         inv.raw.driveFileName = d.fileName;
