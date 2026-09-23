@@ -43,7 +43,7 @@ jobs:
           grep -q 'sectorizacionV35.js?v=TIZ-V35-23-BASE-MADRE-BACKEND-20260923' index.html
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V122-AUTO-RETRY-20260923' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
-          grep -q 'facturadorIntegralV83.js?v=TIZ-FC-V2-ARCA-V91-DRIVE-TOKEN-20260923' index.html
+          grep -q 'facturadorIntegralV83.js?v=TIZ-FC-V2-ARCA-V92-PADRON-DOMICILIO-20260923' index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-V2-DRIVE-V124-OAUTH-FALLBACK-20260923' index.html
           node --check facturacionCobranzasDataV2.js
           node --check facturacionCobranzasActionsV2.js
