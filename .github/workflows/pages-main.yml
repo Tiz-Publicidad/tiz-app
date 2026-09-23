@@ -41,7 +41,7 @@ jobs:
           node --check baseMadreSyncV116.js
           node --check sectorizacionV35.js
           grep -q 'sectorizacionV35.js?v=TIZ-V35-23-BASE-MADRE-BACKEND-20260923' index.html
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V121-NO-POPUPS-20260923' index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V122-AUTO-RETRY-20260923' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
           node --check facturacionCobranzasDataV2.js
           node --check facturacionCobranzasActionsV2.js
@@ -74,7 +74,7 @@ jobs:
           test -f site/app.js
           test -f site/sectorizacionV35.js
           test -f site/baseMadreSyncV116.js
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V121-NO-POPUPS-20260923' site/index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V122-AUTO-RETRY-20260923' site/index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' site/index.html
           test -f site/facturacionCobranzasDataV2.js
           test -f site/facturacionCobranzasActionsV2.js
