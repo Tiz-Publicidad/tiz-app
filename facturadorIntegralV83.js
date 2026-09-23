@@ -1,8 +1,10 @@
-// TIZ V87 — Facturador integral PV 00009 + Drive OAuth del operador
+// TIZ V92 — Facturador integral + domicilio fiscal automático desde ARCA
 (function () {
   "use strict";
   const ENDPOINT =
     "https://us-central1-tiz---app.cloudfunctions.net/facturacionIntegralEmitirV83";
+  const PADRON_ENDPOINT =
+    "https://us-central1-tiz---app.cloudfunctions.net/arcaPadronConsultarV125";
   const money = (v) =>
     new Intl.NumberFormat("es-AR", {
       style: "currency",
@@ -153,6 +155,13 @@
     const c = cli(o),
       f = fiscal(o),
       cuit = String(o.clienteCuit || o.cuit || c.cuit || "").replace(/\D/g, ""),
+      domicilio = String(
+        o.clienteDomicilioFiscal ||
+          o.domicilioFiscal ||
+          c.domicilioFiscal ||
+          c.direccionFiscal ||
+          "",
+      ).trim(),
       cond = String(
         c.condicionIvaId ||
           c.condicionIVAReceptorId ||
@@ -164,7 +173,7 @@
     const root = document.createElement("div");
     root.id = "modal-fv83";
     root.className = "modal-overlay open";
-    root.innerHTML = `<div class="modal" style="max-width:820px"><div class="modal-title">Facturación ARCA · PV 00009 · OT ${esc(o.ot || "")}</div><div class="fv83-note"><b>Comprobante fiscal real.</b> La autorización ARCA es irreversible. Luego de obtener el CAE, TIZ genera el PDF y lo archiva automáticamente en <b>2026 Facturacion</b> mediante su cuenta de servicio. Si falla Drive o correo, nunca vuelve a emitir el comprobante.</div><div class="fv83-grid" style="margin-top:12px"><div class="form-group"><label>Cliente</label><input value="${esc(o.cliente || "")}" disabled></div><div class="form-group"><label>CUIT</label><input id="fv83-cuit" value="${esc(cuit)}"></div><div class="form-group"><label>Condición IVA receptor</label><select id="fv83-cond"><option value="1" ${cond === "1" ? "selected" : ""}>IVA Responsable Inscripto</option><option value="4" ${cond === "4" ? "selected" : ""}>IVA Exento</option><option value="5" ${cond === "5" ? "selected" : ""}>Consumidor Final</option><option value="6" ${cond === "6" ? "selected" : ""}>Monotributo</option></select></div><div class="form-group"><label>Tipo de comprobante</label><select id="fv83-type">${types.map(([v, l]) => `<option value="${v}" ${v === tipo ? "selected" : ""}>${l}</option>`).join("")}</select></div><div class="form-group"><label>IVA</label><select id="fv83-iva"><option value="21">21%</option><option value="10.5">10,5%</option><option value="27">27%</option><option value="5">5%</option><option value="2.5">2,5%</option><option value="0">0%</option><option value="exento">Exento</option></select></div><div class="form-group"><label>Días de pago</label><input id="fv83-days" type="number" min="0" step="1" value="${esc(o.finanzas?.diasPago ?? 0)}"></div><div class="form-group"><label>Porcentaje del presupuesto</label><input id="fv83-pct" type="number" min="0.01" max="100" step="0.01" value="${f.p ? Math.round((f.saldo / f.p) * 10000) / 100 : 100}"></div><div class="form-group"><label>Importe neto</label><input id="fv83-net" type="number" min="0.01" step="0.01" value="${f.saldo.toFixed(2)}"></div><div id="fv83-assoc-wrap" class="form-group fv83-full" style="display:none"><label>Comprobante original asociado</label><select id="fv83-assoc"></select><div style="font-size:9px;color:var(--text3);margin-top:4px">Obligatorio para notas de crédito y débito.</div></div><div class="fv83-full" style="font-size:10px;color:var(--text3)">Presupuesto: ${money(f.p)} · Emitido neto: ${money(f.emit)} · Saldo por facturar: ${money(f.saldo)}</div><div class="fv83-full"><b style="font-size:10px">Ítems que irán al PDF</b><div id="fv83-items" class="fv83-items"></div></div><div class="fv83-full" style="font-size:11px;color:var(--text2)"><b>PDF en Drive:</b> automático en <b>2026 Facturacion</b>, sin autorización personal por cada factura.</div><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-send" type="checkbox">Además, después de guardar el PDF, abrir el envío por correo.</label><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-ok" type="checkbox">Revisé cliente, CUIT, tipo, IVA, importe y comprobante asociado. Confirmo que deseo emitir.</label></div><div class="modal-actions"><button class="btn btn-ghost" id="fv83-cancel">Cancelar</button><button class="btn btn-primary" id="fv83-emit" disabled>EMITIR COMPROBANTE REAL · PV 00009</button></div></div>`;
+    root.innerHTML = `<div class="modal" style="max-width:820px"><div class="modal-title">Facturación ARCA · PV 00009 · OT ${esc(o.ot || "")}</div><div class="fv83-note"><b>Comprobante fiscal real.</b> La autorización ARCA es irreversible. TIZ consulta el domicilio fiscal del receptor en el Padrón de ARCA antes de emitir y lo incorpora al PDF.</div><div class="fv83-grid" style="margin-top:12px"><div class="form-group"><label>Cliente</label><input value="${esc(o.cliente || "")}" disabled></div><div class="form-group"><label>CUIT</label><div style="display:flex;gap:6px"><input id="fv83-cuit" value="${esc(cuit)}"><button type="button" class="btn btn-ghost btn-sm" id="fv83-padron">Consultar ARCA</button></div></div><div class="form-group fv83-full"><label>Domicilio fiscal del receptor</label><input id="fv83-domicilio" value="${esc(domicilio)}" placeholder="Se completa automáticamente desde el Padrón de ARCA"><div id="fv83-padron-status" style="font-size:10px;color:var(--text3);margin-top:4px">${domicilio ? "Domicilio guardado; se verificará con ARCA." : "Consultando domicilio fiscal…"}</div></div><div class="form-group"><label>Condición IVA receptor</label><select id="fv83-cond"><option value="1" ${cond === "1" ? "selected" : ""}>IVA Responsable Inscripto</option><option value="4" ${cond === "4" ? "selected" : ""}>IVA Exento</option><option value="5" ${cond === "5" ? "selected" : ""}>Consumidor Final</option><option value="6" ${cond === "6" ? "selected" : ""}>Monotributo</option></select></div><div class="form-group"><label>Tipo de comprobante</label><select id="fv83-type">${types.map(([v, l]) => `<option value="${v}" ${v === tipo ? "selected" : ""}>${l}</option>`).join("")}</select></div><div class="form-group"><label>IVA</label><select id="fv83-iva"><option value="21">21%</option><option value="10.5">10,5%</option><option value="27">27%</option><option value="5">5%</option><option value="2.5">2,5%</option><option value="0">0%</option><option value="exento">Exento</option></select></div><div class="form-group"><label>Días de pago</label><input id="fv83-days" type="number" min="0" step="1" value="${esc(o.finanzas?.diasPago ?? 0)}"></div><div class="form-group"><label>Porcentaje del presupuesto</label><input id="fv83-pct" type="number" min="0.01" max="100" step="0.01" value="${f.p ? Math.round((f.saldo / f.p) * 10000) / 100 : 100}"></div><div class="form-group"><label>Importe neto</label><input id="fv83-net" type="number" min="0.01" step="0.01" value="${f.saldo.toFixed(2)}"></div><div id="fv83-assoc-wrap" class="form-group fv83-full" style="display:none"><label>Comprobante original asociado</label><select id="fv83-assoc"></select><div style="font-size:9px;color:var(--text3);margin-top:4px">Obligatorio para notas de crédito y débito.</div></div><div class="fv83-full" style="font-size:10px;color:var(--text3)">Presupuesto: ${money(f.p)} · Emitido neto: ${money(f.emit)} · Saldo por facturar: ${money(f.saldo)}</div><div class="fv83-full"><b style="font-size:10px">Ítems que irán al PDF</b><div id="fv83-items" class="fv83-items"></div></div><div class="fv83-full" style="font-size:11px;color:var(--text2)"><b>PDF en Drive:</b> automático en <b>2026 Facturacion</b>. El domicilio fiscal quedará guardado en el cliente para próximas facturas.</div><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-send" type="checkbox">Además, después de guardar el PDF, abrir el envío por correo.</label><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-ok" type="checkbox">Revisé cliente, CUIT, domicilio fiscal, tipo, IVA, importe y comprobante asociado. Confirmo que deseo emitir.</label></div><div class="modal-actions"><button class="btn btn-ghost" id="fv83-cancel">Cancelar</button><button class="btn btn-primary" id="fv83-emit" disabled>EMITIR COMPROBANTE REAL · PV 00009</button></div></div>`;
     document.body.appendChild(root);
     const $ = (q) => root.querySelector(q),
       pct = $("#fv83-pct"),
@@ -173,6 +182,42 @@
       assocWrap = $("#fv83-assoc-wrap"),
       assoc = $("#fv83-assoc"),
       itemsBox = $("#fv83-items");
+    async function consultarPadron() {
+      const cuitActual = $("#fv83-cuit").value.replace(/\D/g, ""),
+        status = $("#fv83-padron-status"),
+        button = $("#fv83-padron");
+      if (!/^\d{11}$/.test(cuitActual)) {
+        status.textContent = "Ingresá un CUIT válido para consultar ARCA.";
+        status.style.color = "#ef6b6b";
+        return;
+      }
+      button.disabled = true;
+      status.textContent = "Consultando Padrón de ARCA…";
+      status.style.color = "var(--text3)";
+      try {
+        const response = await fetch(PADRON_ENDPOINT, {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + (await token()),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ cuit: cuitActual, obraId: o.id }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok)
+          throw new Error(data.error || "No se pudo consultar ARCA");
+        $("#fv83-domicilio").value = data.domicilioFiscal || "";
+        o.clienteDomicilioFiscal = data.domicilioFiscal || "";
+        o.domicilioFiscal = data.domicilioFiscal || "";
+        status.textContent = `${data.razonSocial || o.cliente} · domicilio fiscal verificado en ARCA`;
+        status.style.color = "var(--green,#35c58a)";
+      } catch (error) {
+        status.textContent = `${error.message}. Podés completar el domicilio manualmente.`;
+        status.style.color = "#ef6b6b";
+      } finally {
+        button.disabled = false;
+      }
+    }
     function drawItems() {
       const its = items(o, num(net.value));
       itemsBox.innerHTML = its
@@ -203,8 +248,11 @@
     $("#fv83-ok").onchange = () =>
       ($("#fv83-emit").disabled = !$("#fv83-ok").checked);
     $("#fv83-cancel").onclick = () => root.remove();
+    $("#fv83-padron").onclick = consultarPadron;
+    $("#fv83-cuit").addEventListener("change", consultarPadron);
     drawItems();
     syncAssoc();
+    if (/^\d{11}$/.test(cuit)) consultarPadron();
     $("#fv83-emit").onclick = async () => {
       const t = Number(typeEl.value),
         need = notes.has(t);
@@ -214,6 +262,10 @@
       if (!(n > 0)) return alert("Revisá el importe neto.");
       if (!/^\d{11}$/.test($("#fv83-cuit").value.replace(/\D/g, "")))
         return alert("Revisá el CUIT.");
+      if (!$("#fv83-domicilio").value.trim())
+        return alert(
+          "Falta el domicilio fiscal del receptor. Consultalo en ARCA o cargalo manualmente.",
+        );
       if (
         !confirm(
           `Se solicitará CAE REAL a ARCA.\n\nOT ${o.ot}\n${typeEl.selectedOptions[0].text}\nNeto ${money(n)}\n\nEl PDF se archivará automáticamente en 2026 Facturacion.\n\n¿Confirmás?`,
@@ -231,6 +283,7 @@
             confirmacion: "EMITIR COMPROBANTE REAL PV 00009",
             idempotencyKey: `ot${base(o.ot)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             docNro: $("#fv83-cuit").value.replace(/\D/g, ""),
+            domicilioFiscal: $("#fv83-domicilio").value.trim(),
             cbteTipo: t,
             condicionIVAReceptorId: Number($("#fv83-cond").value),
             tratamientoIva: ivaRaw === "exento" ? "exento" : "gravado",
@@ -266,9 +319,9 @@
         if (d.baseMadreError)
           msg += "\n\nLa planilla madre quedó en reintento automático.";
         alert(msg);
-        window.sincronizarFacturacionBaseMadreTIZV117?.(o, { silent: true }).catch(
-          (e) => console.warn("[TIZ FC Base Madre]", e),
-        );
+        window
+          .sincronizarFacturacionBaseMadreTIZV117?.(o, { silent: true })
+          .catch((e) => console.warn("[TIZ FC Base Madre]", e));
         window.showToast?.("Comprobante autorizado · PV 00009 ✓");
         if (wantEmail && archived)
           setTimeout(() => window.abrirEnvioFacturaEmailV61?.(o.id), 100);
