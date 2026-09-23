@@ -237,6 +237,8 @@
             alicuota: ivaRaw === "exento" ? 0 : Number(ivaRaw),
             neto: n,
             diasPago: Number($("#fv83-days").value || 0),
+            driveAccessToken:
+              window.obtenerDriveAccessTokenCacheTizV123?.() || "",
             items: items(o, n),
             asociado: need ? JSON.parse(assoc.value) : null,
           };
