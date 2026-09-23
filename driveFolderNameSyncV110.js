@@ -87,7 +87,7 @@ function wrapSaveObra(){
     const result=await old.apply(this,arguments);
     if(changed){
       const target={...o,ot:ot||o.ot,cliente:cliente||o.cliente,desc:desc||o.desc};
-      try{await syncName(target,{interactive:true})}
+      try{await syncName(target,{interactive:false})}
       catch(e){console.error('[TIZ V110 nombre carpeta]',e);window.showToast?.('Obra guardada; pendiente actualizar nombre de carpeta Drive: '+(e.message||e))}
     }
     return result;
@@ -109,7 +109,7 @@ function wrapBudgetSave(){
       const patch={cliente:cliente||o.cliente,desc:desc||o.desc};
       try{
         if(o.id&&typeof window.updateDoc_==='function'){await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch)}
-        await syncName({...o,...patch},{interactive:true});
+        await syncName({...o,...patch},{interactive:false});
       }catch(e){console.error('[TIZ V110 presupuesto->carpeta]',e);window.showToast?.('Presupuesto guardado; pendiente actualizar nombre de carpeta Drive: '+(e.message||e))}
     }
     return result;
