@@ -225,16 +225,26 @@ async function syncBudgetBackend(p,{silent=false}={}){
   const mark={baseMadreSyncAt:new Date().toISOString(),baseMadreRow:result.row||null,baseMadreSpreadsheetId:SPREADSHEET_ID,baseMadreSyncVersion:'BACKEND-V120'};
   Object.assign(p,mark);if(!silent)window.showToast?.('OT '+ot+' sincronizada con TIZ 2026 Base de Datos ✓');return result;
 }
+async function syncBillingBackend(obraOrId,{silent=false}={}){
+  const o=typeof obraOrId==='string'?(window.DB?.obras||[]).find(x=>x.id===obraOrId||base(x.ot)===base(obraOrId)):obraOrId;
+  if(!o)throw new Error('No se encontró la OT para sincronizar Facturación/Cobranzas');
+  const ot=base(o.ot||o.nroCotizacion||o.infoPresupuesto?.nro);if(!ot)throw new Error('La OT no tiene número válido');
+  const {auth}=await authApi(),user=auth.currentUser;if(!user)throw new Error('Sesión de TIZ no iniciada');
+  const idToken=await user.getIdToken();
+  const response=await fetch(BACKEND_URL,{method:'POST',headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},body:JSON.stringify({mode:'billing',ot,obraId:o.id||''})});
+  const result=await response.json().catch(()=>({}));if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo sincronizar Facturación/Cobranzas');
+  if(!silent)window.showToast?.('Facturación/Cobranzas de OT '+ot+' sincronizada ✓');return result;
+}
 window.sincronizarBaseMadreBackendV120=syncBudgetBackend;
+window.sincronizarFacturacionBaseMadreTIZV117=syncBillingBackend;
 window.sincronizarBaseMadreTIZV111=syncBudget;
-window.sincronizarFacturacionBaseMadreTIZV117=syncBilling;
 let billingMonitorBusy=false;
 let repairMonitorBusy=false;
 async function syncPendingBilling(){
-  if(billingMonitorBusy)return;const token=cachedToken();if(!token)return;
+  if(billingMonitorBusy)return;
   const pending=(window.DB?.obras||[]).find(o=>{const p=billingPayload(o);return p.numeroFactura&&p.signature!==T(o.baseMadreFactCobSignature)});
   if(!pending)return;billingMonitorBusy=true;
-  try{await syncBilling(pending,{interactive:false,silent:true,token})}catch(e){console.warn('[TIZ V117 monitor]',e)}finally{billingMonitorBusy=false}
+  try{await syncBillingBackend(pending,{silent:true})}catch(e){console.warn('[TIZ V121 monitor]',e)}finally{billingMonitorBusy=false}
 }
 setInterval(syncPendingBilling,5000);
 async function repairKnownPendingOts(){
@@ -245,7 +255,7 @@ async function repairKnownPendingOts(){
   try{await syncBudgetBackend(p,{silent:false})}catch(e){console.warn('[TIZ V120 reparación OT 4730]',e)}finally{repairMonitorBusy=false}
 }
 setInterval(repairKnownPendingOts,7000);
-window.autorizarBaseMadreTIZV111=async function(){return getToken(true)};
+window.autorizarBaseMadreTIZV111=async function(){throw new Error('La Base Madre se sincroniza automáticamente desde Firebase')};
 window.verificarBaseMadreTIZV116=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
   if(!p)throw new Error('No se encontro la cotizacion');
