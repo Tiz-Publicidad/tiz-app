@@ -1134,14 +1134,11 @@ function hideLoginScreen() {
 
 window.doLogin = async () => {
   try {
-    // Ariel usa Gmail personal, no forzamos dominio corporativo.
-    // Pedimos también Sheets para que las CT aprobadas puedan entrar en la Base Madre.
+    // La sesión de Firebase sirve para toda la app. Sheets y Drive se ejecutan
+    // desde el backend y no deben volver a pedir consentimiento en cada operación.
     const providerFlex = new GoogleAuthProvider();
-    providerFlex.addScope('https://www.googleapis.com/auth/spreadsheets');
-    providerFlex.setCustomParameters({prompt:'consent'});
-    const result=await signInWithPopup(auth, providerFlex);
-    const cred=GoogleAuthProvider.credentialFromResult(result);
-    if(cred?.accessToken)try{sessionStorage.setItem('tiz-master-sheet-oauth-v111',JSON.stringify({token:cred.accessToken,ts:Date.now(),email:result.user?.email||''}))}catch(_){}
+    providerFlex.setCustomParameters({hd:'tizpublicidad.com'});
+    await signInWithPopup(auth, providerFlex);
   } catch(e) {
     document.getElementById('login-err').textContent = 'Error al iniciar sesión: ' + e.message;
   }
@@ -3587,10 +3584,10 @@ async function syncToSheets(data) {
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V81-BUSCAR-PRESUPUESTO-20260909"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-22-LOGISTICA-OBLIGATORIA-20260922"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-23-BASE-MADRE-BACKEND-20260923"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-V38-1-VINCULOS-DRIVE-20260903"></script>
-<script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1102-20260921"></script>
-<script src="baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V120-BACKEND-20260922"></script>
+<script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
+<script src="baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V121-NO-POPUPS-20260923"></script>
 <!-- GitHub Pages compatibility checks retained while Cobranzas V2 replaces the legacy UI:
   cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915
   cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916
@@ -3604,7 +3601,7 @@ async function syncToSheets(data) {
 <script src="facturacionEntregaUIV84.js?v=TIZ-FC-V2-EMAIL-V86-DIRECT-SAVE-20260922"></script>
 <script src="facturacionDriveRetryUIV83.js?v=TIZ-FC-V2-DRIVE-V98-20260921"></script>
 <script src="facturacionCobranzasDataV2.js?v=TIZ-FC-DATA-V20-20260921"></script>
-<script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V21-SHEET-SYNC-20260922"></script>
+<script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-ACTIONS-V22-BACKEND-SYNC-20260923"></script>
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-FC-BASE-MADRE-V20-20260921"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-UI-V23-DASHBOARD-20260921"></script>
 </body>
