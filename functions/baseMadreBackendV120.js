@@ -61,6 +61,76 @@ async function findBudget(db, requestedOt) {
     .filter((p) => otBase(p.nro || p.nroPresupuesto || p.cotizacionBase) === requestedOt && approved(p.estado || p.status || p.estadoRevision))
     .sort((a,b) => text(b.revision || "").localeCompare(text(a.revision || ""), undefined, {numeric:true}))[0] || null;
 }
+async function findObra(db, requestedOt, obraId) {
+  if (obraId) {
+    const direct = await db.collection("obras").doc(text(obraId)).get();
+    if (direct.exists) return {id:direct.id, ...direct.data()};
+  }
+  const snap = await db.collection("obras").limit(2500).get();
+  return snap.docs.map((doc) => ({id:doc.id, ...doc.data()}))
+    .find((o) => otBase(o.ot || o.nroCotizacion || o.infoPresupuesto?.nro) === requestedOt) || null;
+}
+function dateIso(value) {
+  const raw = text(value);
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0,10);
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!match) return "";
+  let year = Number(match[3]); if (year < 100) year += 2000;
+  return `${year}-${String(match[2]).padStart(2,"0")}-${String(match[1]).padStart(2,"0")}`;
+}
+function sheetDate(value) {
+  const iso = dateIso(value); if (!iso) return "";
+  const [year,month,day] = iso.split("-"); return `${day}/${month}/${year}`;
+}
+function weekFromDate(value) {
+  const iso = dateIso(value); if (!iso) return "";
+  const [year,month,day] = iso.split("-").map(Number);
+  return isoWeek(new Date(year, month - 1, day));
+}
+function invoiceNumber(invoice = {}) { return text(invoice.numeroCompleto || invoice.nroFactura || invoice.numero || invoice.cbteNro); }
+function invoicesFrom(obra = {}) {
+  const all = [
+    ...(Array.isArray(obra.comprobantesArca) ? obra.comprobantesArca : []),
+    ...(Array.isArray(obra.facturasArca) ? obra.facturasArca : []),
+    ...(Array.isArray(obra.facturasManual) ? obra.facturasManual : []),
+  ];
+  if (obra.facturaArca) all.push(obra.facturaArca);
+  const seen = new Set();
+  return all.filter((invoice) => {
+    const key = invoiceNumber(invoice).replace(/\D/g, "");
+    if (!key || seen.has(key)) return false;
+    seen.add(key); return true;
+  }).sort((a,b) => dateIso(a.fecha).localeCompare(dateIso(b.fecha)));
+}
+async function syncBilling({db, sheets, requestedOt, obraId, email}) {
+  const obra = await findObra(db, requestedOt, obraId);
+  if (!obra) throw Object.assign(new Error(`No se encontró la obra ${requestedOt}`), {status:404});
+  const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C1954`});
+  const found = (lookup.data.values || []).findIndex((row) => otBase(row?.[0]) === requestedOt);
+  if (found < 0) throw Object.assign(new Error(`La OT ${requestedOt} todavía no existe en Base de datos`), {status:409});
+  const rowNumber = found + 3;
+  const invoices = invoicesFrom(obra);
+  const payments = Array.isArray(obra.cobros) ? obra.cobros : [];
+  const lastInvoice = invoices[invoices.length - 1] || {};
+  const lastPayment = [...payments].sort((a,b) => dateIso(a.fecha).localeCompare(dateIso(b.fecha))).pop() || {};
+  const due = invoices.map((x) => dateIso(x.fechaPrevistaCobro || x.fechaVencimientoPago)).filter(Boolean).sort()[0]
+    || dateIso(obra.fechaPrevistaCobro || obra.finanzas?.fechaPrevistaCobro);
+  const numbers = invoices.map(invoiceNumber).filter(Boolean).join(" / ") || text(obra.nrfc);
+  const paid = payments.reduce((sum,p) => sum + num(p.importe) + num(p.retenciones), 0);
+  const invoiced = invoices.reduce((sum,invoice) => sum + num(invoice.total || invoice.neto), 0);
+  const data = [];
+  if (numbers) data.push({range:`'${SHEET}'!T${rowNumber}:U${rowNumber}`, values:[[sheetDate(lastInvoice.fecha || obra.ffc), numbers]]});
+  if (due) data.push({range:`'${SHEET}'!V${rowNumber}:W${rowNumber}`, values:[[sheetDate(due), weekFromDate(due)]]});
+  if (lastPayment.fecha) data.push({range:`'${SHEET}'!X${rowNumber}`, values:[[weekFromDate(lastPayment.fecha)]]});
+  if (invoiced > 0 && paid >= invoiced - 0.01) data.push({range:`'${SHEET}'!AA${rowNumber}`, values:[["Cobrado"]]});
+  else if (paid > 0) data.push({range:`'${SHEET}'!AA${rowNumber}`, values:[["Cobrado pendiente"]]});
+  if (data.length) await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data}});
+  const signature = [numbers, lastInvoice.fecha || obra.ffc || "", due, payments.length, paid, obra.cobranzaEstadoManual || "", obra.estadoGestionFactCob || ""].join("|");
+  const mark = {baseMadreFactCobSyncAt:new Date().toISOString(), baseMadreFactCobSignature:signature, baseMadreRow:rowNumber, baseMadreFactCobSyncVersion:"BACKEND-V121", baseMadreFactCobSyncBy:email};
+  await db.collection("obras").doc(obra.id).set(mark, {merge:true});
+  return {ok:true, row:rowNumber, mode:"billing", updated:data.length > 0, numeroFactura:numbers};
+}
 
 exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"public", timeoutSeconds:60}, async (req, res) => {
   cors(req, res);
@@ -71,6 +141,11 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     const requestedOt = otBase(req.body?.ot);
     if (!requestedOt) throw Object.assign(new Error("Falta una OT válida"), {status:400});
     const db = admin.firestore();
+    const auth = new google.auth.GoogleAuth({scopes:["https://www.googleapis.com/auth/spreadsheets"]});
+    const sheets = google.sheets({version:"v4", auth});
+    if (text(req.body?.mode).toLowerCase() === "billing") {
+      return res.json(await syncBilling({db, sheets, requestedOt, obraId:req.body?.obraId, email}));
+    }
     const p = await findBudget(db, requestedOt);
     if (!p) throw Object.assign(new Error(`No se encontró la OT aprobada ${requestedOt}`), {status:404});
     const logistics = p.entregaLogistica || p.logistica || {};
@@ -84,8 +159,6 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       neto:net,
       bruto:Math.round(net * (1 + (num(p.ivaPct || p.iva || 21) || 21) / 100) * 100) / 100,
     };
-    const auth = new google.auth.GoogleAuth({scopes:["https://www.googleapis.com/auth/spreadsheets"]});
-    const sheets = google.sheets({version:"v4", auth});
     const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C1954`});
     const values = lookup.data.values || [];
     const found = values.findIndex((row) => otBase(row?.[0]) === requestedOt);
