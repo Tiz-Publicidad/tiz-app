@@ -205,7 +205,7 @@ function injectUI(){
   const nav=document.querySelector('.nav');
   if(nav && !document.querySelector('[data-cp-nav]')){
     const b=document.createElement('button'); b.className='nav-item'; b.dataset.cpNav='1';
-    b.innerHTML='<i>🛒</i><span>Compras</span>'; b.onclick=()=>window.goTo('compras');
+    b.innerHTML='<i>🛒</i><span>Compras</span>'; b.setAttribute('onclick',"goTo('compras')");
     const ref=[...nav.children].find(x=>x.textContent.includes('Cobranzas'));
     nav.insertBefore(b,ref||null);
   }
