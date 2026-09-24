@@ -213,7 +213,7 @@ function injectUI(){
   page.innerHTML=`
     <div class="cp-head"><div><div class="cp-title">Compras, Contrataciones y Proveedores</div><div class="cp-sub">Compras por ítem, deudas, pagos, proveedores, servicios contratados, stock y ayudamemorias.</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpOpenConfigIA()">⚙ IA comprobantes</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
     <div class="cp-tabs">
-      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="contrataciones">Contrataciones</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button><button class="cp-tab" data-tab="migracion">Migración Excel</button>
+      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="historico">Histórico materiales</button><button class="cp-tab" data-tab="contrataciones">Contrataciones</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button><button class="cp-tab" data-tab="migracion">Migración Excel</button>
     </div><div id="cp-content"></div>`;
   document.querySelector('.main, main, .content')?.appendChild(page) || document.body.appendChild(page);
   page.querySelectorAll('.cp-tab').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;page.querySelectorAll('.cp-tab').forEach(x=>x.classList.toggle('active',x===b));render();});
@@ -272,7 +272,7 @@ function startListeners(){
 function render(){
   if(window.currentPage!=='compras') return;
   const el=document.getElementById('cp-content'); if(!el)return;
-  ({inicio:renderInicio,compras:renderCompras,contrataciones:renderContrataciones,proveedores:renderProveedores,pagos:renderPagos,migracion:renderMigracion,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
+  ({inicio:renderInicio,compras:renderCompras,historico:renderHistoricoMateriales,contrataciones:renderContrataciones,proveedores:renderProveedores,pagos:renderPagos,migracion:renderMigracion,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
 }
 
 function purchaseItems(){ return C.compras.flatMap(c=>(c.items||[]).map(i=>({...i,compra:c}))); }
@@ -317,6 +317,75 @@ function renderCompras(el){
   const periodFields=purchaseFilters.period==='week'?`<div class="cp-field"><label>Semana</label><input id="cp-f-week" value="${esc(purchaseFilters.week)}" onchange="cpFilterChanged()"></div>`:purchaseFilters.period==='month'?`<div class="cp-field"><label>Mes</label><input id="cp-f-month" type="month" value="${esc(purchaseFilters.month)}" onchange="cpFilterChanged()"></div>`:purchaseFilters.period==='custom'?`<div class="cp-field"><label>Desde</label><input id="cp-f-from" type="date" value="${esc(purchaseFilters.from)}" onchange="cpFilterChanged()"></div><div class="cp-field"><label>Hasta</label><input id="cp-f-to" type="date" value="${esc(purchaseFilters.to)}" onchange="cpFilterChanged()"></div>`:'';
   const rows=filtered.map(c=>{const matched=items.filter(i=>i.compra.id===c.id),labels=matched.slice(0,3).map(i=>`<div title="${esc(i.descripcionOriginal||i.descripcion)}"><b>${esc(i.codigo||'')}</b> ${esc(i.descripcion||i.descripcionOriginal||'')}</div>`).join('');return `<tr><td>${fmtDate(c.fecha)}</td><td><b>${esc(c.proveedor)}</b></td><td><span class="cp-pill ${c.fc==='si'?'yes':'no'}">${c.fc==='si'?'Sí':'No'}</span></td><td>${esc(c.tipoComprobante||'')}</td><td>${esc(c.numeroComprobante||'')}</td><td>${labels}${matched.length>3?`<div class="cp-sub">+${matched.length-3} ítems</div>`:''}</td><td>${money(matched.reduce((s,i)=>s+num(i.totalNeto),0))}</td><td>${money(matched.reduce((s,i)=>s+num(i.ivaImporte),0))}</td><td><b>${money(matched.reduce((s,i)=>s+num(i.totalBruto),0))}</b></td><td>${esc(c.ot||'—')}</td><td><button class="cp-btn" onclick="cpEditCompra('${c.id}')">Editar</button> <button class="cp-btn danger" onclick="cpDeleteCompra('${c.id}')">Borrar</button></td></tr>`;}).join('');
   el.innerHTML=`<div class="cp-panel"><div class="cp-actions" style="justify-content:space-between"><div class="cp-actions"><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button><button class="cp-btn" onclick="cpExportCSV(true)">⬇ Exportar filtrado</button></div><button class="cp-btn" onclick="cpClearFilters()">Limpiar filtros</button></div><div class="cp-filter-grid" style="margin-top:12px"><div class="cp-field"><label>Período</label><select id="cp-f-period" onchange="cpFilterPeriod(this.value)"><option value="all" ${purchaseFilters.period==='all'?'selected':''}>Todo</option><option value="week" ${purchaseFilters.period==='week'?'selected':''}>Semana</option><option value="month" ${purchaseFilters.period==='month'?'selected':''}>Mes</option><option value="custom" ${purchaseFilters.period==='custom'?'selected':''}>Rango</option></select></div>${periodFields}<div class="cp-field"><label>Búsqueda rápida de ítem</label><input id="cp-f-search" value="${esc(purchaseFilters.search)}" placeholder="Código, caño 20x20, chapa…" oninput="cpFilterDebounced(this.value)"></div><div class="cp-field"><label>Proveedor</label><select id="cp-f-provider" onchange="cpFilterChanged()"><option value="">Todos</option>${providers.map(v=>`<option ${purchaseFilters.proveedor===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Familia</label><select id="cp-f-family" onchange="cpFilterChanged(true)"><option value="">Todas</option>${families.map(v=>`<option ${purchaseFilters.familia===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Subfamilia</label><select id="cp-f-subfamily" onchange="cpFilterChanged()"><option value="">Todas</option>${subfamilies.map(v=>`<option ${purchaseFilters.subfamilia===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Factura</label><select id="cp-f-fc" onchange="cpFilterChanged()"><option value="">Todas</option><option value="si" ${purchaseFilters.fc==='si'?'selected':''}>Con factura</option><option value="no" ${purchaseFilters.fc==='no'?'selected':''}>Sin factura</option></select></div></div><div class="cp-filter-summary"><div class="cp-card"><div class="cp-lbl">Compras</div><div class="cp-kpi">${filtered.length}</div></div><div class="cp-card"><div class="cp-lbl">Ítems</div><div class="cp-kpi">${items.length}</div><div class="cp-sub">${qty.toFixed(2)} unidades</div></div><div class="cp-card"><div class="cp-lbl">Neto filtrado</div><div class="cp-kpi" style="font-size:18px">${money(net)}</div><div class="cp-sub">IVA ${money(iva)}</div></div><div class="cp-card"><div class="cp-lbl">Total filtrado</div><div class="cp-kpi" style="font-size:18px">${money(gross)}</div></div></div></div><div class="cp-table-wrap"><table class="cp-table" style="min-width:1180px"><thead><tr><th>Fecha</th><th>Proveedor</th><th>FC</th><th>Tipo</th><th>Número</th><th>Ítems coincidentes</th><th>Neto</th><th>IVA</th><th>Total</th><th>OT</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="11">No hay compras para estos filtros.</td></tr>'}</tbody></table></div>`;
+}
+
+
+window.cpHistFilters=window.cpHistFilters||{year:'2026',familia:'',search:'',mode:'cantidad'};
+window.cpSetHistFilter=(key,value)=>{window.cpHistFilters[key]=value;render();};
+function renderHistoricoMateriales(el){
+  const all=purchaseItems().filter(i=>i.compra?.fecha);
+  if(!all.length){
+    el.innerHTML='<div class="cp-panel"><b>Histórico de materiales</b><div class="cp-sub" style="margin-top:6px">Todavía no hay compras históricas cargadas en la base.</div><div style="margin-top:12px"><button class="cp-btn primary" onclick="cpTab(\'migracion\')">Ir a Migración Excel</button></div></div>';
+    return;
+  }
+  const years=uniqueSorted(all.map(i=>String(i.compra.fecha||'').slice(0,4)).filter(Boolean)).sort().reverse();
+  const f=window.cpHistFilters||{};if(!years.includes(f.year))f.year=years[0]||'2026';
+  const fams=uniqueSorted(all.map(i=>i.familia||i.rubro).filter(Boolean));
+  const filtered=all.filter(i=>{
+    const d=String(i.compra.fecha||'');
+    if(!d.startsWith(f.year+'-'))return false;
+    if(f.familia&&String(i.familia||i.rubro)!==f.familia)return false;
+    if(f.search){
+      const hay=normText([i.codigo,i.descripcion,i.descripcionOriginal,i.familia,i.rubro,i.subfamilia].join(' '));
+      if(!hay.includes(normText(f.search)))return false;
+    }
+    return true;
+  });
+
+  const groups=new Map();
+  filtered.forEach(i=>{
+    const key=String(i.codigo||'')+'|'+normText(i.descripcion||i.descripcionOriginal||'');
+    if(!groups.has(key))groups.set(key,{codigo:i.codigo||'',descripcion:i.descripcion||i.descripcionOriginal||'',familia:i.familia||i.rubro||'',subfamilia:i.subfamilia||'',unidad:i.unidad||'',months:Array.from({length:12},()=>({qty:0,net:0,gross:0,unitNet:[]})),qty:0,net:0,gross:0});
+    const g=groups.get(key),m=Math.max(0,Math.min(11,Number(String(i.compra.fecha).slice(5,7))-1));
+    const q=num(i.cantidad),n=num(i.totalNeto),b=num(i.totalBruto),u=num(i.precioUnitarioNeto);
+    g.months[m].qty+=q;g.months[m].net+=n;g.months[m].gross+=b;if(u)g.months[m].unitNet.push(u);
+    g.qty+=q;g.net+=n;g.gross+=b;
+  });
+  const rows=[...groups.values()].sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo)));
+  const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const totalQty=rows.reduce((s,r)=>s+r.qty,0),totalNet=rows.reduce((s,r)=>s+r.net,0),totalGross=rows.reduce((s,r)=>s+r.gross,0);
+  const monthlyTotals=Array.from({length:12},(_,m)=>({qty:rows.reduce((s,r)=>s+r.months[m].qty,0),net:rows.reduce((s,r)=>s+r.months[m].net,0)}));
+
+  const body=rows.map(r=>{
+    const ms=r.months.map(x=>{
+      if(f.mode==='importe')return '<td style="text-align:right"><b>'+money(x.net)+'</b>'+(x.qty?'<div class="cp-sub">'+x.qty.toFixed(2)+' '+esc(r.unidad||'')+'</div>':'')+'</td>';
+      const avg=x.unitNet.length?x.unitNet.reduce((s,v)=>s+v,0)/x.unitNet.length:0;
+      return '<td style="text-align:right"><b>'+(x.qty?x.qty.toFixed(2):'—')+'</b>'+(x.net?'<div class="cp-sub">'+money(x.net)+(avg?' · u. '+money(avg):'')+'</div>':'')+'</td>';
+    }).join('');
+    return '<tr><td><b>'+esc(r.codigo||'—')+'</b></td><td><b>'+esc(r.descripcion)+'</b><div class="cp-sub">'+esc(r.familia)+(r.subfamilia?' / '+esc(r.subfamilia):'')+'</div></td><td>'+esc(r.unidad||'—')+'</td>'+ms+'<td style="text-align:right"><b>'+r.qty.toFixed(2)+'</b></td><td style="text-align:right"><b>'+money(r.net)+'</b></td><td style="text-align:right"><b>'+money(r.gross)+'</b></td></tr>';
+  }).join('');
+
+  const familyRows=(()=>{
+    const m=new Map();
+    filtered.forEach(i=>{const k=i.familia||i.rubro||'Sin familia';if(!m.has(k))m.set(k,{name:k,qty:0,net:0});const x=m.get(k);x.qty+=num(i.cantidad);x.net+=num(i.totalNeto);});
+    return [...m.values()].sort((a,b)=>b.net-a.net).slice(0,12).map(x=>'<tr><td><b>'+esc(x.name)+'</b></td><td style="text-align:right">'+x.qty.toFixed(2)+'</td><td style="text-align:right"><b>'+money(x.net)+'</b></td></tr>').join('');
+  })();
+
+  el.innerHTML='<div class="cp-pay-toolbar"><div><div class="cp-pay-title">Histórico de materiales por mes</div><div class="cp-sub">Filtrá por año, familia, código o descripción. Ejemplo: buscá “chapa c22” para ver cuánto se compró en cada mes.</div></div></div>'+
+    '<div class="cp-panel"><div class="cp-filter-grid">'+
+      '<div class="cp-field"><label>Año</label><select onchange="cpSetHistFilter(\'year\',this.value)">'+years.map(y=>'<option '+(f.year===y?'selected':'')+'>'+esc(y)+'</option>').join('')+'</select></div>'+
+      '<div class="cp-field"><label>Familia</label><select onchange="cpSetHistFilter(\'familia\',this.value)"><option value="">Todas</option>'+fams.map(v=>'<option '+(f.familia===v?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></div>'+
+      '<div class="cp-field"><label>Código / material</label><input value="'+esc(f.search||'')+'" placeholder="Ej.: 000123 o chapa c22" oninput="cpSetHistFilter(\'search\',this.value)"></div>'+
+      '<div class="cp-field"><label>Vista mensual</label><select onchange="cpSetHistFilter(\'mode\',this.value)"><option value="cantidad" '+(f.mode==='cantidad'?'selected':'')+'>Cantidad + importe</option><option value="importe" '+(f.mode==='importe'?'selected':'')+'>Importe neto + cantidad</option></select></div>'+
+    '</div></div>'+
+    '<div class="cp-grid">'+
+      '<div class="cp-card"><div class="cp-lbl">Materiales distintos</div><div class="cp-kpi">'+rows.length+'</div></div>'+
+      '<div class="cp-card"><div class="cp-lbl">Unidades / consumo comprado</div><div class="cp-kpi" style="font-size:18px">'+totalQty.toFixed(2)+'</div></div>'+
+      '<div class="cp-card"><div class="cp-lbl">Neto anual filtrado</div><div class="cp-kpi" style="font-size:18px">'+money(totalNet)+'</div></div>'+
+      '<div class="cp-card"><div class="cp-lbl">Bruto anual filtrado</div><div class="cp-kpi" style="font-size:18px">'+money(totalGross)+'</div></div>'+
+    '</div>'+
+    '<div class="cp-table-wrap"><table class="cp-table" style="min-width:2100px"><thead><tr><th>Código</th><th>Material</th><th>Unidad</th>'+monthNames.map(m=>'<th style="text-align:right">'+m+'</th>').join('')+'<th style="text-align:right">Cant. anual</th><th style="text-align:right">Neto anual</th><th style="text-align:right">Bruto anual</th></tr></thead><tbody>'+body+'<tr style="font-weight:800"><td colspan="3">TOTAL FILTRADO</td>'+monthlyTotals.map(x=>'<td style="text-align:right">'+(f.mode==='importe'?money(x.net):x.qty.toFixed(2))+'</td>').join('')+'<td style="text-align:right">'+totalQty.toFixed(2)+'</td><td style="text-align:right">'+money(totalNet)+'</td><td style="text-align:right">'+money(totalGross)+'</td></tr></tbody></table></div>'+
+    '<div class="cp-panel" style="margin-top:12px"><b>Resumen por familia</b><div class="cp-table-wrap" style="margin-top:8px"><table class="cp-table"><thead><tr><th>Familia</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Neto</th></tr></thead><tbody>'+familyRows+'</tbody></table></div></div>';
 }
 
 function providerByName(name){
