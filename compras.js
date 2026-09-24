@@ -682,6 +682,7 @@ function cpQuoteItemsForWork(o){
   return raw.map(i=>String(i?.articulo||i?.descripcion||i?.desc||'').trim()).filter(Boolean);
 }
 function cpPlanForWork(o){return C.planes.find(p=>p.obraId===o.id||String(p.ot||'')===String(o.ot||o.nro||''));}
+function cpPendingExplosionWorks(){return (window.DB?.obras||[]).filter(isActiveObra).filter(o=>!cpPlanForWork(o));}
 function renderPlanes(el){
   const obras=(window.DB?.obras||[]).filter(isActiveObra).sort((a,b)=>(parseInt(b.ot)||0)-(parseInt(a.ot)||0));
   const pending=obras.filter(o=>!cpPlanForWork(o));
