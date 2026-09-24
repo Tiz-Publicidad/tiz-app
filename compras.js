@@ -6,7 +6,7 @@ import {
 
 const db = getFirestore(getApp());
 const C = {
-  compras: [], articulos: [], conteos: [], planes: [], pagos: [], analisisOT: [], preparacionCol: [], ayudamemorias: []
+  compras: [], articulos: [], conteos: [], planes: [], pagos: [], proveedores: [], analisisOT: [], preparacionCol: [], ayudamemorias: []
 };
 let compraEditId = null;
 let selectedFile = null;
@@ -209,9 +209,9 @@ function injectUI(){
   }
   const page=document.createElement('section'); page.id='page-compras'; page.className='page';
   page.innerHTML=`
-    <div class="cp-head"><div><div class="cp-title">Compras y Stock Inteligente</div><div class="cp-sub">Carga por ítem, comprobantes, conteo semanal, planificación y alertas.</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpOpenConfigIA()">⚙ IA</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
+    <div class="cp-head"><div><div class="cp-title">Compras, Contrataciones y Proveedores</div><div class="cp-sub">Compras por ítem, deudas, pagos, proveedores, servicios contratados, stock y ayudamemorias.</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpOpenConfigIA()">⚙ IA comprobantes</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
     <div class="cp-tabs">
-      <button class="cp-tab active" data-tab="inicio">Inicio</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="conteo">Conteo semanal</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="pagos">Pagos y previsiones</button><button class="cp-tab" data-tab="alertas">Alertas</button>
+      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="contrataciones">Contrataciones</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button>
     </div><div id="cp-content"></div>`;
   document.querySelector('.main, main, .content')?.appendChild(page) || document.body.appendChild(page);
   page.querySelectorAll('.cp-tab').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;page.querySelectorAll('.cp-tab').forEach(x=>x.classList.toggle('active',x===b));render();});
@@ -264,13 +264,13 @@ function startListeners(){
   const listen=(name,key)=>onSnapshot(query(collection(db,name),orderBy('_ts','desc'),limit(1000)),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();},()=>{
     onSnapshot(collection(db,name),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();});
   });
-  listen('compras','compras'); listen('articulosCompra','articulos'); listen('conteosStock','conteos'); listen('planesMateriales','planes'); listen('pagosCompra','pagos'); listen('analisisComprasOT','analisisOT'); listen('preparacionColocaciones','preparacionCol'); listen('ayudamemoriasOT','ayudamemorias');
+  listen('compras','compras'); listen('articulosCompra','articulos'); listen('conteosStock','conteos'); listen('planesMateriales','planes'); listen('pagosCompra','pagos'); listen('proveedoresCompra','proveedores'); listen('analisisComprasOT','analisisOT'); listen('preparacionColocaciones','preparacionCol'); listen('ayudamemoriasOT','ayudamemorias');
 }
 
 function render(){
   if(window.currentPage!=='compras') return;
   const el=document.getElementById('cp-content'); if(!el)return;
-  ({inicio:renderInicio,compras:renderCompras,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,controlot:renderControlOT,pagos:renderPagos,alertas:renderAlertas}[currentTab]||renderInicio)(el);
+  ({inicio:renderInicio,compras:renderCompras,contrataciones:renderContrataciones,proveedores:renderProveedores,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,controlot:renderControlOT,pagos:renderPagos,alertas:renderAlertas}[currentTab]||renderInicio)(el);
 }
 
 function purchaseItems(){ return C.compras.flatMap(c=>(c.items||[]).map(i=>({...i,compra:c}))); }
@@ -284,6 +284,7 @@ function alerts(){
     if(c.vencimiento){const dd=Math.ceil((new Date(c.vencimiento+'T12:00:00')-now)/86400000);if(dd<0)out.push({level:'red',title:`Pago vencido: ${c.proveedor}`,text:`Venció hace ${Math.abs(dd)} días · ${money(c.totalBruto)}`});else if(dd<=7)out.push({level:'amber',title:`Pago próximo: ${c.proveedor}`,text:`Vence en ${dd} días · ${money(c.totalBruto)}`});}
   });
   const counts=latestCounts(); C.articulos.forEach(a=>{const ct=counts[a.id]||counts[a.descripcion];const stock=num(ct?.cantidad);if(a.stockMinimo!=null&&stock<num(a.stockMinimo))out.push({level:'red',title:`Stock bajo: ${a.descripcion}`,text:`Quedan ${stock} ${a.unidad||''}; mínimo ${a.stockMinimo}.`});});
+  C.pagos.filter(p=>p.estado!=='pagado'&&p.vencimiento).forEach(p=>{const dd=Math.ceil((new Date(p.vencimiento+'T12:00:00')-now)/86400000);if(dd<0)out.push({level:'red',title:`Deuda vencida: ${p.proveedor||'Proveedor'}`,text:`${p.concepto||'Compromiso'} · ${money(p.importe)} · venció hace ${Math.abs(dd)} días.`});else if(dd<=7)out.push({level:'amber',title:`Pago a preparar: ${p.proveedor||'Proveedor'}`,text:`${p.concepto||'Compromiso'} · ${money(p.importe)} · vence en ${dd} días.`});});
   priceAlerts().forEach(x=>out.push({level:'amber',title:`Cambio de precio: ${x.descripcion}`,text:`Último ${money(x.actual)} vs anterior ${money(x.anterior)} (${x.pct>0?'+':''}${x.pct.toFixed(1)}%).`}));
   return out;
 }
@@ -315,6 +316,84 @@ function renderCompras(el){
   const rows=filtered.map(c=>{const matched=items.filter(i=>i.compra.id===c.id),labels=matched.slice(0,3).map(i=>`<div title="${esc(i.descripcionOriginal||i.descripcion)}"><b>${esc(i.codigo||'')}</b> ${esc(i.descripcion||i.descripcionOriginal||'')}</div>`).join('');return `<tr><td>${fmtDate(c.fecha)}</td><td><b>${esc(c.proveedor)}</b></td><td><span class="cp-pill ${c.fc==='si'?'yes':'no'}">${c.fc==='si'?'Sí':'No'}</span></td><td>${esc(c.tipoComprobante||'')}</td><td>${esc(c.numeroComprobante||'')}</td><td>${labels}${matched.length>3?`<div class="cp-sub">+${matched.length-3} ítems</div>`:''}</td><td>${money(matched.reduce((s,i)=>s+num(i.totalNeto),0))}</td><td>${money(matched.reduce((s,i)=>s+num(i.ivaImporte),0))}</td><td><b>${money(matched.reduce((s,i)=>s+num(i.totalBruto),0))}</b></td><td>${esc(c.ot||'—')}</td><td><button class="cp-btn" onclick="cpEditCompra('${c.id}')">Editar</button> <button class="cp-btn danger" onclick="cpDeleteCompra('${c.id}')">Borrar</button></td></tr>`;}).join('');
   el.innerHTML=`<div class="cp-panel"><div class="cp-actions" style="justify-content:space-between"><div class="cp-actions"><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button><button class="cp-btn" onclick="cpExportCSV(true)">⬇ Exportar filtrado</button></div><button class="cp-btn" onclick="cpClearFilters()">Limpiar filtros</button></div><div class="cp-filter-grid" style="margin-top:12px"><div class="cp-field"><label>Período</label><select id="cp-f-period" onchange="cpFilterPeriod(this.value)"><option value="all" ${purchaseFilters.period==='all'?'selected':''}>Todo</option><option value="week" ${purchaseFilters.period==='week'?'selected':''}>Semana</option><option value="month" ${purchaseFilters.period==='month'?'selected':''}>Mes</option><option value="custom" ${purchaseFilters.period==='custom'?'selected':''}>Rango</option></select></div>${periodFields}<div class="cp-field"><label>Búsqueda rápida de ítem</label><input id="cp-f-search" value="${esc(purchaseFilters.search)}" placeholder="Código, caño 20x20, chapa…" oninput="cpFilterDebounced(this.value)"></div><div class="cp-field"><label>Proveedor</label><select id="cp-f-provider" onchange="cpFilterChanged()"><option value="">Todos</option>${providers.map(v=>`<option ${purchaseFilters.proveedor===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Familia</label><select id="cp-f-family" onchange="cpFilterChanged(true)"><option value="">Todas</option>${families.map(v=>`<option ${purchaseFilters.familia===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Subfamilia</label><select id="cp-f-subfamily" onchange="cpFilterChanged()"><option value="">Todas</option>${subfamilies.map(v=>`<option ${purchaseFilters.subfamilia===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Factura</label><select id="cp-f-fc" onchange="cpFilterChanged()"><option value="">Todas</option><option value="si" ${purchaseFilters.fc==='si'?'selected':''}>Con factura</option><option value="no" ${purchaseFilters.fc==='no'?'selected':''}>Sin factura</option></select></div></div><div class="cp-filter-summary"><div class="cp-card"><div class="cp-lbl">Compras</div><div class="cp-kpi">${filtered.length}</div></div><div class="cp-card"><div class="cp-lbl">Ítems</div><div class="cp-kpi">${items.length}</div><div class="cp-sub">${qty.toFixed(2)} unidades</div></div><div class="cp-card"><div class="cp-lbl">Neto filtrado</div><div class="cp-kpi" style="font-size:18px">${money(net)}</div><div class="cp-sub">IVA ${money(iva)}</div></div><div class="cp-card"><div class="cp-lbl">Total filtrado</div><div class="cp-kpi" style="font-size:18px">${money(gross)}</div></div></div></div><div class="cp-table-wrap"><table class="cp-table" style="min-width:1180px"><thead><tr><th>Fecha</th><th>Proveedor</th><th>FC</th><th>Tipo</th><th>Número</th><th>Ítems coincidentes</th><th>Neto</th><th>IVA</th><th>Total</th><th>OT</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="11">No hay compras para estos filtros.</td></tr>'}</tbody></table></div>`;
 }
+
+function providerByName(name){
+  const n=normText(name||'');
+  return C.proveedores.find(p=>normText(p.nombre||p.razonSocial||'')===n)||null;
+}
+function providerNames(){
+  return uniqueSorted([
+    ...C.proveedores.map(p=>p.nombre||p.razonSocial),
+    ...C.compras.map(x=>x.proveedor),
+    ...C.pagos.map(x=>x.proveedor)
+  ]);
+}
+function renderProveedores(el){
+  const names=providerNames();
+  const rows=names.map(name=>{
+    const p=providerByName(name)||{};
+    const compras=C.compras.filter(x=>normText(x.proveedor)===normText(name));
+    const deuda=C.pagos.filter(x=>x.estado!=='pagado'&&normText(x.proveedor)===normText(name));
+    const total=compras.reduce((s,x)=>s+num(x.totalBruto),0);
+    const saldo=deuda.reduce((s,x)=>s+num(x.importe),0);
+    const last=[...compras].sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')))[0];
+    const prox=[...deuda].filter(x=>x.vencimiento).sort((a,b)=>String(a.vencimiento).localeCompare(String(b.vencimiento)))[0];
+    return \`<tr>
+      <td><b>\${esc(name)}</b><div class="cp-sub">\${p.cuit?'CUIT '+esc(p.cuit):'CUIT sin cargar'}</div></td>
+      <td>\${esc(p.contacto||'—')}</td><td>\${esc(p.telefono||p.cel||'—')}</td><td>\${esc(p.email||'—')}</td>
+      <td>\${esc(p.condicionPago||'—')}\${p.diasPago?'<div class="cp-sub">'+esc(p.diasPago)+' días</div>':''}</td>
+      <td>\${compras.length}<div class="cp-sub">\${money(total)}</div></td>
+      <td><b style="color:\${saldo?'var(--amber)':'var(--green)'}">\${money(saldo)}</b><div class="cp-sub">\${deuda.length} compromisos</div></td>
+      <td>\${last?fmtDate(last.fecha):'—'}</td><td>\${prox?fmtDate(prox.vencimiento):'—'}</td>
+      <td><button class="cp-btn" onclick="cpEditProveedor('\${p.id||''}','\${String(name).replace(/'/g,"\\'")}')">Editar</button></td>
+    </tr>\`;
+  }).join('');
+  const debt=C.pagos.filter(x=>x.estado!=='pagado').reduce((s,x)=>s+num(x.importe),0);
+  el.innerHTML=\`
+    <div class="cp-grid">
+      <div class="cp-card"><div class="cp-lbl">Proveedores activos</div><div class="cp-kpi">\${names.length}</div></div>
+      <div class="cp-card"><div class="cp-lbl">Deuda total registrada</div><div class="cp-kpi" style="font-size:18px;color:var(--amber)">\${money(debt)}</div></div>
+      <div class="cp-card"><div class="cp-lbl">Con ficha completa</div><div class="cp-kpi" style="color:var(--green)">\${C.proveedores.filter(p=>p.cuit&&p.condicionPago).length}</div></div>
+      <div class="cp-card"><div class="cp-lbl">A completar</div><div class="cp-kpi" style="color:var(--amber)">\${Math.max(0,names.length-C.proveedores.length)}</div></div>
+    </div>
+    <div class="cp-panel">
+      <b>Ficha maestra de proveedor</b><div class="cp-sub">Sirve para recordar CUIT, contactos y condiciones habituales sin volver a cargar todo en cada compra.</div>
+      <input type="hidden" id="cp-prov-id">
+      <div class="cp-row" style="margin-top:10px">
+        <div class="cp-field"><label>Proveedor / razón social</label><input id="cp-prov-nombre"></div>
+        <div class="cp-field"><label>CUIT</label><input id="cp-prov-cuit"></div>
+        <div class="cp-field"><label>Contacto</label><input id="cp-prov-contacto"></div>
+        <div class="cp-field"><label>Teléfono</label><input id="cp-prov-tel"></div>
+        <div class="cp-field"><label>Email</label><input id="cp-prov-email"></div>
+        <div class="cp-field"><label>Condición habitual</label><select id="cp-prov-cond"><option value="">A definir</option><option>Contado</option><option>Cuenta corriente</option><option>Cheque</option><option>Transferencia</option><option>Tarjeta</option><option>Cuotas</option></select></div>
+        <div class="cp-field"><label>Días de pago</label><input id="cp-prov-dias" type="number" min="0"></div>
+        <div class="cp-field"><label>Notas</label><input id="cp-prov-notas" placeholder="Ej.: entrega martes y jueves"></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px"><button class="cp-btn primary" onclick="cpSaveProveedor()">Guardar proveedor</button><button class="cp-btn" onclick="cpClearProveedor()">Limpiar</button></div>
+    </div>
+    <div class="cp-table-wrap"><table class="cp-table" style="min-width:1200px"><thead><tr><th>Proveedor</th><th>Contacto</th><th>Teléfono</th><th>Email</th><th>Condición</th><th>Compras</th><th>Saldo pendiente</th><th>Última compra</th><th>Próx. venc.</th><th></th></tr></thead><tbody>\${rows||'<tr><td colspan="10">Todavía no hay proveedores.</td></tr>'}</tbody></table></div>
+  \`;
+}
+window.cpClearProveedor=()=>{['cp-prov-id','cp-prov-nombre','cp-prov-cuit','cp-prov-contacto','cp-prov-tel','cp-prov-email','cp-prov-dias','cp-prov-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});const c=document.getElementById('cp-prov-cond');if(c)c.value='';};
+window.cpEditProveedor=(id,name)=>{currentTab='proveedores';render();setTimeout(()=>{const p=id?C.proveedores.find(x=>x.id===id):providerByName(name)||{};document.getElementById('cp-prov-id').value=p.id||'';document.getElementById('cp-prov-nombre').value=p.nombre||p.razonSocial||name||'';document.getElementById('cp-prov-cuit').value=p.cuit||'';document.getElementById('cp-prov-contacto').value=p.contacto||'';document.getElementById('cp-prov-tel').value=p.telefono||p.cel||'';document.getElementById('cp-prov-email').value=p.email||'';document.getElementById('cp-prov-cond').value=p.condicionPago||'';document.getElementById('cp-prov-dias').value=p.diasPago||'';document.getElementById('cp-prov-notas').value=p.notas||'';document.getElementById('cp-prov-nombre').scrollIntoView({behavior:'smooth',block:'center'});},30);};
+window.cpSaveProveedor=async()=>{const nombre=document.getElementById('cp-prov-nombre').value.trim();if(!nombre)return toast('Ingresá el proveedor.');const data={nombre,cuit:document.getElementById('cp-prov-cuit').value.trim(),contacto:document.getElementById('cp-prov-contacto').value.trim(),telefono:document.getElementById('cp-prov-tel').value.trim(),email:document.getElementById('cp-prov-email').value.trim(),condicionPago:document.getElementById('cp-prov-cond').value,diasPago:num(document.getElementById('cp-prov-dias').value),notas:document.getElementById('cp-prov-notas').value.trim(),_ts:serverTimestamp()};const id=document.getElementById('cp-prov-id').value;if(id)await updateDoc(doc(db,'proveedoresCompra',id),data);else await addDoc(collection(db,'proveedoresCompra'),data);toast('Proveedor guardado.');cpClearProveedor();};
+
+function isServicePurchaseItem(i){
+  const f=normText(i.familia||i.rubro||'');
+  const d=normText(i.descripcion||i.descripcionOriginal||'');
+  return /(servicio|colocacion|corte|impresion externa|flete|logistica|alquiler|mantenimiento|publicidad|honorario|terceriz)/.test(f+' '+d) || String(i.compra?.destino||'').toLowerCase()==='gasto general';
+}
+function renderContrataciones(el){
+  const items=purchaseItems().filter(isServicePurchaseItem).sort((a,b)=>String(b.compra?.fecha||'').localeCompare(String(a.compra?.fecha||'')));
+  const total=items.reduce((s,i)=>s+num(i.totalBruto),0);
+  const byProvider={};items.forEach(i=>{const k=i.compra?.proveedor||'Sin proveedor';byProvider[k]=(byProvider[k]||0)+num(i.totalBruto);});
+  const top=Object.entries(byProvider).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const rows=items.slice(0,300).map(i=>\`<tr><td>\${fmtDate(i.compra?.fecha)}</td><td><b>\${esc(i.compra?.proveedor||'')}</b></td><td>\${esc(i.descripcionOriginal||i.descripcion||'')}</td><td>\${esc(i.familia||i.rubro||'')}</td><td>\${esc(i.compra?.ot||'—')}</td><td>\${esc(i.compra?.medioPago||'—')}</td><td><b>\${money(i.totalBruto)}</b></td></tr>\`).join('');
+  el.innerHTML=\`<div class="cp-grid"><div class="cp-card"><div class="cp-lbl">Servicios / contrataciones</div><div class="cp-kpi">\${items.length}</div></div><div class="cp-card"><div class="cp-lbl">Importe registrado</div><div class="cp-kpi" style="font-size:18px">\${money(total)}</div></div><div class="cp-card"><div class="cp-lbl">Proveedores / contratistas</div><div class="cp-kpi">\${Object.keys(byProvider).length}</div></div></div>
+  <div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><b>Contrataciones y servicios externos</b><div class="cp-sub">Se arma automáticamente con servicios, colocaciones externas, cortes/impresiones, fletes, alquileres, mantenimiento y gastos generales cargados en Compras.</div></div><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Registrar contratación</button></div><div style="margin-top:10px">\${top.map(([n,v])=>'<div class="cp-alert green"><div>•</div><div><b>'+esc(n)+'</b><div class="cp-sub">'+money(v)+'</div></div></div>').join('')||'<div class="cp-sub">Todavía no hay contrataciones identificadas.</div>'}</div></div>
+  <div class="cp-table-wrap"><table class="cp-table" style="min-width:900px"><thead><tr><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th>Rubro</th><th>OT</th><th>Medio</th><th>Total</th></tr></thead><tbody>\${rows||'<tr><td colspan="7">Sin contrataciones registradas.</td></tr>'}</tbody></table></div>\`;
+}
+
 function renderConteo(el){
   const arts=C.articulos.filter(a=>a.control!=='sin_stock'); const last=latestCounts();
   el.innerHTML=`<div class="cp-panel"><b>Conteo físico semanal</b><p class="cp-sub">Solo se informa lo que queda. El ERP calcula consumo real: stock inicial + compras − stock final.</p><div class="cp-row"><div class="cp-field"><label>Semana</label><input id="cp-count-week" value="${weekKey()}"></div><div class="cp-field"><label>Fecha de cierre</label><input id="cp-count-date" type="date" value="${todayISO()}"></div></div></div>
