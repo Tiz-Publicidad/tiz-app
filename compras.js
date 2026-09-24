@@ -416,7 +416,7 @@ function cpPaymentMethod(v){
   if(/cheq/.test(n))return {normalizado:'Cheque',original:raw};
   if(/transf|transfer/.test(n))return {normalizado:'Transferencia',original:raw};
   if(/efect|contado/.test(n))return {normalizado:'Efectivo',original:raw};
-  if(/visa|master|tarjet|credito|debito/.test(n))return {normalizado:'Tarjeta',original:raw};
+  if(/visa|master|cabal|tarjet|credito|debito/.test(n))return {normalizado:'Tarjeta',original:raw};
   if(/cuenta|cta cte|corriente/.test(n))return {normalizado:'Cuenta corriente',original:raw};
   return {normalizado:'Otro',original:raw};
 }
@@ -493,7 +493,7 @@ function cpParsePrevisiones(wb){
   const h=rows[hi].map(cpNormHeader),find=q=>h.findIndex(x=>x.includes(cpNormHeader(q)));
   const ix={nro:find('nro de cheque'),desc:find('descripcion'),importe:find('importe bruto'),fecha:find('fecha de pago')};
   const out=[];
-  for(let ri=hi+1;ri<rows.length;ri++){const r=rows[ri],desc=String(r[ix.desc]||'').trim(),importe=num(r[ix.importe]),fecha=cpExcelISO(r[ix.fecha]);if(!desc||!importe||!fecha)continue;out.push({sheet:'Previsiones',row:ri+1,proveedor:desc,concepto:desc,importe,vencimiento:fecha,referencia:String(r[ix.nro]||'').trim(),medio:'Cheque',status:'revision'});}
+  for(let ri=hi+1;ri<rows.length;ri++){\n    const r=rows[ri],desc=String(r[ix.desc]||'').trim(),importe=num(r[ix.importe]),fecha=cpExcelISO(r[ix.fecha]);if(!desc||!importe||!fecha)continue;\n    const plausible=fecha>='2025-01-01'&&fecha<='2027-12-31';\n    out.push({sheet:'Previsiones',row:ri+1,proveedor:desc,concepto:desc,importe,vencimiento:fecha,referencia:String(r[ix.nro]||'').trim(),medio:'Cheque',status:plausible?'revision':'ambigua',motivo:plausible?'':'Fecha fuera del rango esperable para la planilla 2026'});\n  }
   return out;
 }
 function cpBuildMigrationPreview(wb,fileName){
@@ -523,7 +523,7 @@ function renderMigracion(el){
   const p=migrationPreview;
   if(!p){el.innerHTML=`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:15px;align-items:flex-start;flex-wrap:wrap"><div><b>Migración controlada desde Excel</b><div class="cp-sub" style="max-width:720px">Primero se analiza el archivo y se muestra una previsualización. No se escribe nada en Firestore hasta confirmar. Los códigos se vinculan contra Artículos y las filas dudosas quedan afuera.</div></div><span class="cp-pill warn">Sin escritura automática</span></div><div class="cp-row" style="margin-top:14px"><div class="cp-field"><label>Archivo histórico de Compras</label><input id="cp-mig-file" type="file" accept=".xlsx,.xls"></div><div class="cp-field"><label>Acción</label><button class="cp-btn primary" style="margin-top:16px;width:100%" onclick="cpAnalizarMigracion()">Analizar y previsualizar</button></div></div><div class="cp-alert amber" style="margin-top:12px"><div>🛡</div><div><b>Protección activa</b><div class="cp-sub">No toca Facturación, Cobranzas, ARCA, Producción ni PDFs. La importación utiliza únicamente las colecciones del módulo Compras.</div></div></div></div>`;return;}
   const valid=p.rows.filter(r=>r.status==='valida'),dup=p.rows.filter(r=>r.status==='duplicada'),amb=p.rows.filter(r=>r.status==='ambigua');
-  const linked=valid.filter(r=>r.articuloId).length,baseLinked=valid.filter(r=>!r.articuloId&&r.catalogSource).length,prevOk=p.previsiones.filter(x=>x.status!=='duplicada');
+  const linked=valid.filter(r=>r.articuloId).length,baseLinked=valid.filter(r=>!r.articuloId&&r.catalogSource).length,prevOk=p.previsiones.filter(x=>x.status!=='duplicada'&&x.status!=='ambigua'),prevAmb=p.previsiones.filter(x=>x.status==='ambigua');
   const sample=[...amb,...dup,...valid].slice(0,120).map(r=>`<tr><td><span class="cp-pill ${r.status==='valida'?'yes':r.status==='duplicada'?'warn':'no'}">${esc(r.status)}</span></td><td>${esc(r.sheet)} · ${r.row}</td><td>${fmtDate(r.fecha)}</td><td><b>${esc(r.codigo)}</b></td><td>${esc(r.descripcion)}</td><td>${esc(r.rubro)}</td><td>${money(r.totalBruto)}</td><td>${esc(r.medioPagoOriginal||r.medioPago||'—')}</td><td>${esc(r.motivo||'Vinculada al catálogo')}</td></tr>`).join('');
   el.innerHTML=`
     <div class="cp-pay-toolbar"><div><div class="cp-pay-title">Previsualización · ${esc(p.fileName)}</div><div class="cp-sub">Hojas detectadas: ${p.monthly.map(esc).join(', ')}</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpResetMigracion()">Cambiar archivo</button><button class="cp-btn primary" onclick="cpConfirmarMigracion()">Importar sólo filas válidas</button></div></div>
@@ -533,7 +533,7 @@ function renderMigracion(el){
       <div class="cp-card"><div class="cp-lbl">A revisar</div><div class="cp-kpi" style="color:var(--red)">${amb.length}</div><div class="cp-sub">No se importan</div></div>
       <div class="cp-card"><div class="cp-lbl">Artículos ya vinculados</div><div class="cp-kpi">${linked}</div><div class="cp-sub">${baseLinked} válidos por catálogo a crear/vincular</div></div>
       <div class="cp-card"><div class="cp-lbl">Catálogo faltante</div><div class="cp-kpi">${p.catalogMissing.length}</div><div class="cp-sub">códigos de Base de Datos aún no creados</div></div>
-      <div class="cp-card"><div class="cp-lbl">Previsiones detectadas</div><div class="cp-kpi">${p.previsiones.length}</div><div class="cp-sub">${prevOk.length} no duplicadas</div></div>
+      <div class="cp-card"><div class="cp-lbl">Previsiones detectadas</div><div class="cp-kpi">${p.previsiones.length}</div><div class="cp-sub">${prevOk.length} utilizables · ${prevAmb.length} con fecha a revisar</div></div>
     </div>
     <div class="cp-panel"><b>Catálogo maestro</b><div class="cp-sub">El Excel trae ${p.excelCatalog.length} códigos en “Base de Datos”. Los que todavía no existen en Artículos pueden crearse durante la migración para conservar la referencia histórica.</div><div class="cp-row" style="margin-top:10px"><div class="cp-field"><label>Catálogo faltante</label><select id="cp-mig-catalog-mode"><option value="create">Crear artículos faltantes desde Base de Datos</option><option value="skip">No crear; conservar sólo el código histórico</option></select></div></div></div>
     <div class="cp-panel"><b>Tratamiento de Previsiones / cheques</b><div class="cp-sub">La hoja Previsiones es ambigua respecto de si “Fecha de Pago” es vencimiento previsto o pago ya realizado. Por seguridad no se importa por defecto.</div><div class="cp-row" style="margin-top:10px"><div class="cp-field"><label>Al confirmar</label><select id="cp-mig-prev-mode"><option value="skip">No importar previsiones</option><option value="pagado">Importar como histórico / pagado</option><option value="pendiente">Importar como pendiente</option></select></div></div></div>
@@ -550,7 +550,7 @@ window.cpConfirmarMigracion=async()=>{
   const p=migrationPreview;if(!p)return;
   const valid=p.rows.filter(r=>r.status==='valida');if(!valid.length)return toast('No hay filas válidas para importar.');
   const mode=document.getElementById('cp-mig-prev-mode')?.value||'skip',catalogMode=document.getElementById('cp-mig-catalog-mode')?.value||'create';
-  const msg=`Se crearán/actualizarán ${p.purchases.length} compras históricas desde ${valid.length} filas válidas.${catalogMode==='create'?' Se completarán '+p.catalogMissing.length+' artículos faltantes del catálogo.':''}${mode==='skip'?' No se importarán previsiones.':' También se importarán '+p.previsiones.filter(x=>x.status!=='duplicada').length+' previsiones como '+mode+'.'} ¿Continuar?`;
+  const msg=`Se crearán/actualizarán ${p.purchases.length} compras históricas desde ${valid.length} filas válidas.${catalogMode==='create'?' Se completarán '+p.catalogMissing.length+' artículos faltantes del catálogo.':''}${mode==='skip'?' No se importarán previsiones.':' También se importarán '+p.previsiones.filter(x=>x.status!=='duplicada'&&x.status!=='ambigua').length+' previsiones como '+mode+'. Las fechas anómalas quedarán afuera.'} ¿Continuar?`;
   if(!confirm(msg))return;
   try{
     if(catalogMode==='create'&&p.catalogMissing.length){
@@ -578,7 +578,7 @@ window.cpConfirmarMigracion=async()=>{
       await batch.commit();
     }
     if(mode!=='skip'){
-      const prev=p.previsiones.filter(x=>x.status!=='duplicada');
+      const prev=p.previsiones.filter(x=>x.status!=='duplicada'&&x.status!=='ambigua');
       for(let start=0;start<prev.length;start+=400){
         const batch=writeBatch(db);
         prev.slice(start,start+400).forEach(x=>{const id='imp26p_'+cpHash32(p.fileName+'|'+x.sheet+'|'+x.row+'|'+x.vencimiento+'|'+x.proveedor+'|'+x.importe);batch.set(doc(db,'pagosCompra',id),{proveedor:x.proveedor,concepto:x.concepto,importe:x.importe,vencimiento:x.vencimiento,semana:paymentWeek(x.vencimiento),medio:'Cheque',condicion:'Cheque',referencia:x.referencia||'',ot:'',observacion:'Migrado desde Previsiones',estado:mode==='pagado'?'pagado':'pendiente',fechaPago:mode==='pagado'?x.vencimiento:'',origen:'excel_2026_previsiones',importacion:{archivo:p.fileName,hoja:x.sheet,fila:x.row},_ts:serverTimestamp()},{merge:true});});
