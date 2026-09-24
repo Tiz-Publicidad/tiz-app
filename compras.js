@@ -340,7 +340,7 @@ function renderProveedores(el){
     const saldo=deuda.reduce((s,x)=>s+num(x.importe),0);
     const last=[...compras].sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')))[0];
     const prox=[...deuda].filter(x=>x.vencimiento).sort((a,b)=>String(a.vencimiento).localeCompare(String(b.vencimiento)))[0];
-    return \`<tr>
+    return `<tr>
       <td><b>\${esc(name)}</b><div class="cp-sub">\${p.cuit?'CUIT '+esc(p.cuit):'CUIT sin cargar'}</div></td>
       <td>\${esc(p.contacto||'—')}</td><td>\${esc(p.telefono||p.cel||'—')}</td><td>\${esc(p.email||'—')}</td>
       <td>\${esc(p.condicionPago||'—')}\${p.diasPago?'<div class="cp-sub">'+esc(p.diasPago)+' días</div>':''}</td>
@@ -348,10 +348,10 @@ function renderProveedores(el){
       <td><b style="color:\${saldo?'var(--amber)':'var(--green)'}">\${money(saldo)}</b><div class="cp-sub">\${deuda.length} compromisos</div></td>
       <td>\${last?fmtDate(last.fecha):'—'}</td><td>\${prox?fmtDate(prox.vencimiento):'—'}</td>
       <td><button class="cp-btn" onclick="cpEditProveedor('\${p.id||''}','\${String(name).replace(/'/g,"\\'")}')">Editar</button></td>
-    </tr>\`;
+    </tr>`;
   }).join('');
   const debt=C.pagos.filter(x=>x.estado!=='pagado').reduce((s,x)=>s+num(x.importe),0);
-  el.innerHTML=\`
+  el.innerHTML=`
     <div class="cp-grid">
       <div class="cp-card"><div class="cp-lbl">Proveedores activos</div><div class="cp-kpi">\${names.length}</div></div>
       <div class="cp-card"><div class="cp-lbl">Deuda total registrada</div><div class="cp-kpi" style="font-size:18px;color:var(--amber)">\${money(debt)}</div></div>
@@ -374,7 +374,7 @@ function renderProveedores(el){
       <div style="margin-top:10px;display:flex;gap:8px"><button class="cp-btn primary" onclick="cpSaveProveedor()">Guardar proveedor</button><button class="cp-btn" onclick="cpClearProveedor()">Limpiar</button></div>
     </div>
     <div class="cp-table-wrap"><table class="cp-table" style="min-width:1200px"><thead><tr><th>Proveedor</th><th>Contacto</th><th>Teléfono</th><th>Email</th><th>Condición</th><th>Compras</th><th>Saldo pendiente</th><th>Última compra</th><th>Próx. venc.</th><th></th></tr></thead><tbody>\${rows||'<tr><td colspan="10">Todavía no hay proveedores.</td></tr>'}</tbody></table></div>
-  \`;
+  `;
 }
 window.cpClearProveedor=()=>{['cp-prov-id','cp-prov-nombre','cp-prov-cuit','cp-prov-contacto','cp-prov-tel','cp-prov-email','cp-prov-dias','cp-prov-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});const c=document.getElementById('cp-prov-cond');if(c)c.value='';};
 window.cpEditProveedor=(id,name)=>{currentTab='proveedores';render();setTimeout(()=>{const p=id?C.proveedores.find(x=>x.id===id):providerByName(name)||{};document.getElementById('cp-prov-id').value=p.id||'';document.getElementById('cp-prov-nombre').value=p.nombre||p.razonSocial||name||'';document.getElementById('cp-prov-cuit').value=p.cuit||'';document.getElementById('cp-prov-contacto').value=p.contacto||'';document.getElementById('cp-prov-tel').value=p.telefono||p.cel||'';document.getElementById('cp-prov-email').value=p.email||'';document.getElementById('cp-prov-cond').value=p.condicionPago||'';document.getElementById('cp-prov-dias').value=p.diasPago||'';document.getElementById('cp-prov-notas').value=p.notas||'';document.getElementById('cp-prov-nombre').scrollIntoView({behavior:'smooth',block:'center'});},30);};
@@ -390,10 +390,10 @@ function renderContrataciones(el){
   const total=items.reduce((s,i)=>s+num(i.totalBruto),0);
   const byProvider={};items.forEach(i=>{const k=i.compra?.proveedor||'Sin proveedor';byProvider[k]=(byProvider[k]||0)+num(i.totalBruto);});
   const top=Object.entries(byProvider).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const rows=items.slice(0,300).map(i=>\`<tr><td>\${fmtDate(i.compra?.fecha)}</td><td><b>\${esc(i.compra?.proveedor||'')}</b></td><td>\${esc(i.descripcionOriginal||i.descripcion||'')}</td><td>\${esc(i.familia||i.rubro||'')}</td><td>\${esc(i.compra?.ot||'—')}</td><td>\${esc(i.compra?.medioPago||'—')}</td><td><b>\${money(i.totalBruto)}</b></td></tr>\`).join('');
-  el.innerHTML=\`<div class="cp-grid"><div class="cp-card"><div class="cp-lbl">Servicios / contrataciones</div><div class="cp-kpi">\${items.length}</div></div><div class="cp-card"><div class="cp-lbl">Importe registrado</div><div class="cp-kpi" style="font-size:18px">\${money(total)}</div></div><div class="cp-card"><div class="cp-lbl">Proveedores / contratistas</div><div class="cp-kpi">\${Object.keys(byProvider).length}</div></div></div>
+  const rows=items.slice(0,300).map(i=>`<tr><td>\${fmtDate(i.compra?.fecha)}</td><td><b>\${esc(i.compra?.proveedor||'')}</b></td><td>\${esc(i.descripcionOriginal||i.descripcion||'')}</td><td>\${esc(i.familia||i.rubro||'')}</td><td>\${esc(i.compra?.ot||'—')}</td><td>\${esc(i.compra?.medioPago||'—')}</td><td><b>\${money(i.totalBruto)}</b></td></tr>`).join('');
+  el.innerHTML=`<div class="cp-grid"><div class="cp-card"><div class="cp-lbl">Servicios / contrataciones</div><div class="cp-kpi">\${items.length}</div></div><div class="cp-card"><div class="cp-lbl">Importe registrado</div><div class="cp-kpi" style="font-size:18px">\${money(total)}</div></div><div class="cp-card"><div class="cp-lbl">Proveedores / contratistas</div><div class="cp-kpi">\${Object.keys(byProvider).length}</div></div></div>
   <div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><b>Contrataciones y servicios externos</b><div class="cp-sub">Se arma automáticamente con servicios, colocaciones externas, cortes/impresiones, fletes, alquileres, mantenimiento y gastos generales cargados en Compras.</div></div><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Registrar contratación</button></div><div style="margin-top:10px">\${top.map(([n,v])=>'<div class="cp-alert green"><div>•</div><div><b>'+esc(n)+'</b><div class="cp-sub">'+money(v)+'</div></div></div>').join('')||'<div class="cp-sub">Todavía no hay contrataciones identificadas.</div>'}</div></div>
-  <div class="cp-table-wrap"><table class="cp-table" style="min-width:900px"><thead><tr><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th>Rubro</th><th>OT</th><th>Medio</th><th>Total</th></tr></thead><tbody>\${rows||'<tr><td colspan="7">Sin contrataciones registradas.</td></tr>'}</tbody></table></div>\`;
+  <div class="cp-table-wrap"><table class="cp-table" style="min-width:900px"><thead><tr><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th>Rubro</th><th>OT</th><th>Medio</th><th>Total</th></tr></thead><tbody>\${rows||'<tr><td colspan="7">Sin contrataciones registradas.</td></tr>'}</tbody></table></div>`;
 }
 
 
@@ -499,11 +499,11 @@ function cpBuildMigrationPreview(wb,fileName){
 }
 function renderMigracion(el){
   const p=migrationPreview;
-  if(!p){el.innerHTML=\`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:15px;align-items:flex-start;flex-wrap:wrap"><div><b>Migración controlada desde Excel</b><div class="cp-sub" style="max-width:720px">Primero se analiza el archivo y se muestra una previsualización. No se escribe nada en Firestore hasta confirmar. Los códigos se vinculan contra Artículos y las filas dudosas quedan afuera.</div></div><span class="cp-pill warn">Sin escritura automática</span></div><div class="cp-row" style="margin-top:14px"><div class="cp-field"><label>Archivo histórico de Compras</label><input id="cp-mig-file" type="file" accept=".xlsx,.xls"></div><div class="cp-field"><label>Acción</label><button class="cp-btn primary" style="margin-top:16px;width:100%" onclick="cpAnalizarMigracion()">Analizar y previsualizar</button></div></div><div class="cp-alert amber" style="margin-top:12px"><div>🛡</div><div><b>Protección activa</b><div class="cp-sub">No toca Facturación, Cobranzas, ARCA, Producción ni PDFs. La importación utiliza únicamente las colecciones del módulo Compras.</div></div></div></div>\`;return;}
+  if(!p){el.innerHTML=`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:15px;align-items:flex-start;flex-wrap:wrap"><div><b>Migración controlada desde Excel</b><div class="cp-sub" style="max-width:720px">Primero se analiza el archivo y se muestra una previsualización. No se escribe nada en Firestore hasta confirmar. Los códigos se vinculan contra Artículos y las filas dudosas quedan afuera.</div></div><span class="cp-pill warn">Sin escritura automática</span></div><div class="cp-row" style="margin-top:14px"><div class="cp-field"><label>Archivo histórico de Compras</label><input id="cp-mig-file" type="file" accept=".xlsx,.xls"></div><div class="cp-field"><label>Acción</label><button class="cp-btn primary" style="margin-top:16px;width:100%" onclick="cpAnalizarMigracion()">Analizar y previsualizar</button></div></div><div class="cp-alert amber" style="margin-top:12px"><div>🛡</div><div><b>Protección activa</b><div class="cp-sub">No toca Facturación, Cobranzas, ARCA, Producción ni PDFs. La importación utiliza únicamente las colecciones del módulo Compras.</div></div></div></div>`;return;}
   const valid=p.rows.filter(r=>r.status==='valida'),dup=p.rows.filter(r=>r.status==='duplicada'),amb=p.rows.filter(r=>r.status==='ambigua');
   const linked=valid.filter(r=>r.articuloId).length,prevOk=p.previsiones.filter(x=>x.status!=='duplicada');
-  const sample=[...amb,...dup,...valid].slice(0,120).map(r=>\`<tr><td><span class="cp-pill \${r.status==='valida'?'yes':r.status==='duplicada'?'warn':'no'}">\${esc(r.status)}</span></td><td>\${esc(r.sheet)} · \${r.row}</td><td>\${fmtDate(r.fecha)}</td><td><b>\${esc(r.codigo)}</b></td><td>\${esc(r.descripcion)}</td><td>\${esc(r.rubro)}</td><td>\${money(r.totalBruto)}</td><td>\${esc(r.medioPagoOriginal||r.medioPago||'—')}</td><td>\${esc(r.motivo||'Vinculada al catálogo')}</td></tr>\`).join('');
-  el.innerHTML=\`
+  const sample=[...amb,...dup,...valid].slice(0,120).map(r=>`<tr><td><span class="cp-pill \${r.status==='valida'?'yes':r.status==='duplicada'?'warn':'no'}">\${esc(r.status)}</span></td><td>\${esc(r.sheet)} · \${r.row}</td><td>\${fmtDate(r.fecha)}</td><td><b>\${esc(r.codigo)}</b></td><td>\${esc(r.descripcion)}</td><td>\${esc(r.rubro)}</td><td>\${money(r.totalBruto)}</td><td>\${esc(r.medioPagoOriginal||r.medioPago||'—')}</td><td>\${esc(r.motivo||'Vinculada al catálogo')}</td></tr>`).join('');
+  el.innerHTML=`
     <div class="cp-pay-toolbar"><div><div class="cp-pay-title">Previsualización · \${esc(p.fileName)}</div><div class="cp-sub">Hojas detectadas: \${p.monthly.map(esc).join(', ')}</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpResetMigracion()">Cambiar archivo</button><button class="cp-btn primary" onclick="cpConfirmarMigracion()">Importar sólo filas válidas</button></div></div>
     <div class="cp-grid">
       <div class="cp-card"><div class="cp-lbl">Filas válidas</div><div class="cp-kpi" style="color:var(--green)">\${valid.length}</div><div class="cp-sub">\${p.purchases.length} compras agrupadas</div></div>
@@ -514,7 +514,7 @@ function renderMigracion(el){
     </div>
     <div class="cp-panel"><b>Tratamiento de Previsiones / cheques</b><div class="cp-sub">La hoja Previsiones es ambigua respecto de si “Fecha de Pago” es vencimiento previsto o pago ya realizado. Por seguridad no se importa por defecto.</div><div class="cp-row" style="margin-top:10px"><div class="cp-field"><label>Al confirmar</label><select id="cp-mig-prev-mode"><option value="skip">No importar previsiones</option><option value="pagado">Importar como histórico / pagado</option><option value="pendiente">Importar como pendiente</option></select></div></div></div>
     <div class="cp-table-wrap"><table class="cp-table" style="min-width:1200px"><thead><tr><th>Estado</th><th>Origen</th><th>Fecha</th><th>Código</th><th>Descripción</th><th>Rubro</th><th>Total</th><th>Medio original</th><th>Control</th></tr></thead><tbody>\${sample||'<tr><td colspan="9">Sin filas.</td></tr>'}</tbody></table></div>
-    <div class="cp-pay-footer">Las compras importadas conservan archivo, hoja y filas de origen. Se usan IDs determinísticos para que volver a cargar el mismo archivo no duplique la migración.</div>\`;
+    <div class="cp-pay-footer">Las compras importadas conservan archivo, hoja y filas de origen. Se usan IDs determinísticos para que volver a cargar el mismo archivo no duplique la migración.</div>`;
 }
 window.cpResetMigracion=()=>{migrationPreview=null;migrationFileName='';render();};
 window.cpAnalizarMigracion=async()=>{
@@ -526,7 +526,7 @@ window.cpConfirmarMigracion=async()=>{
   const p=migrationPreview;if(!p)return;
   const valid=p.rows.filter(r=>r.status==='valida');if(!valid.length)return toast('No hay filas válidas para importar.');
   const mode=document.getElementById('cp-mig-prev-mode')?.value||'skip';
-  const msg=\`Se crearán/actualizarán \${p.purchases.length} compras históricas desde \${valid.length} filas válidas.\${mode==='skip'?' No se importarán previsiones.':' También se importarán '+p.previsiones.filter(x=>x.status!=='duplicada').length+' previsiones como '+mode+'.'} ¿Continuar?\`;
+  const msg=`Se crearán/actualizarán \${p.purchases.length} compras históricas desde \${valid.length} filas válidas.\${mode==='skip'?' No se importarán previsiones.':' También se importarán '+p.previsiones.filter(x=>x.status!=='duplicada').length+' previsiones como '+mode+'.'} ¿Continuar?`;
   if(!confirm(msg))return;
   try{
     const purchaseOps=p.purchases;
