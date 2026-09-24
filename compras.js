@@ -493,7 +493,11 @@ function cpParsePrevisiones(wb){
   const h=rows[hi].map(cpNormHeader),find=q=>h.findIndex(x=>x.includes(cpNormHeader(q)));
   const ix={nro:find('nro de cheque'),desc:find('descripcion'),importe:find('importe bruto'),fecha:find('fecha de pago')};
   const out=[];
-  for(let ri=hi+1;ri<rows.length;ri++){\n    const r=rows[ri],desc=String(r[ix.desc]||'').trim(),importe=num(r[ix.importe]),fecha=cpExcelISO(r[ix.fecha]);if(!desc||!importe||!fecha)continue;\n    const plausible=fecha>='2025-01-01'&&fecha<='2027-12-31';\n    out.push({sheet:'Previsiones',row:ri+1,proveedor:desc,concepto:desc,importe,vencimiento:fecha,referencia:String(r[ix.nro]||'').trim(),medio:'Cheque',status:plausible?'revision':'ambigua',motivo:plausible?'':'Fecha fuera del rango esperable para la planilla 2026'});\n  }
+  for(let ri=hi+1;ri<rows.length;ri++){
+    const r=rows[ri],desc=String(r[ix.desc]||'').trim(),importe=num(r[ix.importe]),fecha=cpExcelISO(r[ix.fecha]);if(!desc||!importe||!fecha)continue;
+    const plausible=fecha>='2025-01-01'&&fecha<='2027-12-31';
+    out.push({sheet:'Previsiones',row:ri+1,proveedor:desc,concepto:desc,importe,vencimiento:fecha,referencia:String(r[ix.nro]||'').trim(),medio:'Cheque',status:plausible?'revision':'ambigua',motivo:plausible?'':'Fecha fuera del rango esperable para la planilla 2026'});
+  }
   return out;
 }
 function cpBuildMigrationPreview(wb,fileName){
