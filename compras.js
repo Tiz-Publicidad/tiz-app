@@ -424,9 +424,29 @@ function cpEnsureXLSX(){
   if(window.XLSX)return Promise.resolve(window.XLSX);
   return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=()=>resolve(window.XLSX);s.onerror=()=>reject(new Error('No se pudo cargar el lector Excel'));document.head.appendChild(s);});
 }
-function cpArticleByCode(code){
+function cpArticleByCode(code,excelCatalog){
   const k=String(code||'').trim().padStart(6,'0');
-  return C.articulos.find(a=>String(a.codigo||'').trim().padStart(6,'0')===k)||null;
+  const live=C.articulos.find(a=>String(a.codigo||'').trim().padStart(6,'0')===k);
+  if(live)return {...live,_catalogSource:'firestore'};
+  const base=CATALOGO_TIZ_BASE.find(a=>String(a.codigo||'').trim().padStart(6,'0')===k);
+  if(base)return {...base,id:'',_catalogSource:'base_embebida'};
+  const excel=excelCatalog?.get(k);
+  if(excel)return {...excel,id:'',_catalogSource:'excel'};
+  return null;
+}
+function cpParseExcelCatalog(wb){
+  const ws=wb.Sheets['Base de Datos'];const map=new Map();if(!ws)return map;
+  const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',blankrows:false});
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i],codigo=String(r[0]||'').trim().padStart(6,'0'),descripcion=String(r[1]||'').trim();
+    if(!/^\d{6}$/.test(codigo)||!descripcion)continue;
+    map.set(codigo,{codigo,descripcion,unidad:String(r[2]||'').trim(),familia:String(r[3]||'').trim(),subfamilia:''});
+  }
+  return map;
+}
+function cpValidInvoiceNumber(v){
+  const s=normText(v||'').trim();
+  return !!s&&!['n/a','na','ver','s/f','sf','sin fc','sin factura','-'].includes(s);
 }
 function cpExistingRowSignature(r){
   return [r.fecha,String(r.codigo||'').trim(),Math.round(num(r.totalBruto)*100)/100,normText(r.numeroComprobante||''),normText(r.aclaracion||'')].join('|');
@@ -436,7 +456,7 @@ function cpCurrentPurchaseSignatures(){
   C.compras.forEach(p=>(p.items||[]).forEach(i=>set.add([p.fecha,String(i.codigo||'').trim(),Math.round(num(i.totalBruto)*100)/100,normText(p.numeroComprobante||''),normText(p.observacion||p.aclaracion||'')].join('|'))));
   return set;
 }
-function cpParseMonthlySheet(wb,sheetName){
+function cpParseMonthlySheet(wb,sheetName,excelCatalog){
   const ws=wb.Sheets[sheetName];if(!ws)return [];
   const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',blankrows:false});
   let hi=-1;for(let i=0;i<Math.min(rows.length,30);i++){const h=rows[i].map(cpNormHeader);if(h.some(x=>x.includes('codigo de articulo'))&&h.some(x=>x.includes('ingreso'))) {hi=i;break;}}
@@ -450,16 +470,16 @@ function cpParseMonthlySheet(wb,sheetName){
     const fecha=cpExcelISO(get('fecha')),codigo=String(get('codigo')||'').trim(),desc=String(get('desc')||'').trim(),bruto=num(get('bruto'));
     if(!fecha&&!codigo&&!desc&&!bruto)continue;
     if(!fecha||(!codigo&&!desc)||!bruto)continue;
-    const art=cpArticleByCode(codigo);
+    const art=cpArticleByCode(codigo,excelCatalog);
     const pm=cpPaymentMethod(get('medio')),fcRaw=String(get('fc')||'').trim(),nro=String(get('nro')||'').trim();
-    const fcOk=!!fcRaw&&!/^n\/?a$/i.test(fcRaw);
+    const fcOk=!!fcRaw&&!/^n\/?a$/i.test(fcRaw)&&fcRaw.toLowerCase()!=='ver';
     const row={
       sheet:sheetName,row:ri+1,fecha,codigo,descripcion:desc,aclaracion:String(get('aclar')||'').trim(),rubro:String(get('rubro')||'').trim(),
       cantidad:num(get('unid'))||1,precioUnitarioNeto:num(get('unitN')),totalNeto:num(get('neto')),ivaImporte:num(get('iva')),
       precioUnitarioBruto:num(get('unitB')),totalBruto:bruto,medioPago:pm.normalizado,medioPagoOriginal:pm.original,
       fc:fcOk?'si':'no',tipoComprobante:fcOk&&/^[ABC]$/i.test(fcRaw)?'Factura '+fcRaw.toUpperCase():(fcOk?'Otro':'Sin comprobante'),
-      numeroComprobante:nro,semanaExcel:String(get('sem')||'').trim(),articuloId:art?.id||'',descripcionCatalogo:art?.descripcion||'',unidad:art?.unidad||'',familia:art?.familia||String(get('rubro')||'').trim(),subfamilia:art?.subfamilia||'',
-      status:art?'valida':'ambigua',motivo:art?'':'Código sin correspondencia en Artículos'
+      numeroComprobante:cpValidInvoiceNumber(nro)?nro:'',numeroComprobanteOriginal:nro,semanaExcel:String(get('sem')||'').trim(),articuloId:art?.id||'',descripcionCatalogo:art?.descripcion||'',unidad:art?.unidad||'',familia:art?.familia||String(get('rubro')||'').trim(),subfamilia:art?.subfamilia||'',catalogSource:art?._catalogSource||'',
+      status:art?'valida':'ambigua',motivo:art?(art._catalogSource==='firestore'?'Vinculada a Artículos':art._catalogSource==='excel'?'Código válido del catálogo Excel; se creará/vinculará al importar':'Código válido de base TIZ; falta vincularlo en Firestore'):'Código sin correspondencia en el catálogo'
     };
     out.push(row);
   }
@@ -477,13 +497,14 @@ function cpParsePrevisiones(wb){
   return out;
 }
 function cpBuildMigrationPreview(wb,fileName){
+  const excelCatalog=cpParseExcelCatalog(wb);
   const monthly=['Ene','Feb','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].filter(n=>wb.Sheets[n]);
-  const rows=monthly.flatMap(n=>cpParseMonthlySheet(wb,n));
+  const rows=monthly.flatMap(n=>cpParseMonthlySheet(wb,n,excelCatalog));
   const existing=cpCurrentPurchaseSignatures();
   rows.forEach(r=>{if(existing.has(cpExistingRowSignature(r))){r.status='duplicada';r.motivo='Ya existe una compra equivalente';}});
   const groups=new Map();
   rows.filter(r=>r.status==='valida').forEach(r=>{
-    const hasInvoice=r.numeroComprobante&&!/^n\/?a$/i.test(r.numeroComprobante);
+    const hasInvoice=cpValidInvoiceNumber(r.numeroComprobante);
     const k=hasInvoice?[r.sheet,r.fecha,r.tipoComprobante,r.numeroComprobante].join('|'):[r.sheet,'fila',r.row].join('|');
     if(!groups.has(k))groups.set(k,{key:k,sheet:r.sheet,rows:[],fecha:r.fecha,fc:r.fc,tipoComprobante:r.tipoComprobante,numeroComprobante:r.numeroComprobante,medioPago:r.medioPago,medioPagoOriginal:r.medioPagoOriginal});
     groups.get(k).rows.push(r);
@@ -495,13 +516,14 @@ function cpBuildMigrationPreview(wb,fileName){
   const previsiones=cpParsePrevisiones(wb);
   const existingPays=new Set(C.pagos.map(p=>[p.vencimiento,normText(p.proveedor||p.concepto||''),Math.round(num(p.importe)*100)/100,normText(p.referencia||'')].join('|')));
   previsiones.forEach(p=>{const sig=[p.vencimiento,normText(p.proveedor),Math.round(num(p.importe)*100)/100,normText(p.referencia)].join('|');if(existingPays.has(sig)){p.status='duplicada';p.motivo='Ya existe un compromiso equivalente';}});
-  return {fileName,monthly,rows,purchases,previsiones,createdAt:new Date().toISOString()};
+  const catalogMissing=[...excelCatalog.values()].filter(a=>!C.articulos.some(x=>String(x.codigo||'').trim().padStart(6,'0')===a.codigo));
+  return {fileName,monthly,rows,purchases,previsiones,excelCatalog:[...excelCatalog.values()],catalogMissing,createdAt:new Date().toISOString()};
 }
 function renderMigracion(el){
   const p=migrationPreview;
   if(!p){el.innerHTML=`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:15px;align-items:flex-start;flex-wrap:wrap"><div><b>Migración controlada desde Excel</b><div class="cp-sub" style="max-width:720px">Primero se analiza el archivo y se muestra una previsualización. No se escribe nada en Firestore hasta confirmar. Los códigos se vinculan contra Artículos y las filas dudosas quedan afuera.</div></div><span class="cp-pill warn">Sin escritura automática</span></div><div class="cp-row" style="margin-top:14px"><div class="cp-field"><label>Archivo histórico de Compras</label><input id="cp-mig-file" type="file" accept=".xlsx,.xls"></div><div class="cp-field"><label>Acción</label><button class="cp-btn primary" style="margin-top:16px;width:100%" onclick="cpAnalizarMigracion()">Analizar y previsualizar</button></div></div><div class="cp-alert amber" style="margin-top:12px"><div>🛡</div><div><b>Protección activa</b><div class="cp-sub">No toca Facturación, Cobranzas, ARCA, Producción ni PDFs. La importación utiliza únicamente las colecciones del módulo Compras.</div></div></div></div>`;return;}
   const valid=p.rows.filter(r=>r.status==='valida'),dup=p.rows.filter(r=>r.status==='duplicada'),amb=p.rows.filter(r=>r.status==='ambigua');
-  const linked=valid.filter(r=>r.articuloId).length,prevOk=p.previsiones.filter(x=>x.status!=='duplicada');
+  const linked=valid.filter(r=>r.articuloId).length,baseLinked=valid.filter(r=>!r.articuloId&&r.catalogSource).length,prevOk=p.previsiones.filter(x=>x.status!=='duplicada');
   const sample=[...amb,...dup,...valid].slice(0,120).map(r=>`<tr><td><span class="cp-pill \${r.status==='valida'?'yes':r.status==='duplicada'?'warn':'no'}">\${esc(r.status)}</span></td><td>\${esc(r.sheet)} · \${r.row}</td><td>\${fmtDate(r.fecha)}</td><td><b>\${esc(r.codigo)}</b></td><td>\${esc(r.descripcion)}</td><td>\${esc(r.rubro)}</td><td>\${money(r.totalBruto)}</td><td>\${esc(r.medioPagoOriginal||r.medioPago||'—')}</td><td>\${esc(r.motivo||'Vinculada al catálogo')}</td></tr>`).join('');
   el.innerHTML=`
     <div class="cp-pay-toolbar"><div><div class="cp-pay-title">Previsualización · \${esc(p.fileName)}</div><div class="cp-sub">Hojas detectadas: \${p.monthly.map(esc).join(', ')}</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpResetMigracion()">Cambiar archivo</button><button class="cp-btn primary" onclick="cpConfirmarMigracion()">Importar sólo filas válidas</button></div></div>
@@ -509,9 +531,11 @@ function renderMigracion(el){
       <div class="cp-card"><div class="cp-lbl">Filas válidas</div><div class="cp-kpi" style="color:var(--green)">\${valid.length}</div><div class="cp-sub">\${p.purchases.length} compras agrupadas</div></div>
       <div class="cp-card"><div class="cp-lbl">Duplicadas</div><div class="cp-kpi" style="color:var(--amber)">\${dup.length}</div><div class="cp-sub">No se importan</div></div>
       <div class="cp-card"><div class="cp-lbl">A revisar</div><div class="cp-kpi" style="color:var(--red)">\${amb.length}</div><div class="cp-sub">No se importan</div></div>
-      <div class="cp-card"><div class="cp-lbl">Artículos vinculados</div><div class="cp-kpi">\${linked}</div></div>
+      <div class="cp-card"><div class="cp-lbl">Artículos ya vinculados</div><div class="cp-kpi">\${linked}</div><div class="cp-sub">\${baseLinked} válidos por catálogo a crear/vincular</div></div>
+      <div class="cp-card"><div class="cp-lbl">Catálogo faltante</div><div class="cp-kpi">\${p.catalogMissing.length}</div><div class="cp-sub">códigos de Base de Datos aún no creados</div></div>
       <div class="cp-card"><div class="cp-lbl">Previsiones detectadas</div><div class="cp-kpi">\${p.previsiones.length}</div><div class="cp-sub">\${prevOk.length} no duplicadas</div></div>
     </div>
+    <div class="cp-panel"><b>Catálogo maestro</b><div class="cp-sub">El Excel trae \${p.excelCatalog.length} códigos en “Base de Datos”. Los que todavía no existen en Artículos pueden crearse durante la migración para conservar la referencia histórica.</div><div class="cp-row" style="margin-top:10px"><div class="cp-field"><label>Catálogo faltante</label><select id="cp-mig-catalog-mode"><option value="create">Crear artículos faltantes desde Base de Datos</option><option value="skip">No crear; conservar sólo el código histórico</option></select></div></div></div>
     <div class="cp-panel"><b>Tratamiento de Previsiones / cheques</b><div class="cp-sub">La hoja Previsiones es ambigua respecto de si “Fecha de Pago” es vencimiento previsto o pago ya realizado. Por seguridad no se importa por defecto.</div><div class="cp-row" style="margin-top:10px"><div class="cp-field"><label>Al confirmar</label><select id="cp-mig-prev-mode"><option value="skip">No importar previsiones</option><option value="pagado">Importar como histórico / pagado</option><option value="pendiente">Importar como pendiente</option></select></div></div></div>
     <div class="cp-table-wrap"><table class="cp-table" style="min-width:1200px"><thead><tr><th>Estado</th><th>Origen</th><th>Fecha</th><th>Código</th><th>Descripción</th><th>Rubro</th><th>Total</th><th>Medio original</th><th>Control</th></tr></thead><tbody>\${sample||'<tr><td colspan="9">Sin filas.</td></tr>'}</tbody></table></div>
     <div class="cp-pay-footer">Las compras importadas conservan archivo, hoja y filas de origen. Se usan IDs determinísticos para que volver a cargar el mismo archivo no duplique la migración.</div>`;
@@ -525,15 +549,29 @@ window.cpAnalizarMigracion=async()=>{
 window.cpConfirmarMigracion=async()=>{
   const p=migrationPreview;if(!p)return;
   const valid=p.rows.filter(r=>r.status==='valida');if(!valid.length)return toast('No hay filas válidas para importar.');
-  const mode=document.getElementById('cp-mig-prev-mode')?.value||'skip';
-  const msg=`Se crearán/actualizarán \${p.purchases.length} compras históricas desde \${valid.length} filas válidas.\${mode==='skip'?' No se importarán previsiones.':' También se importarán '+p.previsiones.filter(x=>x.status!=='duplicada').length+' previsiones como '+mode+'.'} ¿Continuar?`;
+  const mode=document.getElementById('cp-mig-prev-mode')?.value||'skip',catalogMode=document.getElementById('cp-mig-catalog-mode')?.value||'create';
+  const msg=`Se crearán/actualizarán \${p.purchases.length} compras históricas desde \${valid.length} filas válidas.\${catalogMode==='create'?' Se completarán '+p.catalogMissing.length+' artículos faltantes del catálogo.':''}\${mode==='skip'?' No se importarán previsiones.':' También se importarán '+p.previsiones.filter(x=>x.status!=='duplicada').length+' previsiones como '+mode+'.'} ¿Continuar?`;
   if(!confirm(msg))return;
   try{
+    if(catalogMode==='create'&&p.catalogMissing.length){
+      const existing=new Set(C.articulos.map(a=>String(a.codigo||'').trim().padStart(6,'0')));
+      const missing=p.catalogMissing.filter(a=>!existing.has(a.codigo));
+      for(let start=0;start<missing.length;start+=400){
+        const batch=writeBatch(db);
+        missing.slice(start,start+400).forEach(a=>{
+          const id='art_'+a.codigo;
+          batch.set(doc(db,'articulosCompra',id),{codigo:a.codigo,descripcion:a.descripcion,unidad:a.unidad||'',familia:a.familia||'Sin clasificar',subfamilia:a.subfamilia||'',control:['Hierros','Chapas','Acrilicos','Lonas y Vinilos','Iluminacion','Maderas y otros','Pai PVC y polyfan'].includes(a.familia)?'estrategico':['Servicios','Sueldos','Publicidad','Alquiler','Comisiones','Colocaciones Externas','Cortes / Impresiones Externas'].includes(a.familia)?'sin_stock':'consumible',stockMinimo:0,origen:'excel_2026_catalogo',_ts:serverTimestamp()},{merge:true});
+        });
+        await batch.commit();
+      }
+    }
+    const articleIdByCode=new Map(C.articulos.map(a=>[String(a.codigo||'').trim().padStart(6,'0'),a.id]));
+    if(catalogMode==='create')p.catalogMissing.forEach(a=>articleIdByCode.set(a.codigo,'art_'+a.codigo));
     const purchaseOps=p.purchases;
     for(let start=0;start<purchaseOps.length;start+=400){
       const batch=writeBatch(db);
       purchaseOps.slice(start,start+400).forEach(g=>{
-        const items=g.rows.map(r=>({articuloId:r.articuloId,codigo:r.codigo,descripcionOriginal:r.descripcion,descripcion:r.descripcionCatalogo||r.descripcion,familia:r.familia,rubro:r.rubro,subfamilia:r.subfamilia,unidad:r.unidad||'',cantidad:r.cantidad,precioUnitarioNeto:r.precioUnitarioNeto,totalNeto:r.totalNeto,ivaImporte:r.ivaImporte,ivaPct:r.totalNeto?Math.round((r.ivaImporte/r.totalNeto)*10000)/100:0,totalBruto:r.totalBruto,origenExcel:{archivo:p.fileName,hoja:r.sheet,fila:r.row}}));
+        const items=g.rows.map(r=>({articuloId:r.articuloId||articleIdByCode.get(String(r.codigo||'').trim().padStart(6,'0'))||'',codigo:r.codigo,descripcionOriginal:r.descripcion,descripcion:r.descripcionCatalogo||r.descripcion,familia:r.familia,rubro:r.rubro,subfamilia:r.subfamilia,unidad:r.unidad||'',cantidad:r.cantidad,precioUnitarioNeto:r.precioUnitarioNeto,totalNeto:r.totalNeto,ivaImporte:r.ivaImporte,ivaPct:r.totalNeto?Math.round((r.ivaImporte/r.totalNeto)*10000)/100:0,totalBruto:r.totalBruto,origenExcel:{archivo:p.fileName,hoja:r.sheet,fila:r.row}}));
         const data={fecha:g.fecha,semana:paymentWeek(g.fecha),proveedor:'',proveedorPendiente:true,fc:g.fc,tipoComprobante:g.tipoComprobante,numeroComprobante:g.numeroComprobante,medioPago:g.medioPago||'',medioPagoOriginal:g.medioPagoOriginal||'',destino:g.rows.some(isServicePurchaseItem)?'Gasto general':'Stock',ot:'',observacion:g.rows.map(r=>r.aclaracion).filter(Boolean).join(' | '),items,totalNeto:g.totalNeto,ivaTotal:g.ivaTotal,totalBruto:g.totalBruto,origen:'excel_2026',importacion:{archivo:p.fileName,hoja:g.sheet,filas:g.rows.map(r=>r.row),clave:g.key},_ts:serverTimestamp()};
         batch.set(doc(db,'compras',g.docId),data,{merge:true});
       });
