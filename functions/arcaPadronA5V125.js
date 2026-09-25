@@ -14,7 +14,7 @@ const allowed = defineSecret("ARCA_ALLOWED_EMAILS");
 
 const WSAA = "https://wsaa.afip.gov.ar/ws/services/LoginCms";
 const PADRON = "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5";
-const SERVICE = "ws_sr_padron_a5";
+const SERVICE = "ws_sr_constancia_inscripcion";
 const ORIGINS = new Set([
   "https://tiz-publicidad.github.io",
   "https://tiz---app.web.app",
@@ -130,11 +130,11 @@ async function credentials() {
   const token = tag(result, "token");
   const sign = tag(result, "sign");
   if (!token || !sign)
-    throw new Error("WSAA no devolvió autorización para Padrón A5");
+    throw new Error("WSAA no devolvió autorización para Constancia de Inscripción");
   return { token, sign };
 }
 async function getPersona(cuit, cr) {
-  const envelope = `<?xml version="1.0" encoding="UTF-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a5="http://a5.soap.ws.server.puc.sr/"><soapenv:Header/><soapenv:Body><a5:getPersona><token>${escapeXml(cr.token)}</token><sign>${escapeXml(cr.sign)}</sign><cuitRepresentada>${escapeXml(issuer.value())}</cuitRepresentada><idPersona>${escapeXml(cuit)}</idPersona></a5:getPersona></soapenv:Body></soapenv:Envelope>`;
+  const envelope = `<?xml version="1.0" encoding="UTF-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a5="http://a5.soap.ws.server.puc.sr/"><soapenv:Header/><soapenv:Body><a5:getPersona_v2><token>${escapeXml(cr.token)}</token><sign>${escapeXml(cr.sign)}</sign><cuitRepresentada>${escapeXml(issuer.value())}</cuitRepresentada><idPersona>${escapeXml(cuit)}</idPersona></a5:getPersona_v2></soapenv:Body></soapenv:Envelope>`;
   const xml = await postSoap(PADRON, envelope);
   const error = tag(tag(xml, "errorConstancia"), "error");
   if (error)
@@ -240,7 +240,7 @@ const arcaPadronConsultarV125 = onRequest(
       }
       return res.json({ ok: true, ...data, obraId, clientId });
     } catch (error) {
-      console.error("Consulta Padrón A5", error);
+      console.error("Consulta Constancia de Inscripción ARCA", error);
       const message = error.message || "No se pudo consultar el Padrón de ARCA";
       const missingPermission =
         /not authorized|no autorizado|computador no autorizado|servicio/i.test(
@@ -249,7 +249,7 @@ const arcaPadronConsultarV125 = onRequest(
       return res.status(error.status || 502).json({
         ok: false,
         error: missingPermission
-          ? `${message}. Asociá el servicio ws_sr_padron_a5 al certificado de facturación en ARCA.`
+          ? `${message}. Asociá el servicio ws_sr_constancia_inscripcion al certificado de facturación en ARCA.`
           : message,
       });
     }
