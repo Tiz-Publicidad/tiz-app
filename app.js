@@ -1355,7 +1355,7 @@ window.updateItemPP = (i, field, val) => {
   if (row) {
     const sub = (window.ppItems[i].precio || 0) * (window.ppItems[i].cant || 0);
     const subEl = row.querySelector('.pp-subtotal');
-    if (subEl) subEl.textContent = fmtPeso(sub);
+    if (subEl) subEl.textContent = fmtPesoPresupuesto(round2Presupuesto(sub));
   }
   updatePPTotal();
 };
@@ -1363,11 +1363,18 @@ window.updateItemPP = (i, field, val) => {
 function fmtPeso(n) {
   return '$ ' + Math.round(+n || 0).toLocaleString('es-AR');
 }
+function fmtPesoPresupuesto(n) {
+  const v = Math.round(((+n || 0) + Number.EPSILON) * 100) / 100;
+  return '$ ' + v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function round2Presupuesto(n) {
+  return Math.round(((+n || 0) + Number.EPSILON) * 100) / 100;
+}
 
 function updatePPTotal() {
-  const total = window.ppItems.reduce((a,it) => a + (it.precio||0)*(it.cant||0), 0);
+  const total = round2Presupuesto(window.ppItems.reduce((a,it) => a + (it.precio||0)*(it.cant||0), 0));
   const el = document.getElementById('pp-total');
-  if (el) el.textContent = fmtPeso(total);
+  if (el) el.textContent = fmtPesoPresupuesto(total);
 }
 
 function renderPPItems() {
@@ -1378,7 +1385,7 @@ function renderPPItems() {
       <input value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Descripción del ítem ${i+1}" oninput="updateItemPP(${i},'desc',this.value)" style="flex:1">
       <input type="number" value="${it.precio||''}" placeholder="$ Unit" oninput="updateItemPP(${i},'precio',this.value)" style="width:110px">
       <input type="number" value="${it.cant||1}" placeholder="Cant" oninput="updateItemPP(${i},'cant',this.value)" style="width:70px">
-      <span class="pp-subtotal" style="font-size:12px;color:var(--text2);width:110px;text-align:right;padding:0 4px;white-space:nowrap">${fmtPeso((it.precio||0)*(it.cant||1))}</span>
+      <span class="pp-subtotal" style="font-size:12px;color:var(--text2);width:110px;text-align:right;padding:0 4px;white-space:nowrap">${fmtPesoPresupuesto(round2Presupuesto((it.precio||0)*(it.cant||1)))}</span>
       <button class="btn-icon" onclick="removeItemPP(${i})" title="Eliminar ítem" style="padding:4px;color:var(--red)"><i class="ti ti-trash" style="font-size:13px"></i></button>
     </div>
   `).join('');
