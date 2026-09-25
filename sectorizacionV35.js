@@ -530,7 +530,7 @@
       if(!validarLogisticaCotizacion({permitirBorrador:true}))return;
       window.__tizPresupuestoGuardando=true;
       const nro=val('pp-nro').trim()||'0000', cliente=val('pp-cliente').trim(), desc=val('pp-desc').trim(), items=(window.ppItems||[]).filter(i=>(i.desc||'').trim()||(+i.precio||0)>0); if(!cliente||!items.length){window.__tizPresupuestoGuardando=false;return oldSave?.apply(this,arguments);}
-      const total=items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
+      const total=Math.round((items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0)+Number.EPSILON)*100)/100;
       const revision=window.normalizarRevisionV354?.(val('pp-revision')||'1.1')||'1.1';
       const numero=String(nro).replace(/\D/g,'');
       const existente=(window.DB?.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===numero&&(window.normalizarRevisionV354?.(p.revision||'1.1')||'1.1')===revision);
