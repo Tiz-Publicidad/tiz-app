@@ -1,48 +1,98 @@
-name: Deploy Firebase Functions
+name: Validate and deploy ARCA constancia
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - codex/firebase-arca-constancia-v1
     paths:
       - 'functions/**'
+      - 'scripts/*arca-constancia.cjs'
+      - '.github/workflows/deploy-functions.yml'
       - 'firebase.json'
       - '.firebaserc'
 
 permissions:
   contents: read
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
+concurrency:
+  group: tiz-arca-constancia-production
+  cancel-in-progress: false
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout selected commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-
-      - name: Install functions dependencies
-        run: npm ci
-        working-directory: functions
-
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Validate Firebase credentials
+      - name: Prepare isolated consulta package
+        shell: bash
+        run: echo "ARCA_STAGE=$(node scripts/prepare-arca-constancia.cjs)" >> "$GITHUB_ENV"
+      - name: Validate isolated dependencies, syntax and exports
         shell: bash
         run: |
-          if [ -z "${FIREBASE_TOKEN}" ]; then
-            echo "Falta configurar el secret FIREBASE_TOKEN en GitHub Actions."
+          set -euo pipefail
+          cd "$ARCA_STAGE/functions"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ls --omit=dev
+          node --check arcaPadronA5V125.js
+          node -e 'const assert = require("node:assert/strict"); const f = require("./"); assert.deepEqual(Object.keys(f), ["arcaPadronConsultarV125"]); assert.equal(typeof f.arcaPadronConsultarV125, "function");'
+      - name: Test SOAP contract without ARCA access or invoices
+        run: node --test scripts/test-arca-constancia.cjs
+
+  deploy:
+    # Push only validates. Deployment is explicitly dispatched from this branch.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/firebase-arca-constancia-v1'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Check WIF configuration
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$WIF_PROVIDER" || -z "$DEPLOY_SERVICE_ACCOUNT" ]]; then
+            echo 'Configure GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_DEPLOY_SERVICE_ACCOUNT in Actions Variables. See docs/firebase-arca-constancia-v1.md.'
             exit 1
           fi
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-
-      - name: Deploy Functions
-        run: firebase deploy --only functions --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: Install dependencies and pinned Firebase CLI
+        run: |
+          npm install --global firebase-tools@15.31.0 --no-audit --no-fund
+      - name: Prepare isolated consulta package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCA_STAGE=$(node scripts/prepare-arca-constancia.cjs)
+          npm ci --prefix "$ARCA_STAGE/functions" --ignore-scripts --no-audit --no-fund
+          echo "ARCA_STAGE=$ARCA_STAGE" >> "$GITHUB_ENV"
+      - name: Authenticate with Google Cloud using OIDC
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: tiz---app
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Deploy only arcaPadronConsultarV125
+        run: firebase deploy --config "$ARCA_STAGE/firebase.json" --only functions:arcaPadronConsultarV125 --project tiz---app --non-interactive

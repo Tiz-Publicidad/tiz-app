@@ -13,7 +13,8 @@ const issuer = defineSecret("ARCA_ISSUER_CUIT");
 const allowed = defineSecret("ARCA_ALLOWED_EMAILS");
 
 const WSAA = "https://wsaa.afip.gov.ar/ws/services/LoginCms";
-const PADRON = "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5";
+// ARCA WSCI v4.1: conserva personaServiceA5 y el namespace a5.
+const PADRON = "https://aws.arca.gob.ar/sr-padron/webservices/personaServiceA5";
 const SERVICE = "ws_sr_constancia_inscripcion";
 // ARCA 2026: reemplaza al servicio historico ws_sr_padron_a5.
 const ORIGINS = new Set([
