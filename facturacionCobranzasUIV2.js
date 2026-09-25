@@ -1,7 +1,7 @@
 // TIZ Facturacion y Cobranzas V2.0 - historico Excel + estados manuales
 (function(){
 'use strict';
-const M=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0});
+const M=new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',minimumFractionDigits:2,maximumFractionDigits:2});
 const E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const N=v=>Number(v)||0;
 let tab='dashboard',q='',cobFilter='abiertos',drawerId='',drawerTab='resumen';
