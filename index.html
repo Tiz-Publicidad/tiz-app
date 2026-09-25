@@ -2588,7 +2588,7 @@ window.guardarPresupuestoCompleto = async () => {
   const hoy = new Date().toLocaleDateString('es-AR');
   const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
   const calculosAuxiliares = collectCalculosAuxPP();
-  const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
+  const total = round2Presupuesto(items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0));
   const presupuestoAnterior = window.editingId.presupuesto ? (window.DB.presupuestos||[]).find(p=>p.id===window.editingId.presupuesto) : null;
   if (!cliente) { showToast('Falta cargar el cliente'); return; }
   if (!descGeneral) { showToast('Cargá la descripción general'); return; }
@@ -2757,7 +2757,7 @@ window.updateItemPP = (i, field, val) => {
   if (row) {
     const sub = (window.ppItems[i].precio || 0) * (window.ppItems[i].cant || 0);
     const subEl = row.querySelector('.pp-subtotal');
-    if (subEl) subEl.textContent = fmtPeso(sub);
+    if (subEl) subEl.textContent = fmtPesoPresupuesto(round2Presupuesto(sub));
   }
   updatePPTotal();
 };
@@ -2765,11 +2765,18 @@ window.updateItemPP = (i, field, val) => {
 function fmtPeso(n) {
   return '$ ' + Math.round(+n || 0).toLocaleString('es-AR');
 }
+function fmtPesoPresupuesto(n) {
+  const v = Math.round(((+n || 0) + Number.EPSILON) * 100) / 100;
+  return '$ ' + v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function round2Presupuesto(n) {
+  return Math.round(((+n || 0) + Number.EPSILON) * 100) / 100;
+}
 
 function updatePPTotal() {
-  const total = window.ppItems.reduce((a,it) => a + (it.precio||0)*(it.cant||0), 0);
+  const total = round2Presupuesto(window.ppItems.reduce((a,it) => a + (it.precio||0)*(it.cant||0), 0));
   const el = document.getElementById('pp-total');
-  if (el) el.textContent = fmtPeso(total);
+  if (el) el.textContent = fmtPesoPresupuesto(total);
 }
 
 function renderPPItems() {
@@ -2780,7 +2787,7 @@ function renderPPItems() {
       <input value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Descripción del ítem ${i+1}" oninput="updateItemPP(${i},'desc',this.value)" style="flex:1">
       <input type="number" value="${it.precio||''}" placeholder="$ Unit" oninput="updateItemPP(${i},'precio',this.value)" style="width:110px">
       <input type="number" value="${it.cant||1}" placeholder="Cant" oninput="updateItemPP(${i},'cant',this.value)" style="width:70px">
-      <span class="pp-subtotal" style="font-size:12px;color:var(--text2);width:110px;text-align:right;padding:0 4px;white-space:nowrap">${fmtPeso((it.precio||0)*(it.cant||1))}</span>
+      <span class="pp-subtotal" style="font-size:12px;color:var(--text2);width:110px;text-align:right;padding:0 4px;white-space:nowrap">${fmtPesoPresupuesto(round2Presupuesto((it.precio||0)*(it.cant||1)))}</span>
       <button class="btn-icon" onclick="removeItemPP(${i})" title="Eliminar ítem" style="padding:4px;color:var(--red)"><i class="ti ti-trash" style="font-size:13px"></i></button>
     </div>
   `).join('');
@@ -2844,7 +2851,7 @@ window.generarPDF = async () => {
   const hoy = new Date();
   const validez = new Date(hoy); validez.setDate(validez.getDate() + validezDias);
   const revision = normalizarRevisionV354(document.getElementById('pp-revision')?.value || '1.1');
-  const total = items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0);
+  const total = round2Presupuesto(items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0));
   const fmtFecha = d => d.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const esc = v => String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const nombreBase = window.tizCotizacionNombreBaseV354(nro, cliente, descGeneral, revision);
@@ -2890,14 +2897,14 @@ window.generarPDF = async () => {
     nombreBase, firestoreId:ref?.id||'', entregaLogistica
   });
 
-  const rows = items.map(it=>`<tr><td>${esc(it.desc)}</td><td class="num">${fmtPeso(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPeso((+it.precio||0)*(+it.cant||1))}</td></tr>`).join('');
+  const rows = items.map(it=>`<tr><td>${esc(it.desc)}</td><td class="num">${fmtPesoPresupuesto(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPesoPresupuesto(round2Presupuesto((+it.precio||0)*(+it.cant||1)))}</td></tr>`).join('');
   const html = `<div class="ct-page">
     <div class="ct-header">
       <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ Av Pte Perón 3779 J C Paz</div></div>
       <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${window.tizNumeroBase(nro)}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
     </div>
     <div class="ct-items"><table class="ct-table"><colgroup><col style="width:59%"><col style="width:14%"><col style="width:12%"><col style="width:15%"></colgroup><thead><tr><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPeso(total)}</b></div></div>
+    <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPesoPresupuesto(total)}</b></div></div>
     <div class="ct-footer"><span>☎ 11-3479-9737</span><span>✉ INFO@TIZPUBLICIDAD.COM</span><span>WWW.TIZPUBLICIDAD.COM</span><span>⌖ AV PTE PERÓN 3779 J C PAZ</span></div>
   </div>`;
 
