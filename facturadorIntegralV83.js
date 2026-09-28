@@ -71,6 +71,12 @@
         : [];
     if (o.facturaArca?.cae && !a.some((x) => x.cae === o.facturaArca.cae))
       a.push(o.facturaArca);
+    const manual = Array.isArray(o.facturasManual) ? o.facturasManual : [];
+    const keys = new Set(a.map(x => `${x.cbteTipo}:${x.ptoVta}:${x.cbteNro}`));
+    for (const x of manual) {
+      const k = `${x.cbteTipo}:${x.ptoVta}:${x.cbteNro}`;
+      if (x.cae && x.ptoVta === 3 && !keys.has(k)) { a.push(x); keys.add(k); }
+    }
     return a.filter((x) => x?.cae);
   }
   function fiscal(o) {
@@ -112,7 +118,9 @@
   }
   function associatedOptions(o, type) {
     const letter = [1, 2, 3, 201, 202, 203].includes(Number(type)) ? "A" : "B";
+    const expected = ({3:1,8:6,203:201,208:206,2:1,7:6,202:201,207:206})[Number(type)];
     return comps(o)
+      .filter(c => Number(c.cbteTipo) === expected && Number(c.ptoVta)>0 && Number(c.cbteNro)>0)
       .filter((c) => {
         const l =
           String(c.letra || "").toUpperCase() ||
@@ -146,7 +154,7 @@
     if (!u) throw new Error("Sesión no iniciada");
     return u.getIdToken();
   }
-  window.abrirFacturacionIntegralV83 = function (id) {
+  window.abrirFacturacionIntegralV83 = function (id, options = {}) {
     if (!window.currentUser?.isAdmin)
       return window.showToast?.("Sólo administración puede facturar");
     const o = (window.DB?.obras || []).find((x) => x.id === id);
@@ -168,7 +176,7 @@
           o.condicionIVAReceptorId ||
           "1",
       ),
-      tipo = suggestedType(cond);
+      tipo = options.notaCredito ? ({1:3,6:8,201:203,206:208})[Number(options.notaCredito.cbteTipo)] || suggestedType(cond) : suggestedType(cond);
     document.getElementById("modal-fv83")?.remove();
     const root = document.createElement("div");
     root.id = "modal-fv83";
@@ -232,6 +240,11 @@
         need = notes.has(t);
       assocWrap.style.display = need ? "block" : "none";
       assoc.innerHTML = need ? associatedOptions(o, t) : "";
+      if (need && options.notaCredito) {
+        const wanted = options.notaCredito;
+        const match = [...assoc.options].find(opt => {try {const v=JSON.parse(opt.value);return v.cbteTipo===wanted.cbteTipo&&v.ptoVta===wanted.ptoVta&&v.cbteNro===wanted.cbteNro}catch{return false}});
+        if(match) assoc.value=match.value;
+      }
       if (need && !assoc.innerHTML)
         assoc.innerHTML =
           '<option value="">No hay comprobantes compatibles para asociar</option>';
@@ -252,6 +265,12 @@
     $("#fv83-cuit").addEventListener("change", consultarPadron);
     drawItems();
     syncAssoc();
+    if(options.notaCredito){
+      const original=options.notaCredito;
+      net.value=Number(original.neto||0).toFixed(2);
+      pct.value=f.p?Math.round(num(net.value)/f.p*10000)/100:0;
+      drawItems();
+    }
     if (/^\d{11}$/.test(cuit)) consultarPadron();
     $("#fv83-emit").onclick = async () => {
       const t = Number(typeEl.value),
