@@ -165,6 +165,15 @@ function list(o) {
     a.push(o.facturaArca);
   return a.filter((x) => x?.cae);
 }
+function fiscalList(o) {
+  const issued=list(o),seen=new Set(issued.map(x=>`${x.cbteTipo}:${x.ptoVta}:${x.cbteNro}`));
+  const manual=(Array.isArray(o.facturasManual)?o.facturasManual:[]).filter(x=>{
+    const k=`${x.cbteTipo}:${x.ptoVta}:${x.cbteNro}`;
+    if(!/^\d{14}$/.test(String(x.cae||''))||Number(x.ptoVta)!==3||!Number(x.cbteNro)||![1,6,201,206].includes(Number(x.cbteTipo))||seen.has(k))return false;
+    seen.add(k);return true;
+  });
+  return [...issued,...manual];
+}
 const BASE_MADRE_ID = "1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M",
   BASE_MADRE_SHEET = "Base de datos";
 const otBase = (v) =>
@@ -339,13 +348,14 @@ const facturacionIntegralEmitirV83 = onRequest(
           status: 400,
         });
       const prev = list(obra),
+        fiscalPrev = fiscalList(obra),
         pres = round2(
           obra.finanzas?.total ||
             obra.neto ||
             obra.importe ||
             obra.infoPresupuesto?.importe,
         ),
-        fiscal = saldoFiscal(pres, prev),
+        fiscal = saldoFiscal(pres, fiscalPrev),
         asoc = validateAssociated(tipo, req.body?.asociado || null);
       if (cfg.familia === "factura" && neto - fiscal.saldo > 0.01)
         throw Object.assign(
@@ -355,17 +365,16 @@ const facturacionIntegralEmitirV83 = onRequest(
           { status: 400 },
         );
       if (cfg.familia === "credito" && asoc) {
-        const orig = prev.find(
+        const orig = fiscalPrev.find(
           (x) =>
             Number(x.cbteTipo) === asoc.cbteTipo &&
             Number(x.ptoVta) === asoc.ptoVta &&
             Number(x.cbteNro) === asoc.cbteNro,
         );
-        if (orig && neto - round2(orig.neto) > 0.01)
-          throw Object.assign(
-            new Error("La NC supera el neto del comprobante asociado"),
-            { status: 400 },
-          );
+        if (!orig || ![1,6,201,206].includes(Number(orig.cbteTipo))) throw Object.assign(new Error("La factura original no está registrada en la OT"),{status:400});
+        const acreditado=fiscalPrev.filter(x=>x.familia==='credito'&&Number(x.asociado?.cbteTipo)===asoc.cbteTipo&&Number(x.asociado?.ptoVta)===asoc.ptoVta&&Number(x.asociado?.cbteNro)===asoc.cbteNro).reduce((s,x)=>s+round2(x.neto),0);
+        if (neto - (round2(orig.neto)-acreditado) > 0.01)
+          throw Object.assign(new Error("La NC supera el saldo del comprobante asociado"),{status:400});
       }
       const iva = exento ? 0 : round2((neto * ivaCfg.pct) / 100),
         total = round2(neto + iva),
@@ -472,7 +481,7 @@ const facturacionIntegralEmitirV83 = onRequest(
           emailPendiente: true,
         },
         all = [...prev, comp],
-        nextFiscal = saldoFiscal(pres, all),
+        nextFiscal = saldoFiscal(pres, [...fiscalPrev, comp]),
         fin = {
           ...(obra.finanzas || {}),
           total: pres,
@@ -551,7 +560,7 @@ const facturacionIntegralEmitirV83 = onRequest(
       let baseMadre = null,
         baseMadreError = "";
       try {
-        baseMadre = await syncBaseMadreFactura(obra, all, db, obraId, email);
+        baseMadre = await syncBaseMadreFactura(obra, [...fiscalPrev, comp], db, obraId, email);
       } catch (e) {
         baseMadreError = e.message || String(e);
         console.error("Base Madre factura pendiente", {
