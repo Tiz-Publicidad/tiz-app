@@ -1738,6 +1738,22 @@ window.marcarCobrado = async id => { await updateDoc_('cobranzas', id, { estado:
 window.delCobranza = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('cobranzas', id); };
 
 // PRESUPUESTOS
+window.renderCotizacionDriveShortcut = function(p) {
+  const valid = value => {
+    try {
+      const url = new URL(String(value || '').trim());
+      return url.protocol === 'https:' && ['drive.google.com', 'docs.google.com'].includes(url.hostname) ? url.href : '';
+    } catch (_) { return ''; }
+  };
+  const pdf = valid(p?.cotizacionPdfUrl);
+  const folder = valid(p?.cotizacionFolderUrl);
+  const icon = '<i class="ti ti-brand-google-drive" style="font-size:15px"></i>';
+  if (!pdf && !folder) return `<button class="btn-icon" type="button" disabled title="Todavía no hay PDF ni carpeta de Drive vinculados" aria-label="Drive pendiente" style="margin-left:4px;opacity:.45;cursor:not-allowed">${icon}</button>`;
+  const title = pdf ? 'Abrir PDF de esta cotización en Google Drive' : 'Abrir carpeta de análisis de esta cotización en Google Drive';
+  const href = (pdf || folder).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return `<a class="btn-icon" href="${href}" target="_blank" rel="noopener noreferrer" title="${title}" aria-label="${title}" style="display:inline-flex;vertical-align:middle;margin-left:4px;color:var(--green)">${icon}</a>`;
+};
+
 function renderPresupuestos() {
   const grupos=new Map();
   (window.DB.presupuestos||[]).forEach(p=>{const k=String(p.nro||'').replace(/\D/g,'')+'|'+normalizarRevisionV354(p.revision||'1.1'),actual=grupos.get(k);if(!actual||p.estado==='Aprobado'&&actual.estado!=='Aprobado')grupos.set(k,p);});
@@ -1759,6 +1775,7 @@ function renderPresupuestos() {
     <td>${p.fecha||'—'}</td><td><span class="badge badge-${map[p.estado]||'gray'}">${p.estado||''}</span></td>
     <td style="white-space:nowrap">
       <button class="btn-icon" onclick="abrirRevisionCotizacionV354('${p.id}',false)" title="Abrir esta revisión"><i class="ti ti-eye" style="font-size:13px"></i></button>
+      ${window.renderCotizacionDriveShortcut(p)}
       <button class="btn-icon" onclick="crearNuevaRevisionV354('${p.id}')" title="Crear nueva revisión sin borrar esta" style="margin-left:4px;color:var(--accent)"><i class="ti ti-copy-plus" style="font-size:13px"></i></button>
       <button class="btn-icon" onclick="delPres('${p.id}')" title="Eliminar revisión" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
     </td>
