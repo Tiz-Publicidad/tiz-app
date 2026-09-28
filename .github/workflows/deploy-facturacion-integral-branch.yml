@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'functions/**'
+      - 'tests/facturacionManualV2.test.js'
       - '.github/workflows/deploy-facturacion-integral-branch.yml'
   workflow_dispatch:
 
@@ -41,6 +42,7 @@ jobs:
           node --check facturacionRecuperarV86.js
           node --check facturaDrive2026.js
           node --check arcaFiscalCoreV83.js
+          node --test ../tests/facturacionManualV2.test.js
         working-directory: functions
 
       - name: Install Firebase CLI
