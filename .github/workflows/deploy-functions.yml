@@ -7,42 +7,57 @@ on:
       - main
     paths:
       - 'functions/**'
-      - 'firebase.json'
-      - '.firebaserc'
+      - '.github/workflows/deploy-functions.yml'
 
 permissions:
   contents: read
+  id-token: write
+  statuses: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-
+      - name: Validate fiscal code
+        run: |
+          node --check functions/index.js
+          node --check functions/facturacionIntegralApiV83.js
+          node --check functions/facturaDrive2026.js
       - name: Install functions dependencies
         run: npm ci
         working-directory: functions
-
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
-
-      - name: Validate Firebase credentials
-        shell: bash
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: tiz---app
+          workload_identity_provider: projects/52620104053/locations/global/workloadIdentityPools/github-arca-constancia/providers/tiz-app
+          service_account: github-arca-constancia@tiz---app.iam.gserviceaccount.com
+      - name: Check Firebase project access
+        run: firebase projects:list --json --non-interactive | grep -q 'tiz---app'
+      - name: Configure issuer environment
+        working-directory: functions
         run: |
-          if [ -z "${FIREBASE_TOKEN}" ]; then
-            echo "Falta configurar el secret FIREBASE_TOKEN en GitHub Actions."
-            exit 1
-          fi
+          cat > .env.tiz---app <<'EOF'
+          ARCA_ISSUER_RAZON_SOCIAL=SixSigma SRL
+          ARCA_ISSUER_NOMBRE_FANTASIA=TIZ Publicidad
+          ARCA_ISSUER_DOMICILIO=Mosconi 1234, Los Polvorines, Buenos Aires
+          ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
+          EOF
+      - name: Deploy fiscal function
+        run: firebase deploy --only functions:facturacionIntegralEmitirV83 --project tiz---app --non-interactive
+      - name: Record deployment status
+        if: always()
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-
-      - name: Deploy Functions
-        run: firebase deploy --only functions --project tiz---app --token "$FIREBASE_TOKEN" --non-interactive
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          state=failure
+          if [ "$JOB_STATUS" = success ]; then state=success; fi
+          printf '{"state":"%s","context":"facturacion-v83-pv0003","description":"Deploy %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/deploy-status.json
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/deploy-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
