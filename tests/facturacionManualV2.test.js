@@ -40,3 +40,10 @@ test('bloquea discrepancia de total y exceso de saldo', async () => {
   await assert.rejects(window.TIZFactCobActionsV2.registrarFacturaManual(o.id, {...fc,neto:1200,iva:252,total:1452}), /saldo por facturar/);
   assert.equal(o.facturasManual, undefined);
 });
+test('la NC A puede asociar una factura A del PV 0003', () => {
+  const { validateAssociated } = require('../functions/arcaFiscalCoreV83');
+  const original = validateAssociated(3, { cbteTipo: 1, ptoVta: 3, cbteNro: 7 });
+  assert.equal(original.ptoVta, 3);
+  assert.equal(original.cbteNro, 7);
+  assert.throws(() => validateAssociated(8, original), /letra/);
+});
