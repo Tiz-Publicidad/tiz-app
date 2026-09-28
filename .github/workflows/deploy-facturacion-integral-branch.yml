@@ -1,6 +1,9 @@
 name: Deploy Facturacion Integral Branch
 
 on:
+  push:
+    branches:
+      - codex/fc-manual-0003-nota-credito
   pull_request:
     branches:
       - main
@@ -13,10 +16,11 @@ on:
 permissions:
   contents: read
   id-token: write
+  statuses: write
 
 jobs:
   deploy:
-    if: github.head_ref == 'codex/fc-manual-0003-nota-credito' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/fc-manual-0003-nota-credito'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
@@ -71,3 +75,15 @@ jobs:
 
       - name: Deploy Facturacion V83 and recovery V86 functions
         run: firebase deploy --only functions:facturacionIntegralEmitirV83 --project tiz---app --non-interactive
+
+      - name: Record deploy result for review
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          state=failure
+          if [ "$JOB_STATUS" = success ]; then state=success; fi
+          printf '{"state":"%s","context":"facturacion-v83-pv0003","description":"Deploy %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/deploy-status.json
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/deploy-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
