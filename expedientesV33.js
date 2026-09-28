@@ -60,7 +60,7 @@
         <td>${window.fmtM?window.fmtM(p.importe||0):esc(p.importe||0)}</td>
         <td>${esc(p.fecha||'—')}</td>
         <td><span class="badge badge-${historical?'gray':isApproved(p)?'green':'amber'}">${historical?'Histórica':esc(state)}</span></td>
-        <td><button class="btn-icon" title="Abrir revisión" onclick="editPres('${p.id}')"><i class="ti ti-eye"></i></button></td>
+        <td><button class="btn-icon" title="Abrir revisión" onclick="editPres('${p.id}')"><i class="ti ti-eye"></i></button>${window.renderCotizacionDriveShortcut?.(p)||''}</td>
       </tr>`;
     }).join('');
   }
@@ -89,6 +89,7 @@
         <td><span class="badge badge-${map[p.estado]||'gray'}">${esc(p.estado||'')}</span></td>
         <td class="v33-actions">
           <button class="btn-icon" title="${open?'Ocultar':'Ver'} historial" onclick="toggleHistoryV33('${esc(g.key)}')"><i class="ti ti-chevron-${open?'up':'down'}"></i></button>
+          ${window.renderCotizacionDriveShortcut?.(p)||''}
           <button class="btn-icon" title="Nueva revisión" onclick="newRevisionV33('${p.id}')"><i class="ti ti-copy"></i></button>
           <button class="btn-icon" title="Editar revisión actual" onclick="editPres('${p.id}')"><i class="ti ti-edit"></i></button>
           <button class="btn-icon" title="Archivar expediente" onclick="archiveExpedienteV33('${esc(g.key)}')"><i class="ti ti-archive"></i></button>
@@ -134,7 +135,7 @@
     const motivo=prompt('Motivo de la nueva revisión:', 'Ajuste solicitado por el cliente');
     if(motivo===null)return;
     const clone=JSON.parse(JSON.stringify(source));
-    ['id','obraId','driveFolderId','driveFolderUrl','otSheetUrl','otExcelUrl','cotizacionExcelUrl','cotizacionPdfUrl','driveSyncedAt'].forEach(k=>delete clone[k]);
+    ['id','obraId','driveFolderId','driveFolderUrl','otSheetUrl','otExcelUrl','cotizacionFolderId','cotizacionFolderUrl','cotizacionFolderName','cotizacionExcelId','cotizacionExcelUrl','cotizacionPdfId','cotizacionPdfUrl','driveSyncedAt','driveCotizacionSyncedAt'].forEach(k=>delete clone[k]);
     Object.assign(clone,{
       expedienteId:ctKey(source), revision:nextRevision(maxRev), revisionVigente:false,
       revisionEstado:'borrador', estado:'Presupuestado', archivado:false,
