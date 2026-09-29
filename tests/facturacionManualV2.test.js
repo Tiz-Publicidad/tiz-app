@@ -59,3 +59,30 @@ test('una NC pendiente de PDF no hereda el enlace de la factura original', () =>
   assert.equal(invoices.find(x => x.cbteTipo === 3).drivePendiente, true);
   assert.equal(invoices.find(x => x.cbteTipo === 1).driveUrl, factura.driveWebViewLink);
 });
+test('NC total anula la factura y manda la OT a Histórico sin saldo a cobrar', () => {
+  const o = obra(); o.finanzas.total = 2365500;
+  const factura = { cbteTipo: 1, ptoVta: 9, cbteNro: 3, numeroCompleto: '00009-00000003', cae: '86372908357849', familia: 'factura', neto: 2365500, iva: 496755, total: 2862255 };
+  const nc = { cbteTipo: 3, ptoVta: 9, cbteNro: 1, numeroCompleto: '00009-00000001', cae: '86395270445997', familia: 'credito', neto: 2365500, iva: 496755, total: 2862255, asociado: { cbteTipo: 1, ptoVta: 9, cbteNro: 3 } };
+  Object.assign(o, { comprobantesArca: [factura, nc], facturaArca: nc, facturasManual: [{ numeroCompleto: '3.0', neto: 2365500, iva: 0 }], nrfc: nc.numeroCompleto });
+  const { window } = app(o);
+  const w = window.TIZFacturacionCobranzasDataV2.build().workItems[0];
+  assert.equal(w.invoices.length, 2);
+  assert.equal(w.anuladaConNC, true);
+  assert.equal(w.invoices.find(i => i.cbteTipo === 1).anuladaPor, nc.numeroCompleto);
+  assert.equal(w.invoices.find(i => i.cbteTipo === 3).anulaFactura, factura.numeroCompleto);
+  assert.equal(w.porCobrar, 0);
+  assert.equal(w.porFacturar, 0);
+  assert.equal(w.estadoOperativo, 'historico');
+  assert.equal(w.cobranzaEstado, 'anulado');
+});
+test('NC parcial conserva el saldo abierto', () => {
+  const o = obra();
+  o.comprobantesArca = [
+    { cbteTipo: 1, ptoVta: 9, cbteNro: 3, numeroCompleto: '00009-00000003', cae: '12345678901234', familia: 'factura', neto: 1000, iva: 210, total: 1210 },
+    { cbteTipo: 3, ptoVta: 9, cbteNro: 1, numeroCompleto: '00009-00000001', cae: '98765432109876', familia: 'credito', neto: 500, iva: 105, total: 605, asociado: { cbteTipo: 1, ptoVta: 9, cbteNro: 3 } },
+  ];
+  const w = app(o).window.TIZFacturacionCobranzasDataV2.build().workItems[0];
+  assert.equal(w.anuladaConNC, false);
+  assert.equal(w.porCobrar, 605);
+  assert.notEqual(w.estadoOperativo, 'historico');
+});
