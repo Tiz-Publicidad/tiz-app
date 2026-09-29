@@ -27,6 +27,7 @@ jobs:
           node --check functions/index.js
           node --check functions/facturacionIntegralApiV83.js
           node --check functions/facturaDrive2026.js
+          node --check functions/baseMadreBackendV120.js
       - name: Install functions dependencies
         run: npm ci
         working-directory: functions
@@ -49,8 +50,8 @@ jobs:
           ARCA_ISSUER_DOMICILIO=Mosconi 1234, Los Polvorines, Buenos Aires
           ARCA_ISSUER_CONDICION_IVA=Responsable Inscripto
           EOF
-      - name: Deploy fiscal function
-        run: firebase deploy --only functions:facturacionIntegralEmitirV83 --project tiz---app --non-interactive
+      - name: Deploy fiscal and Base Madre functions
+        run: firebase deploy --only functions:facturacionIntegralEmitirV83,functions:sincronizarBaseMadreV120 --project tiz---app --non-interactive
       - name: Record deployment status
         if: always()
         env:
