@@ -39,7 +39,8 @@
   }
   async function generateCommercialFiles(p){
     if(!p)throw new Error('No se encontró la cotización'); const nro=digits(p.nro||p.nroPresupuesto||p.cotizacionBase); if(!nro)throw new Error('La cotización no tiene número');
-    const payload={action:'guardarCotizacionArchivos',nroCotizacion:nro,revision:rev(p.revision),cliente:String(p.cliente||'').trim(),descripcion:String(p.desc||p.descripcion||'').trim(),fecha:p.fecha||'',validez:p.validez||'',validezDias:num(p.validez)||7,nota:p.nota||'',condicion:p.cond||p.condicion||'',total:totalBudget(p),items:itemsFromBudget(p),firestoreId:p.id||'',nombreBase:p.nombreBase||'',entregaLogistica:p.entregaLogistica||''};
+    const nombreBase=p.nombreArchivo||p.nombreBase||window.tizCotizacionNombreBaseV354?.(nro,p.cliente,p.desc||p.descripcion,rev(p.revision))||'';
+    const payload={action:'guardarCotizacionArchivos',nroCotizacion:nro,revision:rev(p.revision),cliente:String(p.cliente||'').trim(),descripcion:String(p.desc||p.descripcion||'').trim(),fecha:p.fecha||'',validez:p.validez||'',validezDias:num(p.validez)||7,nota:p.nota||'',condicion:p.cond||p.condicion||'',total:totalBudget(p),items:itemsFromBudget(p),firestoreId:p.id||'',nombreBase,entregaLogistica:p.entregaLogistica||''};
     const result=await jsonpDrive(payload); await persistDriveLinks(p,result); return result;
   }
   window.generarArchivosCotizacionV65=generateCommercialFiles;
@@ -60,16 +61,18 @@
 
   function installClientPatch(){
     const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    const js=s=>String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');
 
     window.sugerirClientesPP=function(q='',mostrarTodos=false){
       const dd=document.getElementById('pp-clientes-dropdown'); if(!dd)return; const term=String(q||'').trim(),nterm=norm(term);
       const db=(window.DB?.clientes||[]).filter(c=>String(c?.nombre||'').trim()).map(c=>({id:c.id||'',nombre:String(c.nombre).trim(),cuit:c.cuit||'',origen:'clientes'}));
       const names=new Set(db.map(c=>norm(c.nombre))); const obras=[...new Set((window.DB?.obras||[]).map(o=>String(o.cliente||'').trim()).filter(Boolean))].filter(n=>!names.has(norm(n))).map(nombre=>({nombre,cuit:'',origen:'obras'}));
       const todos=[...db,...obras].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'})); const matches=term?todos.filter(c=>norm(c.nombre).includes(nterm)).slice(0,100):(mostrarTodos?todos.slice(0,100):[]);
-      let html=matches.map(c=>`<div class="cli-option" onmousedown="elegirClientePP('${js(c.nombre)}')"><span>${esc(c.nombre)}</span>${c.cuit?`<span class="cli-option-sub">CUIT: ${esc(c.cuit)}</span>`:`<span class="cli-option-sub">${c.origen==='obras'?'de obras anteriores':'cliente guardado'}</span>`}</div>`).join('');
-      const exact=term&&todos.some(c=>norm(c.nombre)===nterm); if(term&&!exact)html+=`<div class="cli-option" onmousedown="nuevoClienteDesdePresupuesto('${js(term)}')" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente “<strong>${esc(term)}</strong>”</span><span class="cli-option-sub" style="color:var(--accent)">Guardar y usar en esta cotización</span></div>`;
-      if(!html&&!term){dd.style.display='none';return;} dd.innerHTML=html||'<div class="cli-option-sub" style="padding:9px">No hay clientes.</div>'; dd.style.display='block';
+      let html=matches.map((c,i)=>`<div class="cli-option" data-v65-cliente="${i}"><span>${esc(c.nombre)}</span>${c.cuit?`<span class="cli-option-sub">CUIT: ${esc(c.cuit)}</span>`:`<span class="cli-option-sub">${c.origen==='obras'?'de obras anteriores':'cliente guardado'}</span>`}</div>`).join('');
+      const exact=term&&todos.some(c=>norm(c.nombre)===nterm); if(term&&!exact)html+=`<div class="cli-option" data-v65-crear="1" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente “<strong>${esc(term)}</strong>”</span><span class="cli-option-sub" style="color:var(--accent)">Guardar y usar en esta cotización</span></div>`;
+      if(!html&&!term){dd.style.display='none';return;} dd.innerHTML=html||'<div class="cli-option-sub" style="padding:9px">No hay clientes.</div>';
+      dd.querySelectorAll('[data-v65-cliente]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();window.elegirClientePP(matches[Number(el.dataset.v65Cliente)].nombre);}));
+      dd.querySelector('[data-v65-crear]')?.addEventListener('mousedown',e=>{e.preventDefault();window.nuevoClienteDesdePresupuesto(term)});
+      dd.style.display='block';
     };
 
     window.nuevoClienteDesdePresupuesto=function(nombre){

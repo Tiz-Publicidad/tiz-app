@@ -9,7 +9,7 @@
     document.body.appendChild(s);
   }
   load('vincularCarpetasV38.original.js?v=TIZ-V38-ORIGINAL-20260903',function(){
-    load('tizFixCotizacionesV65.js?v=TIZ-V65-CT-DRIVE-FACTURACION-CLIENTES-20260907',function(){
+    load('tizFixCotizacionesV65.js?v=TIZ-V65-CT-CLIENTE-AMPERSAND-20260929',function(){
       load('tizAprobadasFacturacionV66.js?v=TIZ-V66-APROBADAS-PARA-FACTURAR-20260907');
     });
   });
