@@ -231,12 +231,14 @@
   function contactosClienteActual(){
     const c=clienteCotizacionActual();if(!c)return[];
     const pools=[];
+    // El contacto principal de la ficha siempre encabeza la lista, aunque haya
+    // contactos más recientes guardados en otras obras del mismo cliente.
+    if(String(c.contacto||'').trim())pools.push({nombre:c.contacto,telefono:c.cel||'',email:c.email||''});
+    if(Array.isArray(c.contactos))pools.push(...c.contactos);
     if(Array.isArray(c.contactosEntrega))pools.push(...c.contactosEntrega);
     if(Array.isArray(c.contactosRetiro))pools.push(...c.contactosRetiro);
-    if(Array.isArray(c.contactos))pools.push(...c.contactos);
     const seen=new Set(),out=[];
     for(const x of pools){const nombre=String(x?.nombre||x?.contacto||'').trim();if(!nombre)continue;const k=normContacto(nombre);if(seen.has(k))continue;seen.add(k);out.push({nombre,telefono:String(x?.telefono||x?.tel||x?.cel||'').trim(),email:String(x?.email||x?.correo||'').trim()});}
-    if(c.contacto){const nombre=String(c.contacto).trim(),k=normContacto(nombre);if(nombre&&!seen.has(k))out.push({nombre,telefono:String(c.cel||'').trim(),email:String(c.email||'').trim()});}
     return out;
   }
   function aplicarContactoClientePP(inputId,telId,emailId,listId){
@@ -264,6 +266,11 @@
       patch.contactosRetiro=mergeContacto(cliente.contactosRetiro,e.retira,e.retiraTelefono,e.retiraEmail);
       patch.contactoRetiroActualizadoAt=new Date().toISOString();
     }
+    let contactos=Array.isArray(cliente.contactos)?cliente.contactos:[];
+    for(const [nombre,telefono,email] of [[e?.contacto,e?.contactoTelefono,e?.contactoEmail],[e?.retira,e?.retiraTelefono,e?.retiraEmail]]){
+      if(nombre&&normContacto(nombre)!==normContacto(cliente.contacto))contactos=mergeContacto(contactos,nombre,telefono,email);
+    }
+    if(contactos!==cliente.contactos)patch.contactos=contactos;
     if(!Object.keys(patch).length)return false;
     await window.updateDoc_('clientes',cliente.id,patch);Object.assign(cliente,patch);return true;
   }
@@ -579,7 +586,7 @@
       window.refreshCurrent=function(){ normalizeDBV35(); return oldRefresh.apply(this,arguments); };
     }
     injectCSS(); injectSectorModal(); upgradePresupuesto(); cleanObraModal(); upgradeObrasTable();
-    const cli=document.getElementById('pp-cliente');if(cli&&!cli.dataset.contactosEntregaV3518){cli.dataset.contactosEntregaV3518='1';cli.addEventListener('change',()=>window.sugerirContactoClientePP?.());cli.addEventListener('blur',()=>window.sugerirContactoClientePP?.());}
+    const cli=document.getElementById('pp-cliente');if(cli&&!cli.dataset.contactosEntregaV3518){cli.dataset.contactosEntregaV3518='1';for(const evt of ['input','change','blur'])cli.addEventListener(evt,()=>{window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.()});}
     overrideSectorTable('produccion','prod-tbody','produccion'); overrideSectorTable('colocaciones','col-tbody','colocaciones'); overrideSectorTable('diseno','dis-tbody','diseno');
     patchEditObra(); patchPresupuestoFunctions(); bloquearGeneracionDuplicada();
     const VERSION_LABEL='TIZ V35.16 · DATOS DE PRESUPUESTO POR SECTOR · 03/09/2026';

@@ -41,7 +41,7 @@ jobs:
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
           node --check sectorizacionV35.js
-          grep -q 'sectorizacionV35.js?v=TIZ-V35-23-BASE-MADRE-BACKEND-20260923' index.html
+          grep -q 'sectorizacionV35.js?v=TIZ-V35-24-CONTACTOS-DRIVE-20260929' index.html
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V122-AUTO-RETRY-20260923' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PV0003-NC-20260928' index.html

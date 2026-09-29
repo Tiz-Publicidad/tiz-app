@@ -913,6 +913,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-group"><label>Contacto</label><input id="fc-contacto"></div>
       <div class="form-group"><label>Celular</label><input id="fc-cel"></div>
       <div class="form-group full"><label>Email</label><input id="fc-email"></div>
+      <div class="form-group full"><label>Otros contactos del cliente</label><textarea id="fc-contactos" rows="4" placeholder="Un contacto por línea: Nombre | teléfono | email"></textarea><small style="color:var(--text3)">Se sugieren al crear nuevos presupuestos y obras de este cliente.</small></div>
       <div class="form-group full"><label>Notas</label><textarea id="fc-notas"></textarea></div>
     </div>
     <div class="modal-actions">
@@ -1436,9 +1437,8 @@ function renderDashboard() {
 // Estas funciones quedan como compatibilidad para que el resto del ERP siga funcionando.
 function isObraAprobadaParaDrive(o){ return false; }
 function driveStatusV9(o){
-  if (o?.driveFolderUrl) return 'ready';
-  if (String(o?.estado || '').toLowerCase() === 'aprobado') return 'pending';
-  return 'none';
+  if (o?.driveFolderUrl || o?.driveFolderId) return 'ready';
+  return o?.id && o?.ot ? 'pending' : 'none';
 }
 
 window.openDriveFolderV201 = function(url, event){
@@ -1450,7 +1450,7 @@ window.openDriveFolderV201 = function(url, event){
 window.renderDriveButtonsV9 = function(o){
   const status = driveStatusV9(o);
   if (status === 'ready') {
-    const safeUrl = String(o.driveFolderUrl || '').replace(/'/g, '&#39;');
+    const safeUrl = String(o.driveFolderUrl || ('https://drive.google.com/drive/folders/' + encodeURIComponent(o.driveFolderId))).replace(/'/g, '&#39;');
     return `<button class="btn-icon drive-folder-ready"
       title="Abrir carpeta OT en Google Drive"
       onclick="openDriveFolderV201('${safeUrl}', event)"
@@ -1463,7 +1463,7 @@ window.renderDriveButtonsV9 = function(o){
       title="Crear o recuperar carpeta OT"
       onclick="requestDriveSyncForObra('${o.id}', event)"
       style="margin-right:4px;color:var(--amber);border-color:rgba(232,160,32,.4);background:rgba(232,160,32,.06)">
-      <i class="ti ti-folder-plus" style="font-size:15px"></i>
+      <i class="ti ti-brand-google-drive" style="font-size:15px"></i>
     </button>`;
   }
   return '';
@@ -1832,6 +1832,9 @@ window.editCliente = id => {
   document.getElementById('fc-contacto').value=c.contacto||'';
   document.getElementById('fc-cel').value=c.cel||'';
   document.getElementById('fc-email').value=c.email||'';
+  const otros=[...(Array.isArray(c.contactos)?c.contactos:[]),...(Array.isArray(c.contactosEntrega)?c.contactosEntrega:[]),...(Array.isArray(c.contactosRetiro)?c.contactosRetiro:[])];
+  const vistos=new Set([String(c.contacto||'').normalize('NFD').toLowerCase()]);
+  document.getElementById('fc-contactos').value=otros.filter(x=>{const n=String(x?.nombre||x?.contacto||'').trim(),k=n.normalize('NFD').toLowerCase();if(!n||vistos.has(k))return false;vistos.add(k);return true}).map(x=>[x.nombre||x.contacto||'',x.telefono||x.tel||'',x.email||''].join(' | ')).join('\n');
   document.getElementById('fc-notas').value=c.notas||'';
   openModal('cliente');
 };
@@ -1944,7 +1947,7 @@ function renderVendedores() {
 window.openModal = (type) => {
   if (type==='cliente' && !window.editingId.cliente) {
     const n = document.getElementById('fc-numero'); if(n) n.value = nextClienteNumero();
-    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
   }
   if (type==='obra') {
     if (!window.editingId.obra) {
@@ -2207,7 +2210,7 @@ window.nuevoClienteDesdePresupuesto = nombre => {
   window.editingId.cliente = null;
   document.getElementById('fc-numero').value = nextClienteNumero();
   document.getElementById('fc-nombre').value = nombre;
-  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   window._volvioDePresupuesto = true;
   document.getElementById('modal-cliente').classList.add('open');
 };
@@ -2226,7 +2229,7 @@ window.sugerirClientes = q => {
 };
 window.elegirCliente=(nombre,id='',cuit='')=>{const input=document.getElementById('f-cliente');if(input){input.value=nombre;input.dataset.clienteId=id;input.dataset.clienteCuit=cuit}const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=cuit?'Razón social seleccionada · CUIT '+cuit:'Cliente sin CUIT vinculado';const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
 window.cerrarSugerencias=()=>{const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
-window.nuevoClienteDesdeObra=nombre=>{window.cerrarSugerencias();window.editingId.cliente=null;document.getElementById('fc-numero').value=nextClienteNumero();document.getElementById('fc-nombre').value=nombre||'';['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('modal-cliente').classList.add('open')};
+window.nuevoClienteDesdeObra=nombre=>{window.cerrarSugerencias();window.editingId.cliente=null;document.getElementById('fc-numero').value=nextClienteNumero();document.getElementById('fc-nombre').value=nombre||'';['fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('modal-cliente').classList.add('open')};
 window.guardarClienteObraV55=async()=>{
   const obraId=window.editingId?.obra,input=document.getElementById('f-cliente');if(!obraId||!input)return showToast('No hay una obra abierta');
   const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>String(c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'').trim();
@@ -2422,6 +2425,9 @@ window.saveObra = async () => {
 
 window.saveCliente = async () => {
   const numeroCliente = document.getElementById('fc-numero')?.value || nextClienteNumero();
+  const contactos=(document.getElementById('fc-contactos')?.value||'').split(/\r?\n/).map(line=>{
+    const [nombre,telefono,email]=line.split('|').map(x=>x.trim());return {nombre,telefono:telefono||'',email:email||''};
+  }).filter(x=>x.nombre);
   const data = {
     numeroCliente,
     nombre: document.getElementById('fc-nombre').value.trim(),
@@ -2429,6 +2435,7 @@ window.saveCliente = async () => {
     contacto: document.getElementById('fc-contacto').value.trim(),
     cel: document.getElementById('fc-cel').value.trim(),
     email: document.getElementById('fc-email').value.trim(),
+    contactos,
     notas: document.getElementById('fc-notas').value.trim(),
   };
   if(!data.nombre){showToast('Ingresá un nombre');return;}
@@ -3551,7 +3558,7 @@ async function syncToSheets(data) {
     if(window.editingId) window.editingId.cliente=null;
     if(document.getElementById('fc-numero') && typeof window.nextClienteNumero==='function') document.getElementById('fc-numero').value=window.nextClienteNumero();
     if(document.getElementById('fc-nombre')) document.getElementById('fc-nombre').value=nombre||'';
-    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
     document.getElementById('modal-cliente')?.classList.add('open');
   };
 
@@ -3608,7 +3615,7 @@ async function syncToSheets(data) {
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V81-BUSCAR-PRESUPUESTO-20260909"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-23-BASE-MADRE-BACKEND-20260923"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-24-CONTACTOS-DRIVE-20260929"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-V38-1-VINCULOS-DRIVE-20260903"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="baseMadreSyncV116.js?v=TIZ-BASE-MADRE-SYNC-V122-AUTO-RETRY-20260923"></script>
