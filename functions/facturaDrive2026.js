@@ -485,7 +485,9 @@ async function archivarFacturaPdfEnDrive({
       .match(/\d{4,7}/)?.[0]
       .replace(/^0+/, "") || "";
   const desc = safe(obra.desc || obra.descripcion || "").slice(0, 70);
-  const fileName = `${String(factura.ptoVta).padStart(5, "0")}_${String(factura.cbteNro).padStart(8, "0")} - ${safe(factura.cliente || obra.cliente || `CUIT ${factura.cuit || ""}`)}${ot ? ` - OT ${ot}` : ""}${desc ? ` - ${desc}` : ""}.pdf`;
+  // Cada tipo fiscal tiene su propia numeración: una NC y una FC pueden compartir número.
+  const tipoPrefijo = factura.familia === "credito" ? `NC ${safe(factura.letra || "A")} - ` : factura.familia === "debito" ? `ND ${safe(factura.letra || "A")} - ` : "";
+  const fileName = `${tipoPrefijo}${String(factura.ptoVta).padStart(5, "0")}_${String(factura.cbteNro).padStart(8, "0")} - ${safe(factura.cliente || obra.cliente || `CUIT ${factura.cuit || ""}`)}${ot ? ` - OT ${ot}` : ""}${desc ? ` - ${desc}` : ""}.pdf`;
   const existing = await drive.files
     .list({
       q: `'${FACTURAS_2026_FOLDER_ID}' in parents and name='${qEscape(fileName)}' and trashed=false`,

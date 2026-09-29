@@ -538,8 +538,14 @@ const facturacionIntegralEmitirV83 = onRequest(
           ultimoPdfFacturaUrl: drive.webViewLink,
         });
         comp.driveFileId = drive.fileId;
+        comp.driveFileName = drive.fileName;
         comp.driveWebViewLink = drive.webViewLink;
         comp.drivePendiente = false;
+        const archived = all.map(x => x.cae === comp.cae && Number(x.cbteTipo) === tipo && Number(x.cbteNro) === next
+          ? { ...x, driveFileId: drive.fileId, driveFileName: drive.fileName, driveWebViewLink: drive.webViewLink, drivePendiente: false }
+          : x);
+        await ref.update({ comprobantesArca: archived, facturasArca: archived });
+        await op.set({ comprobante: comp }, { merge: true });
       } catch (e) {
         driveError = e.message || String(e);
         console.error("PDF Drive pendiente", {

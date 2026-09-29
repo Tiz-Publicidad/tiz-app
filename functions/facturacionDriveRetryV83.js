@@ -113,6 +113,12 @@ const facturacionReintentarDriveV83 = onRequest(
         facturaDriveReintentadaAt: new Date().toISOString(),
         facturaDriveReintentadaPor: email,
       });
+      const same = x => x?.cae === factura.cae && Number(x?.cbteTipo) === Number(factura.cbteTipo) && Number(x?.cbteNro) === Number(factura.cbteNro);
+      const archived = x => same(x) ? { ...x, driveFileId: drive.fileId, driveFileName: drive.fileName, driveWebViewLink: drive.webViewLink, drivePendiente: false } : x;
+      const updates = {};
+      if (Array.isArray(obra.comprobantesArca)) updates.comprobantesArca = obra.comprobantesArca.map(archived);
+      if (Array.isArray(obra.facturasArca)) updates.facturasArca = obra.facturasArca.map(archived);
+      if (Object.keys(updates).length) await ref.update(updates);
       return res.json({ ok: true, ...drive });
     } catch (e) {
       const actor = await driveActorEmail();

@@ -267,7 +267,14 @@
     syncAssoc();
     if(options.notaCredito){
       const original=options.notaCredito;
-      net.value=Number(original.neto||0).toFixed(2);
+      const acreditado=comps(o).filter(x=>x.familia==='credito'&&Number(x.asociado?.cbteTipo)===Number(original.cbteTipo)&&Number(x.asociado?.ptoVta)===Number(original.ptoVta)&&Number(x.asociado?.cbteNro)===Number(original.cbteNro)).reduce((s,x)=>s+num(x.neto),0);
+      const disponible=Math.max(0,Math.round((num(original.neto)-acreditado)*100)/100);
+      if(!disponible){root.remove();return alert('La factura original ya está acreditada por completo.');}
+      net.value=disponible.toFixed(2);
+      const ivaOriginal=String(original.alicuota ?? (num(original.neto)>0 ? Math.round(num(original.iva)/num(original.neto)*10000)/100 : 21));
+      if([...$('#fv83-iva').options].some(x=>x.value===ivaOriginal)) $('#fv83-iva').value=ivaOriginal;
+      else if(ivaOriginal==='exento') $('#fv83-iva').value='exento';
+      typeEl.disabled=true;
       pct.value=f.p?Math.round(num(net.value)/f.p*10000)/100:0;
       drawItems();
     }
@@ -287,7 +294,7 @@
         );
       if (
         !confirm(
-          `Se solicitará CAE REAL a ARCA.\n\nOT ${o.ot}\n${typeEl.selectedOptions[0].text}\nNeto ${money(n)}\n\nEl PDF se archivará automáticamente en 2026 Facturacion.\n\n¿Confirmás?`,
+          `Se solicitará CAE REAL a ARCA.\n\nOT ${o.ot}\n${typeEl.selectedOptions[0].text}${need ? `\nFactura asociada: ${JSON.parse(assoc.value).numeroCompleto}` : ''}\nNeto ${money(n)}\nIVA ${money($('#fv83-iva').value === 'exento' ? 0 : n * Number($('#fv83-iva').value) / 100)}\n\nEl PDF se archivará automáticamente en 2026 Facturacion.\n\n¿Confirmás?`,
         )
       )
         return;
