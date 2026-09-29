@@ -88,6 +88,8 @@ const facturacionReintentarDriveV83 = onRequest(
           new Error("La OT no tiene un comprobante ARCA autorizado"),
           { status: 400 },
         );
+      if (req.body?.cbteTipo && (Number(req.body.cbteTipo) !== Number(factura.cbteTipo) || Number(req.body.cbteNro) !== Number(factura.cbteNro)))
+        throw Object.assign(new Error("El comprobante seleccionado no es el último de la OT. No se archivó otro PDF."), { status: 409 });
       if (factura.driveFileId)
         return res.json({
           ok: true,

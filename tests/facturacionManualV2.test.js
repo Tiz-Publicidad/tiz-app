@@ -47,3 +47,15 @@ test('la NC A puede asociar una factura A del PV 0003', () => {
   assert.equal(original.cbteNro, 7);
   assert.throws(() => validateAssociated(8, original), /letra/);
 });
+test('una NC pendiente de PDF no hereda el enlace de la factura original', () => {
+  const o = obra();
+  const factura = { cbteTipo: 1, ptoVta: 9, cbteNro: 3, numeroCompleto: '00009-00000003', cae: '86372908357849', familia: 'factura', neto: 2365500, iva: 496755, total: 2862255, driveWebViewLink: 'https://drive.google.com/file/d/factura/view' };
+  const nc = { cbteTipo: 3, ptoVta: 9, cbteNro: 1, numeroCompleto: '00009-00000001', cae: '12345678901234', familia: 'credito', neto: 2365500, iva: 496755, total: 2862255, drivePendiente: true, asociado: { cbteTipo: 1, ptoVta: 9, cbteNro: 3 } };
+  Object.assign(o, { comprobantesArca: [factura, nc], facturaArca: nc, nrfc: nc.numeroCompleto, facturaDriveWebViewLink: factura.driveWebViewLink });
+  const { window } = app(o);
+  const invoices = window.TIZFacturacionCobranzasDataV2.build().workItems[0].invoices;
+  assert.equal(invoices.length, 2);
+  assert.equal(invoices.find(x => x.cbteTipo === 3).driveUrl, '');
+  assert.equal(invoices.find(x => x.cbteTipo === 3).drivePendiente, true);
+  assert.equal(invoices.find(x => x.cbteTipo === 1).driveUrl, factura.driveWebViewLink);
+});
