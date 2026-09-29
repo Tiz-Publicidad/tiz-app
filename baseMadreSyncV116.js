@@ -112,7 +112,7 @@ function payloadFromBudget(p={}){
 }
 async function findRow(ot,token){
   if(!ot)return null;
-  const range=encodeURIComponent(escSheetName(SHEET)+'!C3:C1954');
+  const range=encodeURIComponent(escSheetName(SHEET)+'!C3:C');
   const d=await sheetsFetch('/values/'+range+'?majorDimension=ROWS',token);
   const vals=d.values||[];
   for(let i=0;i<vals.length;i++)if(base(vals[i]?.[0])===base(ot))return i+3;
@@ -187,12 +187,17 @@ async function updateExisting(row,payload,token){
   return row;
 }
 async function appendNew(payload,token){
-  const row=new Array(30).fill('');
-  row[0]=fmtDate();row[1]=String(isoWeek());row[2]=payload.ot;row[3]=payload.descripcion;row[4]=payload.contacto;row[5]=payload.cliente;row[6]=payload.neto;row[7]=payload.bruto;row[26]=payload.estado;
-  const range=encodeURIComponent(escSheetName(SHEET)+'!A:AD');
-  const d=await sheetsFetch('/values/'+range+':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',token,{method:'POST',body:JSON.stringify({majorDimension:'ROWS',values:[row]})});
-  const updated=d?.updates?.updatedRange||'';
-  return Number(updated.match(/![A-Z]+(\d+):/)?.[1]||0)||null;
+  const lookup=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!C3:C'),token);
+  const values=lookup.values||[];let row=3;
+  for(let i=values.length-1;i>=0;i--)if(T(values[i]?.[0])){row=i+4;break}
+  const check=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A'+row+':AD'+row)+'?valueRenderOption=FORMULA',token);
+  if((check.values?.[0]||[]).some(x=>T(x)))throw new Error('La fila '+row+' tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.');
+  const data=[
+    {range:escSheetName(SHEET)+'!A'+row+':H'+row,values:[[fmtDate(),isoWeek(),payload.ot,payload.descripcion,payload.contacto,payload.cliente,payload.neto,payload.bruto]]},
+    {range:escSheetName(SHEET)+'!AA'+row,values:[[payload.estado]]}
+  ];
+  await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
+  return row;
 }
 async function persistSync(p,row){
   const at=new Date().toISOString(),patch={baseMadreSyncAt:at,baseMadreRow:row||null,baseMadreSpreadsheetId:SPREADSHEET_ID,baseMadreSyncVersion:VERSION};

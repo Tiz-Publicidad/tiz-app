@@ -26,6 +26,18 @@ const norm = (v) => text(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toL
 const otBase = (v) => { const m = text(v).match(/\d{4,7}/); return m ? String(Number(m[0])) : ""; };
 const num = (v) => Number(v) || 0;
 const approved = (v) => norm(v).startsWith("aprob");
+function nextEmptyRow(values) {
+  for (let i = values.length - 1; i >= 0; i--) {
+    if (text(values[i]?.[0])) return i + 4;
+  }
+  return 3;
+}
+async function assertEmptyRow(sheets, row) {
+  const check = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${row}:AD${row}`, valueRenderOption:"FORMULA"});
+  if ((check.data.values?.[0] || []).some((v) => text(v))) {
+    throw Object.assign(new Error(`La fila ${row} tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.`), {status:409});
+  }
+}
 
 function totalBudget(p) {
   if (Array.isArray(p.items) && p.items.length) {
@@ -106,7 +118,7 @@ function invoicesFrom(obra = {}) {
 async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const obra = await findObra(db, requestedOt, obraId);
   if (!obra) throw Object.assign(new Error(`No se encontró la obra ${requestedOt}`), {status:404});
-  const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C1954`});
+  const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C`});
   const found = (lookup.data.values || []).findIndex((row) => otBase(row?.[0]) === requestedOt);
   if (found < 0) throw Object.assign(new Error(`La OT ${requestedOt} todavía no existe en Base de datos`), {status:409});
   const rowNumber = found + 3;
@@ -159,20 +171,21 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       neto:net,
       bruto:Math.round(net * (1 + (num(p.ivaPct || p.iva || 21) || 21) / 100) * 100) / 100,
     };
-    const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C1954`});
+    const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C`});
     const values = lookup.data.values || [];
     const found = values.findIndex((row) => otBase(row?.[0]) === requestedOt);
-    let rowNumber = found >= 0 ? found + 3 : 0;
+    let rowNumber = found >= 0 ? found + 3 : nextEmptyRow(values);
     const date = shortDate(p.fecha || p.fechaAprobacion);
     const [dd,mm,yy] = date.split("/").map(Number);
     const week = isoWeek(new Date(2000 + yy, mm - 1, dd));
-    if (rowNumber) {
+    if (found >= 0) {
       await sheets.spreadsheets.values.update({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:H${rowNumber}`, valueInputOption:"USER_ENTERED", requestBody:{values:[[date, week, payload.ot, payload.descripcion, payload.contacto, payload.cliente, payload.neto, payload.bruto]]}});
     } else {
-      const row = new Array(30).fill("");
-      Object.assign(row, {0:date, 1:week, 2:payload.ot, 3:payload.descripcion, 4:payload.contacto, 5:payload.cliente, 6:payload.neto, 7:payload.bruto, 26:"Pendiente"});
-      const appended = await sheets.spreadsheets.values.append({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A:AD`, valueInputOption:"USER_ENTERED", insertDataOption:"INSERT_ROWS", requestBody:{values:[row]}});
-      rowNumber = Number((appended.data.updates?.updatedRange || "").match(/![A-Z]+(\d+):/)?.[1] || 0);
+      await assertEmptyRow(sheets, rowNumber);
+      await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data:[
+        {range:`'${SHEET}'!A${rowNumber}:H${rowNumber}`, values:[[date, week, payload.ot, payload.descripcion, payload.contacto, payload.cliente, payload.neto, payload.bruto]]},
+        {range:`'${SHEET}'!AA${rowNumber}`, values:[["Pendiente"]]},
+      ]}});
     }
     const verify = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:AD${rowNumber}`});
     const actual = verify.data.values?.[0] || [];
