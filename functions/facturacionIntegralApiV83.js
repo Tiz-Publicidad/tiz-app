@@ -205,7 +205,7 @@ async function syncBaseMadreFactura(obra, comprobantes, db, obraId, email) {
     sheets = google.sheets({ version: "v4", auth });
   const lookup = await sheets.spreadsheets.values.get({
     spreadsheetId: BASE_MADRE_ID,
-    range: `'${BASE_MADRE_SHEET}'!C3:C1954`,
+    range: `'${BASE_MADRE_SHEET}'!C3:C`,
   });
   const found = (lookup.data.values || []).findIndex(
     (row) => otBase(row?.[0]) === ot,
@@ -241,12 +241,12 @@ async function syncBaseMadreFactura(obra, comprobantes, db, obraId, email) {
   const data = [];
   if (numbers)
     data.push({
-      range: `'${BASE_MADRE_SHEET}'!T${row}:U${row}`,
+      range: `'${BASE_MADRE_SHEET}'!R${row}:S${row}`,
       values: [[sheetDate(last.fecha), numbers]],
     });
   if (due)
     data.push({
-      range: `'${BASE_MADRE_SHEET}'!V${row}:W${row}`,
+      range: `'${BASE_MADRE_SHEET}'!T${row}:U${row}`,
       values: [[sheetDate(due), weekOf(due)]],
     });
   if (data.length)
