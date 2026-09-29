@@ -1769,7 +1769,7 @@ function renderPresupuestos() {
 
   const map={'Pendiente':'gray','Enviado':'blue','Aprobado':'teal','Entregado':'purple','Cobrado pendiente':'amber','Cobrado':'green'};
   const ordenados=[...pres].sort((a,b)=>{ const na=parseInt(a.nro)||0, nb=parseInt(b.nro)||0; if(nb!==na)return nb-na; const ra=normalizarRevisionV354(a.revision||'1.1').split('.').map(Number), rb=normalizarRevisionV354(b.revision||'1.1').split('.').map(Number); return (rb[0]-ra[0])||(rb[1]-ra[1]); });
-  document.getElementById('pres-tbody').innerHTML = ordenados.map(p => `<tr>
+  document.getElementById('pres-tbody').innerHTML = ordenados.map(p => `<tr data-presupuesto-id="${p.id}">
     <td class="strong" style="white-space:nowrap">CT ${window.tizNumeroBase(p.nro)} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
     <td>${p.vendedor||''}</td><td style="font-weight:500">${fmtM(p.importe)}</td>
     <td>${p.fecha||'—'}</td><td><span class="badge badge-${map[p.estado]||'gray'}">${p.estado||''}</span></td>
@@ -3613,7 +3613,7 @@ async function syncToSheets(data) {
 <script src="operacionesV31.js?v=TIZ-V31-2-DRIVE-20260801"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
-<script src="clemenBuscarPresupuestoV81.js?v=TIZ-V81-BUSCAR-PRESUPUESTO-20260909"></script>
+<script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914"></script>
 <script src="sectorizacionV35.js?v=TIZ-V35-24-CONTACTOS-DRIVE-20260929"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-V38-2-CLIENTE-AMPERSAND-20260929"></script>
