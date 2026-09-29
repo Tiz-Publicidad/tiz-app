@@ -7,7 +7,28 @@ const n=v=>Number(v)||0;
 const norm=v=>String(v??'').replace(/\D/g,'');
 function work(obraId){return window.TIZFacturacionCobranzasDataV2?.build?.().workItems?.find(w=>w.obraId===obraId)||null}
 async function save(o,patch){if(!o)throw new Error('No se encontro la OT');if(typeof window.updateDoc_!=='function')throw new Error('Firestore no disponible');await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);window.TIZFactCobUIV2?.render?.();if(typeof window.sincronizarFacturacionBaseMadreTIZV117==='function')window.sincronizarFacturacionBaseMadreTIZV117(o,{silent:true}).catch(e=>{console.warn('[TIZ FactCob] Planilla pendiente',e);window.showToast?.('Dato guardado en TIZ; la planilla se reintentará automáticamente')});return patch}
-async function registrarCobro(obraId,payload){const o=obra(obraId),w=work(obraId);if(!o)throw new Error('No se encontro la OT');const cobros=Array.isArray(o.cobros)?[...o.cobros]:[],row={id:'cob-'+Date.now(),invoiceKey:String(payload?.invoiceKey||''),facturaNumero:String(payload?.facturaNumero||''),fecha:String(payload?.fecha||new Date().toISOString().slice(0,10)),importe:n(payload?.importe),medio:String(payload?.medio||''),referencia:String(payload?.referencia||''),retenciones:n(payload?.retenciones),observaciones:String(payload?.observaciones||''),creadoAt:now()};if(!(row.importe>0||row.retenciones>0))throw new Error('El cobro o la retencion debe ser mayor a cero');const aplicado=row.importe+row.retenciones;if(w&&aplicado-w.porCobrar>1&&!payload?.permitirExceso)throw new Error(`El cobro + retenciones supera el saldo abierto (${w.porCobrar.toLocaleString('es-AR',{style:'currency',currency:'ARS'})}). Revisalo antes de guardar.`);cobros.push(row);await save(o,{cobros});return row}
+async function registrarCobro(obraId,payload){
+ const o=obra(obraId),w=work(obraId);if(!o||!w)throw new Error('No se encontro la OT');
+ const amount=(v,label)=>{const x=Number(v??0);if(!Number.isFinite(x)||x<0)throw new Error('Revisá el importe de '+label);return Math.round((x+Number.EPSILON)*100)/100};
+ const detalle=payload?.retencionesDetalle;
+ const retencionesDetalle=detalle?{
+   iva:amount(detalle.iva,'retención de IVA'),
+   ingresosBrutos:amount(detalle.ingresosBrutos,'retención de Ingresos Brutos'),
+   ganancias:amount(detalle.ganancias,'retención de Ganancias'),
+   suss:amount(detalle.suss,'retención de SUSS')
+ }:null;
+ const retenciones=retencionesDetalle?Math.round(Object.values(retencionesDetalle).reduce((a,b)=>a+b,0)*100)/100:amount(payload?.retenciones,'retenciones');
+ if(retencionesDetalle&&payload?.retenciones!=null&&Math.abs(retenciones-Number(payload.retenciones))>.01)throw new Error('El total de retenciones no coincide con el detalle');
+ const base=payload?.base==='cotizacion'?'cotizacion':'facturado';
+ const saldoCotizacion=Math.max(0,Math.round((w.importeAprobado-w.cobrado-w.retenciones)*100)/100);
+ const saldo=base==='cotizacion'?saldoCotizacion:w.porCobrar;
+ const row={id:'cob-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),invoiceKey:String(payload?.invoiceKey||''),facturaNumero:String(payload?.facturaNumero||''),fecha:String(payload?.fecha||new Date().toISOString().slice(0,10)),importe:amount(payload?.importe,'cobro'),medio:String(payload?.medio||''),referencia:String(payload?.referencia||''),retenciones,retencionesDetalle:retencionesDetalle||{},base,modo:String(payload?.modo||'importe'),porcentaje:amount(payload?.porcentaje,'porcentaje'),observaciones:String(payload?.observaciones||''),creadoAt:now()};
+ if(row.porcentaje>100)throw new Error('El porcentaje no puede superar el 100%');
+ if(!(row.importe>0||row.retenciones>0))throw new Error('El cobro o la retención debe ser mayor a cero');
+ const aplicado=Math.round((row.importe+row.retenciones)*100)/100;
+ if(aplicado-saldo>.01&&!payload?.permitirExceso)throw new Error(`El cobro + retenciones supera el saldo ${base==='cotizacion'?'de la cotización':'facturado'} (${saldo.toLocaleString('es-AR',{style:'currency',currency:'ARS'})}). Revisalo antes de guardar.`);
+ const cobros=Array.isArray(o.cobros)?[...o.cobros]:[];cobros.push(row);await save(o,{cobros});return row;
+}
 async function registrarFacturaManual(obraId,payload){
  if(!window.currentUser?.isAdmin)throw new Error('Solo administración puede registrar facturas');
  const o=obra(obraId),w=work(obraId);if(!o)throw new Error('No se encontró la OT');
