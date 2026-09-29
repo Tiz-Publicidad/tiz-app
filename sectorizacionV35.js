@@ -234,7 +234,7 @@
     // El contacto principal de la ficha siempre encabeza la lista, aunque haya
     // contactos más recientes guardados en otras obras del mismo cliente.
     if(String(c.contacto||'').trim())pools.push({nombre:c.contacto,telefono:c.cel||'',email:c.email||''});
-    if(Array.isArray(c.contactos))pools.push(...c.contactos);
+
     if(Array.isArray(c.contactosEntrega))pools.push(...c.contactosEntrega);
     if(Array.isArray(c.contactosRetiro))pools.push(...c.contactosRetiro);
     const seen=new Set(),out=[];
@@ -483,6 +483,7 @@
       if(entrega.domicilio)notas.push('Domicilio: '+entrega.domicilio);
       if(entrega.fecha)notas.push('Fecha prevista: '+entrega.fecha);
       if(entrega.contacto)notas.push('Contacto: '+entrega.contacto);
+      if(entrega.contactoTelefono)notas.push('Teléfono contacto: '+entrega.contactoTelefono);
       if(entrega.retira)notas.push('Retira: '+entrega.retira);
       if(entrega.detalle)notas.push('Indicaciones logísticas: '+entrega.detalle);
       items.forEach((item,i)=>{if(item.observaciones)notas.push('Ítem '+(i+1)+': '+item.observaciones);});
@@ -492,7 +493,7 @@
       const aclaraciones=[data?.desc,data?.nota,data?.observacionesComerciales].map(x=>String(x||'').trim()).filter(Boolean);
       const infoPresupuesto={
         fechaCotizacion:data?.fecha||'',plazoEstimado:data?.plazoEstimado||'',fechaEntrega:entrega.fecha||'',
-        modalidadEntrega:entrega.tipo||'a_definir',domicilio:entrega.domicilio||'',contacto:entrega.contacto||'',retira:entrega.retira||'',indicacionesEntrega:entrega.detalle||'',
+        modalidadEntrega:entrega.tipo||'a_definir',domicilio:entrega.domicilio||'',contacto:entrega.contacto||'',contactoTelefono:entrega.contactoTelefono||'',retira:entrega.retira||'',indicacionesEntrega:entrega.detalle||'',
         items,materialesAuxiliares:auxiliares,aclaraciones,condicionPago:data?.cond||'',anticipoPct:Number(data?.anticipoPct||0),diasPago:Number(data?.diasPago||0),oc:data?.oc||'',importe:Number(data?.importe||0)
       };
       return {items,auxiliares,aclaraciones,observaciones:notas.join('\n'),entregaLogistica:entrega,infoPresupuesto};
@@ -510,7 +511,7 @@
       const produccionAnterior=anteriores.produccion||{};
       const produccion={...produccionAnterior,infoPresupuesto:info,materiales:produccionAnterior.materiales?.length?produccionAnterior.materiales:tecnico.items,materialesCotizados:tecnico.items,requerimientosPresupuesto:tecnico.auxiliares,observaciones:produccionAnterior.observaciones||tecnico.observaciones,aclaracionesPresupuesto:aclaraciones,detalleCotizacion:tecnico.items,datosCotizacionSinPrecios:true,entregaLogistica:tecnico.entregaLogistica,fechaFinPlan:produccionAnterior.fechaFinPlan||info.fechaEntrega||''};
       const colocacionesAnterior=anteriores.colocaciones||{}, esColocacion=tecnico.entregaLogistica?.tipo==='colocacion';
-      const colocaciones={...colocacionesAnterior,infoPresupuesto:info,itemsCotizados:tecnico.items,aclaracionesPresupuesto:aclaraciones,modalidadEntrega:info.modalidadEntrega,...(esColocacion?{estado:colocacionesAnterior.estado||'A coordinar',compromiso:colocacionesAnterior.compromiso||info.fechaEntrega||'',fechaPlan:colocacionesAnterior.fechaPlan||info.fechaEntrega||'',direccion:colocacionesAnterior.direccion||info.domicilio||'',contacto:colocacionesAnterior.contacto||info.contacto||'',notas:colocacionesAnterior.notas||info.indicacionesEntrega||aclaraciones}:{estado:colocacionesAnterior.estado||'No requerida'})};
+      const colocaciones={...colocacionesAnterior,infoPresupuesto:info,itemsCotizados:tecnico.items,aclaracionesPresupuesto:aclaraciones,modalidadEntrega:info.modalidadEntrega,...(esColocacion?{estado:colocacionesAnterior.estado||'A coordinar',compromiso:colocacionesAnterior.compromiso||info.fechaEntrega||'',fechaPlan:colocacionesAnterior.fechaPlan||info.fechaEntrega||'',direccion:colocacionesAnterior.direccion||info.domicilio||'',contacto:colocacionesAnterior.contacto||info.contacto||'',telefono:colocacionesAnterior.telefono||info.contactoTelefono||'',notas:colocacionesAnterior.notas||info.indicacionesEntrega||aclaraciones}:{estado:colocacionesAnterior.estado||'No requerida'})};
       const facturacion={...(anteriores.facturacion||{}),infoPresupuesto:info,oc:anteriores.facturacion?.oc||info.oc||'',condicionPago:info.condicionPago,anticipoPct:info.anticipoPct,diasPago:info.diasPago,importePresupuestado:info.importe,aclaracionesPresupuesto:aclaraciones};
       const cobranzas={...(anteriores.cobranzas||{}),infoPresupuesto:info,condicionPago:info.condicionPago,anticipoPct:info.anticipoPct,diasPago:info.diasPago,montoTotal:info.importe,saldoPendiente:anteriores.cobranzas?.saldoPendiente||info.importe,aclaracionesPresupuesto:aclaraciones};
       const obra={ot:numero,cliente:data.cliente||'',desc:data.desc||'',estado:'Aprobado',sector:'Producción',vendedor:data.vendedor||'',neto:+data.importe||0,bruto:+data.importe||0,itemsCotizados:Array.isArray(data.items)?data.items:[],itemsTecnicos:tecnico.items,infoPresupuesto:info,entregaLogistica:tecnico.entregaLogistica,cond:data.cond||'',plazoEstimado:data.plazoEstimado||'',oc:data.oc||'',diasPago:Number(data.diasPago||0),anticipoPct:Number(data.anticipoPct||0),gestionSectores:{...anteriores,ventas,diseno,compras,produccion,colocaciones,facturacion,cobranzas},presupuestoId,cotizacionId:presupuestoId,nroCotizacion:data.nro||numero,revisionCotizacion:data.revision||'1.1',fechaAprobacion:new Date().toLocaleDateString('es-AR'),origen:'presupuesto'};
@@ -569,7 +570,7 @@
       if(o&&panel&&!panel.querySelector('.tiz-integral-produccion')){
         const log=o.entregaLogistica||{},m={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'},s=getSectores(o);
         const items=(o.itemsTecnicos||[]).map(x=>x.articulo||x.descripcion||x.desc).filter(Boolean);
-        panel.insertAdjacentHTML('afterbegin',`<section class="p8-card tiz-integral-produccion" style="margin-bottom:10px;border-left:3px solid var(--accent)"><div class="p8-title"><b>Información integral de la OT</b><span>Ventas · Diseño · Compras · Entrega</span></div><div class="p8-form"><div><span class="p8-muted">DISEÑO</span><br><b>${esc(normEstado(s.diseno?.estado))}</b></div><div><span class="p8-muted">COMPRAS</span><br><b>${esc(normEstado(s.compras?.estado))}</b></div><div><span class="p8-muted">ENTREGA</span><br><b>${esc(m[log.tipo]||'A definir')}</b></div><div><span class="p8-muted">FECHA PREVISTA</span><br><b>${esc(log.fecha||'Sin definir')}</b></div>${log.domicilio?`<div class="p8-full"><span class="p8-muted">DOMICILIO</span><br><b>${esc(log.domicilio)}</b></div>`:''}${items.length?`<div class="p8-full"><span class="p8-muted">ÍTEMS COTIZADOS</span><br>${items.map(esc).join(' · ')}</div>`:''}${log.detalle?`<div class="p8-full"><span class="p8-muted">INDICACIONES</span><br>${esc(log.detalle)}</div>`:''}</div></section>`);
+        panel.insertAdjacentHTML('afterbegin',`<section class="p8-card tiz-integral-produccion" style="margin-bottom:10px;border-left:3px solid var(--accent)"><div class="p8-title"><b>Información integral de la OT</b><span>Ventas · Diseño · Compras · Entrega</span></div><div class="p8-form"><div><span class="p8-muted">DISEÑO</span><br><b>${esc(normEstado(s.diseno?.estado))}</b></div><div><span class="p8-muted">COMPRAS</span><br><b>${esc(normEstado(s.compras?.estado))}</b></div><div><span class="p8-muted">ENTREGA</span><br><b>${esc(m[log.tipo]||'A definir')}</b></div><div><span class="p8-muted">FECHA PREVISTA</span><br><b>${esc(log.fecha||'Sin definir')}</b></div>${log.domicilio?`<div class="p8-full"><span class="p8-muted">DOMICILIO</span><br><b>${esc(log.domicilio)}</b></div>`:''}${log.contacto?`<div><span class="p8-muted">CONTACTO EN OBRA</span><br><b>${esc(log.contacto)}</b></div>`:''}${log.contactoTelefono?`<div><span class="p8-muted">TELÉFONO CONTACTO</span><br><b>${esc(log.contactoTelefono)}</b></div>`:''}${items.length?`<div class="p8-full"><span class="p8-muted">ÍTEMS COTIZADOS</span><br>${items.map(esc).join(' · ')}</div>`:''}${log.detalle?`<div class="p8-full"><span class="p8-muted">INDICACIONES</span><br>${esc(log.detalle)}</div>`:''}</div></section>`);
       }
       return resultado;
     };
