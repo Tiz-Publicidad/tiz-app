@@ -337,10 +337,11 @@
         o.comprobantesArca = [...(o.comprobantesArca || []), d];
         const archived = !d.drivePendiente;
         root.remove();
+        window.TIZFactCobUIV2?.render?.();
         let msg = `AUTORIZADO POR ARCA\n\n${d.tipo} ${d.numeroCompleto}\nCAE: ${d.cae}\nTotal: ${money(d.total)}`;
         if (!archived)
           msg +=
-            "\n\nATENCIÓN: la factura es válida. El PDF quedó pendiente y TIZ lo reintentará automáticamente sin volver a emitirla.";
+            "\n\nATENCIÓN: el comprobante es válido, pero el PDF está pendiente. En su propia tarjeta, tocá Recuperar PDF para archivarlo en Drive sin volver a emitir.";
         else msg += "\n\nPDF archivado en 2026 Facturacion.";
         if (d.baseMadreError)
           msg += "\n\nLa planilla madre quedó en reintento automático.";
