@@ -4,19 +4,22 @@
  */
 (() => {
   'use strict';
-  const VERSION='V81-CLEMEN-BUSCAR-PRESUPUESTO-20260909';
-  const norm=value=>String(value??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const VERSION='V82-FILTRO-PRESUPUESTOS-20260929';
+  const norm=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const esc=value=>String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  const numero=p=>{const m=String(p?.expedienteId||p?.ct||p?.nro||'').match(/d+/);return m?(m[0].replace(/^0+(?=d)/,'')||'0'):''};
-  const revision=p=>String(p?.revision||'1.0');
+  const numero=p=>{const m=String(p?.expedienteId||p?.ct||p?.nro||'').match(/\d+/);return m?(m[0].replace(/^0+(?=\d)/,'')||'0'):''};
+  const revision=p=>String(p?.revision||'1.1');
   const revValue=p=>revision(p).split('.').reduce((t,x,i)=>t+(Number(x)||0)/Math.pow(100,i),0);
   const dateValue=p=>{const d=new Date(p?.actualizadoEn||p?.createdAt||p?.fecha||0);return Number.isNaN(d.getTime())?0:d.getTime()};
-  const archived=p=>!!p?.archivado||norm(p?.estado)==='archivado';
-
+  
   function currentBudgets(){
     const groups=new Map();
-    (window.DB?.presupuestos||[]).filter(p=>!archived(p)).forEach(p=>{const key=numero(p)||String(p.id||'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p)});
-    return [...groups.values()].map(list=>[...list].sort((a,b)=>Number(b.revisionVigente===true)-Number(a.revisionVigente===true)||revValue(b)-revValue(a)||dateValue(b)-dateValue(a))[0]).sort((a,b)=>Number(numero(b))-Number(numero(a)));
+    (window.DB?.presupuestos||[]).forEach(p=>{
+      const key=(numero(p)||String(p.id||''))+'|'+revision(p);
+      const old=groups.get(key);
+      if(!old||p.estado==='Aprobado'&&old.estado!=='Aprobado'||dateValue(p)>dateValue(old)&&p.estado===old.estado)groups.set(key,p);
+    });
+    return [...groups.values()].sort((a,b)=>Number(numero(b))-Number(numero(a))||revValue(b)-revValue(a));
   }
   function score(p,query){
     const words=norm(query).split(' ').filter(Boolean);if(!words.length)return -1;
@@ -26,11 +29,23 @@
     if(client===q)points+=100;if(client.startsWith(q))points+=55;if(description.startsWith(q))points+=45;if(number===q)points+=90;
     words.forEach(word=>{if(client.includes(word))points+=20;if(description.includes(word))points+=12;if(number.includes(word))points+=8});return points;
   }
-  function results(query){return currentBudgets().map(p=>({p,score:score(p,query)})).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score||Number(numero(b.p))-Number(numero(a.p))).slice(0,8).map(x=>x.p)}
+  function results(query){return currentBudgets().map(p=>({p,score:score(p,query)})).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score||Number(numero(b.p))-Number(numero(a.p))).slice(0,40).map(x=>x.p)}
   function close(){const list=document.getElementById('clemen-pres-results');if(list)list.hidden=true}
+  function filterRows(query){
+    const q=norm(query),words=q.split(' ').filter(Boolean),body=document.getElementById('pres-tbody');
+    let count=0;
+    if(body)Array.from(body.querySelectorAll('tr')).forEach(row=>{
+      const cells=row.querySelectorAll('td');
+      const searchable=[cells[0]?.textContent,cells[1]?.textContent,cells[2]?.textContent].map(norm).join(' ');
+      const match=cells.length>1&&(!words.length||words.every(word=>searchable.includes(word)));
+      row.style.display=match?'':'none';if(match)count++;
+    });
+    const label=document.getElementById('clemen-pres-count');
+    if(label)label.textContent=q?count+' presupuesto'+(count===1?'':'s')+' encontrado'+(count===1?'':'s'):'';
+  }
   function render(query){
     const list=document.getElementById('clemen-pres-results');if(!list)return;const q=String(query||'').trim();
-    if(!q){list.hidden=true;list.innerHTML='';return}const matches=results(q);
+    filterRows(q);if(!q){list.hidden=true;list.innerHTML='';return}const matches=results(q);
     list.innerHTML=matches.length?matches.map(p=>`
       <button type="button" class="clemen-pres-result" data-presupuesto-id="${esc(p.id)}">
         <span class="clemen-pres-ct">CT ${esc(numero(p)||'—')} <small>Rev ${esc(revision(p))}</small></span>
@@ -38,17 +53,25 @@
         <span class="badge badge-${norm(p.estado)==='aprobado'?'green':norm(p.estado)==='enviado'?'blue':'gray'}">${esc(p.estado||'Sin estado')}</span>
       </button>`).join(''):'<div class="clemen-pres-empty">No encontré una cotización con ese cliente o trabajo.</div>';
     list.hidden=false;
-    list.querySelectorAll('[data-presupuesto-id]').forEach(button=>button.addEventListener('mousedown',event=>{event.preventDefault();const id=button.dataset.presupuestoId;close();if(typeof window.editPres==='function')window.editPres(id)}));
+    list.querySelectorAll('[data-presupuesto-id]').forEach(button=>{button.addEventListener('mousedown',event=>event.preventDefault());button.addEventListener('click',()=>{const id=button.dataset.presupuestoId;close();window.abrirRevisionCotizacionV354?.(id,false)});});
   }
   function install(){
     const page=document.getElementById('page-presupuestos'),contentEl=page?.querySelector(':scope > div[style*="padding:16px"]');
     if(!page||!contentEl||document.getElementById('clemen-pres-search'))return;
     const box=document.createElement('div');box.id='clemen-pres-search';box.className='clemen-pres-search';
-    box.innerHTML=`<div class="clemen-pres-icon"><i class="ti ti-sparkles"></i></div><div class="clemen-pres-field"><label for="clemen-pres-input">Buscar con Clemen</label><input id="clemen-pres-input" type="search" autocomplete="off" placeholder="Escribí un cliente o trabajo: River, Huawei, marquesina…"><div id="clemen-pres-results" class="clemen-pres-results" hidden></div></div>`;
+    box.innerHTML=`<div class="clemen-pres-icon"><i class="ti ti-sparkles"></i></div><div class="clemen-pres-field"><label for="clemen-pres-input">Buscar con Clemen</label><input id="clemen-pres-input" type="search" autocomplete="off" placeholder="Escribí un cliente o trabajo: River, Huawei, marquesina…"><div id="clemen-pres-count" aria-live="polite" style="color:var(--text3);font-size:11px"></div><div id="clemen-pres-results" class="clemen-pres-results" hidden></div></div>`;
     contentEl.insertBefore(box,contentEl.firstChild);const input=document.getElementById('clemen-pres-input');
     input.addEventListener('input',()=>render(input.value));input.addEventListener('focus',()=>render(input.value));
-    input.addEventListener('keydown',event=>{if(event.key==='Escape'){close();input.blur()}if(event.key==='Enter'){const first=document.querySelector('#clemen-pres-results [data-presupuesto-id]');if(first){event.preventDefault();first.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))}}});
-    input.addEventListener('blur',()=>setTimeout(close,160));console.info('[TIZ] Buscador Clemen de presupuestos cargado',VERSION);
+    input.addEventListener('keydown',event=>{if(event.key==='Escape'){input.value='';render('');input.blur()}if(event.key==='Enter'){const first=document.querySelector('#clemen-pres-results [data-presupuesto-id]');if(first){event.preventDefault();first.click()}}});
+    input.addEventListener('blur',()=>setTimeout(close,160));
+        document.getElementById('pres-tbody')?.addEventListener('click',event=>{
+          if(event.target.closest('button,a'))return;
+          const row=event.target.closest('tr[data-presupuesto-id]');
+          if(row)window.abrirRevisionCotizacionV354?.(row.dataset.presupuestoId,false);
+        });
+        const previous=window.renderPresupuestos;
+        if(typeof previous==='function')window.renderPresupuestos=function(){const value=previous.apply(this,arguments);render(input.value);return value};
+        filterRows(input.value);console.info('[TIZ] Buscador Clemen de presupuestos cargado',VERSION);
   }
   const style=document.createElement('style');style.textContent=`
     .clemen-pres-search{position:relative;display:flex;align-items:center;gap:11px;max-width:760px;margin-bottom:14px;padding:10px 12px;background:linear-gradient(135deg,rgba(232,184,75,.10),rgba(155,127,244,.06));border:1px solid rgba(232,184,75,.25);border-radius:14px}
