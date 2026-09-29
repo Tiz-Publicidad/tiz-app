@@ -148,19 +148,19 @@ async function syncBilling(obraOrId,{interactive=true,silent=false,token=''}={})
   const p=billingPayload(o);if(!p.ot)throw new Error('La OT no tiene número válido');
   token=token||await getToken(interactive);const row=await findRow(p.ot,token);if(!row)throw new Error('La OT '+p.ot+' no existe en Base de datos');
   const data=[];
-  if(p.numeroFactura)data.push({range:escSheetName(SHEET)+'!T'+row+':U'+row,majorDimension:'ROWS',values:[[p.fechaFactura,p.numeroFactura]]});
-  if(p.fechaProyectada)data.push({range:escSheetName(SHEET)+'!V'+row+':W'+row,majorDimension:'ROWS',values:[[p.fechaProyectada,p.semanaProyectada]]});
-  if(p.semanaConfirmada)data.push({range:escSheetName(SHEET)+'!X'+row,majorDimension:'ROWS',values:[[p.semanaConfirmada]]});
-  if(p.cobrado)data.push({range:escSheetName(SHEET)+'!AA'+row,majorDimension:'ROWS',values:[['Cobrado']]});
-  else if(p.cobroParcial)data.push({range:escSheetName(SHEET)+'!AA'+row,majorDimension:'ROWS',values:[['Cobrado pendiente']]});
+  if(p.numeroFactura)data.push({range:escSheetName(SHEET)+'!R'+row+':S'+row,majorDimension:'ROWS',values:[[p.fechaFactura,p.numeroFactura]]});
+  if(p.fechaProyectada)data.push({range:escSheetName(SHEET)+'!T'+row+':U'+row,majorDimension:'ROWS',values:[[p.fechaProyectada,p.semanaProyectada]]});
+  if(p.semanaConfirmada)data.push({range:escSheetName(SHEET)+'!V'+row,majorDimension:'ROWS',values:[[p.semanaConfirmada]]});
+  if(p.cobrado)data.push({range:escSheetName(SHEET)+'!Y'+row,majorDimension:'ROWS',values:[['Cobrado']]});
+  else if(p.cobroParcial)data.push({range:escSheetName(SHEET)+'!Y'+row,majorDimension:'ROWS',values:[['Cobrado pendiente']]});
   if(!data.length)return{ok:true,row,skipped:true,payload:p};
   await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   const actual=await readRow(row,token);
-  if(p.numeroFactura&&T(actual[20])!==p.numeroFactura)throw new Error('La verificación de Nro FC falló en la fila '+row);
+  if(p.numeroFactura&&T(actual[18])!==p.numeroFactura)throw new Error('La verificación de Nro FC falló en la fila '+row);
   const mark={baseMadreFactCobSyncAt:new Date().toISOString(),baseMadreFactCobSignature:p.signature,baseMadreRow:row,baseMadreFactCobSyncVersion:VERSION};
   if(o.id&&typeof window.updateDoc_==='function')try{await window.updateDoc_('obras',o.id,mark);Object.assign(o,mark)}catch(e){console.warn('[TIZ V117] No se pudo guardar marca de sincronización',e)}
   if(!silent)window.showToast?.('Facturación/Cobranzas de OT '+p.ot+' sincronizada con la planilla ✓');
-  return{ok:true,row,payload:p,actual:{fechaFactura:actual[19],numeroFactura:actual[20],fechaProyectada:actual[21],semanaProyectada:actual[22],semanaConfirmada:actual[23],estado:actual[26]}};
+  return{ok:true,row,payload:p,actual:{fechaFactura:actual[17],numeroFactura:actual[18],fechaProyectada:actual[19],semanaProyectada:actual[20],semanaConfirmada:actual[21],estado:actual[24]}};
 }
 async function readRow(row,token){
   const range=encodeURIComponent(escSheetName(SHEET)+'!A'+row+':AD'+row);
@@ -169,14 +169,14 @@ async function readRow(row,token){
 }
 async function verifyRow(row,payload,token){
   const values=await readRow(row,token);
-  const ot=base(values[2]),cliente=norm(values[5]),neto=N(values[6]),estado=norm(values[26]);
+  const ot=base(values[2]),cliente=norm(values[5]),neto=N(values[6]),estado=norm(values[24]);
   const errors=[];
   if(ot!==base(payload.ot))errors.push('OT distinta');
   if(cliente!==norm(payload.cliente))errors.push('cliente distinto');
   if(Math.abs(neto-N(payload.neto))>0.01)errors.push('neto distinto');
   if(!['pendiente','entregado','cobrado','cobrado pendiente'].includes(estado))errors.push('estado operativo inválido');
   if(errors.length)throw new Error('Base Madre escribió la fila '+row+' pero la verificación falló: '+errors.join(', '));
-  return {ok:true,row,ot,cliente:values[5],neto,estado:values[26]};
+  return {ok:true,row,ot,cliente:values[5],neto,estado:values[24]};
 }
 async function updateExisting(row,payload,token){
   const old=await readRow(row,token),fecha=T(old[0])||fmtDate(),sem=T(old[1])||String(isoWeek());
@@ -194,7 +194,7 @@ async function appendNew(payload,token){
   if((check.values?.[0]||[]).some(x=>T(x)))throw new Error('La fila '+row+' tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.');
   const data=[
     {range:escSheetName(SHEET)+'!A'+row+':H'+row,values:[[fmtDate(),isoWeek(),payload.ot,payload.descripcion,payload.contacto,payload.cliente,payload.neto,payload.bruto]]},
-    {range:escSheetName(SHEET)+'!AA'+row,values:[[payload.estado]]}
+    {range:escSheetName(SHEET)+'!Y'+row,values:[[payload.estado]]}
   ];
   await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   return row;
@@ -270,7 +270,7 @@ window.verificarBaseMadreTIZV116=async function(idOrNro){
   const token=await getToken(true),payload=payloadFromBudget(p),row=await findRow(payload.ot,token);
   if(!row)return{ok:false,row:null,reason:'no existe en Base Madre',payload};
   const values=await readRow(row,token);
-  return{ok:true,row,payload,actual:{fecha:values[0],semana:values[1],ot:values[2],descripcion:values[3],contacto:values[4],cliente:values[5],neto:values[6],bruto:values[7],estado:values[26]}};
+  return{ok:true,row,payload,actual:{fecha:values[0],semana:values[1],ot:values[2],descripcion:values[3],contacto:values[4],cliente:values[5],neto:values[6],bruto:values[7],estado:values[24]}};
 };
 window.repararBaseMadreAprobadaV111=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];

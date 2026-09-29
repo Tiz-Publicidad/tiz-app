@@ -132,11 +132,11 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const paid = payments.reduce((sum,p) => sum + num(p.importe) + num(p.retenciones), 0);
   const invoiced = invoices.reduce((sum,invoice) => sum + num(invoice.total || invoice.neto), 0);
   const data = [];
-  if (numbers) data.push({range:`'${SHEET}'!T${rowNumber}:U${rowNumber}`, values:[[sheetDate(lastInvoice.fecha || obra.ffc), numbers]]});
-  if (due) data.push({range:`'${SHEET}'!V${rowNumber}:W${rowNumber}`, values:[[sheetDate(due), weekFromDate(due)]]});
-  if (lastPayment.fecha) data.push({range:`'${SHEET}'!X${rowNumber}`, values:[[weekFromDate(lastPayment.fecha)]]});
-  if (invoiced > 0 && paid >= invoiced - 0.01) data.push({range:`'${SHEET}'!AA${rowNumber}`, values:[["Cobrado"]]});
-  else if (paid > 0) data.push({range:`'${SHEET}'!AA${rowNumber}`, values:[["Cobrado pendiente"]]});
+  if (numbers) data.push({range:`'${SHEET}'!R${rowNumber}:S${rowNumber}`, values:[[sheetDate(lastInvoice.fecha || obra.ffc), numbers]]});
+  if (due) data.push({range:`'${SHEET}'!T${rowNumber}:U${rowNumber}`, values:[[sheetDate(due), weekFromDate(due)]]});
+  if (lastPayment.fecha) data.push({range:`'${SHEET}'!V${rowNumber}`, values:[[weekFromDate(lastPayment.fecha)]]});
+  if (invoiced > 0 && paid >= invoiced - 0.01) data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado"]]});
+  else if (paid > 0) data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado pendiente"]]});
   if (data.length) await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data}});
   const signature = [numbers, lastInvoice.fecha || obra.ffc || "", due, payments.length, paid, obra.cobranzaEstadoManual || "", obra.estadoGestionFactCob || ""].join("|");
   const mark = {baseMadreFactCobSyncAt:new Date().toISOString(), baseMadreFactCobSignature:signature, baseMadreRow:rowNumber, baseMadreFactCobSyncVersion:"BACKEND-V121", baseMadreFactCobSyncBy:email};
@@ -184,7 +184,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       await assertEmptyRow(sheets, rowNumber);
       await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data:[
         {range:`'${SHEET}'!A${rowNumber}:H${rowNumber}`, values:[[date, week, payload.ot, payload.descripcion, payload.contacto, payload.cliente, payload.neto, payload.bruto]]},
-        {range:`'${SHEET}'!AA${rowNumber}`, values:[["Pendiente"]]},
+        {range:`'${SHEET}'!Y${rowNumber}`, values:[["Pendiente"]]},
       ]}});
     }
     const verify = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:AD${rowNumber}`});
@@ -193,7 +193,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     const mark = {baseMadreSyncAt:new Date().toISOString(), baseMadreRow:rowNumber, baseMadreSpreadsheetId:SPREADSHEET_ID, baseMadreSyncVersion:"BACKEND-V120", baseMadreSyncBy:email};
     await db.collection("presupuestos").doc(p.id).set(mark, {merge:true});
     if (p.obraId) await db.collection("obras").doc(p.obraId).set(mark, {merge:true});
-    return res.json({ok:true, row:rowNumber, updated:found >= 0, payload, actual:{fecha:actual[0], semana:actual[1], ot:actual[2], descripcion:actual[3], contacto:actual[4], cliente:actual[5], neto:actual[6], bruto:actual[7], estado:actual[26]}});
+    return res.json({ok:true, row:rowNumber, updated:found >= 0, payload, actual:{fecha:actual[0], semana:actual[1], ot:actual[2], descripcion:actual[3], contacto:actual[4], cliente:actual[5], neto:actual[6], bruto:actual[7], estado:actual[24]}});
   } catch (error) {
     console.error("Base Madre V120", error);
     return res.status(error.status || 502).json({ok:false, error:error.message || "No se pudo sincronizar la Base Madre"});
