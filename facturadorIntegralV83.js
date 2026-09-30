@@ -302,6 +302,11 @@
         old = b.textContent;
       b.disabled = true;
       try {
+        b.textContent = "Preparando guardado en Drive…";
+        if (typeof window.obtenerDriveAccessTokenTizV97 !== "function")
+          throw new Error("Actualizá la app para conectar Drive antes de facturar.");
+        const driveAccessToken = await window.obtenerDriveAccessTokenTizV97();
+        if (!driveAccessToken) throw new Error("Falta autorizar Google Drive.");
         b.textContent = "Solicitando CAE…";
         const ivaRaw = $("#fv83-iva").value,
           payload = {
@@ -316,8 +321,7 @@
             alicuota: ivaRaw === "exento" ? 0 : Number(ivaRaw),
             neto: n,
             diasPago: Number($("#fv83-days").value || 0),
-            driveAccessToken:
-              window.obtenerDriveAccessTokenCacheTizV123?.() || "",
+            driveAccessToken,
             items: items(o, n),
             asociado: need ? JSON.parse(assoc.value) : null,
           };
@@ -335,13 +339,19 @@
           throw new Error(d.error || "ARCA no autorizó el comprobante");
         o.facturaArca = d;
         o.comprobantesArca = [...(o.comprobantesArca || []), d];
-        const archived = !d.drivePendiente;
+        o.facturaDrivePendiente = Boolean(d.drivePendiente);
+        if (d.drivePendiente) {
+          b.textContent = "Comprobante autorizado · guardando PDF…";
+          try { await window.archivarPdfAutomaticoTizV126?.(o); }
+          catch (archiveError) { console.warn("[TIZ PDF automático]", archiveError); }
+        }
+        const archived = Boolean(o.facturaArca?.driveFileId);
         root.remove();
         window.TIZFactCobUIV2?.render?.();
         let msg = `AUTORIZADO POR ARCA\n\n${d.tipo} ${d.numeroCompleto}\nCAE: ${d.cae}\nTotal: ${money(d.total)}`;
         if (!archived)
           msg +=
-            "\n\nATENCIÓN: el comprobante es válido, pero el PDF está pendiente. En su propia tarjeta, tocá Recuperar PDF para archivarlo en Drive sin volver a emitir.";
+            "\n\nEl comprobante es válido. El PDF está pendiente y se reintentará guardar automáticamente en Drive.";
         else msg += "\n\nPDF archivado en 2026 Facturacion.";
         if (d.baseMadreError)
           msg += "\n\nLa planilla madre quedó en reintento automático.";
@@ -349,7 +359,7 @@
         window
           .sincronizarFacturacionBaseMadreTIZV117?.(o, { silent: true })
           .catch((e) => console.warn("[TIZ FC Base Madre]", e));
-        window.showToast?.("Comprobante autorizado · PV 00009 ✓");
+        window.showToast?.(archived ? "Comprobante autorizado · En Drive ✓" : "Comprobante autorizado · PDF en reintento");
         if (wantEmail && archived)
           setTimeout(() => window.abrirEnvioFacturaEmailV61?.(o.id), 100);
       } catch (e) {

@@ -1,4 +1,4 @@
-// TIZ V123 - Drive PDF por backend, sin OAuth repetido del operador.
+// TIZ V126 - Archivo automático con la autorización Drive del operador.
 (function () {
   "use strict";
   const RECOVER_ENDPOINT =
@@ -130,7 +130,7 @@
         body: JSON.stringify(body),
       }),
       d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || "Error del servidor");
+    if (!r.ok || !d.ok) throw new Error(d.error || "Error del servidor");
     return d;
   }
 
@@ -159,6 +159,7 @@
           numeroCompleto: inv.numeroCompleto,
           cbteTipo: inv.cbteTipo,
           cbteNro: inv.cbteNro,
+          driveAccessToken: cachedDriveToken(),
         });
       } catch (firstError) {
         if (!/service accounts? do not have storage quota|storage quota|use oauth/i.test(String(firstError?.message || firstError)))
@@ -204,43 +205,64 @@
       }
     }
   };
+  const automaticJobs = new Map(), nextRetry = new Map();
+  const sameInvoice = (a, b) => a?.cae === b?.cae &&
+    Number(a?.cbteTipo) === Number(b?.cbteTipo) &&
+    Number(a?.ptoVta) === Number(b?.ptoVta) &&
+    Number(a?.cbteNro) === Number(b?.cbteNro);
+  function updateArchived(obra, factura, d) {
+    if (!d.fileId) throw new Error("Drive no confirmó el archivo PDF");
+    const patch = { driveFileId: d.fileId, driveFileName: d.fileName || "",
+      driveWebViewLink: d.webViewLink || "https://drive.google.com/file/d/" + d.fileId + "/view",
+      drivePendiente: false };
+    const current = (window.DB?.obras || []).find(x => x.id === obra.id) || obra;
+    for (const o of new Set([obra, current])) {
+      for (const c of [o.facturaArca, ...(o.comprobantesArca || []), ...(o.facturasArca || [])])
+        if (sameInvoice(c, factura)) Object.assign(c, patch);
+      if (sameInvoice(o.facturaArca, factura)) o.facturaDrivePendiente = false;
+    }
+    window.TIZFactCobUIV2?.render?.();
+    window.showToast?.("FC " + factura.numeroCompleto + " · En Drive ✓");
+    return d;
+  }
+  window.archivarPdfAutomaticoTizV126 = function (obra) {
+    const factura = obra?.facturaArca, access = cachedDriveToken();
+    if (!factura?.cae || factura.driveFileId || !access) return Promise.resolve(null);
+    const key = obra.id + ":" + factura.cbteTipo + ":" + factura.ptoVta + ":" + factura.cbteNro;
+    if (automaticJobs.has(key)) return automaticJobs.get(key);
+    const job = postJson(RECOVER_ENDPOINT, {
+      obraId: obra.id, cbteTipo: factura.cbteTipo, cbteNro: factura.cbteNro,
+      numeroCompleto: factura.numeroCompleto, driveAccessToken: access
+    }).then(d => updateArchived(obra, factura, d)).finally(() => automaticJobs.delete(key));
+    automaticJobs.set(key, job);
+    return job;
+  };
   let retryBusy = false;
   async function retryPendingPdf() {
-    if (retryBusy || busy) return;
-    const obra = (window.DB?.obras || []).find(
-      (o) =>
-        o?.facturaArca?.cae &&
-        !o?.facturaArca?.driveFileId &&
-        (o?.facturaArca?.drivePendiente || o?.facturaDrivePendiente),
-    );
-    if (!obra) return;
+    if (retryBusy || busy || !cachedDriveToken()) return;
+    const obras = (window.DB?.obras || []).filter(o => o?.facturaArca?.cae &&
+      !o.facturaArca.driveFileId && (o.facturaArca.drivePendiente || o.facturaDrivePendiente) &&
+      Date.now() >= (nextRetry.get(o.id) || 0));
+    if (!obras.length) return;
     retryBusy = true;
     try {
-      const d = await postJson(RECOVER_ENDPOINT, {
-        obraId: obra.id,
-        numeroCompleto: obra.facturaArca.numeroCompleto,
-        cbteTipo: obra.facturaArca.cbteTipo,
-        cbteNro: obra.facturaArca.cbteNro,
-      });
-      Object.assign(obra.facturaArca, {
-        driveFileId: d.fileId,
-        driveFileName: d.fileName,
-        driveWebViewLink: d.webViewLink,
-        drivePendiente: false,
-      });
-      obra.facturaDrivePendiente = false;
-      window.TIZFactCobUIV2?.render?.();
-      window.showToast?.(
-        "PDF " +
-          obra.facturaArca.numeroCompleto +
-          " archivado automáticamente en Drive",
-      );
-    } catch (e) {
-      console.warn("[TIZ V123 reintento PDF]", e);
-    } finally {
-      retryBusy = false;
-    }
+      for (const obra of obras) {
+        try { await window.archivarPdfAutomaticoTizV126(obra); nextRetry.delete(obra.id); }
+        catch (e) {
+          nextRetry.set(obra.id, Date.now() + 60000);
+          console.warn("[TIZ V126 archivo automático]", e);
+        }
+      }
+    } finally { retryBusy = false; }
   }
+  window.conectarDriveFacturacionTizV126 = async function () {
+    try {
+      await authorizeDriveDirect();
+      nextRetry.clear();
+      window.TIZFactCobUIV2?.render?.();
+      await retryPendingPdf();
+    } catch (e) { alert("No se pudo conectar Google Drive. " + (e.message || e)); }
+  };
   setInterval(retryPendingPdf, 10000);
   window.recuperarPdfFacturaV86 = async function (n, btn) {
     n = Number(n);
