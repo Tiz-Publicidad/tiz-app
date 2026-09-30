@@ -11,11 +11,12 @@ function fixture({occupied = false, existing = false, billing = false} = {}) {
   const calls = [];
   const sheet = {spreadsheets:{values:{
     get: async ({range}) => {
+      if (range.endsWith('R421:Y421')) return {data:{values:[Array(8).fill('')]}};
       if (range.endsWith('C3:C')) {
         const arr = Array.from({length:419}, (_,i) => [rows.get(i+3)?.C || '']);
         return {data:{values:arr}};
       }
-      const m = range.match(/!A(\d+):AD\d+/);
+      const m = range.match(/!A(\d+):(?:AD|Y)\d+/);
       if (m) {
         const r = rows.get(Number(m[1])) || {};
         const values = Array.from({length:30}, (_,i) => r[String.fromCharCode(65+i)] || '');
@@ -33,7 +34,7 @@ function fixture({occupied = false, existing = false, billing = false} = {}) {
   }}};
   const budget={id:'p1',nro:'4755',estado:'Aprobado',cliente:'Farmacity',desc:'Placa DT Suc 79',importe:58513.2};
   const docs = [budget];
-  const obra={id:'o1',ot:'4755',comprobantesArca:[{numeroCompleto:'00009-00000001',fecha:'2026-09-29',neto:100,iva:21,total:121,fechaVencimientoPago:'2026-10-29'}],cobros:[{importe:50,retenciones:10,fecha:'2026-09-29'}]};
+  const obra={id:'o1',ot:'4755',cliente:'Farmacity',comprobantesArca:[{numeroCompleto:'00009-00000001',fecha:'2026-09-29',neto:100,iva:21,total:121,fechaVencimientoPago:'2026-10-29'}],cobros:[{importe:50,retenciones:10,fecha:'2026-09-29'}]};
   const firestore = {collection: name => ({
     limit: () => ({get: async () => ({docs: (name==='presupuestos'?docs:billing?[obra]:[]).map(x=>({id:x.id,data:()=>x}))})}),
     doc: () => ({set: async () => {},get:async()=>({exists:true,id:obra.id,data:()=>obra})}),
@@ -69,7 +70,7 @@ test('reintento de OT existente actualiza solo A:H en la fila encontrada',async(
 test('facturación y cobro respetan las columnas R:S, T:U, V e Y',async()=>{
   const x=fixture({billing:true});await x.handler(x.req,x.response);
   assert.equal(x.response.statusCode,200);
-  assert.deepEqual(x.calls.map(c=>c.range),["'Base de datos'!R421:S421","'Base de datos'!T421:U421","'Base de datos'!V421","'Base de datos'!Y421"]);
-  assert.equal(x.calls[3].values[0][0],'Cobrado pendiente');
+  assert.deepEqual(x.calls.map(c=>c.range),["'Base de datos'!S421","'Base de datos'!R421","'Base de datos'!T421","'Base de datos'!U421","'Base de datos'!V421","'Base de datos'!Y421"]);
+  assert.equal(x.calls[5].values[0][0],'Cobrado pendiente');
   assert.equal(x.rows.get(421).I,'dato de producción');
 });

@@ -242,15 +242,24 @@ async function syncBillingBackend(obraOrId,{silent=false}={}){
 }
 window.sincronizarBaseMadreBackendV120=syncBudgetBackend;
 window.sincronizarFacturacionBaseMadreTIZV117=syncBillingBackend;
+window.leerFacturacionBaseMadreTIZV123=async function(){
+  const {auth}=await authApi(),user=auth.currentUser;
+  if(!user)throw new Error('Sesión de TIZ no iniciada');
+  const response=await fetch(BACKEND_URL,{method:'POST',headers:{Authorization:'Bearer '+await user.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'read-billing'})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo leer la Base Madre');
+  return result;
+};
 // Compatibilidad: cualquier módulo antiguo también usa el backend y no abre OAuth de Sheets.
 window.sincronizarBaseMadreTIZV111=syncBudgetBackend;
 let billingMonitorBusy=false;
 let repairMonitorBusy=false;
+const billingRetryAt=new Map();
 async function syncPendingBilling(){
   if(billingMonitorBusy)return;
-  const pending=(window.DB?.obras||[]).find(o=>{const p=billingPayload(o);return p.numeroFactura&&p.signature!==T(o.baseMadreFactCobSignature)});
+  const pending=(window.DB?.obras||[]).find(o=>{const p=billingPayload(o);return (billingRetryAt.get(o.id)||0)<Date.now()&&p.numeroFactura&&p.signature!==T(o.baseMadreFactCobSignature)});
   if(!pending)return;billingMonitorBusy=true;
-  try{await syncBillingBackend(pending,{silent:true})}catch(e){console.warn('[TIZ V121 monitor]',e)}finally{billingMonitorBusy=false}
+  try{await syncBillingBackend(pending,{silent:true});billingRetryAt.delete(pending.id)}catch(e){billingRetryAt.set(pending.id,Date.now()+300000);console.warn('[TIZ V121 monitor]',e)}finally{billingMonitorBusy=false}
 }
 setInterval(syncPendingBilling,5000);
 async function repairPendingApproved(){
