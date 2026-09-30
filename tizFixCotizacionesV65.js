@@ -34,16 +34,29 @@
 
   async function persistDriveLinks(p,result){
     if(!p?.id||!result)return;
-    const patch={cotizacionExcelId:result.cotizacionExcelId||'',cotizacionExcelUrl:result.cotizacionExcelUrl||'',cotizacionPdfId:result.cotizacionPdfId||'',cotizacionPdfUrl:result.cotizacionPdfUrl||'',driveCotizacionSyncedAt:new Date().toISOString()};
+    const patch={nombreArchivo:window.tizCotizacionNombreBaseV354?.(p.nro||p.nroPresupuesto||p.cotizacionBase,p.cliente,p.desc||p.descripcion,rev(p.revision))||p.nombreArchivo||'',cotizacionExcelId:result.cotizacionExcelId||'',cotizacionExcelUrl:result.cotizacionExcelUrl||'',cotizacionPdfId:result.cotizacionPdfId||'',cotizacionPdfUrl:result.cotizacionPdfUrl||'',driveCotizacionSyncedAt:new Date().toISOString()};
     await window.updateDoc_?.('presupuestos',p.id,patch); Object.assign(p,patch);
   }
   async function generateCommercialFiles(p){
     if(!p)throw new Error('No se encontró la cotización'); const nro=digits(p.nro||p.nroPresupuesto||p.cotizacionBase); if(!nro)throw new Error('La cotización no tiene número');
-    const nombreBase=p.nombreArchivo||p.nombreBase||window.tizCotizacionNombreBaseV354?.(nro,p.cliente,p.desc||p.descripcion,rev(p.revision))||'';
-    const payload={action:'guardarCotizacionArchivos',nroCotizacion:nro,revision:rev(p.revision),cliente:String(p.cliente||'').trim(),descripcion:String(p.desc||p.descripcion||'').trim(),fecha:p.fecha||'',validez:p.validez||'',validezDias:num(p.validez)||7,nota:p.nota||'',condicion:p.cond||p.condicion||'',total:totalBudget(p),items:itemsFromBudget(p),firestoreId:p.id||'',nombreBase,entregaLogistica:p.entregaLogistica||''};
+    const nombreBase=window.tizCotizacionNombreBaseV354?.(nro,p.cliente,p.desc||p.descripcion,rev(p.revision))||p.nombreArchivo||p.nombreBase||'';
+    const payload={action:'guardarCotizacionArchivos',nroCotizacion:window.tizNumeroCotizacion?.(nro)||nro.padStart(7,'0'),revision:rev(p.revision),cliente:String(p.cliente||'').trim(),descripcion:String(p.desc||p.descripcion||'').trim(),fecha:p.fecha||'',validez:p.validez||'',validezDias:num(p.validez)||7,nota:p.nota||'',condicion:p.cond||p.condicion||'',total:totalBudget(p),items:itemsFromBudget(p),firestoreId:p.id||'',nombreBase,entregaLogistica:p.entregaLogistica||''};
     const result=await jsonpDrive(payload); await persistDriveLinks(p,result); return result;
   }
   window.generarArchivosCotizacionV65=generateCommercialFiles;
+  window.regenerarArchivosCotizacionV65=async function(id,button){
+    const p=(window.DB?.presupuestos||[]).find(x=>x.id===id);
+    if(!p)return window.showToast?.('No se encontró la cotización');
+    if(button?.disabled)return;
+    if(button)button.disabled=true;
+    try{
+      window.showToast?.('Actualizando PDF y Excel…');
+      await generateCommercialFiles(p);
+      window.renderPresupuestos?.();
+      window.showToast?.('PDF y Excel actualizados · CT '+(window.tizNumeroCotizacion?.(p.nro)||p.nro));
+    }catch(e){console.error('[TIZ] No se pudieron actualizar los archivos',e);window.showToast?.('No se pudieron actualizar PDF/Excel: '+(e.message||e));}
+    finally{if(button)button.disabled=false;}
+  };
 
   async function repairApprovedWork(p){
     if(!p||norm(p.estado)!=='aprobado')return null; const nro=digits(p.nro||p.cotizacionBase), obras=window.DB?.obras||[]; let o=p.obraId?obras.find(x=>x.id===p.obraId):null; if(!o)o=obras.find(x=>digits(x.ot)===nro); if(!o)return null;

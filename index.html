@@ -1209,6 +1209,11 @@ window.tizNumeroBase = value => {
   const sinCeros=match[0].replace(/^0+(?=\d)/,'');
   return sinCeros.slice(0,4);
 };
+// Formato visible de cotizaciones; conserva la clave interna sin ceros.
+window.tizNumeroCotizacion = value => {
+  const match = String(value ?? '').match(/\d+/);
+  return match ? match[0].replace(/^0+(?=\d)/, '').padStart(7, '0') : '';
+};
 window.currentSem = getSemanaActual();
 ['dash-sem','sem-label','prod-sem','col-sem'].forEach(id => {
   const el = document.getElementById(id);
@@ -1770,12 +1775,13 @@ function renderPresupuestos() {
   const map={'Pendiente':'gray','Enviado':'blue','Aprobado':'teal','Entregado':'purple','Cobrado pendiente':'amber','Cobrado':'green'};
   const ordenados=[...pres].sort((a,b)=>{ const na=parseInt(a.nro)||0, nb=parseInt(b.nro)||0; if(nb!==na)return nb-na; const ra=normalizarRevisionV354(a.revision||'1.1').split('.').map(Number), rb=normalizarRevisionV354(b.revision||'1.1').split('.').map(Number); return (rb[0]-ra[0])||(rb[1]-ra[1]); });
   document.getElementById('pres-tbody').innerHTML = ordenados.map(p => `<tr data-presupuesto-id="${p.id}">
-    <td class="strong" style="white-space:nowrap">CT ${window.tizNumeroBase(p.nro)} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
+    <td class="strong" style="white-space:nowrap">CT ${window.tizNumeroCotizacion(p.nro)} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
     <td>${p.vendedor||''}</td><td style="font-weight:500">${fmtM(p.importe)}</td>
     <td>${p.fecha||'—'}</td><td><span class="badge badge-${map[p.estado]||'gray'}">${p.estado||''}</span></td>
     <td style="white-space:nowrap">
       <button class="btn-icon" onclick="abrirRevisionCotizacionV354('${p.id}',false)" title="Abrir esta revisión"><i class="ti ti-eye" style="font-size:13px"></i></button>
       ${window.renderCotizacionDriveShortcut(p)}
+      <button class="btn-icon" onclick="regenerarArchivosCotizacionV65('${p.id}',this)" title="Actualizar PDF y Excel de esta revisión" style="margin-left:4px"><i class="ti ti-refresh" style="font-size:13px"></i></button>
       <button class="btn-icon" onclick="crearNuevaRevisionV354('${p.id}')" title="Crear nueva revisión sin borrar esta" style="margin-left:4px;color:var(--accent)"><i class="ti ti-copy-plus" style="font-size:13px"></i></button>
       <button class="btn-icon" onclick="delPres('${p.id}')" title="Eliminar revisión" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
     </td>
@@ -2670,7 +2676,7 @@ window.siguienteRevisionV354 = function(rev) {
 window.actualizarIdentificacionCotizacionV354 = function() {
   const n = window.tizNumeroBase(document.getElementById('pp-nro')?.value)||'0';
   const r = normalizarRevisionV354(document.getElementById('pp-revision')?.value||'1.1');
-  const el = document.getElementById('pp-identificacion'); if(el) el.value = `CT ${n} ${r}`;
+  const el = document.getElementById('pp-identificacion'); if(el) el.value = `CT ${window.tizNumeroCotizacion(n)} ${r}`;
 };
 window.abrirRevisionCotizacionV354 = function(id, crearNueva=false) {
   const p = (window.DB.presupuestos||[]).find(x=>x.id===id);
@@ -2820,7 +2826,7 @@ function renderPPItems() {
 
 
 window.tizCotizacionNombreBaseV354 = function(nro, cliente, descripcion, revision='1.1') {
-  const n = window.tizNumeroBase(nro)||'0';
+  const n = window.tizNumeroCotizacion(nro)||'0000000';
   const clean = v => String(v||'').replace(/[\\/:*?"<>|#%{}~]/g,' ').replace(/\s+/g,' ').trim();
   // Formato TIZ: CT 0005406 1.2 - Cliente - Descripción
   return ['CT ' + n + ' ' + normalizarRevisionV354(revision), clean(cliente), clean(descripcion)].filter(Boolean).join(' - ').slice(0,180);
@@ -2915,7 +2921,7 @@ window.generarPDF = async () => {
 
   // Guarda automáticamente una copia PDF en PDF 2026 y una XLSX en Excel 2026.
   window._postCotizacionDriveV353({
-    action:'guardarCotizacionArchivos', nroCotizacion:nro, revision, cliente, descripcion:descGeneral,
+    action:'guardarCotizacionArchivos', nroCotizacion:window.tizNumeroCotizacion(nro), revision, cliente, descripcion:descGeneral,
     fecha:fmtFecha(hoy), validez:fmtFecha(validez), nota, condicion:cond, total,
     items:items.map(it=>({descripcion:String(it.desc||''), unitario:+it.precio||0, unidades:+it.cant||1, subtotal:(+it.precio||0)*(+it.cant||1)})),
     nombreBase, firestoreId:ref?.id||'', entregaLogistica
@@ -2925,7 +2931,7 @@ window.generarPDF = async () => {
   const html = `<div class="ct-page">
     <div class="ct-header">
       <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ Av Pte Perón 3779 J C Paz</div></div>
-      <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${window.tizNumeroBase(nro)}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
+      <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${window.tizNumeroCotizacion(nro)}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
     </div>
     <div class="ct-items"><table class="ct-table"><colgroup><col style="width:59%"><col style="width:14%"><col style="width:12%"><col style="width:15%"></colgroup><thead><tr><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPesoPresupuesto(total)}</b></div></div>
@@ -3616,7 +3622,7 @@ async function syncToSheets(data) {
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914"></script>
 <script src="sectorizacionV35.js?v=TIZ-V35-25-CONTACTO-OT-20260929"></script>
-<script src="vincularCarpetasV38.js?v=TIZ-V38-2-CLIENTE-AMPERSAND-20260929"></script>
+<script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="baseMadreSyncV116.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <!-- GitHub Pages compatibility checks retained while Cobranzas V2 replaces the legacy UI:
