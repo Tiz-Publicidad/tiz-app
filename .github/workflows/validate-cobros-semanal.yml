@@ -1,0 +1,24 @@
+name: Validate weekly collections and payment terms
+on:
+  push:
+    branches:
+      - codex/cobros-semana-plazo-20260930
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate payment workflow without financial writes
+        run: |
+          node --check facturadorIntegralV83.js
+          node --check facturacionCobranzasUIV2.js
+          node --check facturacionCobranzasActionsV2.js
+          node --check facturacionCobranzasDataV2.js
+          node --check cobranzasSemanalV127.js
+          node --check functions/facturacionIntegralApiV83.js
+          node --test tests/cobranzasSemanalV127.test.cjs

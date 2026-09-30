@@ -12,6 +12,7 @@ const {
   saldoFiscal,
 } = require("./arcaFiscalCoreV83");
 const { archivarFacturaPdfEnDrive } = require("./facturaDrive2026");
+const { validarDiasPago } = require("./condicionesPagoV127");
 if (!admin.apps.length) admin.initializeApp();
 const cert = defineSecret("ARCA_PROD_CERTIFICATE_PEM"),
   key = defineSecret("ARCA_PROD_PRIVATE_KEY_PEM"),
@@ -300,6 +301,7 @@ const facturacionIntegralEmitirV83 = onRequest(
           .slice(0, 80),
         tipo = Number(req.body?.cbteTipo),
         cfg = validateType(tipo);
+      const diasPagoElegidos = validarDiasPago(req.body?.diasPago);
       if (!obraId || !idKey)
         throw Object.assign(new Error("Falta identificar operación"), {
           status: 400,
@@ -378,10 +380,7 @@ const facturacionIntegralEmitirV83 = onRequest(
       }
       const iva = exento ? 0 : round2((neto * ivaCfg.pct) / 100),
         total = round2(neto + iva),
-        dias = Math.max(
-          0,
-          Number(req.body?.diasPago ?? obra.finanzas?.diasPago ?? 0) || 0,
-        ),
+        dias = diasPagoElegidos,
         hoy = day(),
         vto = day(dias);
       op = db.collection("arcaEmisiones").doc(`v83-${obraId}-${idKey}`);

@@ -33,6 +33,8 @@ jobs:
           node --check functions/baseMadreBackendV120.js
           node --check functions/arcaPadronA5V125.js
           node --test tests/arcaPadronV125.test.js
+          node --check functions/condicionesPagoV127.js
+          node --test tests/cobranzasSemanalV127.test.cjs
       - name: Install functions dependencies
         run: npm ci
         working-directory: functions
@@ -64,6 +66,12 @@ jobs:
             changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")
             if ! printf '%s\n' "$changed" | grep -Ev '^(functions/arcaPadronA5V125.js|tests/arcaPadronV125.test.js|.github/workflows/deploy-functions.yml|.github/workflows/deploy-arca-padron.yml)$' | grep -q .; then
               targets=functions:arcaPadronConsultarV125
+            fi
+          fi
+          if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            backend_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
+            if [ -n "$backend_changed" ] && ! printf '%s\n' "$backend_changed" | grep -Ev '^functions/(facturacionIntegralApiV83|condicionesPagoV127)\.js$' | grep -q .; then
+              targets=functions:facturacionIntegralEmitirV83
             fi
           fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive
