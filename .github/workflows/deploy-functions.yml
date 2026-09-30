@@ -62,18 +62,7 @@ jobs:
           targets=functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:sincronizarBaseMadreV120,functions:arcaPadronConsultarV125
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")
-            if ! printf '%s\n' "$changed" | grep -Ev '^(functions/arcaPadronA5V125.js|tests/arcaPadronV125.test.js|.github/workflows/deploy-functions.yml|.github/workflows/deploy-arca-padron.yml)
-      - name: Record deployment status
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          state=failure
-          if [ "$JOB_STATUS" = success ]; then state=success; fi
-          printf '{"state":"%s","context":"facturacion-v83-pv0003","description":"Deploy %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/deploy-status.json
-          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/deploy-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
- | grep -q .; then
+            if ! printf '%s\n' "$changed" | grep -Ev '^(functions/arcaPadronA5V125.js|tests/arcaPadronV125.test.js|.github/workflows/deploy-functions.yml|.github/workflows/deploy-arca-padron.yml)$' | grep -q .; then
               targets=functions:arcaPadronConsultarV125
             fi
           fi
