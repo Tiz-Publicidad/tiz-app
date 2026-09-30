@@ -22,7 +22,7 @@ function cors(req, res) {
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
 }
 const text = (v) => String(v ?? "").trim();
-const norm = (v) => text(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const norm = (v) => text(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const otBase = (v) => { const m = text(v).match(/\d{4,7}/); return m ? String(Number(m[0])) : ""; };
 const num = (v) => Number(v) || 0;
 const approved = (v) => norm(v).startsWith("aprob");
@@ -76,7 +76,8 @@ async function findBudget(db, requestedOt) {
 async function findObra(db, requestedOt, obraId) {
   if (obraId) {
     const direct = await db.collection("obras").doc(text(obraId)).get();
-    if (direct.exists) return {id:direct.id, ...direct.data()};
+    if (direct.exists && otBase(direct.data().ot || direct.data().nroCotizacion || direct.data().infoPresupuesto?.nro) === requestedOt) return {id:direct.id, ...direct.data()};
+    throw Object.assign(new Error("La obra no corresponde a la OT solicitada"), {status:409});
   }
   const snap = await db.collection("obras").limit(2500).get();
   return snap.docs.map((doc) => ({id:doc.id, ...doc.data()}))
@@ -100,9 +101,20 @@ function weekFromDate(value) {
   const [year,month,day] = iso.split("-").map(Number);
   return isoWeek(new Date(year, month - 1, day));
 }
-function invoiceNumber(invoice = {}) { return text(invoice.numeroCompleto || invoice.nroFactura || invoice.numero || invoice.cbteNro); }
+function invoiceNumber(invoice = {}) { return text(invoice.numeroCompleto || invoice.nroFactura || invoice.numero || invoice.cbteNro).replace(/^(\d+)\.0+$/, "$1"); }
+function fiscalIdentity(value) {
+  const match = text(value).replace(/^(\d+)\.0+$/, "$1").match(/^(?:(\d{1,5})-)?(\d{1,8})$/);
+  return match && Number(match[2]) > 0 ? {pv:Number(match[1] || 0), n:Number(match[2])} : null;
+}
+function sameInvoiceNumbers(left, right) {
+  const a = text(left).split(/\s*\/\s*/).map(fiscalIdentity), b = text(right).split(/\s*\/\s*/).map(fiscalIdentity);
+  if (a.length !== b.length || a.some(x=>!x) || b.some(x=>!x)) return false;
+  const used = new Set();
+  return a.every(x=>{const candidates=b.map((y,i)=>!used.has(i)&&x.n===y.n&&(!x.pv||!y.pv||x.pv===y.pv)?i:-1).filter(i=>i>=0);if(candidates.length!==1)return false;used.add(candidates[0]);return true});
+}
 function invoicesFrom(obra = {}) {
   const all = [
+    ...(Array.isArray(obra.facturasBaseMadre) ? obra.facturasBaseMadre : []),
     ...(Array.isArray(obra.comprobantesArca) ? obra.comprobantesArca : []),
     ...(Array.isArray(obra.facturasArca) ? obra.facturasArca : []),
     ...(Array.isArray(obra.facturasManual) ? obra.facturasManual : []),
@@ -110,7 +122,7 @@ function invoicesFrom(obra = {}) {
   if (obra.facturaArca) all.push(obra.facturaArca);
   const seen = new Set();
   return all.filter((invoice) => {
-    const key = invoiceNumber(invoice).replace(/\D/g, "");
+    const key = invoiceNumber(invoice).replace(/\D/g, "") + ':' + (invoice.cbteTipo || invoice.familia || 'factura');
     if (!key || seen.has(key)) return false;
     seen.add(key); return true;
   }).sort((a,b) => dateIso(a.fecha).localeCompare(dateIso(b.fecha)));
@@ -119,25 +131,45 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const obra = await findObra(db, requestedOt, obraId);
   if (!obra) throw Object.assign(new Error(`No se encontró la obra ${requestedOt}`), {status:404});
   const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C`});
-  const found = (lookup.data.values || []).findIndex((row) => otBase(row?.[0]) === requestedOt);
+  const matchingRows = (lookup.data.values || []).map((row,index) => otBase(row?.[0]) === requestedOt ? index + 3 : 0).filter(Boolean);
+  if (matchingRows.length > 1) throw Object.assign(new Error(`La OT ${requestedOt} tiene varias filas en Base Madre. No se modificó ninguna: conciliá por factura.`), {status:409});
+  const found = matchingRows.length ? matchingRows[0] - 3 : -1;
   if (found < 0) throw Object.assign(new Error(`La OT ${requestedOt} todavía no existe en Base de datos`), {status:409});
   const rowNumber = found + 3;
+  const current = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:Y${rowNumber}`, valueRenderOption:"FORMATTED_VALUE"});
+  const fullRow = current.data.values?.[0] || [], cell = fullRow.slice(17);
+  const clientNames=[obra.cliente];
+  if (obra.clienteId) {const c=await db.collection('clientes').doc(text(obra.clienteId)).get();if(c.exists){const d=c.data();clientNames.push(d.nombre,d.razonSocial,d.razon_social,d.nombreFiscal)}}
+  if (!text(fullRow[5]) || !clientNames.some(name=>norm(name)===norm(fullRow[5]))) throw Object.assign(new Error('El cliente de Base Madre no coincide con la obra'), {status:409});
   const invoices = invoicesFrom(obra);
+  const hasCredit = invoices.some((invoice) => norm(invoice.familia) === "credito" || [3,8,203,208].includes(Number(invoice.cbteTipo)));
+  if (hasCredit) throw Object.assign(new Error('La obra tiene nota de crédito: conservar y conciliar sus comprobantes por separado'), {status:409});
   const payments = Array.isArray(obra.cobros) ? obra.cobros : [];
   const lastInvoice = invoices[invoices.length - 1] || {};
   const lastPayment = [...payments].sort((a,b) => dateIso(a.fecha).localeCompare(dateIso(b.fecha))).pop() || {};
   const due = invoices.map((x) => dateIso(x.fechaPrevistaCobro || x.fechaVencimientoPago)).filter(Boolean).sort()[0]
     || dateIso(obra.fechaPrevistaCobro || obra.finanzas?.fechaPrevistaCobro);
   const numbers = invoices.map(invoiceNumber).filter(Boolean).join(" / ") || text(obra.nrfc);
+  if (text(cell[1]) && numbers && !sameInvoiceNumbers(cell[1], numbers)) {
+    throw Object.assign(new Error(`La OT ${requestedOt} tiene otro número de FC en Base Madre. No se sobrescribió.`), {status:409});
+  }
   const paid = payments.reduce((sum,p) => sum + num(p.importe) + num(p.retenciones), 0);
   const invoiced = invoices.reduce((sum,invoice) => sum + num(invoice.total || invoice.neto), 0);
   const data = [];
-  if (numbers) data.push({range:`'${SHEET}'!R${rowNumber}:S${rowNumber}`, values:[[sheetDate(lastInvoice.fecha || obra.ffc), numbers]]});
-  if (due) data.push({range:`'${SHEET}'!T${rowNumber}:U${rowNumber}`, values:[[sheetDate(due), weekFromDate(due)]]});
-  if (lastPayment.fecha) data.push({range:`'${SHEET}'!V${rowNumber}`, values:[[weekFromDate(lastPayment.fecha)]]});
-  if (invoiced > 0 && paid >= invoiced - 0.01) data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado"]]});
-  else if (paid > 0) data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado pendiente"]]});
-  if (data.length) await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data}});
+  if (numbers && !text(cell[1])) data.push({range:`'${SHEET}'!S${rowNumber}`, values:[[numbers]]});
+  const invoiceDate=sheetDate(lastInvoice.fecha || obra.ffc);
+  if (invoiceDate && !text(cell[0])) data.push({range:`'${SHEET}'!R${rowNumber}`, values:[[invoiceDate]]});
+  if (due && !text(cell[2])) data.push({range:`'${SHEET}'!T${rowNumber}`, values:[[sheetDate(due)]]});
+  if (due && !text(cell[3])) data.push({range:`'${SHEET}'!U${rowNumber}`, values:[[weekFromDate(due)]]});
+  if (lastPayment.fecha && !text(cell[4])) data.push({range:`'${SHEET}'!V${rowNumber}`, values:[[weekFromDate(lastPayment.fecha)]]});
+  if (((invoiced > 0 && paid >= invoiced - 0.01) || norm(obra.cobranzaEstadoManual) === "cobrado") && norm(cell[7]) !== 'cobrado') data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado"]]});
+  else if (!hasCredit && (paid > 0 || norm(obra.cobranzaEstadoManual) === "cobrado pendiente") && norm(cell[7]) !== "cobrado") data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado pendiente"]]});
+  if (data.length) {
+    const formulas=await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!R${rowNumber}:Y${rowNumber}`,valueRenderOption:'FORMULA'});
+    const cells=formulas.data.values?.[0]||[];
+    for(let i=data.length-1;i>=0;i--){const column=data[i].range.match(/!([A-Z]+)/)[1].charCodeAt(0)-'R'.charCodeAt(0);if(text(cells[column]).startsWith('=')){if(column===3){data.splice(i,1);continue}throw Object.assign(new Error('La celda de destino contiene una fórmula; revisar antes de actualizar'),{status:409})}}
+    if(data.length)await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data}});
+  }
   const signature = [numbers, lastInvoice.fecha || obra.ffc || "", due, payments.length, paid, obra.cobranzaEstadoManual || "", obra.estadoGestionFactCob || ""].join("|");
   const mark = {baseMadreFactCobSyncAt:new Date().toISOString(), baseMadreFactCobSignature:signature, baseMadreRow:rowNumber, baseMadreFactCobSyncVersion:"BACKEND-V121", baseMadreFactCobSyncBy:email};
   await db.collection("obras").doc(obra.id).set(mark, {merge:true});
@@ -151,10 +183,19 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
   try {
     const email = await operator(req);
     const requestedOt = otBase(req.body?.ot);
-    if (!requestedOt) throw Object.assign(new Error("Falta una OT válida"), {status:400});
     const db = admin.firestore();
     const auth = new google.auth.GoogleAuth({scopes:["https://www.googleapis.com/auth/spreadsheets"]});
     const sheets = google.sheets({version:"v4", auth});
+    if (text(req.body?.mode).toLowerCase() === "read-billing") {
+      if (email !== "info@tizpublicidad.com" && email !== "pablo.aciar@tizpublicidad.com") {
+        throw Object.assign(new Error("Sin permiso para conciliar facturación"), {status:403});
+      }
+      const result = await sheets.spreadsheets.values.get({
+        spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A2:Z`, valueRenderOption:"FORMATTED_VALUE"
+      });
+      return res.json({ok:true, rows:result.data.values || [], firstRow:2});
+    }
+    if (!requestedOt) throw Object.assign(new Error("Falta una OT válida"), {status:400});
     if (text(req.body?.mode).toLowerCase() === "billing") {
       return res.json(await syncBilling({db, sheets, requestedOt, obraId:req.body?.obraId, email}));
     }
