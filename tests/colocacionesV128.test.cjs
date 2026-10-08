@@ -52,7 +52,7 @@ test('Clemen recupera experiencias únicamente del mismo tipo y muestra la obra 
   const s=C.suggestions(o,{obras:[o,prev,unrelated]},'2026-10-08');assert.equal(s.some(x=>x.detalle==='No corresponde'),false);assert.equal(s.find(x=>x.detalle==='Revisar ingreso de escalera').origen,'OT 4000 · Cliente');
 });
 test('guardado transaccional verifica permisos y sólo permite campos de colocaciones',async()=>{
-  const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),start=app.indexOf('window.mutateColocacionesV128 ='),end=app.indexOf('\nwindow.deleteDoc_',start);const o=base();let reads=0,writes=0;
+  const app=fs.readFileSync(path.join(root,'index.html'),'utf8'),start=app.indexOf('window.mutateColocacionesV128 ='),end=app.indexOf('\nwindow.deleteDoc_',start);const o=base();let reads=0,writes=0;
   const w={canViewPage:()=>true,canAnnotateSector:()=>true},tx={get:async()=>{reads++;return{exists:()=>true,data:()=>o}},update:(_r,p)=>{writes++;C.applyPatch(o,p)}};
   vm.runInNewContext(app.slice(start,end),{window:w,db:{},doc:()=>({}),runTransaction:async(_db,fn)=>fn(tx)});
   await w.mutateColocacionesV128('obra1',current=>C.resultPatch(current,'primera',{detalle:'Listo',fechaReal:'2026-10-08'},null,'','',{}));
@@ -67,4 +67,21 @@ test('importación sólo propone OT única, nunca adivina por cliente y conserva
 });
 test('identidad importada permanece estable al cambiar fecha; conserva acciones sin responsable',()=>{
   const headers=['Obra / OT','Tarea / Operación','Fecha compromiso'],sheets={Colocaciones:[headers,['4573','Revisar plano','08/10/2026']]};const first=C.parseImportRows(sheets,[])[0];sheets.Colocaciones[1][2]='09/10/2026';const next=C.parseImportRows(sheets,[])[0];assert.equal(first.id,next.id);assert.equal(next.fecha,'2026-10-09');assert.equal(next.responsable,'');
+});
+
+test('pantalla real envía acciones autenticadas al acceso de Colocaciones y propaga errores',async()=>{
+  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  assert.match(html,/serverTimestamp, runTransaction.*firebase-firestore/);
+  const start=html.indexOf('window.colocacionesApiV129 ='),end=html.indexOf('window.deleteDoc_',start);
+  assert.ok(start>0 && end>start);
+  let request,fail=false;
+  const w={canViewPage:()=>true,canAnnotateSector:()=>true};
+  const auth={currentUser:{getIdToken:async()=>'test-token'}};
+  vm.runInNewContext(html.slice(start,end),{window:w,auth,fetch:async(url,opts)=>{request={url,opts};return{ok:!fail,json:async()=>fail?{error:'Sin permiso'}:{ok:true}}}});
+  await w.colocacionesApiV129({mode:'save',sector:'otro'});
+  assert.match(request.url,/facturacionIntegralEmitirV83$/);
+  assert.equal(request.opts.headers.Authorization,'Bearer test-token');
+  assert.equal(JSON.parse(request.opts.body).sector,'colocaciones');
+  fail=true;await assert.rejects(w.colocacionesApiV129({mode:'list'}),/Sin permiso/);
+  auth.currentUser=null;await assert.rejects(w.colocacionesApiV129({mode:'list'}),/permiso/);
 });

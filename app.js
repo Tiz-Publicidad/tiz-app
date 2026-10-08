@@ -283,9 +283,9 @@ window.colocacionesApiV129 = async payload => {
   if (!auth.currentUser || !window.canViewPage('colocaciones') || !window.canAnnotateSector('Colocaciones')) {
     throw new Error('Tu puesto no tiene permiso para editar Colocaciones.');
   }
-  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/colocacionesGeneralV129', {
+  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/facturacionIntegralEmitirV83', {
     method: 'POST', headers: { Authorization: 'Bearer ' + await auth.currentUser.getIdToken(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ ...payload, sector: 'colocaciones' })
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) throw new Error(result.error || 'No se pudo conectar con la base de Colocaciones.');

@@ -39,7 +39,7 @@ jobs:
           node --check functions/colocacionesGeneralV129.js
           node --check functions/colocacionesCoreV129.js
           node --check functions/colocacionesSheetV130.js
-          node --test tests/colocacionesGeneralV129.test.cjs tests/colocacionesSheetV130.test.cjs
+          node --test tests/colocacionesRoutingV130.test.cjs tests/colocacionesGeneralV129.test.cjs tests/colocacionesSheetV130.test.cjs
           node --check functions/condicionesPagoV127.js
           node --test tests/cobranzasSemanalV127.test.cjs
       - name: Install Firebase CLI
@@ -65,7 +65,7 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
         run: |
-          targets=functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:sincronizarBaseMadreV120,functions:arcaPadronConsultarV125,functions:colocacionesGeneralV129
+          targets=functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:sincronizarBaseMadreV120,functions:arcaPadronConsultarV125
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")
             if ! printf '%s\n' "$changed" | grep -Ev '^(functions/arcaPadronA5V125.js|tests/arcaPadronV125.test.js|.github/workflows/deploy-functions.yml|.github/workflows/deploy-arca-padron.yml)$' | grep -q .; then
@@ -80,11 +80,11 @@ jobs:
           fi
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             colocaciones_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
-            if [ -n "$colocaciones_changed" ] && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|allFunctionsV86)\.js$' | grep -q .; then
-              targets=functions:colocacionesGeneralV129
+            if [ -n "$colocaciones_changed" ] && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|allFunctionsV86|facturacionIntegralApiV83)\.js$' | grep -q .; then
+              targets=functions:facturacionIntegralEmitirV83
             fi
-            if git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- colocacionesV128.js | grep -q . && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|allFunctionsV86)\.js$' | grep -q .; then
-              targets=functions:colocacionesGeneralV129
+            if git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- colocacionesV128.js | grep -q . && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|allFunctionsV86|facturacionIntegralApiV83)\.js$' | grep -q .; then
+              targets=functions:facturacionIntegralEmitirV83
             fi
           fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive

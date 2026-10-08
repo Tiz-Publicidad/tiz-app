@@ -6,7 +6,7 @@ Cargar acción ofrece OT opcional, tarea, responsable y compromiso. Más datos s
 
 ## Google Sheet específico
 
-Administración vincula una planilla específica de Colocaciones mediante su enlace. La configuración se guarda en Firebase, sin incluir la identidad de la planilla en el código público. La hoja exclusiva `TIZZ - Acciones` contiene sólo datos operativos de colocación. Las otras hojas manuales no se modifican. La hoja se creó en Planificación TIZ — Colocaciones y sus encabezados se verificaron; la sincronización necesita que el servicio esté publicado y la vinculación se complete en la app.
+Administración vincula una planilla específica de Colocaciones mediante su enlace. La configuración se guarda en Firebase, sin incluir la identidad de la planilla en el código público. La hoja exclusiva `TIZZ - Acciones` contiene sólo datos operativos de colocación. Las otras hojas manuales no se modifican. La hoja se creó en Planificación TIZ — Colocaciones y sus encabezados se verificaron. La vinculación inicial se completa desde Google Sheet de Colocaciones con una sesión de administración y autorización Google; si caduca la autorización, Reconectar Google permite renovarla.
 
 Guardar, asociar o modificar acciones programa su envío al Sheet. El servicio lee los datos actuales en Firebase; no acepta filas arbitrarias del navegador. La identidad estable evita duplicados al asociar un pendiente sin OT. Se usa RAW, no fórmulas; se rechaza sobrescribir destinos que tengan fórmulas. Se muestra el último envío confirmado o el error pendiente; hay reintentos cada cinco minutos y recuperación al abrir/actualizar la base. El envío ocurre mientras la app está abierta. No hay aún un disparador permanente de Firebase ni lectura de cambios manuales desde el Sheet hacia la app.
 
@@ -24,4 +24,6 @@ La exportación `.ics` permite enviar pendientes con fecha a un calendario; no e
 
 `docs/colocaciones-v128-preview.html` muestra datos ficticios y cambios en memoria. `docs/colocaciones-v130-mockup.html` es la misma vista, autónoma, para revisar sin conexión. No escribe en Firebase, Drive ni Sheets.
 
-Pruebas: `tests/colocacionesV128.test.cjs`, `tests/colocacionesGeneralV129.test.cjs`, `tests/colocacionesSheetV130.test.cjs` y comprobaciones existentes de Pages y el despliegue exclusivo deploy-colocaciones.yml. El servicio requiere iniciar sesión y pertenecer a los usuarios habilitados para Colocaciones. No cambia reglas de Firestore ni permisos de Drive. Esta preparación local no implica que los cambios estén publicados.
+Pruebas: `tests/colocacionesV128.test.cjs`, `tests/colocacionesGeneralV129.test.cjs`, `tests/colocacionesSheetV130.test.cjs` y comprobaciones existentes de Pages y el flujo deploy-functions.yml. El servicio requiere iniciar sesión y pertenecer a los usuarios habilitados para Colocaciones. No cambia reglas de Firestore ni permisos de Drive. Esta preparación local no implica que los cambios estén publicados.
+
+Colocaciones usa el punto de acceso Firebase existente con `sector: colocaciones`. La delegación valida su propia lista de usuarios y operaciones y retorna antes de la lógica fiscal. No se crea un endpoint público nuevo ni se amplían roles IAM. La emisión de facturas conserva su autorización, validaciones e idempotencia.

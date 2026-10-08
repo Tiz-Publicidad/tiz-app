@@ -285,6 +285,11 @@ const facturacionIntegralEmitirV83 = onRequest(
     if (req.method === "OPTIONS") return res.status(204).send("");
     if (req.method !== "POST")
       return res.status(405).json({ ok: false, error: "Método no permitido" });
+    // Colocaciones uses its own token allowlist and operation whitelist.
+    // It returns before any fiscal authorization, secrets or ARCA operation.
+    if (req.body?.sector === "colocaciones") {
+      return require("./colocacionesGeneralV129").handleColocaciones(req, res);
+    }
     const db = admin.firestore();
     let lock = null,
       op = null,
@@ -617,3 +622,4 @@ const facturacionIntegralEmitirV83 = onRequest(
   },
 );
 module.exports = { facturacionIntegralEmitirV83 };
+
