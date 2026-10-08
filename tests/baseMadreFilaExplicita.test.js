@@ -4,10 +4,11 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function fixture({occupied = false, existing = false, billing = false} = {}) {
+function fixture({occupied = false, existing = false, billing = false, weekFormula = '', extra = {}} = {}) {
   const rows = new Map([[420, {C:'4754'}]]);
   if (existing || billing) rows.set(421, {C:'4755', F:'Farmacity', I:'dato de producción'});
   if (occupied) rows.set(421, {I:'dato de otra OT'});
+  if (weekFormula || Object.keys(extra).length) rows.set(421, {...rows.get(421), ...(weekFormula ? {U:weekFormula} : {}), ...extra});
   const calls = [];
   const sheet = {spreadsheets:{values:{
     get: async ({range}) => {
@@ -28,7 +29,7 @@ function fixture({occupied = false, existing = false, billing = false} = {}) {
     batchUpdate: async ({requestBody}) => {
       calls.push(...requestBody.data);
       const match=requestBody.data[0].range.match(/!A(\d+):H/);
-      if(match){const row=Number(match[1]);rows.set(row,{C:String(requestBody.data[0].values[0][2]),F:requestBody.data[0].values[0][5]})}
+      if(match){const row=Number(match[1]);rows.set(row,{...rows.get(row),C:String(requestBody.data[0].values[0][2]),F:requestBody.data[0].values[0][5]})}
     },
     append: async () => {throw new Error('No debe usarse values.append')},
   }}};
@@ -74,3 +75,27 @@ test('facturación y cobro respetan las columnas R:S, T:U, V e Y',async()=>{
   assert.equal(x.calls[5].values[0][0],'Cobrado pendiente');
   assert.equal(x.rows.get(421).I,'dato de producción');
 });
+
+test('alta conserva la fórmula de semana preparada en U y el reintento no duplica la OT',async()=>{
+  const formula='=IF(T421="";"";IFERROR(WEEKNUM(INT(T421);2);""))';
+  const x=fixture({weekFormula:formula});await x.handler(x.req,x.response);
+  assert.equal(x.response.statusCode,200);assert.equal(x.rows.get(421).U,formula);
+  assert.equal(x.calls.some(c=>c.range.includes('!U421')),false);
+  x.calls.length=0;await x.handler(x.req,x.response);
+  assert.equal(x.response.statusCode,200);assert.equal(x.response.body.updated,true);
+  assert.deepEqual(x.calls.map(c=>c.range),["'Base de datos'!A421:H421"]);
+});
+test('tolera separadores y referencias absolutas de la misma fórmula de plantilla',async()=>{
+  const x=fixture({weekFormula:'=IF($T$421="","",IFERROR(WEEKNUM(INT($T$421),2),""))'});
+  await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);
+});
+test('fórmulas inesperadas, de otra fila, en columnas de escritura o datos manuales bloquean el alta',async()=>{
+  for(const options of [
+    {weekFormula:'=WEEKNUM(T421;2)'},
+    {weekFormula:'=IF(T420="";"";IFERROR(WEEKNUM(INT(T420);2);""))'},
+    {extra:{H:'=G421*1.21'}},
+    {extra:{U:'41'}},
+    {weekFormula:'=IF(T421="";"";IFERROR(WEEKNUM(INT(T421);2);""))',extra:{I:'Trabajo manual'}}
+  ]){const x=fixture(options);await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);}
+});
+

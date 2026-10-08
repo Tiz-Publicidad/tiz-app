@@ -191,7 +191,8 @@ async function appendNew(payload,token){
   const values=lookup.values||[];let row=3;
   for(let i=values.length-1;i>=0;i--)if(T(values[i]?.[0])){row=i+4;break}
   const check=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A'+row+':AD'+row)+'?valueRenderOption=FORMULA',token);
-  if((check.values?.[0]||[]).some(x=>T(x)))throw new Error('La fila '+row+' tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.');
+  const expectedWeek=`=IF(T${row}="";"";IFERROR(WEEKNUM(INT(T${row});2);""))`;
+  if((check.values?.[0]||[]).some((x,column)=>T(x)&&!(column===20&&T(x).replace(/[\s$]/g,'').replace(/,/g,';').toUpperCase()===expectedWeek)))throw new Error('La fila '+row+' tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.');
   const data=[
     {range:escSheetName(SHEET)+'!A'+row+':H'+row,values:[[fmtDate(),isoWeek(),payload.ot,payload.descripcion,payload.contacto,payload.cliente,payload.neto,payload.bruto]]},
     {range:escSheetName(SHEET)+'!Y'+row,values:[[payload.estado]]}
@@ -381,3 +382,4 @@ function wrapFirestoreWrites(){
 function install(){/* V112: sincronizacion disparada explicitamente por sectorizacionV35 al guardar. */}
 window.__TIZ_BASE_MADRE_SYNC_V111={version:VERSION,spreadsheetId:SPREADSHEET_ID,sheet:SHEET,syncBudget,syncBudgetBackend,payloadFromBudget};
 })();
+

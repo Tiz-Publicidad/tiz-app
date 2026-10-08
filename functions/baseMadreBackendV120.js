@@ -34,7 +34,12 @@ function nextEmptyRow(values) {
 }
 async function assertEmptyRow(sheets, row) {
   const check = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${row}:AD${row}`, valueRenderOption:"FORMULA"});
-  if ((check.data.values?.[0] || []).some((v) => text(v))) {
+  // U is prefilled in the template even on rows without an OT. It is not a
+  // business record and none of the approval writes modify this column.
+  const expectedWeek = `=IF(T${row}="";"";IFERROR(WEEKNUM(INT(T${row});2);""))`;
+  const templateWeek = (value, column) => column === 20 &&
+    text(value).replace(/[\s$]/g, "").replace(/,/g, ";").toUpperCase() === expectedWeek;
+  if ((check.data.values?.[0] || []).some((v, column) => text(v) && !templateWeek(v, column))) {
     throw Object.assign(new Error(`La fila ${row} tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.`), {status:409});
   }
 }
@@ -240,3 +245,4 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     return res.status(error.status || 502).json({ok:false, error:error.message || "No se pudo sincronizar la Base Madre"});
   }
 });
+
