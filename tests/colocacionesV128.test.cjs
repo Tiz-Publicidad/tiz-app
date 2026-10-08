@@ -3,9 +3,9 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const root=path.join(__dirname,'..'),source=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8');
 const window={};vm.runInNewContext(source,{window,Date,Intl,TextEncoder,console});const C=window.TIZColocacionesCore;
 const base=()=>({id:'obra1',ot:'4573',cliente:'Cliente',entregaLogistica:{contacto:'Ana',contactoTelefono:'111',domicilio:'Calle 123'},colocacionesGestion:{legacyCapturada:true,acciones:{primera:{id:'primera',titulo:'Enviar plano',fecha:'2026-10-07',responsable:'Juli',estado:'Pendiente',todoDia:true}}},sectores:{produccion:{estado:'Terminada'},colocaciones:{compromiso:'07/10/2026'}}});
-test('agenda usa fecha argentina y cubre ayer, hoy y seis días siguientes, cruzando meses',()=>{
+test('agenda usa fecha argentina y cubre ayer, hoy y diez días siguientes, cruzando meses',()=>{
   assert.equal(C.today(new Date('2026-10-09T01:30:00Z')),'2026-10-08');
-  const days=Array.from({length:8},(_,i)=>C.shift('2026-10-31',i-1));assert.equal(days[0],'2026-10-30');assert.equal(days[7],'2026-11-06');assert.equal(new Set(days).size,8);
+  const days=Array.from({length:12},(_,i)=>C.shift('2026-10-31',i-1));assert.equal(days[0],'2026-10-30');assert.equal(days[11],'2026-11-10');assert.equal(new Set(days).size,12);
   assert.equal(C.isoDate('31/02/2026'),'');assert.equal(C.isoDate('8/10/2026'),'2026-10-08');
 });
 test('toma contacto de cotización vinculada y permite completar cargo sin modificar fuente',()=>{
@@ -85,3 +85,4 @@ test('pantalla real envía acciones autenticadas al acceso de Colocaciones y pro
   fail=true;await assert.rejects(w.colocacionesApiV129({mode:'list'}),/Sin permiso/);
   auth.currentUser=null;await assert.rejects(w.colocacionesApiV129({mode:'list'}),/permiso/);
 });
+

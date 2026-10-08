@@ -1,6 +1,6 @@
 # Colocaciones V130 — tres solapas
 
-La pantalla principal tiene Base de datos, OT aprobadas y Calendario, con los colores institucionales negro y dorado. Base muestra compromiso, OT/obra, acción, responsable y estado; permite buscar y filtrar por semana, responsable e histórico. OT aprobadas muestra un listado breve; los contactos, planos, controles, ayudamemorias y resultados aparecen al abrir la ficha de cada obra. Calendario muestra ayer, hoy y próximos seis días con fecha argentina.
+La pantalla principal tiene Base de datos, OT aprobadas y Calendario, con los colores institucionales negro y dorado. Base muestra compromiso, OT/obra, acción, responsable y estado; permite buscar y filtrar por semana, responsable e histórico. OT aprobadas muestra un listado breve; los contactos, planos, controles, ayudamemorias y resultados aparecen al abrir la ficha de cada obra. Calendario muestra ayer, hoy y próximos diez días con fecha argentina.
 
 Cargar acción ofrece OT opcional, tarea, responsable y compromiso. Más datos se despliega cuando hace falta. Las acciones sin OT se guardan en `colocacionesPendientes`; al asociarlas se conserva el registro de origen y se agrega la acción a `obras/{id}.colocacionesGestion.acciones` en una transacción. Se rechazan versiones viejas y colocaciones cerradas. Los contactos se heredan de la cotización y se pueden completar por obra, con cargo, teléfono y correo.
 
@@ -27,3 +27,10 @@ La exportación `.ics` permite enviar pendientes con fecha a un calendario; no e
 Pruebas: `tests/colocacionesV128.test.cjs`, `tests/colocacionesGeneralV129.test.cjs`, `tests/colocacionesSheetV130.test.cjs` y comprobaciones existentes de Pages y el flujo deploy-functions.yml. El servicio requiere iniciar sesión y pertenecer a los usuarios habilitados para Colocaciones. No cambia reglas de Firestore ni permisos de Drive. Esta preparación local no implica que los cambios estén publicados.
 
 Colocaciones usa el punto de acceso Firebase existente con `sector: colocaciones`. La delegación valida su propia lista de usuarios y operaciones y retorna antes de la lógica fiscal. No se crea un endpoint público nuevo ni se amplían roles IAM. La emisión de facturas conserva su autorización, validaciones e idempotencia.
+
+
+## Base y resolución obligatoria V131
+
+Base de datos incluye obras aprobadas sin acciones y muestra OT, cliente, descripción, domicilio, zona, contactos, modalidad, tarea, compromiso, responsable y estado. Los detalles se completan en la ficha de la obra. Las tareas pueden guardarse sin fecha; al asignarla aparecen también en Calendario, segunda solapa, sin salir de la base. Calendario incluye ayer, hoy y los siguientes diez días.
+
+Una acción Pendiente o Bloqueada de anteayer o anterior detiene el uso operativo de Colocaciones. La pantalla muestra todos esos pendientes sin aplicar filtros. Para continuar se registra resultado y fecha real: cierre o próxima acción con responsable y compromiso de hoy o posterior. Se conserva el compromiso original. También se resuelven tareas sin OT, con control transaccional de versión. Cerrar la ventana no elimina el bloqueo. El bloqueo se aplica al flujo de Colocaciones; los demás módulos conservan su navegación.
