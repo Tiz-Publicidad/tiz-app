@@ -28,6 +28,10 @@ jobs:
         with:
           ref: main
 
+      - name: Install report test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: functions
+
       - name: Verify current TIZ modules
         shell: bash
         run: |
@@ -54,10 +58,18 @@ jobs:
           node --test tests/facturacionDriveAutomaticoV126.test.cjs
           node --check cobranzasSemanalV127.js
           node --check colocacionesV128.js
-          grep -q 'colocacionesV128.js?v=TIZ-COLOCACIONES-V128-20261008' index.html
+          node --check colocacionesGeneralUIV129.js
+          node --check functions/colocacionesCoreV129.js
+          node --check functions/colocacionesSheetV130.js
+          node --test tests/colocacionesSheetV130.test.cjs
+          node --test tests/colocacionesGeneralV129.test.cjs
+          grep -q 'colocacionesV128.js?v=TIZ-COLOCACIONES-V130-20261008' index.html
           node --test tests/colocacionesV128.test.cjs
           node --test tests/cobranzasSemanalV127.test.cjs
           node --test tests/baseMadreFilaExplicita.test.js tests/baseMadreReconcileV123.test.js tests/baseMadreSafetyV124.test.js tests/baseMadreBackendSafetyV124.test.js tests/facturacionManualV2.test.js
+
+      - name: Remove test dependencies from static site
+        run: rm -rf functions/node_modules
 
       - name: Prepare site
         shell: bash
@@ -82,6 +94,9 @@ jobs:
           grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
           test -f site/index.html
           test -f site/colocacionesV128.js
+          test -f site/colocacionesGeneralUIV129.js
+          test -f site/functions/colocacionesCoreV129.js
+          test ! -d site/functions/node_modules
           test -f site/app.js
           test -f site/sectorizacionV35.js
           test -f site/baseMadreSyncV116.js
