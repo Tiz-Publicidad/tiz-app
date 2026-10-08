@@ -53,6 +53,9 @@ jobs:
           node --check facturacionDriveRetryUIV83.js
           node --test tests/facturacionDriveAutomaticoV126.test.cjs
           node --check cobranzasSemanalV127.js
+          node --check colocacionesV128.js
+          grep -q 'colocacionesV128.js?v=TIZ-COLOCACIONES-V128-20261008' index.html
+          node --test tests/colocacionesV128.test.cjs
           node --test tests/cobranzasSemanalV127.test.cjs
           node --test tests/baseMadreFilaExplicita.test.js tests/baseMadreReconcileV123.test.js tests/baseMadreSafetyV124.test.js tests/baseMadreBackendSafetyV124.test.js tests/facturacionManualV2.test.js
 
@@ -78,6 +81,7 @@ jobs:
           grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' site/index.html
           grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
           test -f site/index.html
+          test -f site/colocacionesV128.js
           test -f site/app.js
           test -f site/sectorizacionV35.js
           test -f site/baseMadreSyncV116.js
@@ -112,3 +116,4 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"tiz-pages-pv0003","description":"Pages %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/pages-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/pages-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
+

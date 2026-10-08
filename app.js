@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -258,6 +258,24 @@ function initListeners() {
 // CRUD helpers
 window.addDoc_    = async (col_, data) => { const ref = await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); return ref; };
 window.updateDoc_ = async (col_, id, data) => { await updateDoc(doc(db, col_, id), data); };
+// Gestiones de Colocaciones: validar sobre la versión actual del documento evita
+// duplicar cierres/reprogramaciones cuando dos personas gestionan la misma acción.
+window.mutateColocacionesV128 = async (id, buildPatch) => {
+  if (!window.canViewPage('colocaciones') || !window.canAnnotateSector('Colocaciones')) {
+    throw new Error('Tu puesto no tiene permiso para editar Colocaciones.');
+  }
+  return runTransaction(db, async transaction => {
+    const ref = doc(db, 'obras', id), snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) throw new Error('La obra ya no está disponible.');
+    const patch = buildPatch({ ...snapshot.data(), id });
+    if (!patch || !Object.keys(patch).length) return {};
+    const allowed = key => key.startsWith('colocacionesGestion.') ||
+      /^sectores\.colocaciones\.(estado|real|instalada|fotosFinales)$/.test(key);
+    if (!Object.keys(patch).every(allowed)) throw new Error('La gestión sólo puede actualizar Colocaciones.');
+    transaction.update(ref, patch);
+    return patch;
+  });
+};
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
 
 // Helpers
@@ -2581,3 +2599,4 @@ window.refreshCurrent = function() {
 console.info('[TIZ] Build activo: TIZ-V14-20260724');
 
 console.info('TIZ ERP V16 FINAL cargado');
+

@@ -143,6 +143,9 @@
   }
 
   function renderSector(sector) {
+    if (sector === 'Colocaciones' && window.__TIZ_COLOCACIONES_V128__) {
+      return window.renderColocacionesV128?.();
+    }
     const pageId = sector === 'Producción' ? 'page-produccion' : 'page-colocaciones';
     const page = document.getElementById(pageId);
     if (!page) return;
@@ -466,3 +469,4 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,500));
   else setTimeout(install,500);
 })();
+
