@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 55574)
-Total output lines: 3649
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1544,7 +1541,691 @@ window.renderObras = function() {
     return `<tr onclick="toggleNotasRow('${o.id}')" style="cursor:pointer">
       <td>${o.semana||'—'}</td>
       <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td>
-      <td class="strong" style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}<div style="margin-top:5px">${riesgoV58.nivel==='ok'?'':`<span class="risk-pill ${riesgoV58.nivel==='danger'?'risk-danger':'risk-warn'}">${riesgoV58.nivel==='danger'?'🔴…10574 tokens truncated…toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      <td class="strong" style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}<div style="margin-top:5px">${riesgoV58.nivel==='ok'?'':`<span class="risk-pill ${riesgoV58.nivel==='danger'?'risk-danger':'risk-warn'}">${riesgoV58.nivel==='danger'?'🔴':'🟡'} ${riesgoV58.problemas.length}</span>`}</div></td>
+      <td>${o.cliente||''}</td>
+      <td><span style="font-size:11px;font-weight:500;color:var(--blue)">${o.sector||''}</span></td>
+      <td onclick="event.stopPropagation()">
+        <select class="quick-estado" onchange="quickChangeEstado('${o.id}',this.value)">
+          ${['Pendiente','Enviado','Aprobado','Entregado','Cobrado pendiente','Cobrado'].map(s=>`<option value="${s}" ${o.estado===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td style="white-space:nowrap" onclick="event.stopPropagation()">
+        ${o.nrfc ? `<span title="Facturado: FC ${o.nrfc}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>` : ''}
+        ${alertaVencimiento(o) ? `<span title="${alertaVencimiento(o)}" style="color:var(--red);margin-right:4px;font-size:13px">⚠</span>` : ''}
+        ${tieneNotas?`<span title="Tiene anotaciones" style="color:var(--accent);margin-right:4px"><i class="ti ti-message-dots" style="font-size:13px;vertical-align:middle"></i></span>`:''}
+        ${renderDriveButtonsV9(o)}
+        <button class="btn-icon" onclick="editObra('${o.id}')" style="margin-left:4px"><i class="ti ti-edit" style="font-size:13px"></i></button>
+        <button class="btn-icon" onclick="delObra('${o.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
+      </td>
+    </tr>
+    <tr id="notas-row-${o.id}" style="display:none">
+      <td colspan="7" style="background:var(--surface2);padding:10px 14px;border-bottom:0.5px solid var(--border)">
+        ${tieneNotas ? notasPreview(o) : '<span style="font-size:12px;color:var(--text3)">Sin anotaciones. Hacé clic en el lápiz para agregar.</span>'}
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:11px"></i> Editar / Agregar nota</button>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras. Hacé clic en "Nueva obra" para agregar.</td></tr>';
+};
+
+window.setObrasSector = s => { window.obrasSectorFilter=s; renderObras(); };
+window.toggleNotasRow = id => {
+  const row = document.getElementById('notas-row-'+id);
+  if(row) row.style.display = row.style.display==='none' ? '' : 'none';
+};
+
+// SEMANA
+window.renderSemana = function() {
+  const activas = window.DB.obras.filter(o => o.estado==='Aprobado'||o.estado==='En producción');
+  const sel = activas.filter(o => window.obrasSemana.has(o.id));
+
+  document.getElementById('semana-body').innerHTML = sel.length ? `
+    <table style="width:100%;font-size:12px"><thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>F.Prod</th><th>F.Col</th></tr></thead>
+    <tbody>${sel.map(o=>`<tr><td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td>${o.desc||''}</td><td>${o.cliente||''}</td><td>${o.sector||''}</td><td>${o.fprod_c||'—'}</td><td>${o.fcol_c||'—'}</td></tr>`).join('')}</tbody>
+    </table>` : '<p style="color:var(--text3);font-size:13px">Ninguna obra seleccionada todavía. Tildá las obras abajo.</p>';
+
+  document.getElementById('semana-picker').innerHTML = activas.length ? activas.map(o => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" ${window.obrasSemana.has(o.id)?'checked':''} onchange="toggleSemana('${o.id}',this.checked)" style="accent-color:var(--accent);width:16px;height:16px">
+      <div>
+        <span style="font-weight:500;color:var(--text)">${String(o.ot||'—').replace(/^0+(?=\d)/,'')} — ${o.desc||''}</span>
+        <span style="color:var(--text3);font-size:11px;margin-left:8px">${o.cliente||''} · ${o.sector||''}</span>
+      </div>
+      <span style="margin-left:auto;color:var(--text3);font-size:11px">${estadoBadge(o.estado)}</span>
+    </label>
+  `).join('') : '<p style="color:var(--text3);font-size:13px">No hay obras activas.</p>';
+};
+
+window.toggleSemana = (id, on) => { on ? window.obrasSemana.add(id) : window.obrasSemana.delete(id); renderSemana(); };
+
+window.exportCalendar = function() {
+  const sel = window.DB.obras.filter(o => window.obrasSemana.has(o.id));
+  if (!sel.length) { showToast('Seleccioná al menos una obra'); return; }
+  sel.forEach(o => {
+    const title = encodeURIComponent(`[TIZ] ${o.ot||''} - ${o.desc||''}`);
+    const details = encodeURIComponent(`Cliente: ${o.cliente||''}\nSector: ${o.sector||''}\nEstado: ${o.estado||''}`);
+    const date = (o.fprod_c||'').split('/').reverse().join('');
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}${date?`&dates=${date}/${date}`:''}`;
+    window.open(url, '_blank');
+  });
+  showToast(`${sel.length} obra(s) enviadas a Google Calendar`);
+};
+
+// PRODUCCION
+function renderProduccion() {
+  const obras = window.DB.obras;
+  const sem = window.currentSem;
+  const semObras = obras.filter(o=>+o.semana===sem);
+  const pctP = pct(obras.filter(o=>o.fprod_c),'prod');
+  const term = obras.filter(o=>o.fprod_r);
+  const venc = obras.filter(o=>semaforo(o.fprod_c,o.fprod_r)==='r').length;
+
+  document.getElementById('prod-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Cumpl. producción</div><div class="kpi-val ${pctP===null?'':pctP>=80?'green':pctP>=60?'amber':'red'}">${pctP===null?'—':pctP+'%'}</div><div class="kpi-sub">global</div></div>
+    <div class="kpi"><div class="kpi-label">Terminadas total</div><div class="kpi-val green">${term.length}</div><div class="kpi-sub">con fecha real</div></div>
+    <div class="kpi"><div class="kpi-label">En producción</div><div class="kpi-val">${obras.filter(o=>o.estado==='En producción').length}</div></div>
+    <div class="kpi"><div class="kpi-label">Vencidas</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div></div>
+  `;
+
+  const show = obras.filter(o=>o.fprod_c||o.estado==='En producción').sort((a,b)=>(+b.semana||0)-(+a.semana||0));
+  document.getElementById('prod-tbody').innerHTML = show.map(o => {
+    const dias = diasEntre(o.fprod_r||o.fprod_c, o.fcol_r||o.fcol_c);
+    return `<tr>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td>
+      <td class="strong">${o.desc||''}</td>
+      <td>${o.cliente||''}</td>
+      <td><span class="dot dot-${semaforo(o.fprod_c,o.fprod_r)==='g'?'green':semaforo(o.fprod_c,o.fprod_r)==='a'?'amber':'red'}"></span>${o.fprod_c||'—'}</td>
+      <td style="color:${o.fprod_r?'var(--green)':'var(--text3)'}">${o.fprod_r||'Pendiente'}</td>
+      <td>${semBadge(o.fprod_c,o.fprod_r)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${dias!==null?dias+'d':'—'}</td>
+      <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">No hay obras con fechas de producción cargadas.</td></tr>';
+}
+
+// COLOCACIONES
+function renderColocaciones() {
+  const obras = window.DB.obras;
+  const pctC = pct(obras.filter(o=>o.fcol_c),'col');
+  const term = obras.filter(o=>o.fcol_r).length;
+  const venc = obras.filter(o=>semaforo(o.fcol_c,o.fcol_r)==='r').length;
+
+  document.getElementById('col-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Cumpl. colocación</div><div class="kpi-val ${pctC===null?'':pctC>=80?'green':pctC>=60?'amber':'red'}">${pctC===null?'—':pctC+'%'}</div></div>
+    <div class="kpi"><div class="kpi-label">Colocadas</div><div class="kpi-val green">${term}</div></div>
+    <div class="kpi"><div class="kpi-label">Vencidas</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div></div>
+  `;
+
+  const show = obras.filter(o=>o.fcol_c).sort((a,b)=>(+b.semana||0)-(+a.semana||0));
+  document.getElementById('col-tbody').innerHTML = show.map(o => {
+    const dias = diasEntre(o.fcol_c, o.fcol_r||new Date().toLocaleDateString('es-AR'));
+    return `<tr>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+      <td><span class="dot dot-${semaforo(o.fcol_c,o.fcol_r)==='g'?'green':semaforo(o.fcol_c,o.fcol_r)==='a'?'amber':'red'}"></span>${o.fcol_c||'—'}</td>
+      <td style="color:${o.fcol_r?'var(--green)':'var(--text3)'}">${o.fcol_r||'Pendiente'}</td>
+      <td>${semBadge(o.fcol_c,o.fcol_r)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${o.fcol_r?diasEntre(o.fcol_c,o.fcol_r)+'d':'—'}</td>
+      <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">No hay obras con fechas de colocación.</td></tr>';
+}
+
+// DISEÑO
+function renderDiseno() {
+  const obras = window.DB.obras.filter(o=>o.sector==='Diseño');
+  const total = obras.length;
+  const term = obras.filter(o=>['Entregado','Facturado','Cobrado'].includes(o.estado)).length;
+  const totalNeto = obras.reduce((a,o)=>a+(+o.neto||0),0);
+
+  document.getElementById('dis-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Obras diseño</div><div class="kpi-val">${total}</div></div>
+    <div class="kpi"><div class="kpi-label">Terminadas</div><div class="kpi-val green">${term}</div></div>
+    <div class="kpi"><div class="kpi-label">Total en cartera</div><div class="kpi-val">${fmtM(totalNeto)}</div></div>
+  `;
+
+  document.getElementById('dis-tbody').innerHTML = obras.map(o => `<tr>
+    <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+    <td>${o.vendedor||'—'}</td><td>${estadoBadge(o.estado)}</td><td>${fmtM(o.neto)}</td>
+    <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras de diseño.</td></tr>';
+}
+
+// COBRANZAS
+window.renderCobranzas = function() {
+  const cobr = window.DB.cobranzas;
+  const pend = cobr.filter(c=>c.estado==='Pendiente');
+  const cobradas = cobr.filter(c=>c.estado==='Cobrado');
+  const totalPend = pend.reduce((a,c)=>a+(+c.importe||0),0);
+  const totalCobr = cobradas.reduce((a,c)=>a+(+c.importe||0),0);
+  const venc = pend.filter(c=>diasDesdeHoy(c.vencimiento)>=0).length;
+
+  document.getElementById('cobr-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Pendiente de cobro</div><div class="kpi-val amber">${fmtM(totalPend)}</div><div class="kpi-sub">${pend.length} facturas</div></div>
+    <div class="kpi"><div class="kpi-label">Cobrado total</div><div class="kpi-val green">${fmtM(totalCobr)}</div></div>
+    <div class="kpi"><div class="kpi-label">Vencidas</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div></div>
+  `;
+
+  let show = cobr;
+  if (window.cobTab==='pendientes') show = pend;
+  else if (window.cobTab==='cobradas') show = cobradas;
+  const cobrQ = document.getElementById('cobr-filter-cliente')?.value.toLowerCase();
+  const cobrE = document.getElementById('cobr-filter-estado')?.value;
+  if (cobrQ) show = show.filter(c=>(c.cliente||'').toLowerCase().includes(cobrQ)||(c.ot||'').toLowerCase().includes(cobrQ));
+  if (cobrE) show = show.filter(c=>c.estado===cobrE);
+  const cntEl = document.getElementById('cobr-count');
+  if (cntEl) cntEl.textContent = show.length + ' registros';
+
+  document.getElementById('cobr-tbody').innerHTML = show.map(c => {
+    const dias = diasDesdeHoy(c.vencimiento);
+    const isAlert = c.estado==='Pendiente' && dias >= 0;
+    return `<tr class="${isAlert?'alerta-row':''}">
+      <td class="strong">${c.ot||'—'}</td><td>${c.cliente||''}</td><td>${c.desc||''}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${c.nrfc||'—'}</td>
+      <td style="font-weight:500">${fmtM(c.importe)}</td>
+      <td style="color:${isAlert?'var(--red)':'var(--text2)'}">${c.vencimiento||'—'}</td>
+      <td>${c.estado==='Cobrado'?'<span class="badge badge-green">Cobrado</span>':isAlert?'<span class="badge badge-red">Vencida</span>':'<span class="badge badge-amber">Pendiente</span>'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:${isAlert?'var(--red)':''}">${dias!==null?Math.abs(dias)+'d':'—'}</td>
+      <td>
+        ${c.estado!=='Cobrado'?`<button class="btn btn-ghost btn-sm" onclick="marcarCobrado('${c.id}')">Cobrar</button>`:''}
+        <button class="btn-icon" onclick="delCobranza('${c.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:12px"></i></button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text3)">Sin registros.</td></tr>';
+};
+
+window.setCobTab = (tab, el) => {
+  window.cobTab = tab;
+  document.querySelectorAll('.page-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderCobranzas();
+};
+
+window.marcarCobrado = async id => { await updateDoc_('cobranzas', id, { estado: 'Cobrado' }); showToast('Marcada como cobrada'); };
+window.delCobranza = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('cobranzas', id); };
+
+// PRESUPUESTOS
+window.renderCotizacionDriveShortcut = function(p) {
+  const valid = value => {
+    try {
+      const url = new URL(String(value || '').trim());
+      return url.protocol === 'https:' && ['drive.google.com', 'docs.google.com'].includes(url.hostname) ? url.href : '';
+    } catch (_) { return ''; }
+  };
+  const pdf = valid(p?.cotizacionPdfUrl);
+  const folder = valid(p?.cotizacionFolderUrl);
+  const icon = '<i class="ti ti-brand-google-drive" style="font-size:15px"></i>';
+  if (!pdf && !folder) return `<button class="btn-icon" type="button" disabled title="Todavía no hay PDF ni carpeta de Drive vinculados" aria-label="Drive pendiente" style="margin-left:4px;opacity:.45;cursor:not-allowed">${icon}</button>`;
+  const title = pdf ? 'Abrir PDF de esta cotización en Google Drive' : 'Abrir carpeta de análisis de esta cotización en Google Drive';
+  const href = (pdf || folder).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return `<a class="btn-icon" href="${href}" target="_blank" rel="noopener noreferrer" title="${title}" aria-label="${title}" style="display:inline-flex;vertical-align:middle;margin-left:4px;color:var(--green)">${icon}</a>`;
+};
+
+function renderPresupuestos() {
+  const grupos=new Map();
+  (window.DB.presupuestos||[]).forEach(p=>{const k=String(p.nro||'').replace(/\D/g,'')+'|'+normalizarRevisionV354(p.revision||'1.1'),actual=grupos.get(k);if(!actual||p.estado==='Aprobado'&&actual.estado!=='Aprobado')grupos.set(k,p);});
+  const pres = [...grupos.values()];
+  const aprobados = pres.filter(p=>p.estado==='Aprobado').reduce((a,p)=>a+(+p.importe||0),0);
+  const enviados = pres.filter(p=>p.estado==='Enviado').length;
+
+  document.getElementById('pres-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total presupuestos</div><div class="kpi-val">${pres.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Aprobados</div><div class="kpi-val green">${fmtM(aprobados)}</div></div>
+    <div class="kpi"><div class="kpi-label">En revisión</div><div class="kpi-val amber">${enviados}</div></div>
+  `;
+
+  const map={'Pendiente':'gray','Enviado':'blue','Aprobado':'teal','Entregado':'purple','Cobrado pendiente':'amber','Cobrado':'green'};
+  const ordenados=[...pres].sort((a,b)=>{ const na=parseInt(a.nro)||0, nb=parseInt(b.nro)||0; if(nb!==na)return nb-na; const ra=normalizarRevisionV354(a.revision||'1.1').split('.').map(Number), rb=normalizarRevisionV354(b.revision||'1.1').split('.').map(Number); return (rb[0]-ra[0])||(rb[1]-ra[1]); });
+  document.getElementById('pres-tbody').innerHTML = ordenados.map(p => `<tr data-presupuesto-id="${p.id}">
+    <td class="strong" style="white-space:nowrap">CT ${window.tizNumeroCotizacion(p.nro)} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
+    <td>${p.vendedor||''}</td><td style="font-weight:500">${fmtM(p.importe)}</td>
+    <td>${p.fecha||'—'}</td><td><span class="badge badge-${map[p.estado]||'gray'}">${p.estado||''}</span></td>
+    <td style="white-space:nowrap">
+      <button class="btn-icon" onclick="abrirRevisionCotizacionV354('${p.id}',false)" title="Abrir esta revisión"><i class="ti ti-eye" style="font-size:13px"></i></button>
+      ${window.renderCotizacionDriveShortcut(p)}
+      <button class="btn-icon" onclick="regenerarArchivosCotizacionV65('${p.id}',this)" title="Actualizar PDF y Excel de esta revisión" style="margin-left:4px"><i class="ti ti-refresh" style="font-size:13px"></i></button>
+      <button class="btn-icon" onclick="crearNuevaRevisionV354('${p.id}')" title="Crear nueva revisión sin borrar esta" style="margin-left:4px;color:var(--accent)"><i class="ti ti-copy-plus" style="font-size:13px"></i></button>
+      <button class="btn-icon" onclick="delPres('${p.id}')" title="Eliminar revisión" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">Sin presupuestos.</td></tr>';
+}
+
+window.delPres = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('presupuestos', id); };
+window.editPres = id => {
+  const p = window.DB.presupuestos.find(x=>x.id===id);
+  if (!p) return;
+  window.editingId.presupuesto = id;
+  document.getElementById('fp-nro').value=p.nro||'';
+  document.getElementById('fp-vend').value=p.vendedor||'G';
+  document.getElementById('fp-cliente').value=p.cliente||'';
+  document.getElementById('fp-desc').value=p.desc||'';
+  document.getElementById('fp-importe').value=p.importe||'';
+  document.getElementById('fp-fecha').value=p.fecha||'';
+  document.getElementById('fp-estado').value=p.estado||'Enviado';
+  document.getElementById('fp-comentarios').value=p.comentarios||'';
+  openModal('presupuesto');
+};
+
+// CLIENTES
+window.renderClientes = function() {
+  let clis = [...window.DB.clientes].sort((a,b)=>String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'}));
+  const q = document.getElementById('filter-cliente2')?.value.toLowerCase();
+  if (q) clis = clis.filter(c=>(c.nombre||'').toLowerCase().includes(q)||(c.cuit||'').includes(q));
+  document.getElementById('clientes-count').textContent = clis.length + ' clientes';
+  document.getElementById('clientes-tbody').innerHTML = clis.map(c => {
+    const nombre=c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'';
+    const obras = window.DB.obras.filter(o=>(o.cliente||'').toLowerCase()===nombre.toLowerCase()).length;
+    return `<tr>
+      <td class="strong">${nombre}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${c.cuit||'—'}</td>
+      <td>${c.contacto||'—'}</td><td>${c.cel||'—'}</td>
+      <td style="color:var(--blue)">${c.email||'—'}</td>
+      <td><span class="badge badge-blue">${obras}</span></td>
+      <td>
+        <button class="btn-icon" onclick="asignarClienteAOTV56('${c.id}')" title="Asignar este cliente a una OT"><i class="ti ti-link" style="font-size:13px"></i></button>
+        <button class="btn-icon" onclick="editCliente('${c.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button>
+        <button class="btn-icon" onclick="delCliente('${c.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin clientes.</td></tr>';
+};
+
+window.editCliente = id => {
+  const c = window.DB.clientes.find(x=>x.id===id);
+  if(!c) return;
+  window.editingId.cliente = id;
+  document.getElementById('fc-numero').value=c.numeroCliente||c.numero||'';
+  document.getElementById('fc-nombre').value=c.nombre||'';
+  document.getElementById('fc-cuit').value=c.cuit||'';
+  document.getElementById('fc-contacto').value=c.contacto||'';
+  document.getElementById('fc-cel').value=c.cel||'';
+  document.getElementById('fc-email').value=c.email||'';
+  const otros=[...(Array.isArray(c.contactos)?c.contactos:[]),...(Array.isArray(c.contactosEntrega)?c.contactosEntrega:[]),...(Array.isArray(c.contactosRetiro)?c.contactosRetiro:[])];
+  const vistos=new Set([String(c.contacto||'').normalize('NFD').toLowerCase()]);
+  document.getElementById('fc-contactos').value=otros.filter(x=>{const n=String(x?.nombre||x?.contacto||'').trim(),k=n.normalize('NFD').toLowerCase();if(!n||vistos.has(k))return false;vistos.add(k);return true}).map(x=>[x.nombre||x.contacto||'',x.telefono||x.tel||'',x.email||''].join(' | ')).join('\n');
+  document.getElementById('fc-notas').value=c.notas||'';
+  openModal('cliente');
+};
+window.delCliente = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('clientes',id); };
+window.asignarClienteAOTV56 = async clienteId => {
+  const cliente=(window.DB.clientes||[]).find(c=>c.id===clienteId);if(!cliente)return showToast('No se encontró el cliente');
+  const nombre=String(cliente.razonSocial||cliente.razon_social||cliente.nombreFiscal||cliente.nombre||'').trim(),cuit=String(cliente.cuit||'').trim();
+  if(!cuit)return showToast('Este cliente no tiene CUIT cargado');
+  const solicitado=prompt(`Asignar ${nombre} · CUIT ${cuit}\n\nIngresá el número de OT:`, '4680');if(solicitado===null)return;
+  const base=window.tizNumeroBase(solicitado),obra=(window.DB.obras||[]).find(o=>window.tizNumeroBase(o.ot)===base);if(!obra)return showToast('No se encontró la OT '+base);
+  if(!confirm(`Confirmar cambio de cliente\n\nOT: ${base}\nCliente actual: ${obra.cliente||'—'}\nCliente nuevo: ${nombre}\nCUIT: ${cuit}\n\nNo se modificarán importes ni estados.`))return;
+  try{
+    await updateDoc_('obras',obra.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});
+    const ids=new Set([obra.presupuestoId,obra.cotizacionId].filter(Boolean));
+    const vinculadas=(window.DB.presupuestos||[]).filter(p=>p.obraId===obra.id||ids.has(p.id)||window.tizNumeroBase(p.nro)===base);
+    for(const p of vinculadas){await updateDoc_('presupuestos',p.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});p.cliente=nombre;p.clienteId=cliente.id;p.clienteCuit=cuit}
+    obra.cliente=nombre;obra.clienteId=cliente.id;obra.clienteCuit=cuit;showToast(`OT ${base} vinculada a ${nombre} ✓`);window.renderClientes();
+  }catch(e){console.error(e);showToast('No se pudo vincular el cliente a la OT')}
+};
+
+window.saveCliente = async () => {
+  const nombre = document.getElementById('fc-nombre').value.trim();
+  if (!nombre) { showToast('Ingresá el nombre del cliente'); return; }
+  const data = {
+    nombre,
+    cuit: document.getElementById('fc-cuit').value.trim(),
+    contacto: document.getElementById('fc-contacto').value.trim(),
+    cel: document.getElementById('fc-cel').value.trim(),
+    email: document.getElementById('fc-email').value.trim(),
+    notas: document.getElementById('fc-notas')?.value.trim() || '',
+  };
+  const id = window.editingId.cliente;
+  if (id) await updateDoc_('clientes', id, data);
+  else await addDoc_('clientes', data);
+  // Si vino desde presupuesto, actualizar campo cliente del presupuesto
+  const fCliente = document.getElementById('f-cliente');
+  if (fCliente && !id) fCliente.value = nombre;
+  if (window._volvioDePresupuesto && !id) {
+    document.getElementById('pp-cliente').value = nombre;
+    window._volvioDePresupuesto = false;
+  }
+  closeModal('cliente');
+  showToast(id ? 'Cliente actualizado' : 'Cliente guardado ✓');
+};
+
+// RETENCIONES
+function renderRetenciones() {
+  const rets = window.DB.retenciones;
+  const totalBruto = rets.reduce((a,r)=>a+(+r.bruto||0),0);
+  const totalRet = rets.reduce((a,r)=>a+(+r.suss||0)+(+r.iibb||0)+(+r.gan||0)+(+r.iva||0),0);
+
+  document.getElementById('ret-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total bruto</div><div class="kpi-val">${fmtM(totalBruto)}</div></div>
+    <div class="kpi"><div class="kpi-label">Total retenido</div><div class="kpi-val red">${fmtM(totalRet)}</div></div>
+    <div class="kpi"><div class="kpi-label">Neto recibido</div><div class="kpi-val green">${fmtM(totalBruto-totalRet)}</div></div>
+  `;
+
+  document.getElementById('ret-tbody').innerHTML = rets.map(r => {
+    const neto = (+r.bruto||0)-(+r.suss||0)-(+r.iibb||0)-(+r.gan||0)-(+r.iva||0);
+    return `<tr>
+      <td>${r.mes||'—'}</td><td class="strong">${r.cliente||''}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${r.nrfc||'—'}</td>
+      <td>${fmtM(r.bruto)}</td>
+      <td style="color:${r.suss?'var(--red)':'var(--text3)'}">${r.suss?fmtM(r.suss):'—'}</td>
+      <td style="color:${r.iibb?'var(--red)':'var(--text3)'}">${r.iibb?fmtM(r.iibb):'—'}</td>
+      <td style="color:${r.gan?'var(--red)':'var(--text3)'}">${r.gan?fmtM(r.gan):'—'}</td>
+      <td style="color:${r.iva?'var(--red)':'var(--text3)'}">${r.iva?fmtM(r.iva):'—'}</td>
+      <td style="color:var(--green);font-weight:500">${fmtM(neto)}</td>
+      <td><button class="btn-icon" onclick="delRet('${r.id}')"><i class="ti ti-trash" style="font-size:12px"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Sin retenciones.</td></tr>';
+}
+window.delRet = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('retenciones',id); };
+
+// VENDEDORES
+function renderVendedores() {
+  const obras = window.DB.obras;
+  const vends = [...new Set(obras.map(o=>o.vendedor).filter(Boolean))];
+
+  document.getElementById('vend-cards').innerHTML = vends.map(v => {
+    const wo = obras.filter(o=>o.vendedor===v||o.vendedor===v);
+    const neto = wo.reduce((a,o)=>a+(+o.neto||0),0);
+    const cobr = wo.filter(o=>o.estado==='Cobrado').reduce((a,o)=>a+(+o.neto||0),0);
+    return `<div class="sector-card">
+      <div class="sector-card-name" style="color:var(--accent)">${v}</div>
+      <div class="sector-card-num">${wo.length}</div>
+      <div class="sector-card-money">${fmtM(neto)}</div>
+      <div class="sector-card-sub">Cobrado: ${fmtM(cobr)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('vend-tbody').innerHTML = vends.map(v => {
+    const wo = obras.filter(o=>o.vendedor===v);
+    const neto = wo.reduce((a,o)=>a+(+o.neto||0),0);
+    const cobr = wo.filter(o=>o.estado==='Cobrado').reduce((a,o)=>a+(+o.neto||0),0);
+    const pctCobr = neto ? Math.round(cobr/neto*100) : 0;
+    const pp = pct(wo.filter(o=>o.fprod_c),'prod');
+    const pc = pct(wo.filter(o=>o.fcol_c),'col');
+    return `<tr>
+      <td class="strong" style="color:var(--accent)">${v}</td>
+      <td>${wo.length}</td><td>${fmtM(neto)}</td><td>${fmtM(cobr)}</td>
+      <td><span class="badge badge-${pctCobr>=80?'green':pctCobr>=50?'amber':'red'}">${pctCobr}%</span></td>
+      <td>${pp!==null?`<span class="badge badge-${pp>=80?'green':pp>=60?'amber':'red'}">${pp}%</span>`:'—'}</td>
+      <td>${pc!==null?`<span class="badge badge-${pc>=80?'green':pc>=60?'amber':'red'}">${pc}%</span>`:'—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin datos de vendedores.</td></tr>';
+}
+
+// MODALES
+window.openModal = (type) => {
+  if (type==='cliente' && !window.editingId.cliente) {
+    const n = document.getElementById('fc-numero'); if(n) n.value = nextClienteNumero();
+    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+  }
+  if (type==='obra') {
+    if (!window.editingId.obra) {
+      ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios','f-dias-pago'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+      // Sugerir siguiente número de OT
+      const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
+      const maxOT = otNros.length ? Math.max(...otNros) : 4400;
+      document.getElementById('f-ot').value = maxOT + 1;
+      document.getElementById('f-semana').value = getSemanaActual();
+      document.getElementById('f-sector').value = 'Producción';
+      document.getElementById('f-vendedor').value = 'G';
+      document.getElementById('f-estado').value = 'Pendiente';
+      document.getElementById('modal-obra-title').textContent = 'Nueva obra';
+      window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
+      window.calculosAuxiliares = [];
+      renderObraItems(); renderCalculosAux();
+      ['Producción','Colocaciones','Diseño','Ventas','Compras'].forEach(s => {
+        const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
+        if(el) el.value = '';
+      });
+    }
+  }
+  document.getElementById('modal-'+type).classList.add('open');
+};
+
+window.closeModal = type => {
+  document.getElementById('modal-'+type).classList.remove('open');
+  if(type==='obra') window.editingId.obra = null;
+};
+
+window.editObra = id => {
+  const o = window.DB.obras.find(x=>x.id===id); if(!o) return;
+  window.editingId.obra = id;
+  document.getElementById('obra-id').value = id;
+  document.getElementById('f-ot').value = o.ot||'';
+  document.getElementById('f-sector').value = o.sector||'Producción';
+  document.getElementById('f-desc').value = o.desc||'';
+  document.getElementById('f-cliente').value = o.cliente||'';
+  { const input=document.getElementById('f-cliente'),norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'',cli=(window.DB.clientes||[]).find(c=>c.id===o.clienteId||norm(fiscal(c))===norm(o.cliente)||norm(c.nombre)===norm(o.cliente)); if(input){input.dataset.clienteId=cli?.id||o.clienteId||'';input.dataset.clienteCuit=cli?.cuit||o.clienteCuit||''} const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=(cli?.cuit||o.clienteCuit)?'CUIT '+(cli?.cuit||o.clienteCuit):'Seleccioná un cliente de la lista para vincular su CUIT'; }
+  document.getElementById('f-vendedor').value = o.vendedor||'G';
+  document.getElementById('f-estado').value = o.estado||'Pendiente';
+  document.getElementById('f-semana').value = o.semana||'';
+  document.getElementById('f-neto').value = o.neto||'';
+  document.getElementById('f-bruto').value = o.bruto||'';
+  document.getElementById('f-gastos').value = o.gastos||'';
+  document.getElementById('f-fprod-c').value = o.fprod_c||'';
+  document.getElementById('f-fprod-r').value = o.fprod_r||'';
+  document.getElementById('f-fcol-c').value = o.fcol_c||'';
+  document.getElementById('f-fcol-r').value = o.fcol_r||'';
+  document.getElementById('f-oc').value = o.oc||'';
+  document.getElementById('f-nrfc').value = o.nrfc||'';
+  document.getElementById('f-ffc').value = o.ffc||'';
+  document.getElementById('f-cobr').value = o.cobr||'Pendiente';
+  document.getElementById('f-dias-pago').value = o.diasPago||'';
+  document.getElementById('f-comentarios').value = o.comentarios||'';
+  document.getElementById('modal-obra-title').textContent = 'Editar obra — ' + (o.ot||o.desc||'');
+  window.obraItems = Array.isArray(o.itemsCotizados) && o.itemsCotizados.length ? o.itemsCotizados : [{descripcion:o.desc||'', cantidad:1, unitario:+o.neto||0, subtotal:+o.neto||0, observaciones:''}];
+  window.calculosAuxiliares = Array.isArray(o.calculosAuxiliares) ? o.calculosAuxiliares : [];
+  renderObraItems(); renderCalculosAux();
+
+  // Cargar anotaciones por sector
+  const notas = o.notas_sector || {};
+  const sectorKeys = {
+    'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'
+  };
+  Object.entries(sectorKeys).forEach(([sec, key]) => {
+    const el = document.getElementById('nota-'+key);
+    if(el) {
+      el.value = notas[sec] || '';
+      // Mostrar timestamp si existe
+      const ts = document.getElementById('nota-ts-'+key);
+      if(ts) ts.textContent = notas[sec+'_ts'] ? '— ' + notas[sec+'_ts'] : '';
+    }
+  });
+
+  document.getElementById('modal-obra').classList.add('open');
+};
+
+window.delObra = async id => { if(confirm('¿Eliminar esta obra?')) await deleteDoc_('obras',id); };
+window.quickChangeEstado = async (id, val) => {
+  const obra = window.DB.obras.find(o => o.id === id);
+  const data = { ...(obra || {}), estado: val, cobr: val, firestoreId: id };
+  await updateDoc_('obras', id, { estado: val, cobr: val, historial: window.buildHistorialV58 ? window.buildHistorialV58(obra, val) : (obra?.historial || []) });
+  if (String(val || '').toLowerCase() === 'aprobado') {
+    if (!obra?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) { await window.crearTareasAutomaticasV58({...obra, estado:val, id}); await updateDoc_('obras', id, { autoTasksCreatedAt: new Date().toISOString() }); } 
+    showToast('Actualizando estado...');
+    const syncResult = await syncToSheets(data);
+    if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
+      await updateDoc_('obras', id, {
+        driveFolderId: syncResult.folderId || syncResult.driveFolderId || '',
+        driveFolderUrl: syncResult.driveFolderUrl || '',
+        otSheetUrl: syncResult.otSheetUrl || '',
+        driveSyncedAt: new Date().toISOString()
+      });
+      showToast('Carpeta de OT creada ✓');
+    } else {
+      showToast('Estado actualizado: Aprobado');
+    }
+  } else {
+    showToast('Estado actualizado: ' + val);
+  }
+};
+
+window.limpiarFiltros = () => {
+  ['filter-ot','filter-cliente','filter-semana-desde','filter-semana-hasta'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  const fe = document.getElementById('filter-estado'); if(fe) fe.value = '';
+  window.obrasSectorFilter = 'Todos';
+  renderObras();
+};
+
+// EXPORTAR EXCEL
+window.exportarExcel = () => {
+  const obras = [...window.DB.obras].sort((a,b)=>(+b.semana||0)-(+a.semana||0));
+  if (!obras.length) { showToast('No hay obras para exportar'); return; }
+  const headers = ['Fecha','Semana','OT','Descripción','Arquitecto','Cliente','Sector','Vendedor',
+    'Estado','Neto','Bruto','Gastos','F.Prod.Comp','F.Prod.Real','F.Col.Comp','F.Col.Real',
+    'OC/OP','Nro Factura','F.Factura','Estado Cobranza','Comentarios',
+    'Nota Producción','Nota Colocaciones','Nota Diseño','Nota Ventas','Nota Compras'];
+  const rows = obras.map(o => {
+    const n = o.notas_sector||{};
+    return [o.fecha||'',o.semana||'',o.ot||'',o.desc||'',o.arquitecto||'',o.cliente||'',
+      o.sector||'',o.vendedor||'',o.estado||'',+o.neto||0,+o.bruto||0,+o.gastos||0,
+      o.fprod_c||'',o.fprod_r||'',o.fcol_c||'',o.fcol_r||'',o.oc||'',o.nrfc||'',o.ffc||'',
+      o.cobr||'',o.comentarios||'',n['Producción']||'',n['Colocaciones']||'',n['Diseño']||'',n['Ventas']||'',n['Compras']||''];
+  });
+  const doExport = () => {
+    const ws = window.XLSX.utils.aoa_to_sheet([headers,...rows]);
+    ws['!cols'] = headers.map((_,i)=>({wch:i<=2?8:i<=4?30:i<=7?15:25}));
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb,ws,'Obras 2026');
+    const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+    window.XLSX.writeFile(wb,`TIZ_Obras_${fecha}.xlsx`);
+    showToast(`${obras.length} obras exportadas a Excel`);
+  };
+  if (!window.XLSX) {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = doExport;
+    document.head.appendChild(s);
+  } else { doExport(); }
+};
+
+// CARGAR COBRANZAS DESDE OTs
+window.cargarDesdeOTs = async () => {
+  const obrasOK = window.DB.obras.filter(o=>['Entregado','Facturado'].includes(o.estado)&&+o.neto>0);
+  if (!obrasOK.length) { showToast('No hay obras entregadas/facturadas'); return; }
+  const otsCargadas = new Set(window.DB.cobranzas.map(c=>c.ot).filter(Boolean));
+  const nuevas = obrasOK.filter(o=>!o.ot||!otsCargadas.has(o.ot));
+  if (!nuevas.length) { showToast('Todas las OTs ya están en cobranzas'); return; }
+  if (!confirm(`¿Agregar ${nuevas.length} obra(s) a cobranzas?`)) return;
+  for (const o of nuevas) {
+    await addDoc_('cobranzas',{ot:o.ot||'',cliente:o.cliente||'',desc:o.desc||'',
+      nrfc:o.nrfc||'',importe:+o.neto||0,vencimiento:'',fechaCobro:'',estado:'Pendiente',comentarios:''});
+  }
+  showToast(`${nuevas.length} obras cargadas en cobranzas`);
+};
+
+// NÚMERO AUTOMÁTICO DE PRESUPUESTO
+window.abrirPresupuestoPDF = () => {
+  window._presupuestoOrigen = 'obra';
+  const obraId = window.editingId.obra;
+  const obra = obraId ? window.DB.obras.find(x=>x.id===obraId) : null;
+  const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0);
+  const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0);
+  const maxNro = Math.max(4695,...presNros,...otNros);
+  document.getElementById('pp-nro').value = (maxNro+1).toString().padStart(4,'0');
+  document.getElementById('pp-cliente').value = obra?.cliente||'';
+  document.getElementById('pp-desc').value = obra?.desc||'';
+  document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
+  document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
+  document.getElementById('pp-validez').value = '7';
+  window.ppItems = obra?[{desc:obra.desc||'',precio:+obra.neto||0,cant:1}]:[{desc:'',precio:0,cant:1}];
+  window.ppCalculosAux = obra?.calculosAuxiliares?.length ? obra.calculosAuxiliares.map(it=>({...it})) : [{concepto:'Materiales',detalle:'',cantidad:1,unidad:'u',precioUnitario:0,total:0,observaciones:''}];
+  renderPPItems(); renderCalculosAuxPP();
+  document.getElementById('modal-prespdf').classList.add('open');
+};
+
+// Autocomplete cliente para presupuesto — V35.6
+// Fuente unificada: Clientes + Obras + Presupuestos + Base Madre histórica.
+// Así no dependemos de que el cliente haya sido cargado manualmente en la colección Clientes.
+window.sugerirClientesPP = (q='', mostrarAunqueVacio=false) => {
+  const dd = document.getElementById('pp-clientes-dropdown');
+  if (!dd) return;
+
+  const texto = String(q||'').trim();
+  const norm = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const mapa = new Map();
+
+  const agregar = (nombre, cuit='', fuente='', peso=1) => {
+    nombre = String(nombre||'').trim();
+    if (!nombre) return;
+    const k = norm(nombre);
+    if (!k) return;
+    const actual = mapa.get(k);
+    if (!actual) mapa.set(k,{nombre,cuit:cuit||'',fuentes:new Set(fuente?[fuente]:[]),peso});
+    else {
+      if (!actual.cuit && cuit) actual.cuit=cuit;
+      if (fuente) actual.fuentes.add(fuente);
+      actual.peso += peso;
+    }
+  };
+
+  // 1) Maestro de clientes de Firebase
+  (window.DB?.clientes||[]).forEach(c=>agregar(c.nombre,c.cuit,'Clientes',20));
+  // 2) Obras ya cargadas en Firebase
+  (window.DB?.obras||[]).forEach(o=>agregar(o.cliente,'','Obras',4));
+  // 3) Presupuestos/cotizaciones históricas de Firebase
+  (window.DB?.presupuestos||[]).forEach(p=>agregar(p.cliente,'','Cotizaciones',6));
+  // 4) Base Madre incluida en la app (contiene el histórico, ej. Farmacity)
+  (window.OBRAS_MADRE_V291||[]).forEach(o=>agregar(o.cliente,'','Base Madre',2));
+
+  let todos=[...mapa.values()];
+  const nq=norm(texto);
+  if (nq) todos=todos.filter(c=>norm(c.nombre).includes(nq));
+  else if (!mostrarAunqueVacio) { dd.style.display='none'; return; }
+
+  // Primero coincidencias que comienzan con lo escrito; luego frecuencia/relevancia.
+  todos.sort((a,b)=>{
+    if(nq){
+      const ai=norm(a.nombre).startsWith(nq)?0:1, bi=norm(b.nombre).startsWith(nq)?0:1;
+      if(ai!==bi) return ai-bi;
+    }
+    return b.peso-a.peso || a.nombre.localeCompare(b.nombre,'es');
+  });
+  const matches=todos.slice(0,12);
+
+  let html = matches.map(c=>{
+    const fuente=[...c.fuentes].join(' · ');
+    const sub=c.cuit?`CUIT: ${c.cuit}${fuente?' · '+fuente:''}`:(fuente||'Histórico');
+    return `<div class="cli-option" onmousedown="elegirClientePP('${c.nombre.replace(/'/g,"\\'")}')">
+      <span>${texto?resaltar(c.nombre,texto):c.nombre}</span>
+      <span class="cli-option-sub">${sub}</span>
+    </div>`;
+  }).join('');
+
+  if (!matches.length && texto) {
+    html = `<div class="cli-option" style="cursor:default;color:var(--text3)"><span>Sin coincidencias guardadas</span></div>`;
+  }
+  if (texto) html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuesto('${texto.replace(/'/g,"\\'")}')" style="border-top:1px solid var(--border);color:var(--accent)">
+    <span>➕ Crear cliente "<strong>${texto}</strong>"</span>
+    <span class="cli-option-sub" style="color:var(--accent)">Abre el formulario de nuevo cliente</span>
+  </div>`;
+
+  dd.innerHTML = html || '<div class="cli-option" style="cursor:default;color:var(--text3)">Todavía no hay clientes disponibles</div>';
+  dd.style.display = 'block';
+};
+window.elegirClientePP = nombre => {
+  document.getElementById('pp-cliente').value = nombre;
+  document.getElementById('pp-clientes-dropdown').style.display = 'none';
+};
+window.cerrarSugerenciasPP = () => {
+  const dd = document.getElementById('pp-clientes-dropdown');
+  if(dd) dd.style.display = 'none';
+};
+window.nuevoClienteDesdePresupuesto = nombre => {
+  cerrarSugerenciasPP();
+  document.getElementById('pp-cliente').value = nombre;
+  window.editingId.cliente = null;
+  document.getElementById('fc-numero').value = nextClienteNumero();
+  document.getElementById('fc-nombre').value = nombre;
+  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  window._volvioDePresupuesto = true;
+  document.getElementById('modal-cliente').classList.add('open');
+};
+
+// Selector y guardado directo de cliente desde Obras — V55.
+// La versión integrada de index no tenía estas funciones, aunque el campo las invocaba.
+window.sugerirClientes = q => {
+  const dd=document.getElementById('clientes-dropdown');if(!dd)return;
+  const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const fiscal=c=>String(c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'').trim();
   const texto=String(q||'').trim(),nq=norm(texto);if(!nq){dd.style.display='none';return}
   const clientes=(window.DB.clientes||[]).map(c=>({id:c.id,nombre:fiscal(c),alias:String(c.nombre||'').trim(),cuit:String(c.cuit||'').trim()})).filter(c=>c.nombre&&(norm(c.nombre).includes(nq)||norm(c.alias).includes(nq)||c.cuit.includes(texto))).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'})).slice(0,12);
@@ -2961,7 +3642,7 @@ async function syncToSheets(data) {
 <script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
-<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V130-20261008"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V130-20261008"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V130-20261008"></script>
+<script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V128-20261008"></script>
 </body>
 </html>
 

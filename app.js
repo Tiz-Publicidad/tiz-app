@@ -278,20 +278,6 @@ window.mutateColocacionesV128 = async (id, buildPatch) => {
 };
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
 
-// Pendientes sin OT and printable archive are protected by Firebase ID tokens.
-window.colocacionesApiV129 = async payload => {
-  if (!auth.currentUser || !window.canViewPage('colocaciones') || !window.canAnnotateSector('Colocaciones')) {
-    throw new Error('Tu puesto no tiene permiso para editar Colocaciones.');
-  }
-  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/colocacionesGeneralV129', {
-    method: 'POST', headers: { Authorization: 'Bearer ' + await auth.currentUser.getIdToken(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || !result.ok) throw new Error(result.error || 'No se pudo conectar con la base de Colocaciones.');
-  return result;
-};
-
 // Helpers
 function parseDate(s) { if (!s) return null; const [d,m,y] = s.split('/'); return new Date(+y,+m-1,+d); }
 function diasEntre(a, b) { const da=parseDate(a), db_=parseDate(b); if(!da||!db_) return null; return Math.round((db_-da)/(864e5)); }
