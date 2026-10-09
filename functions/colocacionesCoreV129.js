@@ -11,7 +11,8 @@
     if(!open(old))throw new Error('Esta acción ya fue gestionada.');
     if(!text(result.detalle)||!iso(result.fechaReal))throw new Error('Completá el resultado y la fecha real.');
     if(next){next=cleanAction(next);validate(next);if(next.fecha<day)throw new Error('La próxima acción debe tener fecha de hoy o posterior.');}
-    return {closed:{...old,estado:next?'Reprogramada':'Cerrada',resultado:text(result.detalle),fechaReal:result.fechaReal,gestionadaEn:at,gestionadaPor:email,actualizadoEn:at,actualizadoPor:email,siguienteId:next?.id||''},next:next?{...next,anteriorId:old.id,creadoEn:at,creadoPor:email,actualizadoEn:at,actualizadoPor:email}:null};
+    if(!next&&old.tipo==='Colocación'&&!['conforme','aprobado'].includes(norm(result.control||old.control)))throw new Error('Registrá control conforme para terminar una colocación.');
+    return {closed:{...old,control:result.control===undefined?old.control||'':text(result.control),retrabajo:result.retrabajo===undefined?old.retrabajo||'':text(result.retrabajo),cantidadReal:result.cantidadReal===undefined?old.cantidadReal||'':text(result.cantidadReal),estado:next?'Reprogramada':'Cerrada',resultado:text(result.detalle),fechaReal:result.fechaReal,gestionadaEn:at,gestionadaPor:email,actualizadoEn:at,actualizadoPor:email,siguienteId:next?.id||''},next:next?{...next,anteriorId:old.id,creadoEn:at,creadoPor:email,actualizadoEn:at,actualizadoPor:email}:null};
   }
   const visit=a=>['Relevamiento','Colocación','Entrega','Control final'].includes(a.tipo);
   function zone(address,explicit=''){if(text(explicit))return ['caba','capital federal','ciudad autonoma de buenos aires'].includes(norm(explicit))?'CABA':text(explicit);const n=' '+norm(address)+' ';if(/\b(caba|capital federal|ciudad autonoma de buenos aires)\b/.test(n))return 'CABA';return ''}
