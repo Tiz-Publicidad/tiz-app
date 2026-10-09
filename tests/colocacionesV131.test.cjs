@@ -36,6 +36,7 @@ test('calendario renderiza una semana de lunes a domingo y el bloqueo reemplaza 
  const node={innerHTML:''};w.currentUser={};w.canViewPage=()=>true;w.TIZColocacionesGeneralV129.attach=()=>{};w.TIZColocacionesGeneralV129.load=()=>{};
  vm.runInNewContext(source.slice(start,end)+'\nwindow.testRender=render;window.testAgenda=agendaHTML;',{...c,today:()=> '2026-10-08',shift:G.shift,fmtDate:x=>x,open:G.open,esc:x=>String(x||''),bucket:a=>a.fecha<'2026-10-08'?'vencidas':'proximas',chip:x=>x,canWrite:()=>true,canRead:()=>true,allWorks:()=>[],pending:()=>[],db:()=>w.DB,style:()=>{},pageRoot:()=>node,btn:(text,attr)=>`<button ${attr}>${text}</button>`,state:{view:'agenda'},renderList:()=>{}});
  w.testRender();assert.equal((node.innerHTML.match(/<section class="c128-day /g)||[]).length,8);assert.ok(node.innerHTML.includes('05/10/2026 al 11/10/2026'));assert.ok(node.innerHTML.includes('data-view="cumplimiento"'));
+ for(const fecha of ['1900-01-06','2026-03-01']){w.DB.obras=[{id:'old',ot:'4350',estado:'Aprobado',fcol_c:fecha}];w.testRender();assert.ok(node.innerHTML.includes('data-view=\"base\"'));assert.ok(!node.innerHTML.includes('data-overdue='));}
  w.DB.obras=[{id:'o',ot:'4700',estado:'Aprobado',colocacionesGestion:{acciones:{a:action('2026-10-06')}}}];w.testRender();assert.ok(node.innerHTML.includes('data-overdue="o/a"'));assert.ok(!node.innerHTML.includes('data-view='));
  w.DB.obras[0].colocacionesGestion.acciones.a.estado='Cerrada';w.testRender();assert.ok(node.innerHTML.includes('data-view="agenda"'));
 });

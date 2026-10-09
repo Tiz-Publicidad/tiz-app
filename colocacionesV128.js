@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V138-20261009';
+  const VERSION = 'TIZ-COLOCACIONES-V139-20261009';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -165,7 +165,7 @@
   function filteredWorks(){return allWorks().filter(o=>/^(aprob|en produccion|en proceso|produccion|entregado|facturado|terminad|finalizad|cobrado)/.test(norm(o.estado))||!!o.presupuestoId||!!o.cotizacionId).filter(o=>!/^(anulad|rechazad|cancelad|borrador|cotizado|pendiente de aprobacion)/.test(norm(o.estado))).filter(o=>!state.query||norm([o.ot,o.cliente,o.desc].join(' ')).includes(norm(state.query))).filter(o=>state.filter==='historico'?!!data(o).cierre?.cerrada:state.filter==='todas'?true:pending(o,db()).some(a=>state.filter==='bloqueadas'?a.estado==='Bloqueada':bucket(a)===state.filter));}
   function renderList(){const list=document.getElementById('c128-work-list');if(!list)return;list.innerHTML=`<div class="c128-simple-list">${filteredWorks().map(o=>{const a=pending(o,db())[0];return `<div class="c128-simple-row"><div><b>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</b><div class="c128-muted">${esc((o.desc||'').slice(0,150))}</div></div><span class="c128-muted">${pending(o,db()).length} pendientes${a?.fecha?' · '+fmtDate(a.fecha):''}</span>${btn('Abrir obra',`data-open="${esc(o.id)}"`)}</div>`}).join('')||'<div class="c128-empty">No hay OT aprobadas para este filtro.</div>'}</div>`;}
   function agendaHTML(){const start=state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start;return window.TIZColocacionesGeneralV129?.datesBody(start)||'';}
-  function blockers(){return window.TIZColocacionesGeneralV129?.entries().filter(r=>window.TIZColocacionesGeneralCore.overdue(r.accion,today()))||[];}
+  function blockers(){return window.TIZColocacionesGeneralV129?.entries().filter(r=>!r.accion.virtual&&window.TIZColocacionesGeneralCore.overdue(r.accion,today()))||[];}
   function gateHTML(rows){return `<h2>Colocaciones · pendientes a resolver</h2><div class="c128-note" role="alert">Hay ${rows.length} acciones de anteayer o anteriores sin resolver. Registrá qué pasó y cerrá la acción o definí una próxima acción con fecha de hoy o posterior para continuar.</div><div class="c128-simple-list">${rows.map(r=>`<div class="c128-simple-row"><div><b>${esc(r.obra.ot?'OT '+r.obra.ot:'Sin OT')} · ${esc(r.cliente)}</b><div>${esc(r.accion.titulo)}</div><small>Compromiso: ${fmtDate(r.accion.fecha)} · ${esc(r.accion.responsable||'Sin asignar')}</small></div>${canWrite()?btn('Resolver',`data-overdue="${esc(r.key)}"`,true):'<span>Debe resolverlo un responsable de Colocaciones.</span>'}</div>`).join('')}</div>`;}
   function render(){
     if(!canRead())return;style();const r=pageRoot();if(!r)return;
