@@ -48,6 +48,8 @@ jobs:
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
           node --check sectorizacionV35.js
+          node --check cotizacionDriveSyncV128.js
+          node --test tests/cotizacionDriveSyncV128.test.cjs
           grep -q 'sectorizacionV35.js?v=TIZ-V35-25-CONTACTO-OT-20260929' index.html
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
