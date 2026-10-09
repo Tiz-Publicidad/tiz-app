@@ -1109,6 +1109,8 @@ function getUserSector(email) {
   if (local.includes('comp'))   return 'Compras';
   return 'Ventas';
 }
+// Colocaciones is visible to authenticated users; edits keep sector permissions.
+window.canViewPage = page => page === 'colocaciones' && !!window.currentUser;
 window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
 window.canAnnotateSector = s => {
   if (!window.currentUser) return false;

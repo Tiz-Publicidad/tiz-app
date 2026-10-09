@@ -1,6 +1,18 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const root=path.join(__dirname,'..');
+test('la app define los permisos que consume el listado; lectura autenticada y edición según puesto',()=>{
+ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ const roles=html.slice(html.indexOf('window.canViewPage ='),html.indexOf('// AUTH SCREEN'));
+ const ui=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8');
+ const guards=ui.slice(ui.indexOf('  const canRead='),ui.indexOf('  const toast='));
+ const window={currentUser:null},context={window};
+ vm.runInNewContext(roles+'\n'+guards+'\nglobalThis.read=canRead;globalThis.write=canWrite;',context);
+ assert.equal(context.read(),false);assert.equal(context.write(),false);
+ for(const user of [{isAdmin:true,sector:'Ventas'},{isAdmin:false,sector:'Colocaciones'},{isAdmin:false,sector:'Compras'}]){window.currentUser=user;assert.equal(context.read(),true);assert.equal(context.write(),true);}
+ window.currentUser={isAdmin:false,sector:'Ventas'};assert.equal(context.read(),true);assert.equal(context.write(),false);
+ window.currentUser=null;assert.equal(context.read(),false);assert.equal(context.write(),false);
+});
 test('el dashboard de Compras cede la entrada a Colocaciones después de instalarse, incluso en callbacks demorados',()=>{
  const src=fs.readFileSync(path.join(root,'compras.js'),'utf8');
  const body=src.slice(src.indexOf('function renderColocacionesV27(){'),src.indexOf('  const host=',src.indexOf('function renderColocacionesV27(){')));
