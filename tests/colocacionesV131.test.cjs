@@ -2,6 +2,16 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const root=path.join(__dirname,'..'),G=require('../functions/colocacionesCoreV129');
 const action=(fecha,estado='Pendiente')=>({id:'a',titulo:'Revisar anclajes',responsable:'Ariel',fecha,estado,todoDia:true});
+test('por fecha enlaza la Sheet de OT al contacto y Maps usa el domicilio propio de la acción',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;w.canViewPage=()=>true;w.canAnnotateSector=()=>true;
+ w.DB.obras=[{id:'o',ot:'4700',cliente:'Cliente',otSheetUrl:'https://docs.google.com/spreadsheets/d/test_OT/edit#gid=42',colocacionesGestion:{direccion:'Domicilio general 100',acciones:{a:{...action('2026-10-09'),direccion:'Av. Córdoba 1234',zona:'CABA'},b:{...action('2026-10-09'),id:'b',direccion:'San Martín 200',zona:'San Isidro'}}}}];
+ const html=g.datesBody('2026-10-05');assert.ok(html.includes('OT · contacto'));assert.ok(html.includes('gid=42'));assert.ok(html.includes('range=FICHA%21D9%3AH10'));assert.ok(html.includes(encodeURIComponent('Av. Córdoba 1234, CABA')));assert.ok(html.includes(encodeURIComponent('San Martín 200, San Isidro')));assert.ok(!html.includes(encodeURIComponent('Domicilio general 100')));
+ assert.equal(g.sheetContactLink({otSheetUrl:'javascript:alert(1)'}),'');assert.equal(g.sheetContactLink({}),'');assert.equal(g.mapsLink(''),'');
+});
+test('histórico contiene las acciones resueltas por fecha real y conserva los indicadores como detalle',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;w.DB.obras=[{id:'o',ot:'4700',cliente:'Cliente',colocacionesGestion:{acciones:{a:{...action('2026-10-09'),titulo:'Pendiente actual'},b:{...action('2026-10-07','Cerrada'),id:'b',titulo:'Terminada reciente',fechaReal:'2026-10-09',resultado:'Trabajo realizado'},c:{...action('2026-10-05','Reprogramada'),id:'c',titulo:'Reprogramación anterior',fechaReal:'2026-10-06'}}}}];
+ const html=g.body('historico','2026-10-05'),list=html.split('<details style="margin-top:18px">')[0];assert.ok(list.includes('Terminada reciente'));assert.ok(list.includes('Reprogramación anterior'));assert.ok(list.indexOf('Terminada reciente')<list.indexOf('Reprogramación anterior'));assert.ok(!list.includes('Pendiente actual'));assert.ok(html.includes('Ver indicadores de cumplimiento semanal'));
+});
 test('apertura queda separada de planificación y el vínculo usa la carpeta OT existente',()=>{
  const w=ui(),g=w.TIZColocacionesGeneralV129;w.canViewPage=()=>true;w.canAnnotateSector=()=>true;
  const row={key:'o/a',obra:{id:'o',ot:'4700',driveFolderId:'Folder_4700'},cliente:'Cliente',accion:{...action('2026-10-15'),fechaApertura:'2026-10-09'}};
@@ -22,7 +32,7 @@ test('resolver conserva fecha original y exige motivo, fecha real y nueva fecha 
  assert.throws(()=>G.resolveDraftAction({...old,estado:'Cerrada'},result,null,'2026-10-08','at','u'),/gestionada/);
  assert.equal(G.resolveDraftAction(old,result,null,'2026-10-08','at','u').closed.estado,'Cerrada');
 });
-function ui(doc,extras={}){const window={DB:{obras:[],clientes:[],presupuestos:[]},TIZColocacionesGeneralCore:G};const c={window,console,Date,Intl,URL,TextEncoder,setInterval:()=>{},setTimeout:()=>{},...extras};vm.runInNewContext(fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8'),c);if(doc)c.document=doc;vm.runInNewContext(fs.readFileSync(path.join(root,'colocacionesGeneralUIV129.js'),'utf8'),c);return window;}
+function ui(doc,extras={}){const window={DB:{obras:[],clientes:[],presupuestos:[]},TIZColocacionesGeneralCore:G};const c={window,console,Date,Intl,URL,URLSearchParams,TextEncoder,setInterval:()=>{},setTimeout:()=>{},...extras};vm.runInNewContext(fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8'),c);if(doc)c.document=doc;vm.runInNewContext(fs.readFileSync(path.join(root,'colocacionesGeneralUIV129.js'),'utf8'),c);return window;}
 test('base contiene obras aprobadas sin acción ni fecha y mantiene acciones con y sin fecha',()=>{
  const w=ui();w.DB.obras=[{id:'1',ot:'4700',cliente:'A',estado:'Aprobado'},{id:'2',ot:'4701',cliente:'B',estado:'Aprobado',colocacionesGestion:{acciones:{a:action(''),b:{...action('2026-10-09'),id:'b'}}}},{id:'3',estado:'Rechazado'}];
  const rows=w.TIZColocacionesGeneralV129.baseRows();assert.equal(rows.length,3);assert.equal(rows.filter(r=>r.obra.id==='1'&&r.empty).length,1);assert.equal(rows.some(r=>r.obra.id==='3'),false);assert.equal(w.TIZColocacionesGeneralV129.entries().length,2);
@@ -35,7 +45,7 @@ test('calendario renderiza una semana de lunes a domingo y el bloqueo reemplaza 
  const start=source.indexOf('  function agendaHTML()'),end=source.indexOf('  function overlay()',start);
  const node={innerHTML:''};w.currentUser={};w.canViewPage=()=>true;w.TIZColocacionesGeneralV129.attach=()=>{};w.TIZColocacionesGeneralV129.load=()=>{};
  vm.runInNewContext(source.slice(start,end)+'\nwindow.testRender=render;window.testAgenda=agendaHTML;',{...c,today:()=> '2026-10-08',shift:G.shift,fmtDate:x=>x,open:G.open,esc:x=>String(x||''),bucket:a=>a.fecha<'2026-10-08'?'vencidas':'proximas',chip:x=>x,canWrite:()=>true,canRead:()=>true,allWorks:()=>[],pending:()=>[],db:()=>w.DB,style:()=>{},pageRoot:()=>node,btn:(text,attr)=>`<button ${attr}>${text}</button>`,state:{view:'agenda'},renderList:()=>{}});
- w.testRender();assert.equal((node.innerHTML.match(/<section class="c128-day /g)||[]).length,8);assert.ok(node.innerHTML.includes('05/10/2026 al 11/10/2026'));assert.ok(node.innerHTML.includes('data-view="cumplimiento"'));
+ w.testRender();assert.equal((node.innerHTML.match(/<section class="c128-day /g)||[]).length,8);assert.ok(node.innerHTML.includes('05/10/2026 al 11/10/2026'));assert.ok(node.innerHTML.includes('data-view="historico"'));
  for(const fecha of ['1900-01-06','2026-03-01']){w.DB.obras=[{id:'old',ot:'4350',estado:'Aprobado',fcol_c:fecha}];w.testRender();assert.ok(node.innerHTML.includes('data-view=\"base\"'));assert.ok(!node.innerHTML.includes('data-overdue='));}
  w.DB.obras=[{id:'o',ot:'4700',estado:'Aprobado',colocacionesGestion:{acciones:{a:action('2026-10-06')}}}];w.testRender();assert.ok(node.innerHTML.includes('data-overdue="o/a"'));assert.ok(!node.innerHTML.includes('data-view='));
  w.DB.obras[0].colocacionesGestion.acciones.a.estado='Cerrada';w.testRender();assert.ok(node.innerHTML.includes('data-view="agenda"'));

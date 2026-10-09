@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V139-20261009';
+  const VERSION = 'TIZ-COLOCACIONES-V140-20261009';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -171,7 +171,7 @@
     if(!canRead())return;style();const r=pageRoot();if(!r)return;
     const blocked=blockers();
     if(blocked.length){r.innerHTML=gateHTML(blocked);window.TIZColocacionesGeneralV129?.attach(r);window.TIZColocacionesGeneralV129?.load();return;}
-    r.innerHTML=`<div class="c128-head"><div><h2>Colocaciones</h2></div></div><div class="c128-toolbar c130-main-tabs" role="tablist" aria-label="Colocaciones">${[['base','Acciones'],['agenda','Por fecha'],['cumplimiento','Cumplimiento']].map(([k,label])=>`<button type="button" class="btn btn-ghost" role="tab" aria-selected="${state.view===k}" data-view="${k}" data-active="${state.view===k}">${label}</button>`).join('')}</div>${state.view==='base'&&window.TIZColocacionesGeneralV129?window.TIZColocacionesGeneralV129.body('base'):state.view==='cumplimiento'?window.TIZColocacionesGeneralV129.body('cumplimiento',state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start):state.view==='agenda'?`<div id="c132-calendar">${agendaHTML()}</div>`:`<div class="c128-row"><input class="c128-search" id="c128-query" placeholder="Buscar OT, cliente o trabajo" aria-label="Buscar obra" value="${esc(state.query)}"></div><div id="c128-work-list"></div>`}`;
+    r.innerHTML=`<div class="c128-head"><div><h2>Colocaciones</h2></div></div><div class="c128-toolbar c130-main-tabs" role="tablist" aria-label="Colocaciones">${[['base','Acciones'],['agenda','Por fecha'],['historico','Histórico']].map(([k,label])=>`<button type="button" class="btn btn-ghost" role="tab" aria-selected="${state.view===k}" data-view="${k}" data-active="${state.view===k}">${label}</button>`).join('')}</div>${state.view==='base'&&window.TIZColocacionesGeneralV129?window.TIZColocacionesGeneralV129.body('base'):state.view==='historico'?window.TIZColocacionesGeneralV129.body('historico',state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start):state.view==='agenda'?`<div id="c132-calendar">${agendaHTML()}</div>`:`<div class="c128-row"><input class="c128-search" id="c128-query" placeholder="Buscar OT, cliente o trabajo" aria-label="Buscar obra" value="${esc(state.query)}"></div><div id="c128-work-list"></div>`}`;
     if(state.view==='obras')renderList();
     window.TIZColocacionesGeneralV129?.attach(r);window.TIZColocacionesGeneralV129?.load();
   }
