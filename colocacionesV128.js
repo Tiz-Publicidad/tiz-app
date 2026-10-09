@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V131-20261008';
+  const VERSION = 'TIZ-COLOCACIONES-V136-20261009';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -161,7 +161,7 @@
       @media(max-width:950px){.c128-days{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.c128-grid,.c128-list{grid-template-columns:1fr}.c128-full{grid-column:auto}.c128-overlay{padding:10px}.c128-dialog{padding:14px}.c128 .btn{min-height:44px}.c128 input,.c128 select,.c128 textarea{font-size:16px!important}}@media(max-width:380px){.c128-days{grid-template-columns:1fr}}
     `;document.head.appendChild(s);
   }
-  function pageRoot(){const p=document.getElementById('page-colocaciones');if(!p)return null;let r=document.getElementById('c128-root');if(!r){Array.from(p.children).forEach(x=>x.classList.add('c128-legacy'));r=document.createElement('div');r.id='c128-root';r.className='c128';p.appendChild(r);r.addEventListener('click',click);r.addEventListener('input',e=>{if(e.target.id==='c128-query'){state.query=e.target.value;renderList()}});r.addEventListener('change',change)}return r;}
+  function pageRoot(){const p=document.getElementById('page-colocaciones');if(!p)return null;let r=document.getElementById('c128-root');if(!r){Array.from(p.children).forEach(x=>x.classList.add('c128-legacy'));r=document.createElement('div');r.id='c128-root';r.className='c128';p.appendChild(r);r.addEventListener('click',click);r.addEventListener('input',e=>{if(e.target.id==='c128-query'){state.query=e.target.value;renderList()}});r.addEventListener('change',change)}Array.from(p.children).filter(x=>x!==r).forEach(x=>x.classList.add('c128-legacy'));return r;}
   function filteredWorks(){return allWorks().filter(o=>/^(aprob|en produccion|en proceso|produccion|entregado|facturado|terminad|finalizad|cobrado)/.test(norm(o.estado))||!!o.presupuestoId||!!o.cotizacionId).filter(o=>!/^(anulad|rechazad|cancelad|borrador|cotizado|pendiente de aprobacion)/.test(norm(o.estado))).filter(o=>!state.query||norm([o.ot,o.cliente,o.desc].join(' ')).includes(norm(state.query))).filter(o=>state.filter==='historico'?!!data(o).cierre?.cerrada:state.filter==='todas'?true:pending(o,db()).some(a=>state.filter==='bloqueadas'?a.estado==='Bloqueada':bucket(a)===state.filter));}
   function renderList(){const list=document.getElementById('c128-work-list');if(!list)return;list.innerHTML=`<div class="c128-simple-list">${filteredWorks().map(o=>{const a=pending(o,db())[0];return `<div class="c128-simple-row"><div><b>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</b><div class="c128-muted">${esc((o.desc||'').slice(0,150))}</div></div><span class="c128-muted">${pending(o,db()).length} pendientes${a?.fecha?' · '+fmtDate(a.fecha):''}</span>${btn('Abrir obra',`data-open="${esc(o.id)}"`)}</div>`}).join('')||'<div class="c128-empty">No hay OT aprobadas para este filtro.</div>'}</div>`;}
   function agendaHTML(){const start=state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start;return window.TIZColocacionesGeneralV129?.datesBody(start)||'';}

@@ -1082,6 +1082,7 @@ function colSemaforo(fc,fr){
 window.colV281Tab=window.colV281Tab||'dashboard';
 window.colSetTab=(tab)=>{window.colV281Tab=tab;renderColocacionesV27();};
 function renderColocacionesV27(){
+  if(window.__TIZ_COLOCACIONES_V128__ && typeof window.renderColocacionesV128==='function')return window.renderColocacionesV128();
   const host=document.getElementById('page-colocaciones');if(!host||window.currentPage!=='colocaciones')return;
   const original=host.querySelector(':scope > div:nth-child(2)');
   try{
