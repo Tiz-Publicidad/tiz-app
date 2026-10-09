@@ -66,7 +66,7 @@ jobs:
           node --check functions/colocacionesSheetV130.js
           node --test tests/colocacionesSheetV130.test.cjs
           node --test tests/colocacionesRoutingV130.test.cjs tests/colocacionesGeneralV129.test.cjs
-          grep -Fq 'colocacionesV128.js?v=TIZ-COLOCACIONES-V141-20261009' index.html
+          grep -Fq 'colocacionesV128.js?v=TIZ-COLOCACIONES-V142-20261009' index.html
           node --test tests/colocacionesV128.test.cjs tests/colocacionesEntradaV136.test.cjs
           node --test tests/cobranzasSemanalV127.test.cjs
           node --test tests/baseMadreFilaExplicita.test.js tests/baseMadreReconcileV123.test.js tests/baseMadreSafetyV124.test.js tests/baseMadreBackendSafetyV124.test.js tests/facturacionManualV2.test.js

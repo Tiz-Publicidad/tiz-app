@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V141-20261009';
+  const VERSION = 'TIZ-COLOCACIONES-V142-20261009';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -143,6 +143,12 @@
       });
     });return rows;
   }
+  function pendingInstallation(o){
+    if(!o||o.archivado||o.revisionVigente===false||o.revisionOperativa===false||o.colocacionesGestion?.cierre?.cerrada)return false;
+    const state=norm(o.estado),source=norm(o.estadoHistoricoExcel||o.historicoExcel?.estado||o.estado);
+    if(/^(entregad[oa]s?|cobrado|archivado|anulado|cancelado|rechazado)$/.test(state))return false;
+    return source==='pendiente'||source==='cobrado pendiente';
+  }
   function phoneLinks(value){
     const raw=String(value||'').trim();if(!/^\+?[\d\s().-]+$/.test(raw))return {tel:'',whatsapp:''};
     const digits=raw.replace(/\D/g,'');if(digits.length<7||digits.length>15)return {tel:'',whatsapp:''};
@@ -161,7 +167,7 @@
     return {'colocacionesGestion.visita':v};
   }
   function visitForm(o){const g=data(o),v=g.visita||{};return `<form data-form="visit"><h3>Preparar visita</h3><input type="hidden" name="version" value="${esc(v.actualizadoEn||'')}"><div class="c128-grid"><label>Fecha de visita<input type="date" name="fechaVisita" value="${esc(v.fecha||'')}"></label><label>Horario acordado<input type="time" name="horaVisita" value="${esc(v.hora||'')}"></label><label>Contacto que confirma<select name="contactoId">${contactOptions(o,v.contactoId)}</select></label><label class="c128-checkline"><input type="checkbox" name="accesoConfirmado" ${v.accesoConfirmado?'checked':''}>Acceso y horario confirmados</label><label class="c128-full">Acceso / indicaciones<textarea name="indicaciones" rows="2" maxlength="2000">${esc(v.indicaciones||'')}</textarea></label><label>Fotos del lugar / relevamiento<input type="url" name="fotosURL" value="${esc(v.fotosURL??g.preparacion?.fotos?.url??'')}"></label><label>Plano de colocación<input type="url" name="planosURL" value="${esc(v.planosURL??g.preparacion?.planos?.url??'')}"></label></div><h3>Antes de salir</h3><div class="c128-grid">${Object.entries(VISIT_CHECKS).map(([k,label])=>`<label class="c128-checkline"><input type="checkbox" name="${k}" ${v.checklist?.[k]?'checked':''}>${label}</label>`).join('')}</div><div class="c128-muted">Los controles corresponden a la fecha indicada. Si cambiás la visita, revisalos y confirmalos nuevamente.</div>${canWrite()?'<button type="submit" class="btn btn-primary">Guardar visita</button>':''}</form>`;}
-  window.TIZColocacionesCore = {phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
+  window.TIZColocacionesCore = {pendingInstallation,phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
   if (typeof document === 'undefined') return;
   const state={view:'base',filter:'todas',query:'',id:'',tab:'ficha',calendarStart:'',busy:false,editor:null,importRows:[],drafts:{},editors:{}};
   const db=()=>window.DB||{obras:[],presupuestos:[],clientes:[]};
@@ -169,7 +175,7 @@
   const canRead=()=>!!window.currentUser&&!!window.canViewPage?.('colocaciones');
   const canWrite=()=>canRead()&&!!window.canAnnotateSector?.('Colocaciones');
   const toast=x=>window.showToast?.(x);
-  function allWorks(){return (db().obras||[]).filter(o=>!o.archivado&&o.revisionVigente!==false&&o.revisionOperativa!==false&&norm(o.estado)!=='archivado').sort((a,b)=>(+numOT(b.ot)||0)-(+numOT(a.ot)||0));}
+  function allWorks(){return (db().obras||[]).filter(pendingInstallation).sort((a,b)=>(+numOT(b.ot)||0)-(+numOT(a.ot)||0));}
   const btn=(text,attr='',primary=false)=>`<button type="button" class="btn ${primary?'btn-primary':'btn-ghost'}" ${attr}>${text}</button>`;
   const chip=(text,color='')=>`<span class="c128-chip ${color}">${esc(text)}</span>`;
   function style(){
@@ -180,7 +186,7 @@
     `;document.head.appendChild(s);
   }
   function pageRoot(){const p=document.getElementById('page-colocaciones');if(!p)return null;let r=document.getElementById('c128-root');if(!r){Array.from(p.children).forEach(x=>x.classList.add('c128-legacy'));r=document.createElement('div');r.id='c128-root';r.className='c128';p.appendChild(r);r.addEventListener('click',click);r.addEventListener('input',e=>{if(e.target.id==='c128-query'){state.query=e.target.value;renderList()}});r.addEventListener('change',change)}Array.from(p.children).filter(x=>x!==r).forEach(x=>x.classList.add('c128-legacy'));return r;}
-  function filteredWorks(){return allWorks().filter(o=>/^(aprob|en produccion|en proceso|produccion|entregado|facturado|terminad|finalizad|cobrado)/.test(norm(o.estado))||!!o.presupuestoId||!!o.cotizacionId).filter(o=>!/^(anulad|rechazad|cancelad|borrador|cotizado|pendiente de aprobacion)/.test(norm(o.estado))).filter(o=>!state.query||norm([o.ot,o.cliente,o.desc].join(' ')).includes(norm(state.query))).filter(o=>state.filter==='historico'?!!data(o).cierre?.cerrada:state.filter==='todas'?true:pending(o,db()).some(a=>state.filter==='bloqueadas'?a.estado==='Bloqueada':bucket(a)===state.filter));}
+  function filteredWorks(){return allWorks().filter(o=>!state.query||norm([o.ot,o.cliente,o.desc].join(' ')).includes(norm(state.query))).filter(o=>state.filter==='historico'?!!data(o).cierre?.cerrada:state.filter==='todas'?true:pending(o,db()).some(a=>state.filter==='bloqueadas'?a.estado==='Bloqueada':bucket(a)===state.filter));}
   function renderList(){const list=document.getElementById('c128-work-list');if(!list)return;list.innerHTML=`<div class="c128-simple-list">${filteredWorks().map(o=>{const a=pending(o,db())[0];return `<div class="c128-simple-row"><div><b>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')}</b><div class="c128-muted">${esc((o.desc||'').slice(0,150))}</div></div><span class="c128-muted">${pending(o,db()).length} pendientes${a?.fecha?' · '+fmtDate(a.fecha):''}</span>${btn('Abrir obra',`data-open="${esc(o.id)}"`)}</div>`}).join('')||'<div class="c128-empty">No hay OT aprobadas para este filtro.</div>'}</div>`;}
   function agendaHTML(){const start=state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start;return window.TIZColocacionesGeneralV129?.datesBody(start)||'';}
   function blockers(){return window.TIZColocacionesGeneralV129?.entries().filter(r=>!r.accion.virtual&&window.TIZColocacionesGeneralCore.overdue(r.accion,today()))||[];}
