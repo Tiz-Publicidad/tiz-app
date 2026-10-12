@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V148-20261012';
+  const VERSION = 'TIZ-COLOCACIONES-V149-20261012';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -54,7 +54,7 @@
   function actions(o, db) {
     const g = data(o), list = values(g.acciones), l = logistics(o, db);
     const installed = o.sectores?.colocaciones ? !!(o.sectores.colocaciones.instalada || o.sectores.colocaciones.real) : !!o.fcol_r;
-    if (!g.legacyCapturada && l.fecha && !installed && !g.cierre?.cerrada) {
+    if (!approvedForInstallation(o)&&!g.legacyCapturada && l.fecha && !installed && !g.cierre?.cerrada) {
       list.push({id:'legacy',titulo:'Coordinar colocación / entrega',tipo:'Coordinación',fecha:l.fecha,responsable:o.sectores?.colocaciones?.responsable || o.gestionSectores?.colocaciones?.responsable || '',estado:'Pendiente',direccion:l.direccion,contactoId:l.contacto?'cotizacion':'',virtual:true,todoDia:true});
     }
     return list.sort((a,b) => (a.fecha || '9999').localeCompare(b.fecha || '9999') || (a.hora||'').localeCompare(b.hora||''));
@@ -147,8 +147,11 @@
     if(!o||o.archivado||o.revisionVigente===false||o.revisionOperativa===false||o.colocacionesGestion?.cierre?.cerrada)return false;
     const state=norm(o.estado),source=norm(o.estadoHistoricoExcel||o.historicoExcel?.estado||o.estado);
     if(/^(entregad[oa]s?|cobrado|archivado|anulado|cancelado|rechazado)$/.test(state))return false;
-    return source==='pendiente'||source==='cobrado pendiente';
+    if(/^(entregad[oa]s?|cobrado|archivado|anulado|cancelado|rechazado)$/.test(source))return false;
+    return source==='pendiente'||source==='cobrado pendiente'||approvedForInstallation(o);
   }
+  function approvedForInstallation(o){return [o.estado,o.gestionSectores?.ventas?.estado,o.sectores?.ventas?.estado].some(x=>/^aprobad[oa]$/.test(norm(x)));}
+  function newInstallation(o){return pendingInstallation(o)&&approvedForInstallation(o)&&!Object.keys(o.colocacionesGestion?.acciones||{}).length&&!o.colocacionesGestion?.legacyCapturada;}
   function phoneLinks(value){
     const raw=String(value||'').trim();if(!/^\+?[\d\s().-]+$/.test(raw))return {tel:'',whatsapp:''};
     const digits=raw.replace(/\D/g,'');if(digits.length<7||digits.length>15)return {tel:'',whatsapp:''};
@@ -167,7 +170,7 @@
     return {'colocacionesGestion.visita':v};
   }
   function visitForm(o){const g=data(o),v=g.visita||{};return `<form data-form="visit"><h3>Preparar visita</h3><input type="hidden" name="version" value="${esc(v.actualizadoEn||'')}"><div class="c128-grid"><label>Fecha de visita<input type="date" name="fechaVisita" value="${esc(v.fecha||'')}"></label><label>Horario acordado<input type="time" name="horaVisita" value="${esc(v.hora||'')}"></label><label>Contacto que confirma<select name="contactoId">${contactOptions(o,v.contactoId)}</select></label><label class="c128-checkline"><input type="checkbox" name="accesoConfirmado" ${v.accesoConfirmado?'checked':''}>Acceso y horario confirmados</label><label class="c128-full">Acceso / indicaciones<textarea name="indicaciones" rows="2" maxlength="2000">${esc(v.indicaciones||'')}</textarea></label><label>Fotos del lugar / relevamiento<input type="url" name="fotosURL" value="${esc(v.fotosURL??g.preparacion?.fotos?.url??'')}"></label><label>Plano de colocación<input type="url" name="planosURL" value="${esc(v.planosURL??g.preparacion?.planos?.url??'')}"></label></div><h3>Antes de salir</h3><div class="c128-grid">${Object.entries(VISIT_CHECKS).map(([k,label])=>`<label class="c128-checkline"><input type="checkbox" name="${k}" ${v.checklist?.[k]?'checked':''}>${label}</label>`).join('')}</div><div class="c128-muted">Los controles corresponden a la fecha indicada. Si cambiás la visita, revisalos y confirmalos nuevamente.</div>${canWrite()?'<button type="submit" class="btn btn-primary">Guardar visita</button>':''}</form>`;}
-  window.TIZColocacionesCore = {pendingInstallation,phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
+  window.TIZColocacionesCore = {pendingInstallation,newInstallation,phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
   if (typeof document === 'undefined') return;
   const state={view:'base',filter:'todas',query:'',id:'',tab:'ficha',calendarStart:'',busy:false,importBusy:false,editor:null,importRows:[],drafts:{},editors:{}};
   const db=()=>window.DB||{obras:[],presupuestos:[],clientes:[]};
@@ -195,7 +198,7 @@
     if(!canRead())return;style();const r=pageRoot();if(!r)return;
     const blocked=blockers();
     if(blocked.length){r.innerHTML=gateHTML(blocked);window.TIZColocacionesGeneralV129?.attach(r);window.TIZColocacionesGeneralV129?.load();return;}
-    r.innerHTML=`<div class="c128-head"><div><h2>Colocaciones</h2></div></div><div class="c128-toolbar c130-main-tabs" role="tablist" aria-label="Colocaciones">${[['base','Acciones'],['agenda','Por fecha'],['historico','Histórico']].map(([k,label])=>`<button type="button" class="btn btn-ghost" role="tab" aria-selected="${state.view===k}" data-view="${k}" data-active="${state.view===k}">${label}</button>`).join('')}</div>${state.view==='base'&&window.TIZColocacionesGeneralV129?window.TIZColocacionesGeneralV129.body('base'):state.view==='historico'?window.TIZColocacionesGeneralV129.body('historico',state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start):state.view==='agenda'?`<div id="c132-calendar">${agendaHTML()}</div>`:`<div class="c128-row"><input class="c128-search" id="c128-query" placeholder="Buscar OT, cliente o trabajo" aria-label="Buscar obra" value="${esc(state.query)}"></div><div id="c128-work-list"></div>`}`;
+    r.innerHTML=`<div class="c128-head"><div><h2>Colocaciones</h2></div></div><div class="c128-toolbar c130-main-tabs" role="tablist" aria-label="Colocaciones">${[['dashboard','Dashboard'],['base','Acciones'],['agenda','Por fecha'],['historico','Histórico']].map(([k,label])=>`<button type="button" class="btn btn-ghost" role="tab" aria-selected="${state.view===k}" data-view="${k}" data-active="${state.view===k}">${label}</button>`).join('')}</div>${state.view==='dashboard'?window.TIZColocacionesGeneralV129.body('dashboard',state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start):state.view==='base'&&window.TIZColocacionesGeneralV129?window.TIZColocacionesGeneralV129.body('base'):state.view==='historico'?window.TIZColocacionesGeneralV129.body('historico',state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start):state.view==='agenda'?`<div id="c132-calendar">${agendaHTML()}</div>`:`<div class="c128-row"><input class="c128-search" id="c128-query" placeholder="Buscar OT, cliente o trabajo" aria-label="Buscar obra" value="${esc(state.query)}"></div><div id="c128-work-list"></div>`}`;
     if(state.view==='obras')renderList();
     window.TIZColocacionesGeneralV129?.attach(r);window.TIZColocacionesGeneralV129?.load();
   }
