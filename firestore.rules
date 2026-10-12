@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    // Preserves existing full-access accounts. Ariel reads and changes only
+    // operational fields through the authenticated Colocaciones API.
+    function isTizUser() {
+      return signedIn() && request.auth.token.email in [
+        "info@tizpublicidad.com",
+        "pablo.aciar@tizpublicidad.com",
+        "julieta.aguirre@tizpublicidad.com",
+        "carolina.flores@tizpublicidad.com"
+      ];
+    }
+    match /{document=**} { allow read, write: if isTizUser(); }
+  }
+}

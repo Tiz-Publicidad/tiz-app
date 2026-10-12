@@ -1005,10 +1005,10 @@ td.strong { color: var(--text); font-weight: 500; }
     <div style="font-size:12px;color:#5a5856;text-transform:uppercase;letter-spacing:.1em;margin-bottom:40px">Gestión operativa</div>
     <button onclick="doLogin()" style="display:flex;align-items:center;gap:12px;padding:14px 24px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;width:100%;justify-content:center">
       <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Entrar con Google corporativo
+      Entrar con Google
     </button>
     <p id="login-err" style="color:#e05c5c;font-size:12px;margin-top:12px"></p>
-    <p style="font-size:11px;color:#5a5856;margin-top:16px">Solo cuentas @tizpublicidad.com</p>
+    <p style="font-size:11px;color:#5a5856;margin-top:16px">Solo cuentas autorizadas de TIZ</p>
   </div>
 </div>
 
@@ -1117,7 +1117,7 @@ function getUserSector(email) {
   return 'Ventas';
 }
 // Colocaciones is visible to authenticated users; edits keep sector permissions.
-window.canViewPage = page => page === 'colocaciones' && !!window.currentUser;
+window.canViewPage = page => !!window.currentUser && (window.currentUser.restrictedColocaciones ? page==='colocaciones' : page==='colocaciones');
 window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
 window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
@@ -1147,7 +1147,7 @@ window.doLogin = async () => {
     // La sesión de Firebase sirve para toda la app. Sheets y Drive se ejecutan
     // desde el backend y no deben volver a pedir consentimiento en cada operación.
     const providerFlex = new GoogleAuthProvider();
-    providerFlex.setCustomParameters({hd:'tizpublicidad.com'});
+    providerFlex.setCustomParameters({prompt:'select_account'});
     await signInWithPopup(auth, providerFlex);
   } catch(e) {
     document.getElementById('login-err').textContent = 'Error al iniciar sesión: ' + e.message;
@@ -1155,7 +1155,12 @@ window.doLogin = async () => {
 };
 window.doLogout = async () => { await signOut(auth); };
 
+const dataSubscriptions=[];let dataGeneration=0,portalTimer=null,lastSessionEmail='';
+function stopDataSubscriptions(){dataGeneration++;dataSubscriptions.splice(0).forEach(fn=>fn());if(portalTimer)clearInterval(portalTimer);portalTimer=null;}
 onAuthStateChanged(auth, async user => {
+  stopDataSubscriptions();
+  if(user&&lastSessionEmail&&lastSessionEmail!==user.email){location.reload();return;}
+  if(user)lastSessionEmail=user.email;
   if (user) {
     // Validar que el email esté en la lista autorizada
     const allowed = Object.keys(USER_SECTOR_MAP);
@@ -1173,12 +1178,14 @@ onAuthStateChanged(auth, async user => {
       photo: user.photoURL,
       sector,
       isAdmin: user.email === ADMIN_EMAIL,
+      restrictedColocaciones:user.email==='arielbenitezpublicidad@gmail.com',
     };
     hideLoginScreen();
     updateUserUI();
     initListeners();
   } else {
     window.currentUser = null;
+    for(const key of Object.keys(window.DB||{}))window.DB[key]=[];
     showLoginScreen();
   }
 });
@@ -1194,6 +1201,7 @@ function updateUserUI() {
     document.getElementById('user-avatar').src   = u.photo;
     document.getElementById('user-avatar').style.display = 'block';
   }
+  if(u.restrictedColocaciones){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('colocaciones')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='colocaciones';window.goTo?.('colocaciones');}
   // Ocultar secciones admin-only en sidebar
   if (!u.isAdmin) {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
@@ -1235,15 +1243,18 @@ window.obrasSectorFilter = 'Todos';
 window.editingId = { obra:null, cliente:null, presupuesto:null, retencion:null, cobranza:null, tarea:null };
 
 function initListeners() {
+  stopDataSubscriptions();const generation=dataGeneration;
+  if(window.currentUser?.restrictedColocaciones){for(const key of Object.keys(window.DB))window.DB[key]=[];window.loadColocacionesPortalV153();portalTimer=setInterval(()=>window.loadColocacionesPortalV153(),30000);return;}
   const numeroDesc = (a,b) => (Number(window.tizNumeroBase(b.ot??b.nro))||-1) - (Number(window.tizNumeroBase(a.ot??a.nro))||-1);
   const clienteAZ = (a,b) => String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'});
   function listen(col, key) {
-    onSnapshot(collection(db, col), snap => {
+    dataSubscriptions.push(onSnapshot(collection(db, col), snap => {
+      if(generation!==dataGeneration)return;
       window.DB[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if(key==='clientes') window.DB[key].sort(clienteAZ);
       if(key==='obras'||key==='presupuestos'||key==='cobranzas') window.DB[key].sort(numeroDesc);
       refreshCurrent();
-    });
+    }));
   }
   listen('obras', 'obras');
   listen('clientes', 'clientes');
@@ -1263,6 +1274,7 @@ window.mutateColocacionesV128 = async (id, buildPatch) => {
   if (!window.canViewPage('colocaciones') || !window.canAnnotateSector('Colocaciones')) {
     throw new Error('Tu puesto no tiene permiso para editar Colocaciones.');
   }
+  if(window.currentUser?.restrictedColocaciones){const current=await window.colocacionesApiV129({mode:'portal-work',obraId:id}),patch=buildPatch(current.obra);if(!patch||!Object.keys(patch).length)return {};const result=await window.colocacionesApiV129({mode:'portal-mutate',obraId:id,patch,version:current.obra.colocacionesGestion?.actualizadoEn||''});return result.patch;}
   return runTransaction(db, async transaction => {
     const ref = doc(db, 'obras', id), snapshot = await transaction.get(ref);
     if (!snapshot.exists()) throw new Error('La obra ya no está disponible.');
@@ -1289,6 +1301,8 @@ window.colocacionesApiV129 = async payload => {
   return result;
 };
 
+let portalBusy=false;
+window.loadColocacionesPortalV153=async()=>{if(portalBusy||!window.currentUser?.restrictedColocaciones)return;portalBusy=true;const generation=dataGeneration;try{const result=await window.colocacionesApiV129({mode:'portal-list'});if(generation!==dataGeneration||!window.currentUser?.restrictedColocaciones)return;window.DB.obras=result.obras||[];window.colocacionesFormsURL=result.formsUrl;document.getElementById('sync-text').textContent='Colocaciones · en línea';if(!document.activeElement?.matches('input,select,textarea')&&!document.querySelector('#c128-overlay.show,.g129-overlay'))window.refreshCurrent();}catch(e){if(generation===dataGeneration){document.getElementById('sync-text').textContent='Colocaciones · '+e.message;window.showToast?.(e.message);}}finally{portalBusy=false;}};
 window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
 window.sincronizarCotizacionActualBaseMadreV114=async function(){
   const nro=String(document.getElementById('pp-nro')?.value||'').trim();
@@ -1376,6 +1390,7 @@ function pct(works, tipo) {
 
 // Navigation
 window.goTo = function(page) {
+  if(window.currentUser?.restrictedColocaciones&&page!=='colocaciones')return window.showToast?.('Tu perfil está habilitado sólo para Colocaciones.');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
@@ -3683,7 +3698,7 @@ async function syncToSheets(data) {
 <script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
-<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V152-20261012"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V152-20261012"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V152-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V152-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V152-20261012"></script>
+<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012"></script>
 </body>
 </html>
 
