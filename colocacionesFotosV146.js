@@ -95,7 +95,7 @@
       window.TIZColocacionesGeneralV129?.changed(id);
       const current=(window.DB?.obras||[]).find(o=>o.id===id)||work;panel.outerHTML=html(current,kind);
       const fresh=document.querySelector(`[data-tiz-photo-work="${CSS.escape(id)}"]`);
-      fresh.querySelector('[data-tiz-photo-status]').textContent=`${result.saved.length} fotos verificadas y registradas · ${result.failed.length} con error.${kind==='finales'&&!result.failed.length?' Fotos finales completas; el control final se aprueba aparte.':''}`;
+      fresh.querySelector('[data-tiz-photo-status]').textContent=`${result.saved.length} fotos verificadas y registradas · ${result.failed.length} con error.${kind==='finales'&&!result.failed.length?' Fotos finales completas; confirmá el control final para cerrar.':''}`;
       fresh.querySelector('[data-tiz-photo-error]').textContent=result.failed.map(x=>x.nombre+': '+x.error).join('\n');
     }catch(err){error.textContent=err.message||String(err);status.textContent='Carga sin completar. Revisá el mensaje y reintentá; se buscan primero las fotos ya subidas.';if(/otra cuenta|venci[oó]/i.test(err.message||'')){sessionStorage.removeItem('tiz-drive-oauth-v97');localStorage.removeItem('tiz-drive-oauth-v97');}}
     finally{busy=false;panel.removeAttribute('aria-busy');controls.forEach((el,i)=>el.disabled=previous[i]);input.value='';}
