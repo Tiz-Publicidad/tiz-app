@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V150-20261012';
+  const VERSION = 'TIZ-COLOCACIONES-V151-20261012';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -252,6 +252,7 @@
     finally {state.busy=false;overlay().classList.remove('c128-busy');overlay().removeAttribute('aria-busy');}
   }
   async function saveInline(id,actionId,fields,version,result=null){if(blockers().length&&!result)throw new Error('Resolvé primero los pendientes vencidos.');return mutate(id,current=>{const old=actions(current,db()).find(a=>a.id===actionId);if(!old||!open(old))throw new Error('La acción ya fue gestionada. Actualizá el listado.');if(String(old.virtual?'virtual:'+old.fecha+'|'+(old.responsable||''):old.actualizadoEn||old.creadoEn||'')!==String(version))throw new Error('Otra persona modificó este renglón. Cancelá la edición para actualizarlo.');if(result)return resultPatch(current,actionId,result,null,stamp(),actor(),db());if(fields.fechaApertura&&!isoDate(fields.fechaApertura))throw new Error('Fecha de apertura inválida.');if(fields.fecha&&!isoDate(fields.fecha))throw new Error('Fecha de compromiso inválida.');const next=validateAction({...old,fechaApertura:fields.fechaApertura===undefined?old.fechaApertura||'':isoDate(fields.fechaApertura),titulo:String(fields.titulo||'').trim(),fecha:isoDate(fields.fecha),responsable:String(fields.responsable||'').trim(),observaciones:String(fields.observaciones||'').trim(),actualizadoEn:stamp(),actualizadoPor:actor()});delete next.virtual;const patch={[`colocacionesGestion.acciones.${actionId}`]:next};if(actionId==='legacy')patch['colocacionesGestion.legacyCapturada']=true;return patch})}
+  async function correctClosed(id,actionId,fields,version){return mutate(id,current=>{const old=data(current).acciones?.[actionId];if(!old||String(old.actualizadoEn||old.creadoEn||'')!==String(version))throw new Error('Otra persona modificó esta acción. Actualizá el detalle.');const next=window.TIZColocacionesGeneralCore.correctClosedAction(old,fields,today(),stamp(),actor());return next===old?{}:{[`colocacionesGestion.acciones.${actionId}`]:next};});}
   function actionFromForm(f,id=uid()){const d=new FormData(f);return validateAction({id,...(d.get('fechaApertura')!=null?{fechaApertura:isoDate(d.get('fechaApertura'))}:{}),titulo:String(d.get('titulo')||'').trim(),tipo:d.get('tipo')||'Seguimiento',responsable:String(d.get('responsable')||'').trim(),fecha:isoDate(d.get('fecha')),prioridad:d.get('prioridad')||'Normal',estadoPlanilla:'',contactoId:d.get('contactoId')||'',estado:d.get('estado')||'Pendiente',observaciones:d.get('observaciones')||'',todoDia:f.elements.todoDia.checked,hora:d.get('hora')||'',duracion:Number(d.get('duracion')||60),direccion:d.get('direccion')||'',zona:d.get('zona')||'',aviso:Number(d.get('aviso')||0)});}
   async function submit(e){
     const f=e.target;if(!f.dataset.form)return;e.preventDefault();if(state.busy)return;
@@ -366,7 +367,7 @@
   function install(){
     if(!window.refreshCurrent){setTimeout(install,250);return}style();window.__TIZ_COLOCACIONES_V128__=true;
     window.renderColocacionesV128=render;window.renderColocaciones=render;
-    window.TIZColocacionesUIV128={render,blockers,saveInline,calendar:agendaHTML,importMatrices,open:showModal,view:v=>{state.view=v;render()},edit:(id,a,kind)=>showModal(id,'acciones',kind==='result'?{kind,id:a.id}:{kind:'action',editId:a.id,action:a})};
+    window.TIZColocacionesUIV128={render,blockers,saveInline,correctClosed,calendar:agendaHTML,importMatrices,open:showModal,view:v=>{state.view=v;render()},edit:(id,a,kind)=>showModal(id,'acciones',kind==='result'?{kind,id:a.id}:{kind:'action',editId:a.id,action:a})};
     const previous=window.refreshCurrent;window.refreshCurrent=function(){if(window.currentPage==='colocaciones')return render();return previous.apply(this,arguments)};
     const oldFicha=window.openSectorFichaV31;window.openSectorFichaV31=function(id,sector){if(sector==='Colocaciones')return showModal(id);return oldFicha?.apply(this,arguments)};
     const oldSector=window.openSectorV34;window.openSectorV34=function(key,id){if(key==='colocaciones')return showModal(id||window.editingId?.obra);return oldSector?.apply(this,arguments)};
