@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V144-20261009';
+  const VERSION = 'TIZ-COLOCACIONES-V145-20261012';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -137,7 +137,7 @@
       const read=(r,...names)=>{for(const n of names){const i=col(n);if(i>=0&&r[i]!==''&&r[i]!==undefined&&r[i]!==null)return r[i]}return ''};
       matrix.slice(index+1).forEach((r,n)=>{
         const titulo=String(read(r,'Tarea / Operación')).trim();if(!titulo)return;
-        const a={titulo,ot:numOT(read(r,'Obra / OT')),cliente:String(read(r,'Cliente')),fecha:isoDate(read(r,'Fecha compromiso')),responsable:String(read(r,'Responsable')),prioridad:String(read(r,'Prioridad'))||'Normal',fechaReal:isoDate(read(r,'Fecha Real','Fecha de finalización')),estado:sheet==='Histórico'||norm(read(r,'Estado'))==='terminada'?'Cerrada':'Pendiente',estadoPlanilla:String(read(r,'Estado')),controlPlanilla:String(read(r,'Control de colocación','Control calidad')),retrabajo:String(read(r,'Retrabajo')),resultado:String(read(r,'Próxima acción / observaciones'))||'',tipo:'Seguimiento',todoDia:true};
+        const a={titulo,fechaApertura:isoDate(read(r,'Fecha')),ot:numOT(read(r,'Obra / OT')),cliente:String(read(r,'Cliente')),fecha:isoDate(read(r,'Fecha compromiso')),responsable:String(read(r,'Responsable')),prioridad:String(read(r,'Prioridad'))||'Normal',fechaReal:isoDate(read(r,'Fecha Real','Fecha de finalización')),estado:sheet==='Histórico'||norm(read(r,'Estado'))==='terminada'?'Cerrada':'Pendiente',estadoPlanilla:String(read(r,'Estado')),controlPlanilla:String(read(r,'Control de colocación','Control calidad')),retrabajo:String(read(r,'Retrabajo')),resultado:String(read(r,'Próxima acción / observaciones'))||'',tipo:'Seguimiento',todoDia:true};
         a.datosPlanilla=matrix[index].map((h,i)=>[String(h||'Columna '+(i+1)),r[i] instanceof Date?isoDate(r[i]):String(r[i]??'')]);if(norm(a.estadoPlanilla)==='bloqueada')a.estado='Bloqueada';a.control=a.controlPlanilla;a.cantidadReal=String(read(r,'Cant. real','Cantidad real'));a.observaciones=a.resultado;a.id=importKey(sheet,n+index+2,a);const matches=a.ot?works.filter(o=>numOT(o.ot)===a.ot):[];
         rows.push({...a,obraId:matches.length===1?matches[0].id:'',fila:n+index+2,hoja:sheet});
       });
@@ -169,7 +169,7 @@
   function visitForm(o){const g=data(o),v=g.visita||{};return `<form data-form="visit"><h3>Preparar visita</h3><input type="hidden" name="version" value="${esc(v.actualizadoEn||'')}"><div class="c128-grid"><label>Fecha de visita<input type="date" name="fechaVisita" value="${esc(v.fecha||'')}"></label><label>Horario acordado<input type="time" name="horaVisita" value="${esc(v.hora||'')}"></label><label>Contacto que confirma<select name="contactoId">${contactOptions(o,v.contactoId)}</select></label><label class="c128-checkline"><input type="checkbox" name="accesoConfirmado" ${v.accesoConfirmado?'checked':''}>Acceso y horario confirmados</label><label class="c128-full">Acceso / indicaciones<textarea name="indicaciones" rows="2" maxlength="2000">${esc(v.indicaciones||'')}</textarea></label><label>Fotos del lugar / relevamiento<input type="url" name="fotosURL" value="${esc(v.fotosURL??g.preparacion?.fotos?.url??'')}"></label><label>Plano de colocación<input type="url" name="planosURL" value="${esc(v.planosURL??g.preparacion?.planos?.url??'')}"></label></div><h3>Antes de salir</h3><div class="c128-grid">${Object.entries(VISIT_CHECKS).map(([k,label])=>`<label class="c128-checkline"><input type="checkbox" name="${k}" ${v.checklist?.[k]?'checked':''}>${label}</label>`).join('')}</div><div class="c128-muted">Los controles corresponden a la fecha indicada. Si cambiás la visita, revisalos y confirmalos nuevamente.</div>${canWrite()?'<button type="submit" class="btn btn-primary">Guardar visita</button>':''}</form>`;}
   window.TIZColocacionesCore = {pendingInstallation,phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
   if (typeof document === 'undefined') return;
-  const state={view:'base',filter:'todas',query:'',id:'',tab:'ficha',calendarStart:'',busy:false,editor:null,importRows:[],drafts:{},editors:{}};
+  const state={view:'base',filter:'todas',query:'',id:'',tab:'ficha',calendarStart:'',busy:false,importBusy:false,editor:null,importRows:[],drafts:{},editors:{}};
   const db=()=>window.DB||{obras:[],presupuestos:[],clientes:[]};
   const obra=id=>(db().obras||[]).find(o=>o.id===id);
   const canRead=()=>!!window.currentUser&&!!window.canViewPage?.('colocaciones');
@@ -201,7 +201,7 @@
   }
   function overlay(){let r=document.getElementById('c128-overlay');if(!r){r=document.createElement('div');r.id='c128-overlay';r.className='c128-overlay c128';r.setAttribute('role','dialog');r.setAttribute('aria-modal','true');r.setAttribute('aria-label','Ficha de Colocaciones');document.body.appendChild(r);r.addEventListener('click',click);r.addEventListener('change',change);r.addEventListener('submit',submit);r.addEventListener('keydown',e=>{if(e.key==='Escape'&&!state.busy)closeModal();if(e.key==='Tab'){const items=[...r.querySelectorAll('button,input,select,textarea,a[href]')].filter(el=>!el.disabled&&el.getClientRects().length);if(!items.length)return;const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}})}return r;}
   let focusReturn=null;
-  function closeModal(){if(state.busy)return;overlay().classList.remove('show');state.editor=null;state.drafts={};state.editors={};focusReturn?.focus?.();}
+  function closeModal(){if(state.busy||state.importBusy)return;overlay().classList.remove('show');state.editor=null;state.drafts={};state.editors={};focusReturn?.focus?.();}
   function showModal(id,tab='ficha',editor=null){if(!canRead())return;focusReturn=document.activeElement;state.id=id;state.tab=tab;state.editor=editor;state.drafts={};state.editors={};drawModal();overlay().classList.add('show');overlay().querySelector('button,input,select')?.focus();}
   function error(e){console.error('[Colocaciones V128]',e);const x=document.getElementById('c128-error');if(x)x.textContent=e.message||String(e);else toast(e.message||String(e));}
   function captureDraft(){const f=document.querySelector('#c128-overlay form');if(f){state.drafts[state.tab]=Object.fromEntries(new FormData(f));f.querySelectorAll('input[type=checkbox]').forEach(el=>state.drafts[state.tab][el.name]=el.checked)}}
@@ -274,9 +274,10 @@
   }
   function downloadCalendar(entries){const eligible=entries.filter(x=>open(x.accion)&&isoDate(x.accion.fecha));if(!eligible.length)return toast('No hay acciones con fecha para exportar.');const file=new Blob([calendar(eligible,new Date(),db())],{type:'text/calendar;charset=utf-8'});const url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download='TIZ-Colocaciones-'+today()+'.ics';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Calendario exportado. Importalo en tu calendario.');}
   async function click(e){
-    const b=e.target.closest('button');if(!b||state.busy)return;
+    const b=e.target.closest('button');if(!b||state.busy||state.importBusy)return;
     try{
       if(b.hasAttribute('data-overdue')){const r=blockers().find(r=>r.key===b.dataset.overdue);if(!r)return render();if(r.draft)return window.TIZColocacionesGeneralV129.resolveDraft(r.accion.id);return showModal(r.obra.id,'acciones',{kind:'result',id:r.accion.id});}
+      if(b.hasAttribute('data-import-confirm')){await importSelected();return;}
       if(blockers().length&&!b.hasAttribute('data-close')&&!b.hasAttribute('data-cancel')&&!b.hasAttribute('data-result')){toast('Resolvé los pendientes de anteayer o anteriores para continuar.');return;}
       if(b.hasAttribute('data-close'))return closeModal();
       if(b.hasAttribute('data-print-work'))return window.TIZColocacionesGeneralV129?.printWork(state.id);
@@ -296,7 +297,6 @@
       if(b.hasAttribute('data-note-action')){const text=overlay().querySelector('[name=texto]')?.value.trim();if(!text)throw new Error('Escribí la ayudamemoria.');state.tab='acciones';state.editor={kind:'action',titulo:text,fecha:/\bmañana\b/i.test(text)?shift(today(),1):today()};state.drafts={};drawModal();return}
       if(b.hasAttribute('data-close-work')){document.getElementById('c128-modal-content').innerHTML=`<form data-form="closeWork"><h3>Cerrar colocación de la obra</h3><div class="c128-note">Requiere: acciones resueltas, control final y fotos.</div><label>Fecha real<input name="fecha" type="date" required value="${today()}"></label><label>Resultado / conformidad<textarea name="resultado" required rows="3"></textarea></label><div class="c128-actions"><button type="submit" class="btn btn-primary">Confirmar cierre</button>${btn('Cancelar','data-cancel="1"')}</div></form>`;return}
       if(b.hasAttribute('data-reopen')){await mutate(state.id,()=>({'colocacionesGestion.cierre.cerrada':false,[`colocacionesGestion.eventos.${uid()}`]:{accion:'Seguimiento reabierto',fecha:stamp(),usuario:actor()},'sectores.colocaciones.estado':'A coordinar','sectores.colocaciones.real':'','sectores.colocaciones.instalada':false}));drawModal();toast('Seguimiento reabierto');return}
-      if(b.hasAttribute('data-import-confirm'))return importSelected();
     }catch(err){error(err)}
   }
   async function change(e){
@@ -309,21 +309,54 @@
   async function sheetJS(){if(window.XLSX)return window.XLSX;await new Promise((resolve,reject)=>{let s=document.getElementById('c128-xlsx');if(!s){s=document.createElement('script');s.id='c128-xlsx';s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';document.head.appendChild(s)}s.addEventListener('load',resolve,{once:true});s.addEventListener('error',()=>{s.remove();reject(new Error('No se pudo cargar el lector de Excel.'));},{once:true});});return window.XLSX;}
   async function importPreview(file){
     if(!canWrite())throw new Error('Sin permiso para importar.');const X=await sheetJS(),w=X.read(await file.arrayBuffer(),{type:'array',cellDates:true});
-    const sheets=['Colocaciones','Histórico'].filter(n=>w.Sheets[n]);if(!w.Sheets.Colocaciones)throw new Error('La planilla debe tener una hoja Colocaciones.');
+    const sheets=['Colocaciones'].filter(n=>w.Sheets[n]);if(!w.Sheets.Colocaciones)throw new Error('La planilla debe tener una hoja Colocaciones.');
     const matrices=Object.fromEntries(sheets.map(sheet=>[sheet,X.utils.sheet_to_json(w.Sheets[sheet],{header:1,defval:'',raw:true})]));
     return importMatrices(matrices);
   }
   function importMatrices(matrices){
     const rows=parseImportRows(matrices,allWorks());if(!rows.length)throw new Error('No se encontraron acciones en la planilla.');
-    state.importRows=rows;state.id='';state.editor=null;state.drafts={};const r=overlay();r.classList.add('show');r.innerHTML=`<div class="c128-dialog"><div class="c128-head"><h3>Importar planificación · ${rows.length} acciones</h3>${btn('Cerrar','data-close="1"')}</div><div class="c128-note">Cada fila se vincula a una obra. Sólo se propone vínculo automático cuando la OT coincide con una única obra. Las filas sin OT pueden guardarse en la base general y asociarse después. Se conservan fechas y responsables originales; los faltantes se destacan después.</div>${rows.map((a,i)=>`<div class="c128-task"><b>${esc(a.cliente)} · ${esc(a.ot||'Sin OT')} · ${chip(a.estado)}</b><div>${esc(a.titulo)}</div><div class="c128-muted">${fmtDate(a.fecha)} · ${esc(a.responsable||'Sin responsable')} · ${esc(a.hoja)} fila ${a.fila}</div><label>Vincular a obra<select id="c128-import-${i}"><option value="">No importar todavía</option><option value="__draft__" ${!a.obraId?'selected':''}>Guardar sin asociar todavía</option>${allWorks().map(o=>`<option value="${esc(o.id)}" ${o.id===a.obraId?'selected':''}>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')} · ${esc((o.desc||'').slice(0,70))}</option>`).join('')}</select></label></div>`).join('')}<div class="c128-actions">${btn('Importar filas seleccionadas','data-import-confirm="1"',true)}</div><div id="c128-import-status" class="c128-status" aria-live="polite"></div><div id="c128-error" class="c128-error" role="alert"></div></div>`;
+    state.importRows=rows;state.importBusy=false;state.id='';state.editor=null;state.drafts={};const r=overlay();r.classList.add('show');r.innerHTML=`<div class="c128-dialog"><div class="c128-head"><h3>Importar planificación · ${rows.length} acciones</h3>${btn('Cerrar','data-close="1"')}</div><div class="c128-note">Cada fila se vincula a una obra. Sólo se propone vínculo automático cuando la OT coincide con una única obra. Las filas sin OT pueden guardarse en la base general y asociarse después. Se conservan fechas y responsables originales; los faltantes se destacan después.</div>${rows.map((a,i)=>`<div class="c128-task"><b>${esc(a.cliente)} · ${esc(a.ot||'Sin OT')} · ${chip(a.estado)}</b><div>${esc(a.titulo)}</div><div class="c128-muted">${fmtDate(a.fecha)} · ${esc(a.responsable||'Sin responsable')} · ${esc(a.hoja)} fila ${a.fila}</div><label>Vincular a obra<select id="c128-import-${i}"><option value="">No importar todavía</option><option value="__draft__" ${!a.obraId?'selected':''}>Guardar sin asociar todavía</option>${allWorks().map(o=>`<option value="${esc(o.id)}" ${o.id===a.obraId?'selected':''}>OT ${esc(o.ot||'—')} · ${esc(o.cliente||'')} · ${esc((o.desc||'').slice(0,70))}</option>`).join('')}</select></label></div>`).join('')}<div class="c128-actions">${btn('Importar filas seleccionadas','data-import-confirm="1"',true)}</div><div id="c128-import-status" class="c128-status" aria-live="polite">Revisá las filas y confirmá la importación. Las terminadas se conservan en Histórico.</div><div id="c128-error" class="c128-error" role="alert"></div></div>`;
   }
   async function importSelected(){
-    const selections=state.importRows.map((a,i)=>({...a,obraId:document.getElementById('c128-import-'+i)?.value||''})).filter(a=>a.obraId);if(!selections.length)throw new Error('Vinculá al menos una fila a una obra.');
-    const drafts=selections.filter(a=>a.obraId==='__draft__'), linked=selections.filter(a=>a.obraId!=='__draft__');
-    const groups=new Map();linked.forEach(a=>{if(!groups.has(a.obraId))groups.set(a.obraId,[]);groups.get(a.obraId).push(a)});let count=0;
-    for(const [id,rows] of groups){let added=0;await mutate(id,current=>{const p={};if(data(current).cierre?.cerrada&&rows.some(a=>open(a)))throw new Error('La obra '+current.ot+' está cerrada. Reabrila antes de importar pendientes.');for(const a of rows){if(data(current).acciones?.[a.id])continue;const {obraId,...record}=a;record.origen='Excel';record.creadoEn=stamp();record.creadoPor=actor();if(!open(record)){record.gestionadaPor=actor();record.gestionadaEn=stamp();record.resultado ||= 'Importada desde histórico';}p[`colocacionesGestion.acciones.${a.id}`]=record;added++}if(added)p['colocacionesGestion.legacyCapturada']=true;return p});count+=added;const s=document.getElementById('c128-import-status');if(s)s.textContent=`${count} acciones importadas. Las filas ya importadas se omiten.`;}
-    for(const a of drafts){const exists=window.TIZColocacionesGeneralV129?.entries().some(r=>r.accion.id===a.id);if(exists)continue;await window.colocacionesApiV129({mode:'save',action:{...a,origen:'Planilla'},version:''});count++}if(drafts.length)await window.TIZColocacionesGeneralV129?.load(true);
-    toast(`${count} acciones importadas ✓`);
+    if(state.importBusy)return;
+    if(!canWrite())throw new Error('Tu puesto no tiene permiso para importar Colocaciones.');
+    const selections=state.importRows.map((a,i)=>({...a,obraId:document.getElementById('c128-import-'+i)?.value||''})).filter(a=>a.obraId);
+    if(!selections.length)throw new Error('Seleccioná al menos una fila: podés guardarla sin asociar a una OT.');
+    state.importBusy=true;const controls=[...overlay().querySelectorAll('button,select')];controls.forEach(el=>el.disabled=true);
+    const status=document.getElementById('c128-import-status'),err=document.getElementById('c128-error');if(err)err.textContent='';
+    const result={saved:0,skipped:0,failed:[],pending:0,closed:0},seen=new Set(),progress=message=>{if(status)status.textContent=message;};
+    try{
+      progress('Comprobando registros existentes antes de importar…');
+      const existing=await window.colocacionesApiV129({mode:'list'});for(const a of existing.rows||[])seen.add(a.id);
+      for(const o of db().obras||[])for(const a of values(data(o).acciones))seen.add(a.id);
+      for(let i=0;i<selections.length;i++){
+        const a=selections[i];progress(`Procesando ${i+1} de ${selections.length}: ${a.cliente||a.ot||'Sin OT'} · ${a.titulo}`);
+        if(seen.has(a.id)){result.skipped++;continue;}
+        try{
+          if(a.obraId==='__draft__'){
+            const {obraId,...record}=a;await window.colocacionesApiV129({mode:'save',action:{...record,origen:'Planilla'},version:''});
+          }else{
+            const written=await mutate(a.obraId,current=>{
+              if(data(current).acciones?.[a.id])return {};
+              if(data(current).cierre?.cerrada&&open(a))throw new Error('La colocación de esta OT está cerrada.');
+              const {obraId,...record}=a;const at=stamp();record.origen='Excel';record.creadoEn=at;record.creadoPor=actor();
+              if(!open(record)){record.gestionadaPor=actor();record.gestionadaEn=at;record.resultado ||= 'Terminada en la planilla original';}
+              return {[`colocacionesGestion.acciones.${a.id}`]:record,'colocacionesGestion.legacyCapturada':true};
+            });
+            if(!written[`colocacionesGestion.acciones.${a.id}`]){result.skipped++;seen.add(a.id);continue;}
+          }
+          seen.add(a.id);result.saved++;if(open(a))result.pending++;else result.closed++;
+        }catch(e){result.failed.push({fila:a.fila,hoja:a.hoja,titulo:a.titulo,error:e.message||String(e)});}
+        progress(`${i+1} de ${selections.length} procesadas · ${result.saved} guardadas · ${result.skipped} ya existentes · ${result.failed.length} con error.`);
+      }
+      await window.TIZColocacionesGeneralV129?.load(true);
+      render();
+      progress(`Importación finalizada: ${result.saved} guardadas (${result.pending} pendientes y ${result.closed} terminadas), ${result.skipped} ya existentes y ${result.failed.length} con error.`);
+      if(err&&result.failed.length)err.textContent=result.failed.map(x=>`${x.hoja} · fila ${x.fila}: ${x.error}`).join('\n');
+      toast(result.failed.length?'Importación parcial: revisá los errores indicados.':`${result.saved} acciones importadas ✓`);
+      return result;
+    }catch(e){progress(`Importación interrumpida: ${e.message||String(e)}. ${result.saved} filas guardadas; al reintentar se omiten las existentes.`);throw e;}
+    finally{state.importBusy=false;controls.forEach(el=>el.disabled=false);}
   }
   function install(){
     if(!window.refreshCurrent){setTimeout(install,250);return}style();window.__TIZ_COLOCACIONES_V128__=true;

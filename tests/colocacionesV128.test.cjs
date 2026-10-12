@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const root=path.join(__dirname,'..'),source=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8');
-const window={};vm.runInNewContext(source,{window,Date,Intl,TextEncoder,console});const C=window.TIZColocacionesCore;
+const window={},FixedDate=class extends Date{constructor(...args){super(...(args.length?args:['2026-10-08T15:00:00Z']))}};vm.runInNewContext(source,{window,Date:FixedDate,Intl,TextEncoder,console});const C=window.TIZColocacionesCore;
 const base=()=>({id:'obra1',ot:'4573',cliente:'Cliente',entregaLogistica:{contacto:'Ana',contactoTelefono:'111',domicilio:'Calle 123'},colocacionesGestion:{legacyCapturada:true,acciones:{primera:{id:'primera',titulo:'Enviar plano',fecha:'2026-10-07',responsable:'Juli',estado:'Pendiente',todoDia:true}}},sectores:{produccion:{estado:'Terminada'},colocaciones:{compromiso:'07/10/2026'}}});
 test('agenda usa fecha argentina y cubre ayer, hoy y diez días siguientes, cruzando meses',()=>{
   assert.equal(C.today(new Date('2026-10-09T01:30:00Z')),'2026-10-08');
