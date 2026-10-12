@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "TIZ · Gestión operativa",
+  "short_name": "TIZ",
+  "description": "Obras, planificación, colocaciones y gestión de TIZ Publicidad.",
+  "lang": "es-AR",
+  "start_url": "./?installed=1",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#0f0f0f",
+  "prefer_related_applications": false,
+  "icons": [
+    {"src":"assets/tiz-app-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"assets/tiz-app-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"assets/tiz-app-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}

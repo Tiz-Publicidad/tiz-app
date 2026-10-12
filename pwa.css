@@ -1,0 +1,33 @@
+/* TIZ PWA v1 · same navigation and permissions on desktop and mobile. */
+.tiz-mobile-bar,.tiz-menu-backdrop{display:none}
+.tiz-install{font:inherit;min-height:44px;padding:10px 14px;border:1px solid #555;border-radius:8px;background:#222;color:#fff;cursor:pointer}
+.tiz-install[hidden],#tiz-update[hidden],#tiz-install-help[hidden]{display:none!important}
+#tiz-install-help{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:13000;box-sizing:border-box;width:calc(100vw - 24px);background:#222;border:1px solid #777;border-radius:8px;max-width:340px;color:#ddd;font-size:13px;line-height:1.5;padding:12px}
+#tiz-update{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:11000;max-width:calc(100vw - 24px);width:480px;padding:14px;box-sizing:border-box;background:#252525;color:#fff;border:1px solid #eab94c;border-radius:10px;box-shadow:0 8px 30px #0008;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#tiz-update p{margin:0;flex:1;min-width:160px;font:13px system-ui}
+#tiz-update button{min-height:44px;border-radius:7px;padding:8px 12px;border:1px solid #666;font:14px system-ui;background:#eab94c;color:#111;cursor:pointer}
+#tiz-update button[data-later]{background:transparent;color:#ddd}
+@media screen and (max-width:768px){
+  .app{padding-top:calc(54px + env(safe-area-inset-top));min-height:100dvh}
+  .tiz-mobile-bar{display:flex;position:fixed;top:0;left:0;right:0;height:54px;padding:env(safe-area-inset-top) 10px 0;background:#191919;border-bottom:1px solid #333;align-items:center;gap:10px;z-index:350}
+  .tiz-mobile-bar strong{flex:1;font-size:16px;color:#fff}
+  .tiz-mobile-bar button{min-height:44px;min-width:44px;font-size:16px;background:#252525;color:#fff;border:1px solid #555;border-radius:8px;padding:8px}
+  .app>.sidebar{display:none;position:fixed;inset:calc(54px + env(safe-area-inset-top)) auto 0 0;width:min(290px,85vw);overflow-y:auto;overscroll-behavior:contain;z-index:340;box-shadow:8px 0 25px #0008}
+  .app.tiz-menu-open>.sidebar{display:flex}
+  .app.tiz-menu-open>.tiz-menu-backdrop{display:block;position:fixed;inset:calc(54px + env(safe-area-inset-top)) 0 0;background:#0009;z-index:330;border:0}
+  .sidebar .nav-item{min-height:44px;font-size:15px;padding:10px}
+  .main{width:100%;min-width:0}
+  .page{padding:14px 10px 32px}.page-header{padding:8px 0 0;flex-wrap:wrap;gap:10px}.page-title{font-size:21px}.header-actions{flex-wrap:wrap;max-width:100%}
+  .page input:not([type=checkbox]):not([type=radio]),.page select,.page textarea,.modal input,.modal select,.modal textarea{font-size:16px!important;min-width:0;max-width:100%;box-sizing:border-box}
+  .page .btn,.modal .btn{min-height:44px}
+  .table-wrap,.g129-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .modal{max-width:calc(100vw - 20px)!important;box-sizing:border-box}
+  .c128 .g135-scroll{max-height:none;overflow:visible;border:0}
+  .c128 .g135-head{display:none}
+  .c128 .g135-row{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:12px;padding:14px;border:1px solid var(--border2);border-radius:10px;margin:12px 0}
+  .c128 .g135-row>div:first-child,.c128 .g135-row>label:nth-of-type(2),.c128 .g135-row>label:nth-of-type(5),.c128 .g135-controls,.c128 .g135-error,.c128 .g135-result,.c128 .g135-finish{grid-column:1/-1}
+  .c128 .g135-row label{font-size:12px}.c128 .g135-row input,.c128 .g135-row select{font-size:16px!important;margin-top:5px!important;min-height:44px}
+  .c128 .g135-controls .btn{min-height:44px;font-size:14px;padding:10px 12px}.c128 .g135-finish{flex-direction:column;min-width:0}
+  .c128 .g129-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.c128 .c128-panel{padding:12px;min-width:0}.c128 .c128-actions{flex-wrap:wrap}
+  .toast{left:10px;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:12000}
+}
