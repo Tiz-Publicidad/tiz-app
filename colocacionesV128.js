@@ -1,7 +1,7 @@
 /** TIZ Colocaciones V128 · agenda, contactos, gestiones y experiencia por obra. */
 (() => {
   'use strict';
-  const VERSION = 'TIZ-COLOCACIONES-V149-20261012';
+  const VERSION = 'TIZ-COLOCACIONES-V150-20261012';
   const TZ = 'America/Argentina/Buenos_Aires';
   const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -195,7 +195,7 @@
   function blockers(){return window.TIZColocacionesGeneralV129?.entries().filter(r=>!r.accion.virtual&&window.TIZColocacionesGeneralCore.overdue(r.accion,today()))||[];}
   function gateHTML(rows){return `<h2>Colocaciones · pendientes a resolver</h2><div class="c128-note" role="alert">Hay ${rows.length} acciones de anteayer o anteriores sin resolver. Registrá qué pasó y cerrá la acción o definí una próxima acción con fecha de hoy o posterior para continuar.</div><div class="c128-simple-list">${rows.map(r=>`<div class="c128-simple-row"><div><b>${esc(r.obra.ot?'OT '+r.obra.ot:'Sin OT')} · ${esc(r.cliente)}</b><div>${esc(r.accion.titulo)}</div><small>Compromiso: ${fmtDate(r.accion.fecha)} · ${esc(r.accion.responsable||'Sin asignar')}</small></div>${canWrite()?btn('Resolver',`data-overdue="${esc(r.key)}"`,true):'<span>Debe resolverlo un responsable de Colocaciones.</span>'}</div>`).join('')}</div>`;}
   function render(){
-    if(!canRead())return;style();const r=pageRoot();if(!r)return;
+    if(!canRead())return;style();const r=pageRoot();if(!r)return;window.TIZColocacionesGeneralV129?.captureUI(r);
     const blocked=blockers();
     if(blocked.length){r.innerHTML=gateHTML(blocked);window.TIZColocacionesGeneralV129?.attach(r);window.TIZColocacionesGeneralV129?.load();return;}
     r.innerHTML=`<div class="c128-head"><div><h2>Colocaciones</h2></div></div><div class="c128-toolbar c130-main-tabs" role="tablist" aria-label="Colocaciones">${[['dashboard','Dashboard'],['base','Acciones'],['agenda','Por fecha'],['historico','Histórico']].map(([k,label])=>`<button type="button" class="btn btn-ghost" role="tab" aria-selected="${state.view===k}" data-view="${k}" data-active="${state.view===k}">${label}</button>`).join('')}</div>${state.view==='dashboard'?window.TIZColocacionesGeneralV129.body('dashboard',state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start):state.view==='base'&&window.TIZColocacionesGeneralV129?window.TIZColocacionesGeneralV129.body('base'):state.view==='historico'?window.TIZColocacionesGeneralV129.body('historico',state.calendarStart||window.TIZColocacionesGeneralCore.week(today()).start):state.view==='agenda'?`<div id="c132-calendar">${agendaHTML()}</div>`:`<div class="c128-row"><input class="c128-search" id="c128-query" placeholder="Buscar OT, cliente o trabajo" aria-label="Buscar obra" value="${esc(state.query)}"></div><div id="c128-work-list"></div>`}`;
