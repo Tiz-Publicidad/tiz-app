@@ -6,9 +6,9 @@ function harness({token="TOKEN",response={ok:true,fileId:"pdf-id",webViewLink:"h
  source=source.slice(0,start)+'  async function preloadAuth(){return {auth:{currentUser:{getIdToken:async()=>"ID_TOKEN"}}};}\n'+source.slice(end);
  const c={cae:"12345678901234",cbteTipo:1,ptoVta:9,cbteNro:14,numeroCompleto:"00009-00000014",drivePendiente:true};
  const o={id:"obra-4754",facturaArca:c,comprobantesArca:[{...c}],facturasArca:[{...c}],facturaDrivePendiente:true};
- const calls=[],notes=[],timers=[],storage=new Map(token?[["tiz-drive-oauth-v97",JSON.stringify({token,ts:Date.now()})]]:[]);
+ const calls=[],notes=[],timers=[],storage=new Map(token?[["tiz-drive-oauth-v97",JSON.stringify({token,ts:Date.now(),email:"info@tizpublicidad.com"})]]:[]);
  const store={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
- const window={DB:{obras:[o]},showToast:s=>notes.push(s),TIZFactCobUIV2:{render(){}}};
+ const window={currentUser:{email:"info@tizpublicidad.com"},DB:{obras:[o]},showToast:s=>notes.push(s),TIZFactCobUIV2:{render(){}}};
  const context={window,sessionStorage:store,localStorage:store,Date,Map,Set,Number,String,JSON,Promise,console:{error(){},warn(){}},alert(){},setInterval:f=>timers.push(f),fetch:async(url,options)=>{
  calls.push({url,body:JSON.parse(options.body)});return fetcher?fetcher(url,options):{ok:true,json:async()=>response};
  }};
@@ -41,4 +41,12 @@ test("una factura que falla no bloquea los otros PDF pendientes",async()=>{
  const second={...h.o,id:"otra-obra",facturaArca:{...h.c,cbteNro:15},comprobantesArca:[],facturasArca:[]};h.window.DB.obras.push(second);
  await h.timers[0]();assert.equal(h.calls.length,2);assert.equal(second.facturaArca.driveFileId,"otro-pdf");assert.equal(h.c.drivePendiente,true);
  await h.timers[0]();assert.equal(h.calls.length,2);
+});
+
+test("la autorización de Drive no se reutiliza al cambiar de cuenta",()=>{
+ const h=harness();assert.equal(h.window.obtenerDriveAccessTokenCacheTizV123(),"TOKEN");
+ h.window.currentUser.email="carolina.flores@tizpublicidad.com";
+ assert.equal(h.window.obtenerDriveAccessTokenCacheTizV123(),"");
+ h.window.currentUser.email="info@tizpublicidad.com";
+ assert.equal(h.window.obtenerDriveAccessTokenCacheTizV123(),"");
 });

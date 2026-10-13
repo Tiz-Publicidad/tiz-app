@@ -63,3 +63,23 @@ test('the close screen accepts explicit final approval only after actions and ph
  o.colocacionesGestion.preparacion.fotos.estado='Listo';o.colocacionesGestion.acciones={a:{estado:'Pendiente'}};await w.closeTest(e);assert.ok(errors.pop().includes('acciones pendientes'));assert.equal(o.colocacionesGestion.cierre,undefined);
  o.colocacionesGestion.acciones={};await w.closeTest(e);assert.equal(errors.length,0);assert.equal(o.colocacionesGestion.cierre.cerrada,true);assert.equal(o.colocacionesGestion.preparacion.final.aprobadoPor,'Operador');assert.equal(o.colocacionesGestion.preparacion.final.detalle,'Cliente conforme');assert.equal(o.sectores.produccion.estado,'En proceso');
 });
+
+test('la autorización se abre desde el botón antes de la galería para Pablo, Caro y Ariel',async()=>{
+ for(const email of ['pablo.aciar@tizpublicidad.com','carolina.flores@tizpublicidad.com','arielbenitezpublicidad@gmail.com']){
+  const events={},calls=[],status={textContent:''},error={textContent:''};let token='';
+  const picker={click(){calls.push('gallery')}},panel={querySelector(s){return s==='[data-tiz-photo-status]'?status:s==='[data-tiz-photo-error]'?error:picker},setAttribute(){},removeAttribute(){}};
+  const button={disabled:false,closest(){return panel},hasAttribute(){return false}};
+  const window={currentUser:{email},canAnnotateSector:()=>true,TIZColocacionesFotosCore:{...P,createDriveClient:()=>({account:async account=>assert.equal(account,email)})},obtenerDriveAccessTokenCacheTizV123:()=>token,obtenerDriveAccessTokenTizV97:async()=>{calls.push('authorization');token='token';return token}};
+  const source=fs.readFileSync(path.join(root,'colocacionesFotosV146.js'),'utf8');
+  vm.runInNewContext(source.slice(source.indexOf('(() => {')), {window,document:{addEventListener(name,fn){events[name]=fn}}});
+  const e={target:{closest(selector){return selector==='[data-tiz-photo-sync]'?null:button}}};
+  await events.click(e);assert.deepEqual(calls,['authorization']);assert.match(status.textContent,/nuevamente/);assert.equal(button.disabled,false);
+  await events.click(e);assert.deepEqual(calls,['authorization','gallery']);
+ }
+});
+test('los errores conservan el código de Firebase y explican qué hacer',()=>{
+ assert.match(P.errorMessage({code:'auth/popup-blocked',message:'Firebase error'}),/ventanas emergentes.*auth\/popup-blocked/);
+ assert.match(P.errorMessage({code:'auth/user-mismatch',message:'Firebase error'}),/misma cuenta/);
+ assert.match(P.errorMessage({code:'permission-denied',message:'Firebase error'}),/registrar las fotos/);
+ assert.match(P.errorMessage({code:'auth/unexpected',message:'Detalle real'}),/Detalle real.*auth\/unexpected/);
+});
