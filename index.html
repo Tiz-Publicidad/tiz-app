@@ -1123,8 +1123,8 @@ window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
   if (window.currentUser.isAdmin) return true;
   if (window.currentUser.sector === s) return true;
-  // Compras también puede anotar en Colocaciones
-  if (window.currentUser.sector === 'Compras' && s === 'Colocaciones') return true;
+  // Compras y Pablo pueden gestionar tareas de Colocaciones.
+  if (s === 'Colocaciones' && (window.currentUser.sector === 'Compras' || window.currentUser.email === 'pablo.aciar@tizpublicidad.com')) return true;
   return false;
 };
 window.canEditObra        = () => window.currentUser?.isAdmin;

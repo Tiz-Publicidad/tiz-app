@@ -3,7 +3,7 @@ const admin=require('firebase-admin'),{google}=require('googleapis'),PDFDocument
 const C=require('./colocacionesCoreV129');
 if(!admin.apps.length)admin.initializeApp();
 // Same accounts that can read and annotate this sector in app.js.
-const OPERATORS=new Set(['info@tizpublicidad.com','giancarlo.pareja@gmail.com','carolina.flores@tizpublicidad.com','arielbenitezpublicidad@gmail.com']);
+const OPERATORS=new Set(['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com','giancarlo.pareja@gmail.com','carolina.flores@tizpublicidad.com','arielbenitezpublicidad@gmail.com']);
 const ORIGINS=new Set(['https://tiz-publicidad.github.io','https://tiz---app.web.app','https://tiz---app.firebaseapp.com']);
 const fail=(message,status=409)=>Object.assign(new Error(message),{status});
 const ident=v=>{const s=C.text(v);if(!/^[\w-]{1,150}$/.test(s))throw fail('Identificador inválido.',400);return s};
