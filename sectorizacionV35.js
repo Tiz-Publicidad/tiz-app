@@ -15,7 +15,7 @@
     cobranzas:{label:'Cobranzas',icon:'💵',color:'var(--green)'}
   };
 
-  const RESPONSABLES_OBRA=['','Cristian','Caro','Pablo','Ariel','Gian','Juli'];
+  const RESPONSABLES_OBRA=['','Cristian','Caro','Pablo','Ariel','Gian','Juli','Tropi'];
   const PROBLEMAS_SECTOR={
     ventas:['Sin problema','Falta aprobación del cliente','Falta OC / OP','Falta anticipo','Cambio de alcance','Demora de respuesta','Otro'],
     diseno:['Sin problema','Falta información','Falta medida','Archivo incorrecto','Corrección del cliente','Diseño no aprobado','Demora de diseño','Otro'],
@@ -80,6 +80,7 @@
     o.checklist={...(o.checklist||{})};
     if(o.sectores?.ventas){ o.checklist.clienteConfirmado=!!v.clienteConfirmado; o.checklist.ocCargada=!!v.ocRecibida || !!f.oc; o.checklist.senaRecibida=!!v.senaRecibida || !!co.senaRecibida; }
     if(o.sectores?.diseno) o.checklist.disenoAprobado=!!d.aprobado;
+    if(o.sectores?.calidad) o.checklist.calidadOK=!!s.calidad.aprobado;
     if(o.sectores?.compras) o.checklist.materialesCompletos=!!cp.materialesCompletos;
     if(o.sectores?.produccion) o.checklist.produccionTerminada=!!p.terminada;
     if(o.sectores?.colocaciones){ o.checklist.colocacionCoordinada=!!c.coordinada; o.checklist.fotosFinales=!!c.fotosFinales; }

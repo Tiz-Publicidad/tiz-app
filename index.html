@@ -297,6 +297,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <button class="nav-item" onclick="goTo('colocaciones')">
         <i class="ti ti-truck"></i> Colocaciones
       </button>
+      <button class="nav-item" onclick="goTo('calidad')"><i class="ti ti-shield-check"></i> Calidad</button>
       <button class="nav-item" onclick="goTo('diseno')">
         <i class="ti ti-pencil"></i> Diseño
       </button>
@@ -519,6 +520,8 @@ td.strong { color: var(--text); font-weight: 500; }
       </div>
     </div>
 
+    <div id="page-calidad" class="page"><div id="calidad-root"></div></div>
+
     <!-- DISEÑO -->
     <div id="page-diseno" class="page">
       <div class="page-header">
@@ -718,7 +721,7 @@ td.strong { color: var(--text); font-weight: 500; }
     <div class="form-grid">
       <div class="form-group"><label>OT</label><input id="f-ot" placeholder="ej. 4500"></div>
       <div class="form-group"><label>Sector</label>
-        <select id="f-sector"><option>Producción</option><option>Colocaciones</option><option>Diseño</option><option>Ventas</option><option>Compras</option></select>
+        <select id="f-sector"><option>Producción</option><option>Colocaciones</option><option>Diseño</option><option>Ventas</option><option>Compras</option><option>Calidad</option></select>
       </div>
       <div class="form-group full"><label>Descripción</label><input id="f-desc" placeholder="Descripción del trabajo"></div>
       <div class="form-group" style="position:relative">
@@ -819,6 +822,7 @@ td.strong { color: var(--text); font-weight: 500; }
             </div>
             <textarea id="nota-compras" placeholder="Notas del sector Compras..." style="min-height:60px"></textarea>
           </div>
+          <div class="form-group"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><label style="color:var(--green);margin:0">✅ Calidad <span id="nota-ts-calidad" style="font-size:10px"></span></label><button type="button" class="btn btn-ghost btn-sm" onclick="crearTareaDesdeNota('Calidad')">📅 Tarea</button></div><textarea id="nota-calidad" placeholder="Notas del sector Calidad..." style="min-height:60px"></textarea></div>
         </div>
       </div>
     </div>
@@ -1044,7 +1048,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-group"><label>Hora fin</label><input id="ft-hora-fin" placeholder="11:00" type="time"></div>
       <div class="form-group"><label>Sector responsable</label>
         <select id="ft-sector">
-          <option>Producción</option><option>Colocaciones</option><option>Diseño</option><option>Ventas</option><option>Compras</option>
+          <option>Producción</option><option>Colocaciones</option><option>Diseño</option><option>Ventas</option><option>Compras</option><option>Calidad</option>
         </select>
       </div>
       <div class="form-group full"><label>Notas adicionales</label><textarea id="ft-notas"></textarea></div>
@@ -1099,10 +1103,10 @@ const USER_SECTOR_MAP = {
 
 const SECTOR_COLORS = {
   'Ventas':'var(--amber)','Producción':'var(--blue)',
-  'Colocaciones':'var(--teal)','Diseño':'var(--purple)','Compras':'var(--accent)'
+  'Colocaciones':'var(--teal)','Diseño':'var(--purple)','Compras':'var(--accent)','Calidad':'var(--green)'
 };
 const SECTOR_EMOJI = {
-  'Ventas':'💰','Producción':'📦','Colocaciones':'🚛','Diseño':'✏️','Compras':'🛒'
+  'Ventas':'💰','Producción':'📦','Colocaciones':'🚛','Diseño':'✏️','Compras':'🛒','Calidad':'✅'
 };
 
 window.currentUser = null;
@@ -1110,6 +1114,7 @@ window.currentUser = null;
 function getUserSector(email) {
   if (USER_SECTOR_MAP[email]) return USER_SECTOR_MAP[email];
   const local = (email||'').split('@')[0].toLowerCase();
+  if (local.includes('calidad'))return 'Calidad';
   if (local.includes('prod'))   return 'Producción';
   if (local.includes('col'))    return 'Colocaciones';
   if (local.includes('dis') || local.includes('design')) return 'Diseño';
@@ -1123,6 +1128,7 @@ window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
   if (window.currentUser.isAdmin) return true;
   if (window.currentUser.sector === s) return true;
+  if (s === 'Calidad' && window.currentUser.email === 'pablo.aciar@tizpublicidad.com') return true;
   // Compras y Pablo pueden gestionar tareas de Colocaciones.
   if (s === 'Colocaciones' && (window.currentUser.sector === 'Compras' || window.currentUser.email === 'pablo.aciar@tizpublicidad.com')) return true;
   return false;
@@ -1220,7 +1226,7 @@ function getSemanaActual() {
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
-window.DB = { obras:[], clientes:[], presupuestos:[], retenciones:[], cobranzas:[], tareas:[] };
+window.DB = { obras:[], clientes:[], presupuestos:[], retenciones:[], cobranzas:[], tareas:[], calidad:[] };
 window.tizNumeroBase = value => {
   const match=String(value??'').match(/\d+/); if(!match)return '';
   const sinCeros=match[0].replace(/^0+(?=\d)/,'');
@@ -1262,6 +1268,7 @@ function initListeners() {
   listen('retenciones', 'retenciones');
   listen('cobranzas', 'cobranzas');
   listen('tareas', 'tareas');
+  listen('calidadRegistros', 'calidad');
   document.getElementById('sync-text').textContent = 'En línea';
 }
 
@@ -1285,6 +1292,29 @@ window.mutateColocacionesV128 = async (id, buildPatch) => {
     if (!Object.keys(patch).every(allowed)) throw new Error('La gestión sólo puede actualizar Colocaciones.');
     transaction.update(ref, patch);
     return patch;
+  });
+};
+// Calidad conserva registros por OT y evita pisar gestiones de otros sectores.
+window.saveCalidadV1 = async payload => {
+  const C=window.TIZCalidadCore,u=window.currentUser;
+  if(!C?.canRecord(u))throw new Error('Tu cuenta no puede registrar Calidad.');
+  const at=new Date().toISOString(),record=payload.record?C.clean(payload.record,u,at):null;
+  const obraId=record?.obraId||payload.obraId||'',id=record?.id||payload.id;
+  if(!/^[\w-]{1,150}$/.test(id||'')||obraId&&!/^[\w-]{1,150}$/.test(obraId))throw new Error('Identificador inválido.');
+  return runTransaction(db,async tx=>{
+    const ref=doc(db,obraId?'obras':'calidadRegistros',obraId||id),snap=await tx.get(ref);
+    if(obraId){
+      if(!snap.exists())throw new Error('La OT ya no está disponible.');
+      const work={...snap.data(),id:obraId};
+      if(work.archivado||work.revisionVigente===false||work.revisionOperativa===false)throw new Error('La OT no está disponible para edición.');
+      let patch;
+      if(record)patch=C.registerPatch(work,record);
+      else {const old=work.calidadGestion?.registros?.[id];if(!old)throw new Error('El registro ya no está disponible.');patch={[`calidadGestion.registros.${id}`]:C.closeRecord(old,payload.fields,u,at)};}
+      tx.update(ref,patch);
+    }else{
+      if(record){if(snap.exists())throw new Error('Ese registro ya existe.');tx.set(ref,record);}
+      else{if(!snap.exists())throw new Error('El registro ya no está disponible.');tx.set(ref,C.closeRecord(snap.data(),payload.fields,u,at));}
+    }
   });
 };
 // Pendientes sin OT and printable archive are protected by Firebase ID tokens.
@@ -1362,11 +1392,11 @@ window.calcFechaVencimiento = () => {
 
 function hasNotas(o) {
   const n = o.notas_sector || {};
-  return ['Producción','Colocaciones','Diseño','Ventas','Compras'].some(s => n[s] && n[s].trim());
+  return ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'].some(s => n[s] && n[s].trim());
 }
 function notasPreview(o) {
   const n = o.notas_sector || {};
-  return ['Producción','Colocaciones','Diseño','Ventas','Compras']
+  return ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad']
     .filter(s => n[s] && n[s].trim())
     .map(s => `<div style="margin-bottom:4px"><span style="font-size:10px;font-weight:500;color:${SECTOR_COLORS[s]}">${SECTOR_EMOJI[s]} ${s}:</span> <span style="font-size:11px;color:var(--text2)">${n[s]}</span> <span style="font-size:10px;color:var(--text3)">${n[s+'_ts']||''}</span></div>`)
     .join('');
@@ -1407,6 +1437,7 @@ window.refreshCurrent = function() {
   else if (p==='produccion') renderProduccion();
   else if (p==='colocaciones') renderColocaciones();
   else if (p==='diseno') renderDiseno();
+  else if (p==='calidad') window.TIZCalidadV1?.render();
   else if (p==='alertas') renderAlertasV58();
   else if (p==='cobranzas') (window.TIZFactCobUIV2?.render || renderCobranzas)();
   else if (p==='presupuestos') renderPresupuestos();
@@ -1462,8 +1493,8 @@ function renderDashboard() {
     <div class="kpi"><div class="kpi-label">Facturas por vencer</div><div class="kpi-val ${vencFacturas>0?'red':''}">${vencFacturas}</div><div class="kpi-sub">próximas o vencidas</div></div>
   `;
 
-  const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
-  const COLORS = {'Producción':'var(--blue)','Colocaciones':'var(--teal)','Diseño':'var(--purple)','Ventas':'var(--amber)','Compras':'var(--accent)'};
+  const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'];
+  const COLORS = {'Producción':'var(--blue)','Colocaciones':'var(--teal)','Diseño':'var(--purple)','Ventas':'var(--amber)','Compras':'var(--accent)','Calidad':'var(--green)'};
   document.getElementById('dash-sectors').innerHTML = SECTORS.map(sec => {
     const sw = semObras.filter(o=>o.sector===sec);
     const term = sw.filter(o=>o.fprod_r||['Entregado','Facturado','Cobrado'].includes(o.estado));
@@ -1571,7 +1602,7 @@ window.requestDriveSyncForObra = async function(id, event){
 
 // OBRAS
 window.renderObras = function() {
-  const SECTORS = ['Todos','Producción','Colocaciones','Diseño','Ventas','Compras'];
+  const SECTORS = ['Todos','Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'];
   document.getElementById('obras-sectors').innerHTML = SECTORS.map(s =>
     `<button class="sector-tab ${window.obrasSectorFilter===s?'active':''}" onclick="setObrasSector('${s}')">${s}</button>`
   ).join('');
@@ -2026,7 +2057,7 @@ window.openModal = (type) => {
       window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
       window.calculosAuxiliares = [];
       renderObraItems(); renderCalculosAux();
-      ['Producción','Colocaciones','Diseño','Ventas','Compras'].forEach(s => {
+      ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'].forEach(s => {
         const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
         if(el) el.value = '';
       });
@@ -2073,7 +2104,7 @@ window.editObra = id => {
   // Cargar anotaciones por sector
   const notas = o.notas_sector || {};
   const sectorKeys = {
-    'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras'
+    'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras','Calidad':'calidad'
   };
   Object.entries(sectorKeys).forEach(([sec, key]) => {
     const el = document.getElementById('nota-'+key);
@@ -2129,13 +2160,13 @@ window.exportarExcel = () => {
   const headers = ['Fecha','Semana','OT','Descripción','Arquitecto','Cliente','Sector','Vendedor',
     'Estado','Neto','Bruto','Gastos','F.Prod.Comp','F.Prod.Real','F.Col.Comp','F.Col.Real',
     'OC/OP','Nro Factura','F.Factura','Estado Cobranza','Comentarios',
-    'Nota Producción','Nota Colocaciones','Nota Diseño','Nota Ventas','Nota Compras'];
+    'Nota Producción','Nota Colocaciones','Nota Diseño','Nota Ventas','Nota Compras','Nota Calidad'];
   const rows = obras.map(o => {
     const n = o.notas_sector||{};
     return [o.fecha||'',o.semana||'',o.ot||'',o.desc||'',o.arquitecto||'',o.cliente||'',
       o.sector||'',o.vendedor||'',o.estado||'',+o.neto||0,+o.bruto||0,+o.gastos||0,
       o.fprod_c||'',o.fprod_r||'',o.fcol_c||'',o.fcol_r||'',o.oc||'',o.nrfc||'',o.ffc||'',
-      o.cobr||'',o.comentarios||'',n['Producción']||'',n['Colocaciones']||'',n['Diseño']||'',n['Ventas']||'',n['Compras']||''];
+      o.cobr||'',o.comentarios||'',n['Producción']||'',n['Colocaciones']||'',n['Diseño']||'',n['Ventas']||'',n['Compras']||'',n['Calidad']||''];
   });
   const doExport = () => {
     const ws = window.XLSX.utils.aoa_to_sheet([headers,...rows]);
@@ -2421,7 +2452,7 @@ function nextClienteNumero() {
 }
 
 window.saveObra = async () => {
-  const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras' };
+  const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras','Calidad':'calidad' };
   const notas_sector = {};
   const existingId = window.editingId.obra;
   const existing = existingId ? window.DB.obras.find(x=>x.id===existingId) : null;
@@ -3254,8 +3285,8 @@ function renderEstCumplimiento() {
   const cobrTotalMonto = cobr.reduce((a,c)=>a+(+c.importe||0),0);
   const cobrCobradoMonto = cobr.filter(c=>c.estado==='Cobrado').reduce((a,c)=>a+(+c.importe||0),0);
   const cobrPendMonto = cobr.filter(c=>c.estado!=='Cobrado').reduce((a,c)=>a+(+c.importe||0),0);
-  const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras'];
-  const COLORS_SEC = {'Producción':'#5b9cf6','Colocaciones':'#3dbfa0','Diseño':'#9b7ff4','Ventas':'#e8a020','Compras':'#e8b84b'};
+  const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'];
+  const COLORS_SEC = {'Producción':'#5b9cf6','Colocaciones':'#3dbfa0','Diseño':'#9b7ff4','Ventas':'#e8a020','Compras':'#e8b84b','Calidad':'#4caf7d'};
   const sectorData = SECTORS.map(sec => {
     const ws = obras.filter(o=>o.sector===sec&&o.fprod_c);
     const ok = ws.filter(o=>semaforo(o.fprod_c,o.fprod_r)==='g').length;
@@ -3671,6 +3702,7 @@ async function syncToSheets(data) {
 
 <script src="excelMadre.js?v=TIZ-V40-BASE-20260903"></script>
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
+<script src="calidadV1.js?v=TIZ-CALIDAD-V1-20261013"></script>
 <script type="module" src="compras.js?v=TIZ-COLOCACIONES-V136-20261009"></script>
 <script src="operacionesV31.js?v=TIZ-V31-3-CONTACTO-OT-20260929"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
