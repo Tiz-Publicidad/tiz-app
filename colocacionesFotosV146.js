@@ -48,13 +48,27 @@
       for(let i=0;i<files.length;i++){
         const file=files[i];progress(`Subiendo ${i+1} de ${files.length}: ${file.name||'foto'}`);
         let photo;try{await renew();photo=await client.upload(file,folder,kind,o,{beforeCreate:renew});await save(current=>{owned(current);if(parentId(current)!==parentId(o))throw Error('Cambió la carpeta de esta OT. La foto está en Drive, pero falta revisar su vínculo en TIZ.');return photoPatch(current,photo,folder,new Date(now()).toISOString(),user);});result.saved.push(photo);}
-        catch(e){result.failed.push({nombre:file.name||'foto',error:(photo?'La foto está en Drive, pero falta registrarla en TIZ. ':'')+(e.message||String(e))});}
+        catch(e){result.failed.push({nombre:file.name||'foto',error:(photo?'La foto está en Drive, pero falta registrarla en TIZ. ':'')+errorMessage(e)});}
       }
       if(kind==='finales'&&!result.failed.length&&result.saved.length)await save(current=>{owned(current);if(parentId(current)!==parentId(o))throw Error('Cambió la carpeta de la OT. Revisá las fotos antes de cerrar.');return {'colocacionesGestion.preparacion.fotos.estado':'Listo','colocacionesGestion.preparacion.fotos.url':folderURL(folder)};});
       return result;
     }finally{if(locked)await save(current=>current.colocacionesGestion?.fotosDrive?.lease?.id===lease?{'colocacionesGestion.fotosDrive.lease':null}:{}).catch(()=>{});}
   }
-  return {parentId,validateFiles,createDriveClient,photoPatch,uploadBatch,folderURL,fileURL};
+  function errorMessage(err){
+    const code=String(err?.code||''),raw=String(err?.message||err||'No se pudo completar la carga.');
+    const messages={
+      'auth/popup-blocked':'El navegador bloqueó la autorización de Google Drive. Permití las ventanas emergentes de TIZ y tocá nuevamente el botón de fotos.',
+      'auth/popup-closed-by-user':'Se cerró la autorización de Google Drive. Tocá nuevamente el botón de fotos y completá la autorización.',
+      'auth/cancelled-popup-request':'Ya hay una autorización de Google abierta. Completala y volvé a intentar.',
+      'auth/user-mismatch':'Google se abrió con otra cuenta. Elegí la misma cuenta con la que ingresaste a TIZ.',
+      'auth/unauthorized-domain':'Este dominio de TIZ no está autorizado en Firebase. Administración debe agregarlo en Authentication → Settings → Authorized domains.',
+      'auth/network-request-failed':'No se pudo conectar con Google para autorizar Drive. Revisá la conexión y volvé a intentar.',
+      'permission-denied':'Firebase no permitió registrar las fotos de esta cuenta. Administración debe revisar sus permisos; no vuelvas a crear la OT ni la carpeta.',
+      'auth/internal-error':'Google/Firebase no pudo completar la autorización de Drive. Probá desde Chrome o Edge y verificá que esta cuenta esté habilitada en el consentimiento de Google.'
+    };
+    return (messages[code]||raw)+(code?' ('+code+')':'');
+  }
+  return {parentId,validateFiles,createDriveClient,photoPatch,uploadBatch,folderURL,fileURL,errorMessage};
 });
 
 (() => {
@@ -73,12 +87,27 @@
       busy=true;panel.setAttribute('aria-busy','true');status.textContent='Verificando 03 - COLOCACIÓN…';error.textContent='';
       const work=(window.DB?.obras||[]).find(o=>o.id===id);if(!work)throw Error('La obra ya no está disponible.');const parent=C.parentId(work),client=C.createDriveClient(token||await window.obtenerDriveAccessTokenTizV97?.());await client.account(window.currentUser.email);const folder=await client.folder(parent);
       const patch=await window.mutateColocacionesV128(id,current=>{if(C.parentId(current)!==parent)throw Error('Cambió la carpeta de la OT. Volvé a abrir Fotos.');const g=current.colocacionesGestion?.fotosDrive||{},p={'colocacionesGestion.fotosDrive.carpetaId':folder,'colocacionesGestion.fotosDrive.carpetaUrl':C.folderURL(folder),'colocacionesGestion.fotosDrive.carpetaOT':parent,'colocacionesGestion.fotosDrive.carpetaVerificadaV147':true};if(g.carpetaId&&current.colocacionesGestion?.preparacion?.fotos?.url===C.folderURL(g.carpetaId))p['colocacionesGestion.preparacion.fotos.url']=C.folderURL(folder);return p;});window.TIZColocacionesCore.applyPatch(work,patch);panel.outerHTML=html(work,kind);
-    }catch(e){error.textContent=e.message||String(e);status.textContent='';}finally{busy=false;panel.removeAttribute('aria-busy');}
+    }catch(e){error.textContent=C.errorMessage(e);status.textContent='';}finally{busy=false;panel.removeAttribute('aria-busy');}
   }
-  document.addEventListener('click',e=>{
+  document.addEventListener('click',async e=>{
     const sync=e.target.closest?.('[data-tiz-photo-sync]');if(sync){reconcile(sync.closest('[data-tiz-photo-work]').dataset.tizPhotoWork,true);return;}
     const button=e.target.closest?.('[data-tiz-photo-gallery],[data-tiz-photo-camera]');if(!button||busy)return;
-    const panel=button.closest('[data-tiz-photo-work]');panel.querySelector(button.hasAttribute('data-tiz-photo-camera')?'[data-tiz-photo-capture]':'[data-tiz-photo-files]').click();
+    const panel=button.closest('[data-tiz-photo-work]'),status=panel.querySelector('[data-tiz-photo-status]'),error=panel.querySelector('[data-tiz-photo-error]');
+    error.textContent='';
+    if(!window.obtenerDriveAccessTokenCacheTizV123?.()){
+      try{
+        if(!window.currentUser||!window.canAnnotateSector?.('Colocaciones'))throw Error('Tu puesto no tiene permiso para subir fotos.');
+        busy=true;panel.setAttribute('aria-busy','true');button.disabled=true;
+        status.textContent='Autorizando Google Drive antes de elegir las fotos…';
+        // Abrir Google desde el clic, antes de que la galería consuma la activación del navegador.
+        const token=await window.obtenerDriveAccessTokenTizV97?.();if(!token)throw Error('Falta autorizar Google Drive.');
+        const client=C.createDriveClient(token);await client.account(window.currentUser.email);
+        status.textContent='Google Drive autorizado. Tocá nuevamente el botón para elegir las fotos.';
+      }catch(err){error.textContent=C.errorMessage(err);status.textContent='Autorización sin completar.';if(err.code==='auth/user-mismatch'||/otra cuenta/i.test(err.message||'')){sessionStorage.removeItem('tiz-drive-oauth-v97');localStorage.removeItem('tiz-drive-oauth-v97');}}
+      finally{busy=false;panel.removeAttribute('aria-busy');button.disabled=false;}
+      return;
+    }
+    panel.querySelector(button.hasAttribute('data-tiz-photo-camera')?'[data-tiz-photo-capture]':'[data-tiz-photo-files]').click();
   });
   document.addEventListener('change',async e=>{
     const input=e.target;if(!input.matches?.('[data-tiz-photo-files],[data-tiz-photo-capture]')||busy||!input.files?.length)return;
@@ -88,7 +117,7 @@
       if(!window.currentUser||!window.canViewPage?.('colocaciones')||!window.canAnnotateSector?.('Colocaciones'))throw Error('Tu puesto no tiene permiso para subir fotos.');
       C.validateFiles(files);const work=(window.DB?.obras||[]).find(o=>o.id===id);if(!work)throw Error('La obra ya no está disponible.');C.parentId(work);
       busy=true;panel.setAttribute('aria-busy','true');controls.forEach(el=>el.disabled=true);status.textContent='Autorizando la subida a Drive…';
-      const token=await window.obtenerDriveAccessTokenTizV97?.();if(!token)throw Error('Falta autorizar Google Drive.');
+      const token=window.obtenerDriveAccessTokenCacheTizV123?.();if(!token)throw Error('La autorización de Drive venció. Tocá nuevamente el botón de fotos para autorizar antes de elegir los archivos.');
       const client=C.createDriveClient(token);await client.account(window.currentUser.email);
       const save=async builder=>{const patch=await window.mutateColocacionesV128(id,current=>({...builder(current),'colocacionesGestion.actualizadoEn':new Date().toISOString(),'colocacionesGestion.actualizadoPor':window.currentUser.email}));const o=(window.DB?.obras||[]).find(o=>o.id===id);if(o)window.TIZColocacionesCore.applyPatch(o,patch);return patch;};
       const result=await C.uploadBatch({files,kind,client,save,user:window.currentUser.email,leaseId:'foto'+crypto.randomUUID().replace(/-/g,''),progress:text=>status.textContent=text});
@@ -97,7 +126,7 @@
       const fresh=document.querySelector(`[data-tiz-photo-work="${CSS.escape(id)}"]`);
       fresh.querySelector('[data-tiz-photo-status]').textContent=`${result.saved.length} fotos verificadas y registradas · ${result.failed.length} con error.${kind==='finales'&&!result.failed.length?' Fotos finales completas; confirmá el control final para cerrar.':''}`;
       fresh.querySelector('[data-tiz-photo-error]').textContent=result.failed.map(x=>x.nombre+': '+x.error).join('\n');
-    }catch(err){error.textContent=err.message||String(err);status.textContent='Carga sin completar. Revisá el mensaje y reintentá; se buscan primero las fotos ya subidas.';if(/otra cuenta|venci[oó]/i.test(err.message||'')){sessionStorage.removeItem('tiz-drive-oauth-v97');localStorage.removeItem('tiz-drive-oauth-v97');}}
+    }catch(err){error.textContent=C.errorMessage(err);status.textContent='Carga sin completar. Revisá el mensaje y reintentá; se buscan primero las fotos ya subidas.';if(/otra cuenta|venci[oó]/i.test(err.message||'')){sessionStorage.removeItem('tiz-drive-oauth-v97');localStorage.removeItem('tiz-drive-oauth-v97');}}
     finally{busy=false;panel.removeAttribute('aria-busy');controls.forEach((el,i)=>el.disabled=previous[i]);input.value='';}
   });
   window.TIZColocacionesFotosV146={html,busy:()=>busy};

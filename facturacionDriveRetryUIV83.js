@@ -44,6 +44,12 @@
           "null",
       );
       if (!x?.token || !x?.ts) return "";
+      const email = String(authApi?.auth?.currentUser?.email || window.currentUser?.email || "").trim().toLowerCase();
+      if (!email || String(x.email || "").trim().toLowerCase() !== email) {
+        sessionStorage.removeItem(DRIVE_CACHE);
+        localStorage.removeItem(DRIVE_CACHE);
+        return "";
+      }
       if (Date.now() - Number(x.ts) > 50 * 60 * 1000) {
         sessionStorage.removeItem(DRIVE_CACHE);
         localStorage.removeItem(DRIVE_CACHE);
