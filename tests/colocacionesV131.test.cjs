@@ -241,3 +241,15 @@ test('Acciones permite pendientes sin fecha y no mezcla cerradas al cambiar filt
   assert.deepEqual(Array.from(g.filtered(),r=>r.accion.id),['a']);
  }
 });
+
+
+test('una acción intermedia pide sólo fecha real, permite resultado opcional y no pide fotos ni retrabajo',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;w.canViewPage=()=>true;w.canAnnotateSector=()=>true;
+ const html=g.inlineRow({key:'o/a',obra:{id:'o',ot:'4700'},accion:{...action('2026-10-13'),tipo:'Coordinación'}});
+ assert.ok(html.includes('Terminar acción'));
+ assert.ok(html.includes('La obra continúa abierta'));
+ assert.ok(html.includes('Resultado (opcional)'));
+ assert.ok(!html.includes('name="control"'));
+ assert.ok(!html.includes('name="retrabajo"'));
+ assert.ok(!html.includes('photo'));
+});
