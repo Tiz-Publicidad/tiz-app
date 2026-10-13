@@ -86,3 +86,29 @@ test('pantalla real envía acciones autenticadas al acceso de Colocaciones y pro
   auth.currentUser=null;await assert.rejects(w.colocacionesApiV129({mode:'list'}),/permiso/);
 });
 
+
+
+test('cierre histórico sin fotos ni control conserva la excepción y no inventa aprobaciones',()=>{
+ const o=base();o.colocacionesGestion.acciones.primera.estado='Cerrada';const before=JSON.stringify(o);
+ const patch=C.closeWorkPatch(o,{fecha:'2026-10-07',resultado:'Trabajo entregado antes de la app',cierreHistorico:true},'2026-10-08T15:00:00Z','operador@example.test','hist1');
+ assert.equal(patch['colocacionesGestion.cierre'].historico,true);
+ assert.equal(patch['colocacionesGestion.cierre'].fotosVerificadas,false);
+ assert.equal(patch['colocacionesGestion.cierre'].controlFinalVerificado,false);
+ assert.equal(patch['sectores.colocaciones.fotosFinales'],undefined);
+ assert.equal(patch['colocacionesGestion.preparacion.final'],undefined);
+ assert.equal(patch['sectores.colocaciones.instalada'],true);
+ assert.match(patch['colocacionesGestion.eventos.hist1'].accion,/Cierre histórico/);
+ assert.equal(JSON.stringify(o),before);
+});
+test('cierre normal sigue exigiendo fotos y control; histórico exige fecha y resultado',()=>{
+ const o=base(),fields={fecha:'2026-10-07',resultado:'Entregado'};o.colocacionesGestion.acciones.primera.estado='Cerrada';
+ const close=f=>C.closeWorkPatch(o,f,'at','user','event');
+ assert.throws(()=>close(fields),/fotos finales/);
+ o.colocacionesGestion.preparacion={fotos:{estado:'Listo',url:'https://drive.google.com/drive/folders/finales'}};
+ assert.throws(()=>close(fields),/control final/);
+ assert.equal(close({...fields,controlFinal:true})['colocacionesGestion.preparacion.final'].estado,'Listo');
+ assert.throws(()=>close({...fields,cierreHistorico:true,fecha:'2026-10-09'}),/fecha real/);
+ assert.throws(()=>close({...fields,cierreHistorico:true,resultado:''}),/resultado/);
+ o.colocacionesGestion.acciones.primera.estado='Pendiente';
+ assert.throws(()=>close({...fields,cierreHistorico:true}),/acciones pendientes/);
+});
