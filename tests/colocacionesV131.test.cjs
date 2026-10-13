@@ -253,3 +253,26 @@ test('una acción intermedia pide sólo fecha real, permite resultado opcional y
  assert.ok(!html.includes('name="retrabajo"'));
  assert.ok(!html.includes('photo'));
 });
+
+
+test('retiro sin OT muestra su dirección a Ariel y genera navegación Google Maps con localidad',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;
+ const row={key:'sinOT/a',draft:true,obra:{id:'sinOT'},accion:{...action('2026-10-16'),direccion:'Calle Prueba 123',zona:'San Miguel, Buenos Aires'}};
+ const detail=g.dateDetails(row),form=g.inlineRow(row);
+ assert.ok(detail.includes('Calle Prueba 123'));
+ for(const html of [detail,form]){assert.ok(html.includes('Google Maps'));assert.ok(html.includes('/maps/dir/?api=1'));assert.ok(html.includes('dir_action=navigate'));assert.ok(html.includes(encodeURIComponent('Calle Prueba 123, San Miguel, Buenos Aires')));}
+ assert.ok(form.includes('name="direccion"'));
+ assert.ok(form.includes('name="zona"'));
+ assert.equal(g.mapsLink('','San Miguel'),'');
+ assert.ok(!g.mapsLink('Prueba <img src=x>','').includes('<img'));
+});
+test('editar una acción vinculada guarda su destino propio y conserva el domicilio de la obra',async()=>{
+ const w=ui(),C=w.TIZColocacionesCore,source=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8'),start=source.indexOf('  async function saveInline('),end=source.indexOf('  async function correctClosed',start);
+ const o={id:'o',entregaLogistica:{domicilio:'Domicilio de la obra'},colocacionesGestion:{acciones:{a:{...action('2026-10-16'),direccion:'Retiro anterior',zona:'Zona anterior',actualizadoEn:'v1'}}}},win={};let patch;
+ vm.runInNewContext(source.slice(start,end)+'\nwindow.save=saveInline;',{window:win,blockers:()=>[],mutate:async(id,fn)=>{patch=fn(o);return patch},actions:C.actions,db:()=>({}),open:G.open,validateAction:C.validateAction,isoDate:C.isoDate,stamp:()=> 'v2',actor:()=> 'Compras'});
+ await win.save('o','a',{titulo:'Buscar materiales',fecha:'2026-10-16',responsable:'Ariel',observaciones:'Coordinar retiro',direccion:'Calle Prueba 456',zona:'San Miguel'},'v1');
+ assert.equal(patch['colocacionesGestion.acciones.a'].direccion,'Calle Prueba 456');
+ assert.equal(patch['colocacionesGestion.acciones.a'].zona,'San Miguel');
+ assert.equal(o.entregaLogistica.domicilio,'Domicilio de la obra');
+ assert.equal(G.cleanAction({...action('2026-10-16'),direccion:'Calle Prueba 123',zona:'San Miguel'}).direccion,'Calle Prueba 123');
+});
