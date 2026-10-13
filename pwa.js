@@ -3,7 +3,9 @@
   'use strict';
   const base=new URL('./',document.baseURI);
   const installed=()=>installedThisSession||window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
-  let promptEvent=null,registration=null,applying=false,installedThisSession=false;
+  let promptEvent=null,registration=null,applying=false,installedThisSession=false,pendingUpdate=false;
+  const updateEditors=new Set(['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com']);
+  const managesUpdates=()=>updateEditors.has(String(window.currentUser?.email||'').toLowerCase());
   const edited=new Map();
   const value=el=>['checkbox','radio'].includes(el.type)?el.checked:el.value;
   const dirty=()=>[...edited].some(([el,initial])=>el.isConnected&&value(el)!==initial);
@@ -35,14 +37,29 @@
     const banner=document.createElement('aside');banner.id='tiz-update';banner.hidden=true;banner.setAttribute('role','status');
     const message=document.createElement('p');message.textContent='Hay una versión nueva de TIZ. Guardá tu trabajo antes de actualizar.';
     const update=document.createElement('button');update.type='button';update.textContent='Actualizar';
-    const later=document.createElement('button');later.type='button';later.dataset.later='';later.textContent='Después';later.addEventListener('click',()=>banner.hidden=true);
-    update.addEventListener('click',()=>{
-      if(document.querySelector('[aria-busy="true"],.c128-busy')){message.textContent='Esperá a que termine el guardado antes de actualizar.';return;}
-      if(dirty()&&!window.confirm('Hay campos modificados. ¿Ya guardaste lo necesario y querés actualizar TIZ?'))return;
-      applying=true;update.disabled=true;
+    let postponed=false;
+    const later=document.createElement('button');later.type='button';later.dataset.later='';later.textContent='Después';later.addEventListener('click',()=>{postponed=true;banner.hidden=true});
+    const saving=()=>!!document.querySelector('[aria-busy="true"],.c128-busy,form button[type="submit"]:disabled')||!!window.__tizPresupuestoGuardando||!!window.TIZColocacionesFotosV146?.busy();
+    const applyUpdate=()=>{
+      if(applying)return;applying=true;update.disabled=true;
       if(registration?.waiting)registration.waiting.postMessage({type:'TIZ_APPLY_UPDATE'});else location.reload();
+    };
+    const processUpdate=()=>{
+      if(!pendingUpdate||applying)return;
+      if(managesUpdates()){if(!postponed)banner.hidden=false;return;}
+      banner.hidden=true;
+      // Auth arrives asynchronously. Keep edited forms and in-flight saves intact.
+      if(!window.currentUser||document.hidden||!navigator.onLine||saving()||dirty())return;
+      applyUpdate();
+    };
+    update.addEventListener('click',()=>{
+      if(!managesUpdates())return;
+      if(saving()){message.textContent='Esperá a que termine el guardado antes de actualizar.';return;}
+      if(dirty()&&!window.confirm('Hay campos modificados. ¿Ya guardaste lo necesario y querés actualizar TIZ?'))return;
+      applyUpdate();
     });banner.append(message,update,later);document.body.append(banner);
-    const announce=()=>banner.hidden=false;
+    const announce=()=>{pendingUpdate=true;postponed=false;processUpdate();};
+    setInterval(processUpdate,5000);
     if('serviceWorker' in navigator){
       navigator.serviceWorker.addEventListener('controllerchange',()=>{if(applying)location.reload();});
       navigator.serviceWorker.register(new URL('sw.js',base).href,{scope:base.pathname,updateViaCache:'none'}).then(r=>{
@@ -64,7 +81,7 @@
       }catch(_){/* Keep the current page and unsaved work on connection failures. */}
       finally{checking=false;clearTimeout(timer);}
     };
-    window.addEventListener('online',checkBuild);document.addEventListener('visibilitychange',checkBuild);setInterval(checkBuild,120000);checkBuild();
+    window.addEventListener('online',()=>{processUpdate();checkBuild()});document.addEventListener('visibilitychange',()=>{processUpdate();checkBuild()});setInterval(checkBuild,120000);checkBuild();
     console.info('[TIZ] PWA instalada en web TIZ-PWA-V1-20261012');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();

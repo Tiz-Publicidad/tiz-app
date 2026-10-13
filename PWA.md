@@ -12,9 +12,12 @@ anchas de otros módulos conservan desplazamiento horizontal.
 
 El workflow de Pages inserta el commit publicado en `meta[name=tiz-build]` y
 en `DEPLOY_COMMIT.txt`. La app comprueba versiones al volver a primer plano y
-cada dos minutos mientras está visible. Muestra **Actualizar**; no recarga
-automáticamente las sesiones abiertas. Si hay campos modificados, pide verificar
-que estén guardados. Los cambios en `sw.js` esperan la aplicación de la actualización.
+cada dos minutos mientras está visible. Muestra **Actualizar** únicamente a info@tizpublicidad.com y
+pablo.aciar@tizpublicidad.com. Los demás usuarios reciben la actualización
+automáticamente cuando están identificados, tienen conexión, la app está visible
+y no hay formularios modificados ni guardados en curso. Si hay cambios pendientes,
+la actualización espera sin mostrar el aviso y reintenta cada cinco segundos.
+Para los dos editores, si hay campos modificados, pide verificar que estén guardados. Los cambios en `sw.js` esperan la aplicación de la actualización.
 
 Mantener versiones de scripts y estilos al modificar módulos, como en escritorio.
 Si cambian los archivos precargados, incrementar `CACHE` en `sw.js`.
