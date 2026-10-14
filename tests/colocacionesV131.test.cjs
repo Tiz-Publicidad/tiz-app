@@ -38,16 +38,16 @@ test('base contiene obras pendientes sin acción ni fecha y mantiene acciones co
  const rows=w.TIZColocacionesGeneralV129.baseRows();assert.equal(rows.length,3);assert.equal(rows.filter(r=>r.obra.id==='1'&&r.empty).length,1);assert.equal(rows.some(r=>r.obra.id==='3'),false);assert.equal(w.TIZColocacionesGeneralV129.entries().length,2);
  const html=w.TIZColocacionesGeneralV129.body('base');for(const text of ['Pendientes','4701','Sin acción cargada','data-g-detail='])assert.ok(html.includes(text));
 });
-test('calendario renderiza una semana de lunes a domingo y el bloqueo reemplaza la navegación',()=>{
+test('calendario renderiza una semana de lunes a domingo y el bloqueo conserva la navegación',()=>{
  const source=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8');const w=ui();
  const c={window:w,Date,Intl,console,TextEncoder};
  // Execute the actual render helpers with lightweight DOM bindings.
  const start=source.indexOf('  function agendaHTML()'),end=source.indexOf('  function overlay()',start);
- const node={innerHTML:''};w.currentUser={};w.canViewPage=()=>true;w.TIZColocacionesGeneralV129.attach=()=>{};w.TIZColocacionesGeneralV129.load=()=>{};
+ const node={innerHTML:'',insertAdjacentHTML(position,html){assert.equal(position,'afterbegin');this.innerHTML=html+this.innerHTML;}};w.currentUser={};w.canViewPage=()=>true;w.TIZColocacionesGeneralV129.attach=()=>{};w.TIZColocacionesGeneralV129.load=()=>{};
  vm.runInNewContext(source.slice(start,end)+'\nwindow.testRender=render;window.testAgenda=agendaHTML;',{...c,today:()=> '2026-10-08',shift:G.shift,fmtDate:x=>x,open:G.open,esc:x=>String(x||''),bucket:a=>a.fecha<'2026-10-08'?'vencidas':'proximas',chip:x=>x,canWrite:()=>true,canRead:()=>true,allWorks:()=>[],pending:()=>[],db:()=>w.DB,style:()=>{},pageRoot:()=>node,btn:(text,attr)=>`<button ${attr}>${text}</button>`,state:{view:'agenda'},renderList:()=>{}});
  w.testRender();assert.equal((node.innerHTML.match(/<section class="c128-day /g)||[]).length,8);assert.ok(node.innerHTML.includes('05/10/2026 al 11/10/2026'));assert.ok(node.innerHTML.includes('data-view="historico"'));
  for(const fecha of ['1900-01-06','2026-03-01']){w.DB.obras=[{id:'old',ot:'4350',estado:'Pendiente',fcol_c:fecha}];w.testRender();assert.ok(node.innerHTML.includes('data-view=\"base\"'));assert.ok(!node.innerHTML.includes('data-overdue='));}
- w.DB.obras=[{id:'o',estado:'Pendiente',ot:'4700',colocacionesGestion:{acciones:{a:action('2026-10-06')}}}];w.testRender();assert.ok(node.innerHTML.includes('data-overdue="o/a"'));assert.ok(!node.innerHTML.includes('data-view='));
+ w.DB.obras=[{id:'o',estado:'Pendiente',ot:'4700',colocacionesGestion:{acciones:{a:action('2026-10-06')}}}];w.testRender();assert.ok(node.innerHTML.includes('data-overdue="o/a"'));assert.ok(node.innerHTML.includes('data-view="agenda"'));assert.ok(node.innerHTML.includes('data-view="base"'));
  w.DB.obras[0].colocacionesGestion.acciones.a.estado='Cerrada';w.testRender();assert.ok(node.innerHTML.includes('data-view="agenda"'));
 });
 test('resolver sin OT es transaccional y rechaza versiones viejas o identidad repetida',async()=>{

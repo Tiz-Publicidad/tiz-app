@@ -34,6 +34,7 @@ jobs:
           node --check functions/facturaDrive2026.js
           node --check functions/facturacionDriveRetryV83.js
           node --check functions/baseMadreBackendV120.js
+          node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
           node --check functions/arcaPadronA5V125.js
           node --test tests/arcaPadronV125.test.js
           node --check functions/colocacionesGeneralV129.js

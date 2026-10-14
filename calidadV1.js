@@ -101,7 +101,7 @@
  }
  function rows(db={}){return [...(db.obras||[]).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).map(r=>({...r,obraId:''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
  // One quality queue entry per OT; preserve every source row/description.
- function motherWorks(source=[], works=[]){
+ function motherWorks(source=[], works=[], internalRecords=[]){
   const base=v=>{const m=text(v).match(/\d{4,7}/);return m?String(Number(m[0])):'';},groups=new Map();
   for(const r of source){
    if(!['pendiente','cobrado pendiente'].includes(norm(r.status).replace(/[_\s]+/g,' ')))continue;
@@ -114,8 +114,9 @@
    const matches=g.ot?works.filter(o=>base(o.ot)===g.ot&&!o.archivado&&o.revisionVigente!==false&&o.revisionOperativa!==false):[];
    // Do not guess among duplicate operational works; the queue still shows the source reference.
    const work=matches.length===1?matches[0]:null;
-   const rs=Object.values(work?.calidadGestion?.registros||{}),last=rs.filter(r=>DECISIONS.includes(r.decision)).sort((a,b)=>String(b.creadoEn||'').localeCompare(String(a.creadoEn||'')))[0];
-   return {...g,id:work?.id||'',desc:g.descriptions.join(' / '),cliente:g.clients.join(' / '),status:g.statuses.join(' / '),calidadEstado:last?.decision||'Sin revisar',referencia:(g.ot?'OT '+g.ot+' · ':'')+g.clients.join(' / ')+' · '+g.descriptions.join(' / ')};
+   const reference=(g.ot?'OT '+g.ot+' · ':'')+g.clients.join(' / ')+' · '+g.descriptions.join(' / ');
+   const rs=work?Object.values(work.calidadGestion?.registros||{}):internalRecords.filter(r=>norm(r.referencia)===norm(reference)),last=rs.filter(r=>DECISIONS.includes(r.decision)).sort((a,b)=>String(b.creadoEn||'').localeCompare(String(a.creadoEn||'')))[0];
+   return {...g,id:work?.id||'',desc:g.descriptions.join(' / '),cliente:g.clients.join(' / '),status:g.statuses.join(' / '),calidadEstado:last?.decision||'Sin revisar',referencia:reference};
   }).sort((a,b)=>Number(b.ot||0)-Number(a.ot||0)||a.sourceRows[0]-b.sourceRows[0]);
  }
  function metrics(db={}){
@@ -132,7 +133,7 @@
  const C=window.TIZCalidadCore,E=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let tab='obras',query='',filter='Todos',form=null,busy=false,motherRows=null,motherBusy=false,motherError='',motherReadAt=0;
  const user=()=>window.currentUser,all=()=>C.rows(window.DB),option=(xs,value='')=>xs.map(x=>`<option value="${E(x)}" ${x===value?'selected':''}>${E(x)}</option>`).join('');
- const worksToControl=()=>C.motherWorks(motherRows||[],window.DB?.obras||[]).filter(o=>!query||C.norm([o.ot,o.cliente,o.desc,o.status].join(' ')).includes(C.norm(query)));
+ const worksToControl=()=>C.motherWorks(motherRows||[],window.DB?.obras||[],window.DB?.calidad||[]).filter(o=>!query||C.norm([o.ot,o.cliente,o.desc,o.status].join(' ')).includes(C.norm(query)));
  async function refreshMother(force=false){
   if(motherBusy||!force&&Date.now()-motherReadAt<60000)return;
   motherBusy=true;motherError='';
