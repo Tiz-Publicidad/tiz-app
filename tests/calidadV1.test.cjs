@@ -23,7 +23,7 @@ test('guardado transaccional conserva sectores y rechaza doble cierre sobre dato
 });
 test('el Dashboard y la lista escapan el contenido y presentan los tres tipos de registro',()=>{
  const host={innerHTML:''},list={innerHTML:''},r=C.clean({...base,detalle:'<img src=x onerror=alert(1)>'},u,at,today),window={currentUser:u,TIZCalidadCore:C,DB:{obras:[{id:'obra',ot:'4773',cliente:'Cliente',desc:'<obra>',calidadGestion:{registros:{q1:r}}}]}};
- const document={head:{append(){}},activeElement:null,createElement:()=>({}),getElementById:id=>id==='calidad-root'?host:id==='q1-list'?list:null,addEventListener(){}};
- const source=fs.readFileSync(require.resolve('../calidadV1.js'),'utf8');vm.runInNewContext(source.slice(source.indexOf('(() => {')),{window,document});window.TIZCalidadV1.render();
+ const listeners={};const document={head:{append(){}},activeElement:null,createElement:()=>({}),getElementById:id=>id==='calidad-root'?host:id==='q1-list'?list:null,addEventListener(type,fn){listeners[type]=fn;}};
+ const source=fs.readFileSync(require.resolve('../calidadV1.js'),'utf8');vm.runInNewContext(source.slice(source.indexOf('(() => {')),{window,document});window.TIZCalidadV1.render();listeners.click({target:{closest:()=>({dataset:{qTab:'dashboard'},hasAttribute:a=>a==='data-q-tab'})}});
  assert.match(host.innerHTML,/Dashboard/);for(const type of C.TYPES)assert.ok(host.innerHTML.includes(type));assert.match(list.innerHTML,/&lt;img/);assert.ok(!list.innerHTML.includes('<img'));assert.match(list.innerHTML,/&lt;obra&gt;/);assert.match(list.innerHTML,/Verificar y cerrar/);
 });

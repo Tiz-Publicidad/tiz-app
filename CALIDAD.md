@@ -2,6 +2,12 @@
 
 Primera versión: sección propia con Dashboard, Pendientes e Histórico y búsqueda por OT, obra, cliente, responsable o detalle. Calidad también aparece en sectores de Obras y tareas, con notas en la ficha. La ficha ya tenía un resumen de Calidad: se conserva y se enlaza al registro de liberación para salida a colocación.
 
+## Obras a controlar desde TIZ 2026
+
+La lista inicial consulta la Base Madre vigente y muestra todas las filas cuyo Status sea Pendiente o Cobrado pendiente, sin límite de 15 días. Agrupa anticipo/saldo por OT, conserva todas las descripciones y las filas de origen, e incluye referencias sin OT. La búsqueda funciona por OT, cliente, descripción y estado. El botón Actualizar desde TIZ 2026 vuelve a consultar la fuente.
+
+La consulta requiere sesión de TIZ y sólo devuelve OT, cliente, descripción y estado. No importa importes ni modifica la planilla, la obra o los registros previos. La lista representa trabajos por revisar: no genera anomalías, decisiones ni liberaciones ficticias. Cuando existe una obra operativa única se puede abrir su ficha o registrar un control ligado a ella. Si no existe una coincidencia única o falta OT, Revisar completa una referencia interna con los datos de origen; una liberación requiere vincular previamente una obra real. Los errores de consulta se muestran y una lectura anterior se identifica como tal.
+
 ## Registros
 
 - **Anomalía:** qué ocurrió, área, categoría, gravedad, fecha, responsable y plazo de corrección. Puede estar vinculada a una OT o a una referencia interna (máquina, recepción, proceso, auditoría 5S). El cierre registra corrección y verificación, fecha real y usuario. Conserva el hallazgo original.

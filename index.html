@@ -1295,6 +1295,16 @@ window.mutateColocacionesV128 = async (id, buildPatch) => {
   });
 };
 // Calidad conserva registros por OT y evita pisar gestiones de otros sectores.
+window.leerCalidadBaseMadreV1 = async () => {
+  if (!auth.currentUser || !window.canViewPage('calidad')) throw new Error('Tu cuenta no puede consultar Calidad.');
+  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
+    method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
+    body:JSON.stringify({mode:'read-quality'})
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo consultar TIZ 2026');
+  return result;
+};
 window.saveCalidadV1 = async payload => {
   const C=window.TIZCalidadCore,u=window.currentUser;
   if(!C?.canRecord(u))throw new Error('Tu cuenta no puede registrar Calidad.');
@@ -3702,7 +3712,7 @@ async function syncToSheets(data) {
 
 <script src="excelMadre.js?v=TIZ-V40-BASE-20260903"></script>
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
-<script src="calidadV1.js?v=TIZ-CALIDAD-V1-20261014B"></script>
+<script src="calidadV1.js?v=TIZ-CALIDAD-BASE-MADRE-20261014C"></script>
 <script type="module" src="compras.js?v=TIZ-COLOCACIONES-V136-20261009"></script>
 <script src="operacionesV31.js?v=TIZ-V31-3-CONTACTO-OT-20260929"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>

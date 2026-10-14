@@ -191,6 +191,15 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     const db = admin.firestore();
     const auth = new google.auth.GoogleAuth({scopes:["https://www.googleapis.com/auth/spreadsheets"]});
     const sheets = google.sheets({version:"v4", auth});
+    if (text(req.body?.mode).toLowerCase() === "read-quality") {
+      const result = await sheets.spreadsheets.values.batchGet({
+        spreadsheetId:SPREADSHEET_ID, ranges:[`'${SHEET}'!C3:F`, `'${SHEET}'!Y3:Y`], valueRenderOption:"FORMATTED_VALUE"
+      });
+      const [details, states] = result.data.valueRanges || [];
+      const rows = (details?.values || []).map((r, i) => ({row:i + 3, ot:text(r[0]), desc:text(r[1]), cliente:text(r[3]), status:text(states?.values?.[i]?.[0])}))
+        .filter(r => ["pendiente", "cobrado pendiente"].includes(norm(r.status)) && (r.ot || r.desc || r.cliente));
+      return res.json({ok:true, rows, leidoEn:new Date().toISOString()});
+    }
     if (text(req.body?.mode).toLowerCase() === "read-billing") {
       if (email !== "info@tizpublicidad.com" && email !== "pablo.aciar@tizpublicidad.com") {
         throw Object.assign(new Error("Sin permiso para conciliar facturación"), {status:403});
