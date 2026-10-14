@@ -185,7 +185,7 @@
       'colocacionesGestion.cierre':{cerrada:true,fecha,resultado,usuario:user,registradoEn:at,...(historico?{historico:true,motivoExcepcion:'Obra realizada antes de implementar la app',fotosVerificadas:checks.fotos?.estado==='Listo'&&!!checks.fotos?.url,controlFinalVerificado:checks.final?.estado==='Listo'}:{}),...(forzar?{forzado:true,motivoExcepcion:'Cierre confirmado con datos pendientes',pendientesAlCerrar:pendientesAbiertos.map(a=>a.id),fotosVerificadas:checks.fotos?.estado==='Listo'&&!!checks.fotos?.url,controlFinalVerificado:checks.final?.estado==='Listo'}:{})},
       [`colocacionesGestion.eventos.${eventId}`]:{accion:(historico?'Cierre histórico de colocación: ':'Colocación cerrada: ')+resultado,fecha:at,usuario:user},
       'sectores.colocaciones.estado':'Instalada','sectores.colocaciones.real':fmtDate(fecha),'sectores.colocaciones.instalada':true,
-      ...(!historico?{'sectores.colocaciones.fotosFinales':true}:{})};
+      ...(!historico?{'sectores.colocaciones.fotosFinales':checks.fotos?.estado==='Listo'&&!!checks.fotos?.url}:{})};
   }
   window.TIZColocacionesCore = {closeWorkPatch,pendingInstallation,newInstallation,phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
   if (typeof document === 'undefined') return;
