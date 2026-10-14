@@ -38,3 +38,13 @@ El dashboard muestra pendientes, vencidos, liberaciones registradas y unidades r
 6. Evaluar indicadores por semana (recurrencias, tiempo de resolución, primera aprobación), exportación de actas de liberación y controles de permisos en el servidor cuando se incorporen nuevas cuentas.
 
 Validación inicial: pruebas de fechas, permisos de formularios, coherencia de cantidades, liberación con pendientes, conservación del resultado original, enlaces seguros, registros internos y transacciones que conservan otros sectores; checks completos de publicación.
+
+## Formularios y checklists por obra
+
+Calidad → Formularios / checklists contiene tres enlaces de uso móvil: Aprobación para Producción, Liberación para Colocación y Resultado de la Colocación. Pablo o Juli pueden definir alcance, plano vigente y criterios concretos para cada punto. El responsable de seguimiento inicial es Cristian y puede cambiarse. Los puntos se pueden agregar/quitar, y cada resultado se registra como Pendiente, Conforme, No conforme o No aplica (con motivo).
+
+Guardar borrador conserva el avance sin liberar. Aprobar requiere alcance y responsables, criterios para los puntos conformes, ningún pendiente/no conforme y la etapa anterior aprobada y vigente. Para el resultado final se requieren fotos y resultado/conformidad. La función del servidor valida roles, identidad de obra, revisión esperada y observaciones de Calidad pendientes en una obra vinculada. Si cambia Producción, la liberación anterior deja de estar vigente para aprobar el resultado.
+
+Los documentos se guardan en `calidadChecklists/{key_etapa}`; cada revisión se conserva en `versiones/{n}`. No se modifican las obras, otros controles, estados de Producción/Colocaciones, cobros, facturas o Base Madre. El cierre operativo de la obra sigue en Colocaciones. El botón Descargar PDF genera el archivo A4 desde la versión guardada, con OT, etapa, responsables y trazabilidad; los borradores, etapas desactualizadas y revisiones históricas no aparecen como liberados. El archivo se descarga, no se crean carpetas ni se sube automáticamente a Drive.
+
+Los enlaces requieren sesión de TIZ. No se agrega una cuenta de Cristian ni se modifica la cuenta restringida de Ariel; habilitar una persona nueva requiere identificar su correo y acordar el acceso.

@@ -35,6 +35,10 @@ jobs:
           node --check functions/facturacionDriveRetryV83.js
           node --check functions/baseMadreBackendV120.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
+          node --check calidadChecklistsV2.js
+          node --check functions/calidadChecklistCoreV2.js
+          node --check functions/calidadChecklistApiV2.js
+          node --test tests/calidadChecklistV2.test.cjs
           node --check functions/arcaPadronA5V125.js
           node --test tests/arcaPadronV125.test.js
           node --check functions/colocacionesGeneralV129.js
@@ -87,6 +91,18 @@ jobs:
             if git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- colocacionesV128.js | grep -q . && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|allFunctionsV86|facturacionIntegralApiV83)\.js$' | grep -q .; then
               targets=functions:facturacionIntegralEmitirV83
             fi
+          fi
+          if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            quality_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
+            if printf '%s\n' "$quality_changed" | grep -Eq '^functions/calidadChecklist(Core|Api)V2\.js$'; then
+              if ! printf '%s\n' "$quality_changed" | grep -Ev '^functions/(calidadChecklistCoreV2|calidadChecklistApiV2|allFunctionsV86)\.js$' | grep -q .; then
+                targets=functions:calidadChecklistV2
+              else
+                targets="$targets,functions:calidadChecklistV2"
+              fi
+            fi
+          elif [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            targets="$targets,functions:calidadChecklistV2"
           fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive
       - name: Record deployment status
