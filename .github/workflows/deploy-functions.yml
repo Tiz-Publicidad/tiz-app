@@ -95,14 +95,12 @@ jobs:
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             quality_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
             if printf '%s\n' "$quality_changed" | grep -Eq '^functions/calidadChecklist(Core|Api)V2\.js$'; then
-              if ! printf '%s\n' "$quality_changed" | grep -Ev '^functions/(calidadChecklistCoreV2|calidadChecklistApiV2|allFunctionsV86)\.js$' | grep -q .; then
-                targets=functions:calidadChecklistV2
+              if ! printf '%s\n' "$quality_changed" | grep -Ev '^functions/(calidadChecklistCoreV2|calidadChecklistApiV2|allFunctionsV86|baseMadreBackendV120)\.js$' | grep -q .; then
+                targets=functions:sincronizarBaseMadreV120
               else
-                targets="$targets,functions:calidadChecklistV2"
+                targets="$targets,functions:sincronizarBaseMadreV120"
               fi
             fi
-          elif [ "${{ github.event_name }}" = workflow_dispatch ]; then
-            targets="$targets,functions:calidadChecklistV2"
           fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive
       - name: Record deployment status

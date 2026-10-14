@@ -8,7 +8,7 @@ function backend(){
  const db={collection:name=>({doc:id=>ref(name+'/'+id)}),runTransaction:async fn=>{const queued=[];const result=await fn({get:async r=>snap(r.path),set:(r,d)=>queued.push([r.path,structuredClone(d)])});for(const [path,d]of queued){data.set(path,d);writes.push(path);}return result;}};
  const admin={auth:()=>({verifyIdToken:async()=>({email:user.email})}),firestore:()=>db};
  const source=fs.readFileSync(require.resolve('../functions/calidadChecklistApiV2'),'utf8'),exports={};vm.runInNewContext(source+'\nexports.test={save,pdf,keyFor,operator,read};',{exports,Buffer,URL,console,require:n=>n==='firebase-admin'?admin:n==='firebase-functions/v2/https'?{onRequest:(_,fn)=>fn}:n==='pdfkit'?require('../functions/node_modules/pdfkit'):n==='./calidadChecklistCoreV2'?C:require(n)});
- return{...exports.test,handler:exports.calidadChecklistV2,db,data,writes,admin};
+ return{...exports.test,handler:exports.handle,db,data,writes,admin};
 }
 test('plantillas específicas por etapa y aprobación exige criterios, alcance y controles completos',()=>{
  assert.equal(Object.keys(C.STAGES).length,3);assert.notDeepEqual(C.template('produccion'),C.template('resultado'));
@@ -54,6 +54,21 @@ test('PDF corresponde a la revisión guardada y conserva borrador como no libera
 });
 test('endpoint rechaza usuarios ajenos y solicitudes sin token antes de consultar documentos',async()=>{
  const b=backend();await assert.rejects(b.operator({get:()=>''}),/Iniciá sesión/);b.admin.auth=()=>({verifyIdToken:async()=>({email:'intruso@example.com'})});await assert.rejects(b.operator({get:()=> 'Bearer token'}),/no tiene acceso/);assert.equal(b.writes.length,0);
+});
+test('recorrido por servidor existente guarda y descarga PDF sin crear una función ni ampliar cuentas',async()=>{
+ const b=backend(),exports={},source=fs.readFileSync(require.resolve('../functions/baseMadreBackendV120'),'utf8');
+ vm.runInNewContext(source,{exports,console,require:n=>n==='firebase-admin'?b.admin:n==='googleapis'?{google:{}}:n==='firebase-functions/v2/https'?{onRequest:(_,fn)=>fn}:n==='./calidadChecklistApiV2.js'?{handle:b.handler}:require(n)});
+ const output=[],headers={},res={set:(k,v)=>headers[k]=v,status(){return this;},json:r=>output.push(r),send:r=>output.push(r)},req={method:'POST',get:k=>k==='authorization'?'Bearer token':'',body:{mode:'quality-checklist-save',formulario:form()}};
+ await exports.sincronizarBaseMadreV120(req,res);assert.equal(output[0].ok,true);const saved=output[0];req.body={mode:'quality-checklist-pdf',key:saved.key,etapa:'produccion',revision:1};await exports.sincronizarBaseMadreV120(req,res);
+ assert.equal(output[1].subarray(0,4).toString(),'%PDF');assert.equal(headers['Content-Type'],'application/pdf');assert.match(headers['Content-Disposition'],/OT-4773-produccion-R1/);
+ assert.ok(!fs.readFileSync(require.resolve('../functions/allFunctionsV86'),'utf8').includes('Object.assign(exports, require("./calidadChecklistApiV2.js"))'));
+});
+test('formulario cliente usa el servidor habilitado con token y modo exclusivo de checklist',async()=>{
+ const source=fs.readFileSync(require.resolve('../index.html'),'utf8'),start=source.indexOf('window.calidadChecklistApiV2 ='),end=source.indexOf('window.saveCalidadV1 =',start),calls=[];
+ const window={TIZChecklistCoreV2:C,currentUser:user},auth={currentUser:{getIdToken:async()=> 'token'}};
+ vm.runInNewContext(source.slice(start,end),{window,auth,fetch:async(url,options)=>{calls.push({url,body:JSON.parse(options.body),headers:options.headers});return{ok:true,json:async()=>({ok:true}),blob:async()=> 'pdf-data'};}});
+ await window.calidadChecklistApiV2({mode:'save',formulario:form()});assert.match(calls[0].url,/sincronizarBaseMadreV120$/);assert.equal(calls[0].body.mode,'quality-checklist-save');assert.equal(calls[0].headers.Authorization,'Bearer token');assert.equal(await window.calidadChecklistApiV2({mode:'pdf'},true),'pdf-data');
+ await assert.rejects(window.calidadChecklistApiV2({mode:'billing'}),/inválida/);window.currentUser={restrictedColocaciones:true};await assert.rejects(window.calidadChecklistApiV2({mode:'save'}),/cuenta/);assert.equal(calls.length,2);
 });
 test('formulario genera enlaces por etapa y escapa datos de obras sin precios',()=>{
  const w={TIZChecklistCoreV2:C,DB:{obras:[{id:'o',ot:'4773',cliente:'Cliente',desc:'<Cartel>'}],checklists:[]},location:{href:'https://tiz-publicidad.github.io/tiz-app/',search:''}},document={head:{append(){}},createElement:()=>({}),addEventListener(){}};

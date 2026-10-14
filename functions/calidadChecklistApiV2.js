@@ -1,5 +1,5 @@
 'use strict';
-const admin=require('firebase-admin'),{onRequest}=require('firebase-functions/v2/https'),PDFDocument=require('pdfkit'),crypto=require('node:crypto'),C=require('./calidadChecklistCoreV2');
+const admin=require('firebase-admin'),PDFDocument=require('pdfkit'),crypto=require('node:crypto'),C=require('./calidadChecklistCoreV2');
 const USERS={'info@tizpublicidad.com':'Ventas','pablo.aciar@tizpublicidad.com':'Producción','julieta.aguirre@tizpublicidad.com':'Diseño','carolina.flores@tizpublicidad.com':'Compras'};
 const ORIGINS=new Set(['https://tiz-publicidad.github.io','https://tiz---app.web.app','https://tiz---app.firebaseapp.com']);
 const fail=(s,status=400)=>Object.assign(Error(s),{status});
@@ -44,8 +44,9 @@ function pdf(record,displayState){return new Promise((resolve,reject)=>{
  const range=doc.bufferedPageRange();for(let p=range.start;p<range.start+range.count;p++){doc.switchToPage(p);doc.font('Helvetica').fontSize(8).fillColor('#777').text('TIZ · Checklist por obra · '+(p+1)+' / '+range.count,42,785,{width,align:'right',lineBreak:false});}doc.end();
 });}
 async function read(db,body){const id=C.docId(C.T(body.key),C.T(body.etapa)),ref=db.collection('calidadChecklists').doc(id),revision=Number(body.revision||0),snap=revision?await ref.collection('versiones').doc(String(revision)).get():await ref.get();if(!snap.exists)throw fail('El checklist no está guardado.',404);return snap.data();}
-exports.calidadChecklistV2=onRequest({region:'us-central1',timeoutSeconds:60,memory:'256MiB'},async(req,res)=>{
+async function handle(req,res){
  const origin=req.get('origin');if(ORIGINS.has(origin)){res.set('Access-Control-Allow-Origin',origin);res.set('Vary','Origin');}res.set('Access-Control-Allow-Headers','Authorization, Content-Type');res.set('Access-Control-Allow-Methods','POST, OPTIONS');if(req.method==='OPTIONS')return res.status(204).send('');if(req.method!=='POST')return res.status(405).json({ok:false,error:'Usá POST.'});
- try{const user=await operator(req),db=admin.firestore(),mode=C.T(req.body?.mode);if(mode==='save')return res.json(await save(db,req.body,user));if(mode==='pdf'){const record=await read(db,req.body),records={};for(const stage of Object.keys(C.STAGES)){const s=await db.collection('calidadChecklists').doc(C.docId(record.key,stage)).get();if(s.exists)records[stage]=s.data();}const data=await pdf(record,records[record.etapa]?.revision!==record.revision?'Versión histórica - '+record.estado:C.status(record,records));res.set('Content-Type','application/pdf');res.set('Cache-Control','no-store');res.set('Content-Disposition','attachment; filename="TIZ-OT-'+(record.ot.replace(/[^0-9.-]/g,'')||'sin-OT')+'-'+record.etapa+'-R'+record.revision+'.pdf"');return res.send(data);}throw fail('Operación inválida.');}
+ try{const user=await operator(req),db=admin.firestore(),mode=C.T(req.body?.mode).replace(/^quality-checklist-/, '');if(mode==='save')return res.json(await save(db,req.body,user));if(mode==='pdf'){const record=await read(db,req.body),records={};for(const stage of Object.keys(C.STAGES)){const s=await db.collection('calidadChecklists').doc(C.docId(record.key,stage)).get();if(s.exists)records[stage]=s.data();}const data=await pdf(record,records[record.etapa]?.revision!==record.revision?'Versión histórica - '+record.estado:C.status(record,records));res.set('Content-Type','application/pdf');res.set('Cache-Control','no-store');res.set('Content-Disposition','attachment; filename="TIZ-OT-'+(record.ot.replace(/[^0-9.-]/g,'')||'sin-OT')+'-'+record.etapa+'-R'+record.revision+'.pdf"');return res.send(data);}throw fail('Operación inválida.');}
  catch(e){return res.status(e.status||400).json({ok:false,error:e.message||'No se pudo guardar el checklist.'});}
-});
+}
+exports.handle=handle;

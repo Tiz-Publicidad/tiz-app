@@ -186,6 +186,9 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
   if (req.method === "OPTIONS") return res.status(204).send("");
   if (req.method !== "POST") return res.status(405).json({ok:false, error:"Método no permitido"});
   try {
+    if (["quality-checklist-save", "quality-checklist-pdf"].includes(text(req.body?.mode).toLowerCase())) {
+      return await require("./calidadChecklistApiV2.js").handle(req, res);
+    }
     const email = await operator(req);
     const requestedOt = otBase(req.body?.ot);
     const db = admin.firestore();
