@@ -100,7 +100,14 @@
   return {...record,estado:'Cerrado',accion:action,verificacion:verification,fechaReal:real,cerradoEn:at,cerradoPor:user.email,historial:[...(record.historial||[]),{evento:'Corrección verificada',fecha:at,usuario:user.email}]};
  }
  function rows(db={}){return [...(db.obras||[]).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).map(r=>({...r,obraId:''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
- return {TYPES,STAGES,AREAS,CATEGORIES,DECISIONS,CAUSES,SUBCAUSES,day,norm,canRecord,canControl,isDeviationAuthorizer,validateDecision,pending,clean,registerPatch,closeRecord,rows};
+ function metrics(db={}){
+  const rs=rows(db),decided=rs.filter(r=>DECISIONS.includes(r.decision)),workIds=new Set(decided.map(r=>r.obraId).filter(Boolean));
+  const counts=Object.fromEntries(DECISIONS.map(d=>[d,decided.filter(r=>r.decision===d).length]));
+  const byCause={};for(const r of decided){if(r.decision==='Aprobado'||!r.causa)continue;const key=r.causa+' · '+(r.subcausa||'Sin subcausa');byCause[key]=(byCause[key]||0)+1;}
+  const patterns=Object.entries(byCause).map(([key,count])=>({key,count,rate:decided.length?100*count/decided.length:0})).sort((a,b)=>b.count-a.count||a.key.localeCompare(b.key,'es'));
+  return {decided:decided.length,controlledWorks:workIds.size,approved:counts['Aprobado']||0,rejected:counts['Rechazado']||0,deviations:counts['Aprobado con desvío']||0,firstPassRate:decided.length?100*(counts['Aprobado']||0)/decided.length:0,incidenceRate:decided.length?100*((counts['Rechazado']||0)+(counts['Aprobado con desvío']||0))/decided.length:0,patterns};
+ }
+ return {TYPES,STAGES,AREAS,CATEGORIES,DECISIONS,CAUSES,SUBCAUSES,day,norm,canRecord,canControl,isDeviationAuthorizer,validateDecision,pending,clean,registerPatch,closeRecord,rows,metrics};
 });
 (() => {
  if(typeof document==='undefined')return;
