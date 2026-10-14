@@ -9,6 +9,42 @@
  function date(v){const s=text(v);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(Date.parse(s+'T12:00:00Z'))||new Date(s+'T12:00:00Z').toISOString().slice(0,10)!==s)throw Error('Ingresá una fecha válida.');return s;}
  const canRecord=u=>!!u&&!u.restrictedColocaciones;
  const canControl=u=>canRecord(u)&&(u.isAdmin||u.sector==='Calidad'||norm(u.email)==='pablo.aciar@tizpublicidad.com');
+ const DEVIATION_AUTHORIZERS=['gian','giancarlo','pablo'];
+ const SUBCAUSES={
+  'Planos / medidas':['Medida incorrecta','Pieza faltante','Material equivocado','Archivo desactualizado','Otro'],
+  'Diseño':['Archivo incorrecto','Versión desactualizada','Escala incorrecta','Especificación incompleta','Otro'],
+  'Herrería':['Medida incorrecta','Escuadra / nivel','Soldadura','Material incorrecto','Terminación','Otro'],
+  'Carpintería':['Medida incorrecta','Corte / mecanizado','Armado','Material incorrecto','Terminación','Otro'],
+  'Pintura':['Color incorrecto','Mala terminación','Rayado','Contaminación','Cobertura insuficiente','Otro'],
+  'Gráfica / impresión':['Color incorrecto','Escala / medida','Impresión defectuosa','Laminado','Corte','Otro'],
+  'Iluminación / eléctrica':['LED / módulo','Fuente / driver','Cableado','Tensión incorrecta','Falla de encendido','Otro'],
+  'Armado':['Pieza faltante','Fijación','Alineación','Montaje incorrecto','Otro'],
+  'Terminación':['Rayado','Golpe','Suciedad','Borde / canto','Detalle estético','Otro'],
+  'Embalaje':['Protección insuficiente','Identificación incorrecta','Pieza suelta','Embalaje dañado','Otro'],
+  'Despacho':['Faltante','Destino incorrecto','Documentación','Carga / manipulación','Otro'],
+  'Colocación':['Medida de obra','Fijación','Nivel / alineación','Daño en montaje','Terminación en sitio','Otro'],
+  'Materiales / Compras':['Material incorrecto','Cantidad insuficiente','Material dañado','Especificación incorrecta','Otro'],
+  'Otro':['Otro']
+ };
+ const isDeviationAuthorizer=u=>!!u&&(u.isAdmin||DEVIATION_AUTHORIZERS.some(k=>norm(u.name).includes(k)||norm(u.email).includes(k)));
+ function validateDecision(fields,user,at){
+  const decision=text(fields.decision||fields.decisionFinal);
+  if(!DECISIONS.includes(decision))throw Error('Seleccioná Aprobado, Rechazado o Aprobado con desvío.');
+  const out={decision};
+  if(decision!=='Aprobado'){
+   const cause=text(fields.cause||fields.causa),subcause=text(fields.subcause||fields.subcausa);
+   if(!CAUSES.includes(cause))throw Error('Seleccioná la causa del rechazo o desvío.');
+   if(!(SUBCAUSES[cause]||[]).includes(subcause))throw Error('Seleccioná una subcausa válida.');
+   out.causa=cause;out.subcausa=subcause;
+  }
+  if(decision==='Aprobado con desvío'){
+   if(!isDeviationAuthorizer(user))throw Error('El desvío sólo puede ser autorizado por Gian, Pablo o Administración.');
+   const reason=text(fields.deviationReason||fields.motivoDesvio);
+   if(!reason)throw Error('Indicá el motivo de autorización del desvío.');
+   out.autorizacionDesvio={autorizadoPor:user.email||user.name,autorizadoEn:at,motivo:reason};
+  }
+  return out;
+ }
  const pending=r=>r.estado==='Pendiente';
  function clean(fields,user,at,today=day()){
   if(!canRecord(user))throw Error('Tu cuenta no puede registrar Calidad.');
@@ -64,7 +100,7 @@
   return {...record,estado:'Cerrado',accion:action,verificacion:verification,fechaReal:real,cerradoEn:at,cerradoPor:user.email,historial:[...(record.historial||[]),{evento:'Corrección verificada',fecha:at,usuario:user.email}]};
  }
  function rows(db={}){return [...(db.obras||[]).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).map(r=>({...r,obraId:''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
- return {TYPES,STAGES,AREAS,CATEGORIES,day,norm,canRecord,canControl,pending,clean,registerPatch,closeRecord,rows};
+ return {TYPES,STAGES,AREAS,CATEGORIES,DECISIONS,CAUSES,SUBCAUSES,day,norm,canRecord,canControl,isDeviationAuthorizer,validateDecision,pending,clean,registerPatch,closeRecord,rows};
 });
 (() => {
  if(typeof document==='undefined')return;
