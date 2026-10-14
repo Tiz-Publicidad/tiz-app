@@ -2,6 +2,8 @@
 (function(root,factory){const core=factory();if(typeof module==='object'&&module.exports)module.exports=core;else root.TIZCalidadCore=core;})(typeof window==='object'?window:globalThis,()=>{
  'use strict';
  const TYPES=['Anomalía','Liberación','Control aleatorio'],STAGES=['Materiales','Diseño','Producción','Salida a colocación','Entrega'],AREAS=['Producción','Impresiones','Diseño','Compras','Colocaciones','Calidad'],CATEGORIES=['Medidas','Material','Color / impresión','Terminación','Armado / fijaciones','Electricidad / iluminación','Embalaje','Documentación','Otro'];
+ const DECISIONS=['Aprobado','Rechazado','Aprobado con desvío'];
+ const CAUSES=['Planos / medidas','Diseño','Herrería','Carpintería','Pintura','Gráfica / impresión','Iluminación / eléctrica','Armado','Terminación','Embalaje','Despacho','Colocación','Materiales / Compras','Otro'];
  const text=x=>String(x??'').trim(),norm=x=>text(x).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  function date(v){const s=text(v);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(Date.parse(s+'T12:00:00Z'))||new Date(s+'T12:00:00Z').toISOString().slice(0,10)!==s)throw Error('Ingresá una fecha válida.');return s;}
