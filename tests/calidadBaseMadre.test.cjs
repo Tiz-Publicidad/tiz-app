@@ -12,6 +12,7 @@ test('no vincula controles a una obra ambigua ni a una revisión archivada',()=>
  assert.equal(C.motherWorks(source,[{id:'a',ot:'4773'},{id:'b',ot:'4773'}])[0].id,'');
  assert.equal(C.motherWorks(source,[{id:'a',ot:'4773',archivado:true},{id:'b',ot:'4773'}])[0].id,'b');
  assert.equal(C.motherWorks(source,[])[0].referencia,'OT 4773 · Cliente · Trabajo');
+ const prior=[{referencia:'OT 4773 · Cliente · Trabajo',decision:'Aprobado con desvío',creadoEn:'2026-10-14'}];assert.equal(C.motherWorks(source,[],prior)[0].calidadEstado,'Aprobado con desvío');
 });
 test('la lista muestra fuente vigente, búsqueda y error de actualización sin perder registros',async()=>{
  const host={innerHTML:''},list={innerHTML:''},works={innerHTML:''},listeners={};let fail=false;
