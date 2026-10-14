@@ -1098,6 +1098,7 @@ const USER_SECTOR_MAP = {
   'pablo.aciar@tizpublicidad.com':       'Producción',
   'julieta.aguirre@tizpublicidad.com':   'Diseño',
   'carolina.flores@tizpublicidad.com':   'Compras',
+  'cristiantizpublicidad@gmail.com':     'Calidad',
   'arielbenitezpublicidad@gmail.com':    'Colocaciones',
 };
 
@@ -1185,6 +1186,7 @@ onAuthStateChanged(auth, async user => {
       sector,
       isAdmin: user.email === ADMIN_EMAIL,
       restrictedColocaciones:user.email==='arielbenitezpublicidad@gmail.com',
+      restrictedChecklists:user.email==='cristiantizpublicidad@gmail.com',
     };
     hideLoginScreen();
     updateUserUI();
@@ -1208,6 +1210,7 @@ function updateUserUI() {
     document.getElementById('user-avatar').style.display = 'block';
   }
   if(u.restrictedColocaciones){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('colocaciones')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='colocaciones';window.goTo?.('colocaciones');}
+  if(u.restrictedChecklists){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('calidad')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='calidad';window.goTo?.('calidad');}
   // Ocultar secciones admin-only en sidebar
   if (!u.isAdmin) {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
@@ -1251,6 +1254,7 @@ window.editingId = { obra:null, cliente:null, presupuesto:null, retencion:null, 
 function initListeners() {
   stopDataSubscriptions();const generation=dataGeneration;
   if(window.currentUser?.restrictedColocaciones){for(const key of Object.keys(window.DB))window.DB[key]=[];window.loadColocacionesPortalV153();portalTimer=setInterval(()=>window.loadColocacionesPortalV153(),30000);return;}
+  if(window.currentUser?.restrictedChecklists){for(const key of Object.keys(window.DB))window.DB[key]=[];window.loadChecklistsPortalV2();portalTimer=setInterval(()=>window.loadChecklistsPortalV2(),30000);return;}
   const numeroDesc = (a,b) => (Number(window.tizNumeroBase(b.ot??b.nro))||-1) - (Number(window.tizNumeroBase(a.ot??a.nro))||-1);
   const clienteAZ = (a,b) => String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'});
   function listen(col, key) {
@@ -1297,6 +1301,7 @@ window.mutateColocacionesV128 = async (id, buildPatch) => {
 };
 // Calidad conserva registros por OT y evita pisar gestiones de otros sectores.
 window.leerCalidadBaseMadreV1 = async () => {
+  if(window.currentUser?.restrictedChecklists)return window.calidadChecklistApiV2({mode:'mother'});
   if (!auth.currentUser || !window.TIZCalidadCore?.canRecord(window.currentUser)) throw new Error('Tu cuenta no puede consultar Calidad.');
   const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
     method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
@@ -1308,7 +1313,7 @@ window.leerCalidadBaseMadreV1 = async () => {
 };
 window.calidadChecklistApiV2 = async (payload, pdf = false) => {
   if (!auth.currentUser || !window.TIZChecklistCoreV2?.canWrite(window.currentUser)) throw new Error('Tu cuenta no puede completar estos formularios.');
-  if(!['save','pdf'].includes(payload.mode))throw new Error('Operación de checklist inválida.');
+  if(!['save','pdf','list','mother'].includes(payload.mode))throw new Error('Operación de checklist inválida.');
   const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
     method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
     body:JSON.stringify({...payload,mode:'quality-checklist-'+payload.mode})
@@ -1317,6 +1322,14 @@ window.calidadChecklistApiV2 = async (payload, pdf = false) => {
   const result=await response.json().catch(()=>({}));
   if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo guardar el checklist.');
   return result;
+};
+let checklistPortalBusy=false;
+window.loadChecklistsPortalV2=async()=>{
+  if(checklistPortalBusy||!window.currentUser?.restrictedChecklists)return;
+  checklistPortalBusy=true;const generation=dataGeneration;
+  try{const result=await window.calidadChecklistApiV2({mode:'list'});if(generation!==dataGeneration||!window.currentUser?.restrictedChecklists)return;window.DB.obras=result.obras||[];window.DB.checklists=result.checklists||[];document.getElementById('sync-text').textContent='Calidad · en línea';window.refreshCurrent();}
+  catch(e){if(generation===dataGeneration)document.getElementById('sync-text').textContent='Calidad · '+e.message;}
+  finally{checklistPortalBusy=false;}
 };
 window.saveCalidadV1 = async payload => {
   const C=window.TIZCalidadCore,u=window.currentUser;
@@ -1443,6 +1456,7 @@ function pct(works, tipo) {
 
 // Navigation
 window.goTo = function(page) {
+  if(window.currentUser?.restrictedChecklists&&page!=='calidad')return window.showToast?.('Tu perfil está habilitado para los formularios de Calidad.');
   if(window.currentUser?.restrictedColocaciones&&page!=='colocaciones')return window.showToast?.('Tu perfil está habilitado sólo para Colocaciones.');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -3725,9 +3739,9 @@ async function syncToSheets(data) {
 
 <script src="excelMadre.js?v=TIZ-V40-BASE-20260903"></script>
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
-<script src="functions/calidadChecklistCoreV2.js?v=TIZ-CHECKLISTS-V2-20261014B"></script>
-<script src="calidadChecklistsV2.js?v=TIZ-CHECKLISTS-V2-20261014B"></script>
-<script src="calidadV1.js?v=TIZ-CHECKLISTS-V2-20261014B"></script>
+<script src="functions/calidadChecklistCoreV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C"></script>
+<script src="calidadChecklistsV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C"></script>
+<script src="calidadV1.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C"></script>
 <script type="module" src="compras.js?v=TIZ-COLOCACIONES-V136-20261009"></script>
 <script src="operacionesV31.js?v=TIZ-V31-3-CONTACTO-OT-20260929"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>

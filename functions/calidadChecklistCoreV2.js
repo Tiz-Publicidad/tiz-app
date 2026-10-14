@@ -7,7 +7,8 @@
  const T=v=>String(v??'').trim(),norm=v=>T(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const canWrite=u=>!!u&&!u.restrictedColocaciones;
- const canValidate=(stage,u)=>canWrite(u)&&(stage==='resultado'||u.isAdmin||u.sector==='Calidad'||PLANNERS.includes(norm(u.email)));
+ const canEdit=(stage,u)=>canWrite(u)&&!(u.restrictedChecklists&&stage==='produccion');
+ const canValidate=(stage,u)=>canEdit(stage,u)&&(stage==='resultado'||u.isAdmin||u.sector==='Calidad'||PLANNERS.includes(norm(u.email)));
  const DEFAULTS={
   produccion:['Alcance, piezas y cantidades definidos','Plano o archivo vigente identificado','Medidas y relevamiento revisados','Materiales y terminaciones definidos para esta obra','Procesos y responsables definidos','Criterios de aceptación acordados','Plazos y destino de entrega acordados'],
   colocacion:['Piezas completas según alcance aprobado','Medidas y terminaciones controladas','Armado y pruebas funcionales revisados cuando corresponda','Observaciones de calidad resueltas','Identificación y embalaje verificados','Plano de montaje y destino confirmados','Fecha, acceso y contacto en obra confirmados'],
@@ -17,7 +18,7 @@
  function date(v){const s=T(v);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(Date.parse(s+'T12:00:00Z'))||new Date(s+'T12:00:00Z').toISOString().slice(0,10)!==s)throw Error('Indicá una fecha válida.');return s;}
  function clean(input,user,at,current={},previous=null,day=today()){
   if(!canWrite(user))throw Error('Tu cuenta no puede completar estos formularios.');
-  const stage=T(input.etapa);if(!STAGES[stage])throw Error('Etapa inválida.');
+  const stage=T(input.etapa);if(!canEdit(stage,user))throw Error('El plan de Producción lo prepara Pablo o Juli.');if(!STAGES[stage])throw Error('Etapa inválida.');
   if(Number(input.revisionEsperada||0)!==Number(current.revision||0))throw Error('El checklist cambió. Volvé a abrirlo antes de guardar.');
   const out={etapa:stage,estado:input.validar===true?'Validado':'Borrador',revision:Number(current.revision||0)+1,fecha:date(input.fecha),creadoEn:at,creadoPor:T(user.email)};
   for(const k of ['obraId','ot','cliente','descripcion','alcance','referenciaPlano','preparadoPor','seguimiento','observaciones','evidencia','conformidad']){out[k]=T(input[k]);if(out[k].length>(['alcance','observaciones'].includes(k)?2400:600))throw Error('El campo '+k+' es demasiado largo.');}
@@ -40,5 +41,5 @@
  function fresh(record,records={}){if(!record)return false;const prev=PREVIOUS[record.etapa];return !prev||!!records[prev]&&records[prev].estado==='Validado'&&records[prev].revision===record.anteriorRevision&&fresh(records[prev],records);}
  function status(record,records={}){if(!record)return 'Sin iniciar';return record.estado==='Validado'&&!fresh(record,records)?'Revisar: cambió la etapa anterior':record.estado;}
  function docId(key,stage){if(!/^[a-f0-9]{32}$/.test(key)||!STAGES[stage])throw Error('Identificador de formulario inválido.');return key+'_'+stage;}
- return {STAGES,PREVIOUS,STATES,PLANNERS,T,norm,today,canWrite,canValidate,template,date,clean,fresh,status,docId};
+ return {STAGES,PREVIOUS,STATES,PLANNERS,T,norm,today,canWrite,canEdit,canValidate,template,date,clean,fresh,status,docId};
 });

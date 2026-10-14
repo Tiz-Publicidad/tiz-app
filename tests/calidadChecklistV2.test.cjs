@@ -74,3 +74,15 @@ test('formulario genera enlaces por etapa y escapa datos de obras sin precios',(
  const w={TIZChecklistCoreV2:C,DB:{obras:[{id:'o',ot:'4773',cliente:'Cliente',desc:'<Cartel>'}],checklists:[]},location:{href:'https://tiz-publicidad.github.io/tiz-app/',search:''}},document={head:{append(){}},createElement:()=>({}),addEventListener(){}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../calidadChecklistsV2'),'utf8'),{window:w,document,URL,URLSearchParams});const html=w.TIZChecklistsV2.html();assert.ok(html.includes('&lt;Cartel&gt;'));assert.ok(!html.includes('<Cartel>'));assert.match(w.TIZChecklistsV2.link('colocacion'),/formularioCalidad=colocacion/);assert.ok(!html.includes('Neto'));
 });
+test('Cristian consulta sólo el portal operativo y completa Colocación/Resultado sin cambiar el plan de Producción',async()=>{
+ const b=backend();b.admin.auth=()=>({verifyIdToken:async()=>({email:'cristiantizpublicidad@gmail.com'})});const cristian=await b.operator({get:()=> 'Bearer token'});assert.equal(cristian.restrictedChecklists,true);assert.equal(cristian.isAdmin,false);assert.equal(C.canEdit('produccion',cristian),false);assert.equal(C.canValidate('colocacion',cristian),true);
+ await assert.rejects(b.save(b.db,{formulario:form()},cristian),/Pablo o Juli/);assert.equal(b.writes.length,0);
+ const p=await b.save(b.db,{formulario:form()},user);const c=await b.save(b.db,{key:p.key,formulario:form('colocacion')},cristian);assert.equal(c.record.creadoPor,'cristiantizpublicidad@gmail.com');
+ const db={collection:name=>({limit(){return this;},get:async()=>({docs:[{id:'o',data:()=>name==='obras'?{ot:'4773',cliente:'Cliente',desc:'Trabajo',importe:900,cuit:'privado',facturas:[{total:900}]}:{...c.record,neto:900,cuit:'privado'}}]})})};b.admin.firestore=()=>db;const out=[],res={set(){},status(){return this;},json:r=>out.push(r)},req={method:'POST',get:k=>k==='authorization'?'Bearer token':'',body:{mode:'quality-checklist-list'}};await b.handler(req,res);assert.equal(out[0].ok,true);assert.equal(out[0].obras[0].ot,'4773');for(const r of [...out[0].obras,...out[0].checklists]){assert.equal(r.importe,undefined);assert.equal(r.neto,undefined);assert.equal(r.cuit,undefined);assert.equal(r.facturas,undefined);}
+});
+test('Cristian no inicia listeners comerciales y no recibe permisos directos en Firestore',()=>{
+ const source=fs.readFileSync(require.resolve('../index.html'),'utf8'),block=source.slice(source.indexOf('function initListeners()'),source.indexOf('// CRUD helpers'));
+ const flags={email:'cristiantizpublicidad@gmail.com',restrictedChecklists:true};let loaded=0;const window={currentUser:flags,DB:{obras:[],clientes:[],cobranzas:[],checklists:[]},loadChecklistsPortalV2:()=>loaded++};
+ vm.runInNewContext(block+'\ninitListeners();',{window,dataGeneration:1,stopDataSubscriptions(){},setInterval:()=>1,portalTimer:null,onSnapshot(){throw Error('No deben iniciarse listeners Firestore.');}});assert.equal(loaded,1);
+ assert.ok(source.includes("'cristiantizpublicidad@gmail.com':     'Calidad'"));assert.ok(!fs.readFileSync(require.resolve('../firestore.rules'),'utf8').includes('cristiantizpublicidad@gmail.com'));
+});
