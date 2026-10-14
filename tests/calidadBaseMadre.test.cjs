@@ -1,6 +1,17 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const C=require('../calidadV1.js');
+test('consulta Calidad con los permisos del módulo y no con el helper exclusivo de Colocaciones',async()=>{
+ const source=fs.readFileSync(require.resolve('../index.html'),'utf8'),start=source.indexOf('window.leerCalidadBaseMadreV1 ='),end=source.indexOf('window.saveCalidadV1 =',start);
+ let requests=0;const auth={currentUser:{getIdToken:async()=> 'test-token'}},window={TIZCalidadCore:C,canViewPage:page=>page==='colocaciones'};
+ const fetch=async(url,options)=>{requests++;assert.match(url,/sincronizarBaseMadreV120$/);assert.equal(options.headers.Authorization,'Bearer test-token');assert.equal(JSON.parse(options.body).mode,'read-quality');return{ok:true,json:async()=>({ok:true,rows:[{ot:'4773',status:'Pendiente'}]})};};
+ vm.runInNewContext(source.slice(start,end),{window,auth,fetch});
+ for(const sector of ['Ventas','Calidad','Producción','Compras']){window.currentUser={email:'operador@tizpublicidad.com',sector};const result=await window.leerCalidadBaseMadreV1();assert.equal(result.rows[0].ot,'4773');}
+ assert.equal(requests,4);
+ window.currentUser={email:'arielbenitezpublicidad@gmail.com',restrictedColocaciones:true};await assert.rejects(window.leerCalidadBaseMadreV1(),/no puede consultar Calidad/);
+ window.currentUser=null;await assert.rejects(window.leerCalidadBaseMadreV1(),/no puede consultar Calidad/);
+ window.currentUser={email:'operador@tizpublicidad.com',sector:'Ventas'};auth.currentUser=null;await assert.rejects(window.leerCalidadBaseMadreV1(),/no puede consultar Calidad/);assert.equal(requests,4);
+});
 test('incluye pendientes antiguos, agrupa anticipo/saldo y conserva trabajos sin OT',()=>{
  const rows=[{row:3,ot:'0004527',desc:'Anticipo Cartel',cliente:'Cliente',status:'Pendiente'},{row:4,ot:'4527',desc:'Saldo Cartel',cliente:'Cliente',status:'Cobrado pendiente'},{row:5,ot:'4773',desc:'Placas',cliente:'Otro',status:'Pendiente'},{row:6,ot:'',desc:'Auditoría 5S',cliente:'TIZ',status:'Pendiente'},{row:7,ot:'4700',status:'Entregado'},{row:8,ot:'4701',status:'Cobrado'}];
  const work={id:'obra',ot:'4527',fecha:'2020-01-01',calidadGestion:{registros:{q:{decision:'Rechazado',creadoEn:'2026-10-14'}}}};
