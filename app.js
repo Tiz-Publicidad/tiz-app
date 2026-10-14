@@ -114,6 +114,9 @@ window.canAnnotateSector = s => {
   if (role === 'Admin') return true;
   if (role === s) return true;
   if (role === 'Compras' && (s === 'Compras' || s === 'Colocaciones' || s === 'Producción')) return true;
+  // Pablo (Producción), Julieta (Diseño), Caro (Compras) y los Admin pueden cargar
+  // solicitudes para Colocaciones. Ariel conserva la gestión operativa del sector.
+  if ((role === 'Producción' || role === 'Diseño') && s === 'Colocaciones') return true;
   if (role === 'Ventas' && s === 'Ventas') return true;
   if (role === 'Cobranzas' && s === 'Ventas') return true;
   return false;
