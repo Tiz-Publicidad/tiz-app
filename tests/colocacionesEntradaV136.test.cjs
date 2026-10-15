@@ -22,7 +22,7 @@ test('el dashboard de Compras cede la entrada a Colocaciones después de instala
 });
 test('la entrada cambia la versión de todos los archivos de Colocaciones y de Compras',()=>{
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
- for(const file of ['compras.js','colocacionesFotosV146.js','functions/colocacionesCoreV129.js','colocacionesGeneralUIV129.js','colocacionesV128.js'])assert.ok(html.includes('src="'+file+'?v='+(file==='compras.js'?'TIZ-COMPRAS-OBRAS-20261015-DRIVE':file==='colocacionesGeneralUIV129.js'?'TIZ-COLOCACIONES-V153-20261012-ANALISIS48H-HISTORICO':file==='colocacionesV128.js'?'TIZ-COLOCACIONES-V153-20261012-ANALISIS48H':'TIZ-COLOCACIONES-V153-20261012')+'"'),file);
+ for(const file of ['compras.js','colocacionesFotosV146.js','functions/colocacionesCoreV129.js','colocacionesGeneralUIV129.js','colocacionesV128.js'])assert.ok(html.includes('src="'+file+'?v='+(file==='compras.js'?'TIZ-COMPRAS-OBRAS-20261015-DRIVE':file==='colocacionesGeneralUIV129.js'?'TIZ-COLOCACIONES-V153-20261012-ANALISIS48H-SIN-DIAS-VACIOS':file==='colocacionesV128.js'?'TIZ-COLOCACIONES-V153-20261012-ANALISIS48H':'TIZ-COLOCACIONES-V153-20261012')+'"'),file);
 });
 test('cada render oculta elementos heredados agregados después de crear el listado',()=>{
  const src=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8');

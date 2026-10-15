@@ -38,14 +38,14 @@ test('base contiene obras pendientes sin acción ni fecha y mantiene acciones co
  const rows=w.TIZColocacionesGeneralV129.baseRows();assert.equal(rows.length,3);assert.equal(rows.filter(r=>r.obra.id==='1'&&r.empty).length,1);assert.equal(rows.some(r=>r.obra.id==='3'),false);assert.equal(w.TIZColocacionesGeneralV129.entries().length,2);
  const html=w.TIZColocacionesGeneralV129.body('base');for(const text of ['Pendientes','4701','Sin acción cargada','data-g-detail='])assert.ok(html.includes(text));
 });
-test('calendario renderiza una semana de lunes a domingo y el bloqueo conserva la navegación',()=>{
+test('calendario conserva la navegación semanal sin días vacíos y el bloqueo mantiene la navegación',()=>{
  const source=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8');const w=ui();
  const c={window:w,Date,Intl,console,TextEncoder};
  // Execute the actual render helpers with lightweight DOM bindings.
  const start=source.indexOf('  function agendaHTML()'),end=source.indexOf('  function overlay()',start);
  const node={innerHTML:'',insertAdjacentHTML(position,html){assert.equal(position,'afterbegin');this.innerHTML=html+this.innerHTML;}};w.currentUser={};w.canViewPage=()=>true;w.TIZColocacionesGeneralV129.attach=()=>{};w.TIZColocacionesGeneralV129.load=()=>{};
  vm.runInNewContext(source.slice(start,end)+'\nwindow.testRender=render;window.testAgenda=agendaHTML;',{...c,today:()=> '2026-10-08',shift:G.shift,fmtDate:x=>x,open:G.open,esc:x=>String(x||''),bucket:a=>a.fecha<'2026-10-08'?'vencidas':'proximas',chip:x=>x,canWrite:()=>true,canRead:()=>true,allWorks:()=>[],pending:()=>[],db:()=>w.DB,style:()=>{},pageRoot:()=>node,btn:(text,attr)=>`<button ${attr}>${text}</button>`,state:{view:'agenda'},renderList:()=>{}});
- w.testRender();assert.equal((node.innerHTML.match(/<section class="c128-day /g)||[]).length,8);assert.ok(node.innerHTML.includes('05/10/2026 al 11/10/2026'));assert.ok(node.innerHTML.includes('data-view="historico"'));
+ w.testRender();assert.equal((node.innerHTML.match(/<section class="c128-day /g)||[]).length,0);assert.ok(node.innerHTML.includes('05/10/2026 al 11/10/2026'));assert.ok(node.innerHTML.includes('data-view="historico"'));
  for(const fecha of ['1900-01-06','2026-03-01']){w.DB.obras=[{id:'old',ot:'4350',estado:'Pendiente',fcol_c:fecha}];w.testRender();assert.ok(node.innerHTML.includes('data-view=\"base\"'));assert.ok(!node.innerHTML.includes('data-overdue='));}
  w.DB.obras=[{id:'o',estado:'Pendiente',ot:'4700',colocacionesGestion:{acciones:{a:action('2026-10-06')}}}];w.testRender();assert.ok(node.innerHTML.includes('data-overdue="o/a"'));assert.ok(node.innerHTML.includes('data-view="agenda"'));assert.ok(node.innerHTML.includes('data-view="base"'));
  w.DB.obras[0].colocacionesGestion.acciones.a.estado='Cerrada';w.testRender();assert.ok(node.innerHTML.includes('data-view="agenda"'));
@@ -284,4 +284,12 @@ test('Por fecha excludes every resolved action and keeps all results in Históri
  for(const t of ['Pendiente visible','Bloqueada visible']){assert.ok(calendar.includes(t));assert.ok(!history.includes(t));}
  for(const t of ['Terminada con fecha pasada','Reprogramación anterior','Cancelada anterior']){assert.ok(!calendar.includes(t));assert.ok(history.includes(t));}
  assert.equal(JSON.stringify(w.DB),before);
+});
+
+test('Por fecha hides empty days and undated groups while preserving overdue and future pending actions',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;w.TIZColocacionesCore.today=()=> '2026-10-15';
+ w.DB.obras=[{id:'o',ot:'4776',estado:'Pendiente',cliente:'Cliente',colocacionesGestion:{acciones:{a:{...action('2026-10-13'),titulo:'Pendiente vencida'},b:{...action('2026-10-17'),id:'b',titulo:'Pendiente futura'},c:{...action('2026-10-12','Cerrada'),id:'c',titulo:'Terminada',fechaReal:'2026-10-12'}}}}];
+ const before=JSON.stringify(w.DB),html=g.datesBody('2026-10-12');assert.equal((html.match(/<section class="c128-day /g)||[]).length,2);assert.ok(html.includes('13/10/2026'));assert.ok(html.includes('17/10/2026'));assert.ok(html.includes('Pendiente vencida'));assert.ok(html.includes('Pendiente futura'));assert.ok(html.includes('data-g-detail="o/a"'));assert.ok(!html.includes('Sin acciones'));assert.ok(!html.includes('Acciones abiertas sin fecha'));assert.equal(JSON.stringify(w.DB),before);
+ w.DB.obras[0].colocacionesGestion.acciones.a.estado='Cerrada';w.DB.obras[0].colocacionesGestion.acciones.b.estado='Cerrada';const empty=g.datesBody('2026-10-12');assert.ok(!empty.includes('c128-day'));assert.ok(!empty.includes('Sin acciones'));assert.ok(!empty.includes('Acciones abiertas sin fecha'));assert.ok(empty.includes('data-week-step'));
+ w.DB.obras[0].colocacionesGestion.acciones.d={...action(''),id:'d',titulo:'Pendiente sin fecha'};assert.ok(g.datesBody('2026-10-12').includes('Acciones abiertas sin fecha (1)'));
 });
