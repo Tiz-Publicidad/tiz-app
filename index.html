@@ -1280,10 +1280,10 @@ function initListeners() {
 // Análisis preliminar: endpoint autenticado para todos los puestos, incluidos portales restringidos.
 window.analisisPreliminarApiV1 = async body => {
   if (!auth.currentUser) throw new Error('Iniciá sesión en TIZ.');
-  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/analisisPreliminarV1', {
+  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
     signal:AbortSignal.timeout(30000),
     method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
-    body:JSON.stringify(body)
+    body:JSON.stringify({...body,mode:"preliminary-"+body.mode})
   });
   const result = await response.json();
   if (!response.ok || result.ok !== true) throw new Error(result.error || 'No se pudo consultar el análisis preliminar.');
@@ -1291,8 +1291,24 @@ window.analisisPreliminarApiV1 = async body => {
 };
 
 // CRUD helpers
-window.addDoc_    = async (col_, data) => { const ref = await addDoc(collection(db, col_), { ...data, _ts: serverTimestamp() }); return ref; };
-window.updateDoc_ = async (col_, id, data) => { await updateDoc(doc(db, col_, id), data); };
+window.addDoc_ = async (col_, data) => {
+  const patch={...data};
+  if(col_==='obras') {
+    delete patch.analisisPreliminarAprobadoEn;
+    if(window.TIZAnalisisPreliminarCoreV1.isApproval(null,patch)) patch.analisisPreliminarAprobadoEn=serverTimestamp();
+  }
+  return addDoc(collection(db,col_),{...patch,_ts:serverTimestamp()});
+};
+window.updateDoc_ = async (col_, id, data) => {
+  if(col_!=='obras'||String(data?.estado||'').trim().toLowerCase()!=='aprobado') return updateDoc(doc(db,col_,id),data);
+  return runTransaction(db,async transaction=>{
+    const ref=doc(db,col_,id),snap=await transaction.get(ref);
+    if(!snap.exists())throw Error('La obra ya no está disponible.');
+    const current=snap.data(),patch={...data};delete patch.analisisPreliminarAprobadoEn;
+    if(!current.analisisPreliminarAprobadoEn&&window.TIZAnalisisPreliminarCoreV1.isApproval(current,patch))patch.analisisPreliminarAprobadoEn=serverTimestamp();
+    transaction.update(ref,patch);
+  });
+};
 // Gestiones de Colocaciones: validar sobre la versión actual del documento evita
 // duplicar cierres/reprogramaciones cuando dos personas gestionan la misma acción.
 window.mutateColocacionesV128 = async (id, buildPatch) => {
@@ -3783,6 +3799,7 @@ async function syncToSheets(data) {
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012"></script>
+<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015"></script>
 <script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015"></script>
 </body>
 </html>

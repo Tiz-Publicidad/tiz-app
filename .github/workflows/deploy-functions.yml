@@ -105,12 +105,12 @@ jobs:
               fi
             fi
           fi
-          # Keep backend deployment in the workflow authorized by the existing WIF provider.
-          if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(functions/(analisisPreliminar.*|allFunctionsV86)\.js|firestore.rules|.github/workflows/deploy-functions.yml)$'; then
-            targets="$targets,functions:analisisPreliminarV1,functions:analisisPreliminarAprobacionV1"
+          # Preliminary analysis uses the already authorized Base Madre API.
+          if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(functions/(analisisPreliminar.*|baseMadreBackendV120|allFunctionsV86)\.js|firestore.rules|.github/workflows/deploy-functions.yml)$'; then
+            targets="$targets,functions:sincronizarBaseMadreV120"
           fi
-          firebase deploy --only "$targets" --project tiz---app --non-interactive --force
-          if printf '%s' "$targets" | grep -q 'analisisPreliminarV1'; then
+          firebase deploy --only "$targets" --project tiz---app --non-interactive
+          if git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(firestore.rules|.github/workflows/deploy-functions.yml)$'; then
             firebase deploy --only firestore:rules --project tiz---app --non-interactive
           fi
       - name: Record deployment status
