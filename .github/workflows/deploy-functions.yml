@@ -41,7 +41,7 @@ jobs:
           node --check calidadChecklistsV2.js
           node --check functions/calidadChecklistCoreV2.js
           node --check functions/calidadChecklistApiV2.js
-          node --test tests/calidadChecklistV2.test.cjs
+          node --test tests/calidadChecklistV2.test.cjs tests/calidadPortalV1.test.cjs
           node --check functions/arcaPadronA5V125.js
           node --test tests/arcaPadronV125.test.js
           node --check functions/colocacionesGeneralV129.js
