@@ -1187,6 +1187,7 @@ onAuthStateChanged(auth, async user => {
       isAdmin: user.email === ADMIN_EMAIL,
       restrictedColocaciones:user.email==='arielbenitezpublicidad@gmail.com',
       restrictedChecklists:user.email==='cristiantizpublicidad@gmail.com',
+      qualityFullAccess:user.email==='cristiantizpublicidad@gmail.com',
     };
     hideLoginScreen();
     updateUserUI();
@@ -1342,7 +1343,7 @@ window.leerCalidadBaseMadreV1 = async () => {
 };
 window.calidadChecklistApiV2 = async (payload, pdf = false) => {
   if (!auth.currentUser || !window.TIZChecklistCoreV2?.canWrite(window.currentUser)) throw new Error('Tu cuenta no puede completar estos formularios.');
-  if(!['save','pdf','list','mother'].includes(payload.mode))throw new Error('Operación de checklist inválida.');
+  if(!['save','pdf','list','mother','record-save'].includes(payload.mode))throw new Error('Operación de checklist inválida.');
   const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
     method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
     body:JSON.stringify({...payload,mode:'quality-checklist-'+payload.mode})
@@ -1356,11 +1357,12 @@ let checklistPortalBusy=false;
 window.loadChecklistsPortalV2=async()=>{
   if(checklistPortalBusy||!window.currentUser?.restrictedChecklists)return;
   checklistPortalBusy=true;const generation=dataGeneration;
-  try{const result=await window.calidadChecklistApiV2({mode:'list'});if(generation!==dataGeneration||!window.currentUser?.restrictedChecklists)return;window.DB.obras=result.obras||[];window.DB.checklists=result.checklists||[];document.getElementById('sync-text').textContent='Calidad · en línea';window.refreshCurrent();}
+  try{const result=await window.calidadChecklistApiV2({mode:'list'});if(generation!==dataGeneration||!window.currentUser?.restrictedChecklists)return;window.DB.obras=result.obras||[];window.DB.checklists=result.checklists||[];window.DB.calidad=result.calidad||[];document.getElementById('sync-text').textContent='Calidad · en línea';window.refreshCurrent();}
   catch(e){if(generation===dataGeneration)document.getElementById('sync-text').textContent='Calidad · '+e.message;}
   finally{checklistPortalBusy=false;}
 };
 window.saveCalidadV1 = async payload => {
+  if(window.currentUser?.restrictedChecklists){const result=await window.calidadChecklistApiV2({...payload,mode:'record-save'});await window.loadChecklistsPortalV2();return result;}
   const C=window.TIZCalidadCore,u=window.currentUser;
   if(!C?.canRecord(u))throw new Error('Tu cuenta no puede registrar Calidad.');
   const at=new Date().toISOString(),record=payload.record?C.clean(payload.record,u,at):null;
@@ -1485,7 +1487,7 @@ function pct(works, tipo) {
 
 // Navigation
 window.goTo = function(page) {
-  if(window.currentUser?.restrictedChecklists&&page!=='calidad')return window.showToast?.('Tu perfil está habilitado para los formularios de Calidad.');
+  if(window.currentUser?.restrictedChecklists&&page!=='calidad')return window.showToast?.('Tu perfil está habilitado para el módulo de Calidad.');
   if(window.currentUser?.restrictedColocaciones&&page!=='colocaciones')return window.showToast?.('Tu perfil está habilitado sólo para Colocaciones.');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1783,7 +1785,7 @@ function renderProduccion() {
   document.getElementById('prod-tbody').innerHTML = show.map(o => {
     const dias = diasEntre(o.fprod_r||o.fprod_c, o.fcol_r||o.fcol_c);
     return `<tr>
-      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}<span data-ap-drive-ot="${String(o.ot||'')}" data-ap-drive-id="${o.id}"></span></td>
       <td class="strong">${o.desc||''}</td>
       <td>${o.cliente||''}</td>
       <td><span class="dot dot-${semaforo(o.fprod_c,o.fprod_r)==='g'?'green':semaforo(o.fprod_c,o.fprod_r)==='a'?'amber':'red'}"></span>${o.fprod_c||'—'}</td>
@@ -1836,7 +1838,7 @@ function renderDiseno() {
   `;
 
   document.getElementById('dis-tbody').innerHTML = obras.map(o => `<tr>
-    <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+    <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}<span data-ap-drive-ot="${String(o.ot||'')}" data-ap-drive-id="${o.id}"></span></td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
     <td>${o.vendedor||'—'}</td><td>${estadoBadge(o.estado)}</td><td>${fmtM(o.neto)}</td>
     <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras de diseño.</td></tr>';
@@ -3770,9 +3772,9 @@ async function syncToSheets(data) {
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
 <script src="functions/calidadChecklistCoreV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C"></script>
 <script src="calidadChecklistsV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C"></script>
-<script src="calidadV1.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C-ANALISIS48H-COMPACTO"></script>
+<script src="calidadV1.js?v=TIZ-CALIDAD-COMPLETA-20261015"></script>
 <script src="comprasObrasCoreV1.js?v=TIZ-COMPRAS-OBRAS-20261015"></script>
-<script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015"></script>
+<script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015-DRIVE"></script>
 <script src="operacionesV31.js?v=TIZ-V31-3-CONTACTO-OT-20260929"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
@@ -3800,8 +3802,8 @@ async function syncToSheets(data) {
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H"></script>
-<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015B"></script>
-<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015E"></script>
+<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015F"></script>
+<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015F"></script>
 </body>
 </html>
 
