@@ -44,12 +44,12 @@ test('original page content remains and the analysis list only opens on request'
  const controls={};let html='';
  const box={classList:{remove(){}},get innerHTML(){return html},set innerHTML(v){html=v},insertAdjacentHTML(where,v){html+=v},querySelector(q){return controls[q]||(controls[q]={addEventListener(type,fn){this[type]=fn}})},querySelectorAll(){return []}};
  const ctx={window:{currentUser:{isAdmin:true},currentPage:'presupuestos'},document:{getElementById:()=>page},host:()=>page,mount(){},renderedPage:'',expanded:false,tracking:false,selected:'',selectedPage:'',sectors:{ventas:'Ventas'},pageSector:{presupuestos:'ventas'},mayWrite:()=>true,esc:String,reportFor:w=>w.reportes.ventas,status:()=> '47 h 30 min',fmt:String,driveButton:()=>'',manager:()=>true,weeklyMarkup:()=>'<p>Indicadores semanales</p>',loadWeekly:()=>{},weeklyStart:'',weeklyData:null,now:()=>0,lastLoad:1,data:[{obraId:'a',ot:'4776',cliente:'Cliente',descripcion:'Obra',reportes:{},venceEn:'2026-10-17'}]};
- vm.runInNewContext(ui.slice(ui.indexOf('function currentSector(){'),ui.indexOf('\nfunction host(){'))+'\n'+ui.slice(ui.indexOf('function render(){'),ui.indexOf('\nasync function loadWeekly('))+'\nglobalThis.paint=render;',ctx);
+ vm.runInNewContext(ui.slice(ui.indexOf('function currentSector(){'),ui.indexOf('\nfunction host(){'))+'\n'+ui.slice(ui.indexOf('function render(){'),ui.indexOf('\nfunction paintWeekly('))+'\nglobalThis.paint=render;',ctx);
  ctx.paint();assert.doesNotMatch(html,/<table/);assert.match(html,/Ver análisis preliminares/);assert.equal(page.children[0],legacy);
  controls['[data-ap-expand]'].click();assert.match(html,/<table/);assert.match(html,/47 h 30 min/);assert.match(html,/Cargar análisis preliminar/);
  ctx.paint();assert.match(html,/<table/); // A data refresh preserves an explicitly opened list.
  controls['[data-ap-expand]'].click();assert.doesNotMatch(html,/<table/);
- controls['[data-ap-track]'].click();assert.match(html,/Indicadores semanales/);
+ assert.doesNotMatch(html,/data-ap-track/);
  ctx.window.currentPage='compras';ctx.paint();assert.doesNotMatch(html,/<table/);assert.equal(ctx.tracking,false);
  assert.deepEqual(legacy.records,[{ot:'4776',presupuesto:'guardado'}]);assert.equal(page.children[0],legacy);
 });

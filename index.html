@@ -327,7 +327,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <button class="nav-item" onclick="goTo('vendedores')">
         <i class="ti ti-award"></i> Vendedores
       </button>
-      <button class="nav-item admin-only" onclick="goTo('estadistica')">
+      <button class="nav-item stats-managers-only" onclick="goTo('estadistica')">
         <i class="ti ti-chart-line"></i> Estadística
       </button>
     </nav>
@@ -701,10 +701,11 @@ td.strong { color: var(--text); font-weight: 500; }
       <div style="padding:16px 28px 0">
         <div class="kpi-grid" id="est-kpis"></div>
         <div class="page-tabs" style="margin-bottom:16px">
-          <button class="page-tab active" onclick="setEstTab('tabla',this)">Por semana</button>
-          <button class="page-tab" onclick="setEstTab('mensual',this)">Por mes</button>
-          <button class="page-tab" onclick="setEstTab('metas',this)">Metas</button>
-          <button class="page-tab" onclick="setEstTab('cumplimiento',this)">Cumplimiento</button>
+          <button class="page-tab active" data-est-tab="tabla" onclick="setEstTab('tabla',this)">Por semana</button>
+          <button class="page-tab" data-est-tab="mensual" onclick="setEstTab('mensual',this)">Por mes</button>
+          <button class="page-tab" data-est-tab="metas" onclick="setEstTab('metas',this)">Metas</button>
+          <button class="page-tab" data-est-tab="cumplimiento" onclick="setEstTab('cumplimiento',this)">Cumplimiento</button>
+          <button class="page-tab" data-est-tab="indicadores" onclick="setEstTab('indicadores',this)">Indicadores</button>
         </div>
         <div id="est-content"></div>
       </div>
@@ -1125,6 +1126,7 @@ function getUserSector(email) {
 // Colocaciones is visible to authenticated users; edits keep sector permissions.
 window.canViewPage = page => !!window.currentUser && (window.currentUser.restrictedColocaciones ? page==='colocaciones' : page==='colocaciones');
 window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
+window.canViewIndicadores = () => ['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());
 window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
   if (window.currentUser.isAdmin) return true;
@@ -1194,6 +1196,7 @@ onAuthStateChanged(auth, async user => {
     initListeners();
   } else {
     window.currentUser = null;
+    document.getElementById('est-content')?.replaceChildren();
     for(const key of Object.keys(window.DB||{}))window.DB[key]=[];
     showLoginScreen();
   }
@@ -1212,6 +1215,8 @@ function updateUserUI() {
   }
   if(u.restrictedColocaciones){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('colocaciones')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='colocaciones';window.goTo?.('colocaciones');}
   if(u.restrictedChecklists){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('calidad')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='calidad';window.goTo?.('calidad');}
+  document.querySelectorAll('.stats-managers-only').forEach(el=>el.style.display=window.canViewIndicadores()?'flex':'none');
+  if(!window.canViewIndicadores()){document.getElementById('est-content')?.replaceChildren();if(window.currentPage==='estadistica')window.goTo?.('dashboard');}
   // Ocultar secciones admin-only en sidebar
   if (!u.isAdmin) {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
@@ -1487,6 +1492,8 @@ function pct(works, tipo) {
 
 // Navigation
 window.goTo = function(page) {
+  if(page==='estadistica'&&!window.canViewIndicadores())return window.showToast?.('Estadística está habilitada para Administración y Pablo.');
+  if(page==='estadistica'&&!window.currentUser?.isAdmin)window.estTab='indicadores';
   if(window.currentUser?.restrictedChecklists&&page!=='calidad')return window.showToast?.('Tu perfil está habilitado para el módulo de Calidad.');
   if(window.currentUser?.restrictedColocaciones&&page!=='colocaciones')return window.showToast?.('Tu perfil está habilitado sólo para Colocaciones.');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1506,6 +1513,7 @@ window.refreshCurrent = function() {
   else if (p==='colocaciones') renderColocaciones();
   else if (p==='diseno') renderDiseno();
   else if (p==='calidad') window.TIZCalidadV1?.render();
+  else if (p==='estadistica') renderEstadistica();
   else if (p==='alertas') renderAlertasV58();
   else if (p==='cobranzas') (window.TIZFactCobUIV2?.render || renderCobranzas)();
   else if (p==='presupuestos') renderPresupuestos();
@@ -3105,6 +3113,7 @@ window.generarPDF = async () => {
 };
 window.estTab = 'tabla';
 window.setEstTab = (tab, el) => {
+  if(!window.canViewIndicadores()||!window.currentUser?.isAdmin&&tab!=='indicadores')return;
   window.estTab = tab;
   document.querySelectorAll('#page-estadistica .page-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
@@ -3163,6 +3172,21 @@ function getEstData() {
 }
 
 function renderEstadistica() {
+  const content=document.getElementById('est-content'),page=document.getElementById('page-estadistica');
+  if(!content||!window.canViewIndicadores())return;
+  if(!window.currentUser?.isAdmin)window.estTab='indicadores';
+  const indicators=window.estTab==='indicadores';
+  page.querySelectorAll('[data-est-tab]').forEach(el=>{el.style.display=(window.currentUser.isAdmin||el.dataset.estTab==='indicadores')?'':'none';el.classList.toggle('active',el.dataset.estTab===window.estTab);});
+  document.getElementById('est-kpis').style.display=indicators?'none':'';
+  page.querySelector('.header-actions').style.display=indicators?'none':'';
+  page.querySelector('.page-subtitle').textContent=indicators?'Indicadores de gestión por puesto y obra':'Ventas · Producción · Colocaciones · Cobranzas por semana';
+  if(indicators){
+    let host=document.getElementById('est-indicadores');
+    if(!host){content.innerHTML='<div id="est-indicadores"></div>';host=document.getElementById('est-indicadores');}
+    window.TIZAnalisisPreliminarV1?.renderIndicators(host);
+    return;
+  }
+
   const obras = window.DB.obras;
   const bySem = getEstData();
   const sems = Object.keys(bySem).map(Number).sort((a,b)=>a-b);
@@ -3802,8 +3826,8 @@ async function syncToSheets(data) {
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H-DERECHA"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H"></script>
-<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015G"></script>
-<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015G"></script>
+<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015H"></script>
+<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015H"></script>
 </body>
 </html>
 
