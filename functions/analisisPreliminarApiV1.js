@@ -36,3 +36,5 @@ async function handle(req,res){
 }
 exports.handle=handle;
 exports.ensure=ensure;
+
+exports.motherRows=motherRows;
