@@ -12,6 +12,6 @@ El reloj del navegador se ajusta con la hora del servidor. El seguimiento se act
 
 ## Despliegue
 
-Workflow deploy-analisis-preliminar.yml: despliega analisisPreliminarAprobacionV1, analisisPreliminarV1 y las reglas de Firestore. Pages publica la interfaz. El trigger necesita que el proyecto permita eventos de Firestore de segunda generación (Eventarc). Las reglas conservan el acceso previo y reservan analisisPreliminares a la API y al trigger.
+Workflow deploy-functions.yml (identidad de despliegue existente): despliega analisisPreliminarAprobacionV1, analisisPreliminarV1 y las reglas de Firestore. El workflow deploy-analisis-preliminar.yml valida la lógica sin credenciales. Pages publica la interfaz. El trigger necesita que el proyecto permita eventos de Firestore de segunda generación (Eventarc). Las reglas conservan el acceso previo y reservan analisisPreliminares a la API y al trigger.
 
 Validación: node --test tests/analisisPreliminarV1.test.cjs.

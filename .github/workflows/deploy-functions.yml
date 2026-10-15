@@ -29,6 +29,9 @@ jobs:
         working-directory: functions
       - name: Validate fiscal code
         run: |
+          node --check analisisPreliminarV1.js
+          node --check functions/analisisPreliminarApiV1.js
+          node --test tests/analisisPreliminarV1.test.cjs
           node --check functions/index.js
           node --check functions/facturacionIntegralApiV83.js
           node --check functions/facturaDrive2026.js
@@ -102,7 +105,14 @@ jobs:
               fi
             fi
           fi
+          # Keep backend deployment in the workflow authorized by the existing WIF provider.
+          if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(functions/(analisisPreliminar.*|allFunctionsV86)\.js|firestore.rules|.github/workflows/deploy-functions.yml)$'; then
+            targets="$targets,functions:analisisPreliminarV1,functions:analisisPreliminarAprobacionV1"
+          fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive
+          if printf '%s' "$targets" | grep -q 'analisisPreliminarV1'; then
+            firebase deploy --only firestore:rules --project tiz---app --non-interactive
+          fi
       - name: Record deployment status
         if: always()
         env:
@@ -113,4 +123,5 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"facturacion-v83-pv0003","description":"Deploy %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/deploy-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/deploy-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
+
 

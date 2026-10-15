@@ -1,4 +1,4 @@
-name: Deploy analisis preliminar
+name: Validate analisis preliminar
 on:
   workflow_dispatch:
   push:
@@ -8,7 +8,6 @@ on:
       - '.github/workflows/deploy-analisis-preliminar.yml'
 permissions:
   contents: read
-  id-token: write
 concurrency:
   group: analisis-preliminar-deploy
   cancel-in-progress: false
@@ -25,15 +24,3 @@ jobs:
           node --check analisisPreliminarV1.js
           node --check functions/analisisPreliminarApiV1.js
           node --test tests/analisisPreliminarV1.test.cjs
-      - run: npm ci
-        working-directory: functions
-      - run: npm install -g firebase-tools
-      - uses: google-github-actions/auth@v3
-        with:
-          project_id: tiz---app
-          workload_identity_provider: projects/52620104053/locations/global/workloadIdentityPools/github-arca-constancia/providers/tiz-app
-          service_account: github-arca-constancia@tiz---app.iam.gserviceaccount.com
-      - name: Deploy approval event and authenticated API
-        run: firebase deploy --only functions:analisisPreliminarAprobacionV1,functions:analisisPreliminarV1 --project tiz---app --non-interactive
-      - name: Deploy preliminary report access rules
-        run: firebase deploy --only firestore:rules --project tiz---app --non-interactive
