@@ -109,7 +109,7 @@ jobs:
           if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(functions/(analisisPreliminar.*|allFunctionsV86)\.js|firestore.rules|.github/workflows/deploy-functions.yml)$'; then
             targets="$targets,functions:analisisPreliminarV1,functions:analisisPreliminarAprobacionV1"
           fi
-          firebase deploy --only "$targets" --project tiz---app --non-interactive
+          firebase deploy --only "$targets" --project tiz---app --non-interactive --force
           if printf '%s' "$targets" | grep -q 'analisisPreliminarV1'; then
             firebase deploy --only firestore:rules --project tiz---app --non-interactive
           fi
