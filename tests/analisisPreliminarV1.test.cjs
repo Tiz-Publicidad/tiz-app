@@ -53,3 +53,15 @@ test('original page content remains and the analysis list only opens on request'
  ctx.window.currentPage='compras';ctx.paint();assert.doesNotMatch(html,/<table/);assert.equal(ctx.tracking,false);
  assert.deepEqual(legacy.records,[{ot:'4776',presupuesto:'guardado'}]);assert.equal(page.children[0],legacy);
 });
+
+test('native refresh restores analysis before paint without waiting for the clock interval',()=>{
+ const ui=fs.readFileSync(require.resolve('../analisisPreliminarV1.js'),'utf8');
+ let panel=false,slot=true,renders=0,decorations=0,observed=0,disconnected=0;
+ const page={querySelector:q=>q==='.apv1-summary-panel'?panel:slot};
+ const ctx={window:{currentUser:{},currentPage:'calidad'},document:{body:{}},host:()=>page,renderedPage:'calidad',observer:{disconnect(){disconnected++},observe(){observed++}},render(){renders++;panel=true},decorate(){decorations++;slot=false}};
+ vm.runInNewContext(ui.slice(ui.indexOf('function syncLayout(){'),ui.indexOf("const observer=typeof MutationObserver"))+'\nglobalThis.sync=syncLayout;',ctx);
+ for(let i=0;i<10;i++){panel=false;slot=true;ctx.sync();assert.equal(panel,true);assert.equal(slot,false);}
+ assert.equal(renders,10);assert.equal(decorations,10);assert.equal(observed,disconnected);
+ for(let i=0;i<10;i++)ctx.sync();assert.equal(renders,10);assert.equal(decorations,10);
+ ctx.window.currentUser=null;panel=false;ctx.sync();assert.equal(panel,false);
+});
