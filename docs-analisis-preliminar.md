@@ -1,19 +1,25 @@
 # Análisis preliminar por obra
 
-Al crear una obra aprobada o cambiarla a Aprobado, el mismo guardado de Firestore registra la aprobación con serverTimestamp y un vencimiento 48 horas corridas después. No crea análisis para obras históricas al editar otros campos. Reaprobar una obra con análisis conserva su plazo original.
+Cada puesto informa qué tareas puede iniciar, cuáles no y por qué, y quién debe resolver el pendiente. El formulario permite agregar y quitar renglones y guardar borradores. Presentar exige completar el alcance; Nada por ahora y Sin pendientes son respuestas válidas cuando corresponden. No inicia tareas ni libera etapas automáticamente.
 
-Puestos: Ventas, Diseño, Compras, Producción, Calidad, Colocaciones, Facturación y Cobranzas. Cada cuenta completa su puesto; Administración puede elegir cualquiera y consultar el seguimiento consolidado. Los portales de Calidad y Colocaciones acceden por API autenticada y reciben únicamente identidad operativa, plazos y el reporte de su puesto.
+## Plazo y obras incluidas
 
-En cada pantalla aparece una tabla compacta con la obra, el plazo restante y el botón Cargar análisis preliminar. El formulario permite agregar y quitar renglones: tarea, qué sí se puede iniciar, qué no y motivo, responsable de resolver el pendiente. Admite Nada por ahora y Sin pendientes con explicación del alcance. No inicia tareas ni libera etapas automáticamente.
+Las altas aprobadas y los cambios a Aprobado registran analisisPreliminarAprobadoEn con serverTimestamp en la misma escritura o transacción. Su vencimiento es 48 horas corridas después de esa aprobación.
 
-Guardar borrador no cuenta como presentación. Presentar exige completar las filas y registra fecha del servidor, operador, cumplimiento y horas transcurridas. Las ediciones posteriores conservan la primera presentación. Una revisión optimista rechaza escrituras desactualizadas. Cada guardado conserva su versión por puesto.
+La lista también incluye Pendiente y Cobrado pendiente de TIZ 2026, sin límite de antigüedad, y las obras activas de la app. Agrupa anticipo y saldo por OT. Las obras anteriores sin marca de aprobación reciben 48 horas desde la primera habilitación del análisis; la interfaz lo identifica expresamente como habilitación y no inventa una fecha de aprobación histórica.
 
-El reloj del navegador se ajusta con la hora del servidor. El seguimiento se actualiza al guardar y consulta nuevas aprobaciones periódicamente. Los análisis archivados o de revisiones no vigentes dejan de mostrarse; se conserva el historial.
+La primera presentación fija fecha, operador, tiempo de respuesta y cumplimiento. Los borradores no cuentan. Las ediciones conservan el cumplimiento original, rechazan revisiones desactualizadas y crean una versión por puesto.
 
-## Despliegue
+Las referencias presentes únicamente en TIZ 2026 conservan su propio análisis sin crear otra obra. Si luego se vinculan a la app, mantienen el análisis, el vencimiento y las presentaciones. Las consultas sólo exponen datos operativos; no incluyen precios ni datos fiscales.
 
-Workflow deploy-functions.yml (identidad de despliegue existente): despliega la API sincronizarBaseMadreV120 con las operaciones preliminary-list y preliminary-save, conservando los permisos de Firestore existentes. El workflow deploy-analisis-preliminar.yml valida la lógica sin credenciales. Pages publica la interfaz. No requiere Eventarc ni funciones nuevas. La API verifica el puesto del operador. Se conservan los permisos de acceso previos de las cuentas de TIZ.
+## Interfaz y permisos
 
-Los helpers de alta y cambio de estado registran la marca analisisPreliminarAprobadoEn junto con la aprobación. Las actualizaciones leen el estado vigente dentro de una transacción y no reinician la marca. El análisis se materializa al consultarlo usando esa fecha del servidor, por lo que abrir la app más tarde no cambia el vencimiento.
+En Calidad y Colocaciones el contador y el botón aparecen junto a cada obra. El panel se aloja dentro de calidad-root o c128-root para que los renderizados modernos y el ocultamiento de componentes heredados no lo tapen.
 
-Validación: node --test tests/analisisPreliminarV1.test.cjs.
+Administración puede elegir los ocho puestos y consultar su cumplimiento. Los demás usuarios completan su puesto y las delegaciones operativas ya existentes: Pablo puede gestionar Calidad y Colocaciones; Compras puede gestionar Colocaciones. Los usuarios externos de Calidad y Colocaciones siguen usando la API autenticada y no reciben acceso directo adicional a Firestore.
+
+## Despliegue y validación
+
+El workflow deploy-functions.yml publica sincronizarBaseMadreV120 con preliminary-list y preliminary-save. Pages publica la interfaz. No requiere Eventarc ni identidades nuevas. Se conservan los permisos de Firestore existentes.
+
+Pruebas: node --test tests/analisisPreliminarV1.test.cjs. Incluye la regresión del ocultamiento del contador, fechas de habilitación, agrupación de referencias, conservación de presentaciones, concurrencia y máscara de datos por puesto.
