@@ -57,7 +57,7 @@ jobs:
           node --check calidadChecklistsV2.js
           node --check functions/calidadChecklistCoreV2.js
           node --check functions/calidadChecklistApiV2.js
-          node --test tests/calidadChecklistV2.test.cjs
+          node --test tests/calidadChecklistV2.test.cjs tests/calidadPortalV1.test.cjs
           grep -q 'sectorizacionV35.js?v=TIZ-V35-25-CONTACTO-OT-20260929' index.html
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html

@@ -1,8 +1,10 @@
 'use strict';
 const C=require('./calidadCoreV1');
 const text=v=>String(v??'').trim();
-function projectWork(d){const w=d.data();return {id:d.id,ot:text(w.ot),cliente:text(w.cliente),desc:text(w.desc||w.descripcion),estado:text(w.estado),archivado:!!w.archivado,revisionVigente:w.revisionVigente!==false,revisionOperativa:w.revisionOperativa!==false,calidadGestion:w.calidadGestion||{},sectores:{calidad:w.sectores?.calidad||{}},driveFolderUrl:text(w.driveFolderUrl),driveFolderId:text(w.driveFolderId)};}
-async function list(db){const [works,records]=await Promise.all([db.collection('obras').get(),db.collection('calidadRegistros').get()]);return {obras:works.docs.map(projectWork),calidad:records.docs.map(d=>({...d.data(),id:d.id}))};}
+const RECORD_FIELDS=['id','obraId','referencia','tipo','etapa','area','categoria','fecha','detalle','criterio','responsable','vencimiento','resultado','evidencia','gravedad','lote','revisadas','defectuosas','estado','creadoEn','creadoPor','historial','decision','causa','subcausa','autorizacionDesvio','accion','verificacion','fechaReal','cerradoEn','cerradoPor'];
+function projectRecord(r){return Object.fromEntries(RECORD_FIELDS.filter(k=>r[k]!==undefined).map(k=>[k,r[k]]));}
+function projectWork(d){const w=d.data();return {id:d.id,ot:text(w.ot),cliente:text(w.cliente),desc:text(w.desc||w.descripcion),estado:text(w.estado),archivado:!!w.archivado,revisionVigente:w.revisionVigente!==false,revisionOperativa:w.revisionOperativa!==false,calidadGestion:{registros:Object.fromEntries(Object.entries(w.calidadGestion?.registros||{}).map(([id,r])=>[id,projectRecord(r)]))},sectores:{calidad:w.sectores?.calidad||{}},driveFolderUrl:text(w.driveFolderUrl),driveFolderId:text(w.driveFolderId)};}
+async function list(db){const [works,records]=await Promise.all([db.collection('obras').get(),db.collection('calidadRegistros').get()]);return {obras:works.docs.map(projectWork),calidad:records.docs.map(d=>({...projectRecord(d.data()),id:d.id}))};}
 async function saveRecord(db,body,user,at=new Date().toISOString()){
  if(!C.canControl(user))throw Error('Tu cuenta no puede gestionar los registros de Calidad.');
  const record=body.record?{...C.clean(body.record,user,at),...C.validateDecision(body.record,user,at)}:null;
