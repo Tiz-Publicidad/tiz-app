@@ -31,8 +31,8 @@ async function save(db,body,user){
 }
 async function handle(req,res){
  res.set('Cache-Control','no-store');
- try{const bearer=req.get('authorization')||'';if(!bearer.startsWith('Bearer '))return res.status(401).json({ok:false,error:'Iniciá sesión en TIZ.'});const token=await admin.auth().verifyIdToken(bearer.slice(7));let user;try{user=C.operator(token.email)}catch(e){return res.status(403).json({ok:false,error:e.message})}const db=admin.firestore(),body=req.body||{},mode=String(body.mode||'').replace(/^preliminary-/,'');if(mode==='list')return res.json(await list(db,user));if(mode==='save')return res.json(await save(db,body,user));throw Error('Operación inválida.');}
- catch(e){console.error('[TIZ análisis preliminar]',e.message);return res.status(400).json({ok:false,error:e.message||'No se pudo guardar el análisis.'});}
+ try{const bearer=req.get('authorization')||'';if(!bearer.startsWith('Bearer '))return res.status(401).json({ok:false,error:'Iniciá sesión en TIZ.'});const token=await admin.auth().verifyIdToken(bearer.slice(7));let user;try{user=C.operator(token.email)}catch(e){return res.status(403).json({ok:false,error:e.message})}const db=admin.firestore(),body=req.body||{},mode=String(body.mode||'').replace(/^preliminary-/,'');if(mode==='weekly')return res.json(await require('./analisisIndicadoresV1').load(db,user,body.semana));if(mode==='list')return res.json(await list(db,user));if(mode==='save')return res.json(await save(db,body,user));throw Error('Operación inválida.');}
+ catch(e){console.error('[TIZ análisis preliminar]',e.message);return res.status(e.status||400).json({ok:false,error:e.message||'No se pudo guardar el análisis.'});}
 }
 exports.handle=handle;
 exports.ensure=ensure;

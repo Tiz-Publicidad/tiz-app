@@ -51,7 +51,9 @@ jobs:
           node --check comprasObrasCoreV1.js
           node --test tests/comprasObrasV1.test.cjs
           node --check analisisPreliminarV1.js
-          node --test tests/analisisPreliminarV1.test.cjs
+          node --test tests/analisisPreliminarV1.test.cjs tests/analisisIndicadoresV1.test.cjs
+          node --check colocacionesGeneralUIV129.js
+          node --test tests/colocacionesV131.test.cjs
           node --check calidadV1.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
           node --check calidadChecklistsV2.js

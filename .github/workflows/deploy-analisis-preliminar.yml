@@ -23,4 +23,4 @@ jobs:
         run: |
           node --check analisisPreliminarV1.js
           node --check functions/analisisPreliminarApiV1.js
-          node --test tests/analisisPreliminarV1.test.cjs
+          node --test tests/analisisPreliminarV1.test.cjs tests/analisisIndicadoresV1.test.cjs
