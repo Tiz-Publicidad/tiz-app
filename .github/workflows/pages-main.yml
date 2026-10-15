@@ -50,6 +50,8 @@ jobs:
           node --check sectorizacionV35.js
           node --check comprasObrasCoreV1.js
           node --test tests/comprasObrasV1.test.cjs
+          node --check estadisticaSourceV1.js
+          node --test tests/estadisticaSourceV1.test.cjs
           node --check analisisPreliminarV1.js
           node --test tests/analisisPreliminarV1.test.cjs tests/analisisIndicadoresV1.test.cjs tests/estadisticaIndicadoresV1.test.cjs
           node --check colocacionesGeneralUIV129.js

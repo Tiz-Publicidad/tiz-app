@@ -195,6 +195,10 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     const db = admin.firestore();
     const auth = new google.auth.GoogleAuth({scopes:["https://www.googleapis.com/auth/spreadsheets"]});
     const sheets = google.sheets({version:"v4", auth});
+    if (text(req.body?.mode).toLowerCase() === "read-statistics") {
+      res.set("Cache-Control", "no-store");
+      return res.json(await require("./estadisticaSourceV1").load(sheets,email));
+    }
     if (text(req.body?.mode).toLowerCase() === "read-quality") {
       const result = await sheets.spreadsheets.values.batchGet({
         spreadsheetId:SPREADSHEET_ID, ranges:[`'${SHEET}'!C3:F`, `'${SHEET}'!Y3:Y`], valueRenderOption:"FORMATTED_VALUE"

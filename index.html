@@ -307,7 +307,7 @@ td.strong { color: var(--text); font-weight: 500; }
       </button>
       <div class="nav-section">Comercial</div>
       <button class="nav-item" onclick="goTo('cobranzas')">
-        <i class="ti ti-cash"></i> Cobranzas
+        <i class="ti ti-cash"></i> Facturación y Cobranzas
         <span class="nav-badge" id="badge-cobr">0</span>
       </button>
       <button class="nav-item" onclick="goTo('presupuestos')">
@@ -695,7 +695,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="page-header">
         <div><div class="page-title">Estadística TIZ 2026</div><div class="page-subtitle">Ventas · Producción · Colocaciones · Cobranzas por semana</div></div>
         <div class="header-actions">
-          <button class="btn btn-ghost btn-sm" onclick="exportarCSV()"><i class="ti ti-download"></i> Exportar CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.TIZEstadisticaSourceV1?.exportCSV()"><i class="ti ti-download"></i> Exportar CSV</button>
         </div>
       </div>
       <div style="padding:16px 28px 0">
@@ -1196,6 +1196,8 @@ onAuthStateChanged(auth, async user => {
     initListeners();
   } else {
     window.currentUser = null;
+    window.TIZEstadisticaSourceV1?.reset();
+    document.getElementById('est-kpis')?.replaceChildren();
     document.getElementById('est-content')?.replaceChildren();
     for(const key of Object.keys(window.DB||{}))window.DB[key]=[];
     showLoginScreen();
@@ -1216,7 +1218,7 @@ function updateUserUI() {
   if(u.restrictedColocaciones){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('colocaciones')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='colocaciones';window.goTo?.('colocaciones');}
   if(u.restrictedChecklists){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('calidad')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='calidad';window.goTo?.('calidad');}
   document.querySelectorAll('.stats-managers-only').forEach(el=>el.style.display=window.canViewIndicadores()?'flex':'none');
-  if(!window.canViewIndicadores()){document.getElementById('est-content')?.replaceChildren();if(window.currentPage==='estadistica')window.goTo?.('dashboard');}
+  if(!window.canViewIndicadores()){window.TIZEstadisticaSourceV1?.reset();document.getElementById('est-content')?.replaceChildren();if(window.currentPage==='estadistica')window.goTo?.('dashboard');}
   // Ocultar secciones admin-only en sidebar
   if (!u.isAdmin) {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
@@ -1284,6 +1286,15 @@ function initListeners() {
 }
 
 // Análisis preliminar: endpoint autenticado para todos los puestos, incluidos portales restringidos.
+window.estadisticaSourceApiV1 = async () => {
+  if (!auth.currentUser) throw new Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{
+    signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'read-statistics'})
+  });
+  const result=await response.json();
+  if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudieron leer los resultados de TIZ 2026.');
+  return result;
+};
 window.analisisPreliminarApiV1 = async body => {
   if (!auth.currentUser) throw new Error('Iniciá sesión en TIZ.');
   const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
@@ -3120,57 +3131,6 @@ window.setEstTab = (tab, el) => {
   renderEstadistica();
 };
 
-// Metas mensuales de la planilla (neto)
-const METAS_MES = {
-  'Ene': 65000000, 'Feb': 67600000, 'Mar': 70304000,
-  'Abr': 73116160, 'May': 76040806, 'Jun': 79082439,
-  'Jul': 0, 'Ago': 0, 'Sept': 0, 'Oct': 0, 'Nov': 0, 'Dic': 0
-};
-const SEMANAS_MES = {
-  1:'Ene',2:'Ene',3:'Ene',4:'Ene',5:'Ene',
-  6:'Feb',7:'Feb',8:'Feb',9:'Feb',
-  10:'Mar',11:'Mar',12:'Mar',13:'Mar',
-  14:'Abr',15:'Abr',16:'Abr',17:'Abr',18:'Abr',
-  19:'May',20:'May',21:'May',22:'May',
-  23:'Jun',24:'Jun',25:'Jun',26:'Jun',
-  27:'Jul',28:'Jul',29:'Jul',30:'Jul',31:'Jul',
-  32:'Ago',33:'Ago',34:'Ago',35:'Ago',
-  36:'Sept',37:'Sept',38:'Sept',39:'Sept',
-  40:'Oct',41:'Oct',42:'Oct',43:'Oct',44:'Oct',
-  45:'Nov',46:'Nov',47:'Nov',48:'Nov',
-  49:'Dic',50:'Dic',51:'Dic',52:'Dic'
-};
-
-function getEstData() {
-  const obras = window.DB.obras;
-  // Agrupar por semana
-  const bySem = {};
-  obras.forEach(o => {
-    const sem = +o.semana || 0;
-    if (!sem) return;
-    if (!bySem[sem]) bySem[sem] = { ventas:0, produccion:0, colocaciones:0, cobranzas:0, obras:[] };
-    bySem[sem].obras.push(o);
-    // Ventas: precio de venta neto de la semana en que se cargó
-    bySem[sem].ventas += (+o.neto || 0);
-    // Producción: semana en que se terminó (fprod_r) o semana de la obra
-    if (o.fprod_r) {
-      const sem_prod = +o.semana || sem;
-      if (!bySem[sem_prod]) bySem[sem_prod] = { ventas:0, produccion:0, colocaciones:0, cobranzas:0, obras:[] };
-      bySem[sem_prod].produccion += (+o.neto || 0);
-    }
-    // Colocaciones: semana en que se colocó (fcol_r)
-    if (o.fcol_r) {
-      if (!bySem[sem]) bySem[sem] = { ventas:0, produccion:0, colocaciones:0, cobranzas:0, obras:[] };
-      bySem[sem].colocaciones += (+o.neto || 0);
-    }
-    // Cobranzas: obras cobradas
-    if (o.estado === 'Cobrado') {
-      bySem[sem].cobranzas += (+o.neto || 0);
-    }
-  });
-  return bySem;
-}
-
 function renderEstadistica() {
   const content=document.getElementById('est-content'),page=document.getElementById('page-estadistica');
   if(!content||!window.canViewIndicadores())return;
@@ -3187,173 +3147,12 @@ function renderEstadistica() {
     return;
   }
 
-  const obras = window.DB.obras;
-  const bySem = getEstData();
-  const sems = Object.keys(bySem).map(Number).sort((a,b)=>a-b);
-
-  // KPIs acumulados
-  const totalVentas = obras.reduce((a,o)=>a+(+o.neto||0),0);
-  const totalProd = obras.filter(o=>o.fprod_r).reduce((a,o)=>a+(+o.neto||0),0);
-  const totalCol = obras.filter(o=>o.fcol_r).reduce((a,o)=>a+(+o.neto||0),0);
-  const totalCobr = obras.filter(o=>o.estado==='Cobrado').reduce((a,o)=>a+(+o.neto||0),0);
-  const metaAnual = Object.values(METAS_MES).reduce((a,v)=>a+v,0);
-  const pctV = metaAnual ? Math.round(totalVentas/metaAnual*100) : 0;
-  const pctP = metaAnual ? Math.round(totalProd/metaAnual*100) : 0;
-  const pctC = metaAnual ? Math.round(totalCol/metaAnual*100) : 0;
-  const pctCobr = metaAnual ? Math.round(totalCobr/metaAnual*100) : 0;
-
-  document.getElementById('est-kpis').innerHTML = `
-    <div class="kpi"><div class="kpi-label">Ventas acum.</div><div class="kpi-val ${pctV>=80?'green':pctV>=60?'amber':'red'}">${fmtM(totalVentas)}</div><div class="kpi-sub">${pctV}% de meta anual</div></div>
-    <div class="kpi"><div class="kpi-label">Producción acum.</div><div class="kpi-val ${pctP>=80?'green':pctP>=60?'amber':'red'}">${fmtM(totalProd)}</div><div class="kpi-sub">${pctP}% de meta anual</div></div>
-    <div class="kpi"><div class="kpi-label">Colocaciones acum.</div><div class="kpi-val ${pctC>=80?'green':pctC>=60?'amber':'red'}">${fmtM(totalCol)}</div><div class="kpi-sub">${pctC}% de meta anual</div></div>
-    <div class="kpi"><div class="kpi-label">Cobranzas acum.</div><div class="kpi-val ${pctCobr>=80?'green':pctCobr>=60?'amber':'red'}">${fmtM(totalCobr)}</div><div class="kpi-sub">${pctCobr}% de meta anual</div></div>
-  `;
-
-  if (window.estTab === 'tabla') renderEstTabla(bySem, sems);
-  else if (window.estTab === 'mensual') renderEstMensual(bySem, sems);
-  else if (window.estTab === 'metas') renderEstMetas();
-  else if (window.estTab === 'cumplimiento') renderEstCumplimiento();
-}
-
-function pctBar(val, meta) {
-  if (!meta) return '';
-  const p = Math.min(Math.round(val/meta*100), 100);
-  const color = p>=80?'var(--green)':p>=60?'var(--amber)':'var(--red)';
-  return `<div style="height:3px;background:var(--border);border-radius:2px;margin-top:3px"><div style="width:${p}%;height:3px;background:${color};border-radius:2px"></div></div>`;
-}
-
-function renderEstTabla(bySem, sems) {
-  if (!sems.length) {
-    document.getElementById('est-content').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text3)">No hay datos cargados</div>';
-    return;
-  }
-
-  let prevMes = '';
-  const rows = sems.map(sem => {
-    const d = bySem[sem];
-    const mes = SEMANAS_MES[sem] || '';
-    const meta = METAS_MES[mes] || 0;
-    const pctV = meta ? Math.round(d.ventas/meta*100) : 0;
-    const pctP = meta ? Math.round(d.produccion/meta*100) : 0;
-    const pctC = meta ? Math.round(d.colocaciones/meta*100) : 0;
-    const pctCobr = meta ? Math.round(d.cobranzas/meta*100) : 0;
-    const showMes = mes !== prevMes;
-    prevMes = mes;
-    return `<tr>
-      <td style="font-weight:500;color:var(--accent)">${showMes?mes:''}</td>
-      <td style="font-weight:500">${sem}</td>
-      <td>
-        <span style="font-weight:500">${fmtM(d.ventas)}</span>
-        ${pctBar(d.ventas, meta)}
-        <span style="font-size:10px;color:${pctV>=80?'var(--green)':pctV>=60?'var(--amber)':'var(--red)'}">${pctV}%</span>
-      </td>
-      <td>
-        <span style="font-weight:500">${fmtM(d.produccion)}</span>
-        ${pctBar(d.produccion, meta)}
-        <span style="font-size:10px;color:${pctP>=80?'var(--green)':pctP>=60?'var(--amber)':'var(--red)'}">${pctP}%</span>
-      </td>
-      <td>
-        <span style="font-weight:500">${fmtM(d.colocaciones)}</span>
-        ${pctBar(d.colocaciones, meta)}
-        <span style="font-size:10px;color:${pctC>=80?'var(--green)':pctC>=60?'var(--amber)':'var(--red)'}">${pctC}%</span>
-      </td>
-      <td>
-        <span style="font-weight:500">${fmtM(d.cobranzas)}</span>
-        ${pctBar(d.cobranzas, meta)}
-        <span style="font-size:10px;color:${pctCobr>=80?'var(--green)':pctCobr>=60?'var(--amber)':'var(--red)'}">${pctCobr}%</span>
-      </td>
-      <td style="color:var(--text3);font-size:11px">${fmtM(meta)}</td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('est-content').innerHTML = `
-    <div class="card">
-      <div class="table-wrap"><table>
-        <thead><tr>
-          <th>Mes</th><th>Sem</th>
-          <th>Ventas</th><th>Producción</th><th>Colocaciones</th><th>Cobranzas</th>
-          <th>Meta mes</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>`;
-}
-
-function renderEstMensual(bySem, sems) {
-  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sept','Oct','Nov','Dic'];
-  const byMes = {};
-  sems.forEach(sem => {
-    const mes = SEMANAS_MES[sem];
-    if (!mes) return;
-    if (!byMes[mes]) byMes[mes] = {ventas:0,produccion:0,colocaciones:0,cobranzas:0};
-    byMes[mes].ventas += bySem[sem].ventas;
-    byMes[mes].produccion += bySem[sem].produccion;
-    byMes[mes].colocaciones += bySem[sem].colocaciones;
-    byMes[mes].cobranzas += bySem[sem].cobranzas;
-  });
-
-  const rows = meses.filter(m => byMes[m]).map(mes => {
-    const d = byMes[mes];
-    const meta = METAS_MES[mes] || 0;
-    const pV = meta?Math.round(d.ventas/meta*100):0;
-    const pP = meta?Math.round(d.produccion/meta*100):0;
-    const pC = meta?Math.round(d.colocaciones/meta*100):0;
-    const pCo = meta?Math.round(d.cobranzas/meta*100):0;
-    const badge = p => `<span class="badge badge-${p>=80?'green':p>=60?'amber':'red'}">${p}%</span>`;
-    return `<tr>
-      <td style="font-weight:500;color:var(--accent)">${mes}</td>
-      <td>${fmtM(d.ventas)} ${badge(pV)}</td>
-      <td>${fmtM(d.produccion)} ${badge(pP)}</td>
-      <td>${fmtM(d.colocaciones)} ${badge(pC)}</td>
-      <td>${fmtM(d.cobranzas)} ${badge(pCo)}</td>
-      <td style="color:var(--text3)">${fmtM(meta)}</td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('est-content').innerHTML = `
-    <div class="card">
-      <div class="table-wrap"><table>
-        <thead><tr><th>Mes</th><th>Ventas</th><th>Producción</th><th>Colocaciones</th><th>Cobranzas</th><th>Meta</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>`;
-}
-
-function renderEstMetas() {
-  const obras = window.DB.obras;
-  const bySem = getEstData();
-  const meses = ['Ene','Feb','Mar','Abr','May','Jun'];
-
-  const cards = meses.map(mes => {
-    const meta = METAS_MES[mes] || 0;
-    const sems = Object.keys(SEMANAS_MES).filter(s => SEMANAS_MES[s]===mes).map(Number);
-    const ventas = sems.reduce((a,s)=>a+(bySem[s]?.ventas||0),0);
-    const prod = sems.reduce((a,s)=>a+(bySem[s]?.produccion||0),0);
-    const col = sems.reduce((a,s)=>a+(bySem[s]?.colocaciones||0),0);
-    const cobr = sems.reduce((a,s)=>a+(bySem[s]?.cobranzas||0),0);
-    const pV = meta?Math.round(ventas/meta*100):0;
-    const pP = meta?Math.round(prod/meta*100):0;
-    const pC = meta?Math.round(col/meta*100):0;
-    const pCo = meta?Math.round(cobr/meta*100):0;
-    const bar = (v,p) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span style="font-size:11px;color:var(--text3);width:90px">${v}</span>
-      <div style="flex:1;height:6px;background:var(--border);border-radius:3px">
-        <div style="width:${Math.min(p,100)}%;height:6px;background:${p>=80?'var(--green)':p>=60?'var(--amber)':'var(--red)'};border-radius:3px"></div>
-      </div>
-      <span style="font-size:11px;font-weight:500;color:${p>=80?'var(--green)':p>=60?'var(--amber)':'var(--red)'};width:35px;text-align:right">${p}%</span>
-    </div>`;
-    return `<div class="card" style="margin-bottom:12px">
-      <div class="card-header"><span class="card-title">${mes} — Meta: ${fmtM(meta)}</span></div>
-      <div class="card-body">
-        ${bar('Ventas',pV)}
-        ${bar('Producción',pP)}
-        ${bar('Colocaciones',pC)}
-        ${bar('Cobranzas',pCo)}
-      </div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('est-content').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0">${cards}</div>`;
+  if(window.estTab==='cumplimiento'){
+    document.getElementById('est-kpis').innerHTML='';
+    page.querySelector('.header-actions').style.display='none';
+    page.querySelector('.page-subtitle').textContent='Cumplimiento operativo registrado en la app';
+    renderEstCumplimiento();
+  }else window.TIZEstadisticaSourceV1?.render();
 }
 
 function renderEstCumplimiento() {
@@ -3826,8 +3625,9 @@ async function syncToSheets(data) {
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H-DERECHA"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H"></script>
-<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015H"></script>
-<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015H"></script>
+<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015I"></script>
+<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A"></script>
+<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261015I"></script>
 </body>
 </html>
 
