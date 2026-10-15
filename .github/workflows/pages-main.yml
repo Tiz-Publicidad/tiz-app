@@ -52,6 +52,8 @@ jobs:
           node --test tests/comprasObrasV1.test.cjs
           node --check estadisticaSourceV1.js
           node --test tests/estadisticaSourceV1.test.cjs
+          node --check operacionesV1.js
+          node --test tests/operacionesV1.test.cjs
           node --check analisisPreliminarV1.js
           node --test tests/analisisPreliminarV1.test.cjs tests/analisisIndicadoresV1.test.cjs tests/estadisticaIndicadoresV1.test.cjs
           node --check colocacionesGeneralUIV129.js

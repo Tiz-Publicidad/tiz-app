@@ -1,8 +1,8 @@
 /* Análisis preliminar por obra y puesto. Plazo de 48 h y primera presentación inmutable. */
 (function(){
 'use strict';
-const sectors={ventas:'Ventas',diseno:'Diseño',compras:'Compras',produccion:'Producción',calidad:'Calidad',colocaciones:'Colocaciones',facturacion:'Facturación y Cobranzas'};
-const pageSector={produccion:'produccion',diseno:'diseno',compras:'compras',calidad:'calidad',colocaciones:'colocaciones',presupuestos:'ventas',cobranzas:'facturacion'};
+const sectors={ventas:'Ventas',diseno:'Diseño',compras:'Compras',produccion:'Producción',operaciones:'Operaciones',calidad:'Calidad',colocaciones:'Colocaciones',facturacion:'Facturación y Cobranzas'};
+const pageSector={operaciones:'operaciones',produccion:'produccion',diseno:'diseno',compras:'compras',calidad:'calidad',colocaciones:'colocaciones',presupuestos:'ventas',cobranzas:'facturacion'};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let data=[],session='',busy=false,lastLoad=0,lastAttempt=0,offset=0,selected='',selectedPage='',weeklyData=null,weeklyBusy=false,weeklyError='',weeklyStart='',weeklySession='',weeklyOpen=new Set(),allowedSectors=[],expanded=false,editing=null,renderedPage='';
 const now=()=>Date.now()+offset;
