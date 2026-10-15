@@ -48,6 +48,8 @@ jobs:
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
           node --check sectorizacionV35.js
+          node --check comprasObrasCoreV1.js
+          node --test tests/comprasObrasV1.test.cjs
           node --check analisisPreliminarV1.js
           node --test tests/analisisPreliminarV1.test.cjs
           node --check calidadV1.js

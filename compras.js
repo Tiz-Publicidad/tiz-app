@@ -11,6 +11,25 @@ const C = {
 let compraEditId = null;
 let selectedFile = null;
 let currentTab = 'inicio';
+let cpMotherRows=[],cpMotherUser='',cpMotherBusy=false,cpMotherRead=0,cpMotherError='';
+function cpWorks(){return window.TIZComprasObrasCoreV1.merge(cpMotherUser===window.currentUser?.email?cpMotherRows:[],window.DB?.obras||[]);}
+function cpFindWork(id){return cpWorks().find(w=>w.id===id);}
+async function cpRefreshMother(force=false){
+ const email=window.currentUser?.email;if(!email||window.currentUser?.restrictedColocaciones||window.currentUser?.restrictedChecklists)return;
+ if(cpMotherUser!==email){cpMotherRows=[];cpMotherUser=email;cpMotherRead=0;cpMotherError='';}
+ if(cpMotherBusy||!force&&Date.now()-cpMotherRead<60000)return;
+ cpMotherBusy=true;cpMotherRead=Date.now();
+ try{const response=await window.leerCalidadBaseMadreV1();if(window.currentUser?.email!==email)return;if(!Array.isArray(response.rows))throw Error('Respuesta de TIZ 2026 inválida.');cpMotherRows=response.rows;cpMotherError='';}
+ catch(e){if(window.currentUser?.email===email)cpMotherError=e.message||String(e);}
+ finally{cpMotherBusy=false;if(window.currentUser?.email===email&&window.currentPage==='compras'&&['inicio','obras','planes','controlot','alertas'].includes(currentTab))render();}
+}
+window.cpRefreshMother=()=>cpRefreshMother(true);
+function cpMotherState(){return cpMotherError?'<p role="alert" style="color:var(--amber)">No se pudo actualizar TIZ 2026: '+esc(cpMotherError)+'. Se conserva la última lectura.</p>':cpMotherBusy?'<p class="cp-sub">Actualizando TIZ 2026…</p>':'';}
+function renderObrasCompras(el){
+ const works=cpWorks();el.innerHTML=`<div class="cp-panel"><div class="cp-actions" style="justify-content:space-between"><div><b>Obras a gestionar en Compras</b><p class="cp-sub">Pendiente y Cobrado pendiente de TIZ 2026, más las obras nuevas de la app. Anticipo y saldo se agrupan por OT.</p></div><button class="cp-btn" onclick="cpRefreshMother()" ${cpMotherBusy?'disabled':''}>Actualizar desde TIZ 2026</button></div>${cpMotherState()}</div><p class="cp-sub">${works.length} obras · Actualización automática · OT de mayor a menor</p><div class="cp-table-wrap"><table class="cp-table" style="min-width:850px"><thead><tr><th>OT</th><th>Cliente / trabajo</th><th>Estado</th><th>Insumos</th><th></th></tr></thead><tbody>${works.map(w=>`<tr><td><b>${esc(w.ot||'Sin OT')}</b></td><td><b>${esc(w.cliente||'—')}</b><div class="cp-sub">${esc(w.desc||'—')}</div><small>${w.comprasFuenteMadre?'TIZ 2026 · filas '+w.comprasFilasMadre.join(', '):'Obra nueva de la app'}</small></td><td>${esc(w.estado||'Pendiente')}</td><td>${pctChecks(ANALISIS_CHECKS,analysisFor(w))}%</td><td><button class="cp-btn primary" data-cp-source="${esc(w.id)}">Control de insumos</button></td></tr>`).join('')||'<tr><td colspan="5">No hay obras para gestionar.</td></tr>'}</tbody></table></div>`;
+ el.querySelectorAll('[data-cp-source]').forEach(button=>button.onclick=()=>{const work=cpFindWork(button.dataset.cpSource);window.cpOTSearch=work?.ot||work?.cliente||'';window.cpOTFilter='todas';window.cpTab('controlot');});
+}
+
 let aiCleanupActive = null;
 let purchaseFilters;
 let migrationPreview = null;
@@ -213,7 +232,7 @@ function injectUI(){
   page.innerHTML=`
     <div class="cp-head"><div><div class="cp-title">Compras, Contrataciones y Proveedores</div><div class="cp-sub">Compras por ítem, deudas, pagos, proveedores, servicios contratados, stock y ayudamemorias.</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpOpenConfigIA()">⚙ IA comprobantes</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
     <div class="cp-tabs">
-      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="historico">Histórico materiales</button><button class="cp-tab" data-tab="contrataciones">Contrataciones</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button><button class="cp-tab" data-tab="migracion">Migración Excel</button>
+      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="obras">Obras a gestionar</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="historico">Histórico materiales</button><button class="cp-tab" data-tab="contrataciones">Contrataciones</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button><button class="cp-tab" data-tab="migracion">Migración Excel</button>
     </div><div id="cp-content"></div>`;
   document.querySelector('.main, main, .content')?.appendChild(page) || document.body.appendChild(page);
   page.querySelectorAll('.cp-tab').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;page.querySelectorAll('.cp-tab').forEach(x=>x.classList.toggle('active',x===b));render();});
@@ -271,8 +290,11 @@ function startListeners(){
 
 function render(){
   if(window.currentPage!=='compras') return;
+  cpRefreshMother();
   const el=document.getElementById('cp-content'); if(!el)return;
-  ({inicio:renderInicio,compras:renderCompras,historico:renderHistoricoMateriales,contrataciones:renderContrataciones,proveedores:renderProveedores,pagos:renderPagos,migracion:renderMigracion,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
+  ({inicio:renderInicio,obras:renderObrasCompras,compras:renderCompras,historico:renderHistoricoMateriales,contrataciones:renderContrataciones,proveedores:renderProveedores,pagos:renderPagos,migracion:renderMigracion,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
+  if(currentTab==='inicio')el.insertAdjacentHTML('afterbegin',`<div class="cp-panel"><div class="cp-actions" style="justify-content:space-between"><div><b>${cpWorks().length} obras para Compras</b><p class="cp-sub">Pendiente / Cobrado pendiente de TIZ 2026 y obras nuevas, sin duplicar OT.</p></div><button class="cp-btn primary" onclick="cpTab('obras')">Ver obras a gestionar</button></div>${cpMotherState()}</div>`);
+
 }
 
 function purchaseItems(){ return C.compras.flatMap(c=>(c.items||[]).map(i=>({...i,compra:c}))); }
@@ -681,10 +703,10 @@ function cpQuoteItemsForWork(o){
   const raw=Array.isArray(o?.itemsTecnicos)&&o.itemsTecnicos.length?o.itemsTecnicos:(Array.isArray(o?.itemsCotizados)?o.itemsCotizados:[]);
   return raw.map(i=>String(i?.articulo||i?.descripcion||i?.desc||'').trim()).filter(Boolean);
 }
-function cpPlanForWork(o){return C.planes.find(p=>p.obraId===o.id||String(p.ot||'')===String(o.ot||o.nro||''));}
-function cpPendingExplosionWorks(){return (window.DB?.obras||[]).filter(isActiveObra).filter(o=>!cpPlanForWork(o));}
+function cpPlanForWork(o){return C.planes.find(p=>p.obraId===o.id||window.TIZComprasObrasCoreV1.same(p.ot,o.ot||o.nro));}
+function cpPendingExplosionWorks(){return cpWorks().filter(o=>!cpPlanForWork(o));}
 function renderPlanes(el){
-  const obras=(window.DB?.obras||[]).filter(isActiveObra).sort((a,b)=>(parseInt(b.ot)||0)-(parseInt(a.ot)||0));
+  const obras=cpWorks();
   const pending=obras.filter(o=>!cpPlanForWork(o));
   const pendingRows=pending.map(o=>{
     const qi=cpQuoteItemsForWork(o);
@@ -698,7 +720,7 @@ function renderPlanes(el){
 function cpPhysicalStock(a){const last=latestCounts(),ct=last[a?.id]||last[a?.descripcion];return ct?num(ct.cantidad):0;}
 function cpReservedStock(articleId,desc,excludePlanId=''){return C.planes.filter(p=>p.estado!=='cerrado'&&p.id!==excludePlanId).flatMap(p=>p.items||[]).filter(i=>i.modoStock!=='generico'&&((articleId&&i.articuloId===articleId)||(!articleId&&normText(i.descripcion)===normText(desc)))).reduce((s,i)=>s+num(i.cantidadPlanificada??i.cantidadSugerida),0);}
 function planCard(p){
-  const o=(window.DB?.obras||[]).find(x=>x.id===p.obraId||String(x.ot||x.nro||'')===String(p.ot||''));
+  const o=cpWorks().find(x=>x.id===p.obraId||window.TIZComprasObrasCoreV1.same(x.ot,p.ot));
   const sold=(p.componentesVenta&&p.componentesVenta.length?p.componentesVenta:cpQuoteItemsForWork(o||{}));
   const rows=(p.items||[]).map((i,ix)=>{
     const art=C.articulos.find(a=>a.id===i.articuloId)||C.articulos.find(a=>normText(a.descripcion)===normText(i.descripcion));
@@ -754,7 +776,7 @@ window.cpDeleteArticulo=async id=>{if(confirm('¿Borrar artículo?'))await delet
 window.cpCalcCountRow=input=>{const tr=input.closest('tr'),final=num(input.value),cons=num(tr.dataset.inicial)+num(tr.dataset.compras)-final;tr.querySelector('.cp-consumo').textContent=isNaN(cons)?'—':cons;};
 window.cpSaveConteo=async()=>{const items=[...document.querySelectorAll('[data-count-row]')].map(tr=>{const raw=tr.querySelector('.cp-count-input').value;if(raw==='')return null;const cantidad=num(raw);return {articuloId:tr.dataset.id,descripcion:tr.dataset.desc,cantidad,stockInicial:num(tr.dataset.inicial),comprasPeriodo:num(tr.dataset.compras),planificadoOT:num(tr.dataset.plan),consumoReal:num(tr.dataset.inicial)+num(tr.dataset.compras)-cantidad};}).filter(Boolean);if(!items.length)return toast('Ingresá al menos un conteo.');await addDoc(collection(db,'conteosStock'),{semana:document.getElementById('cp-count-week').value,fecha:document.getElementById('cp-count-date').value,items,usuario:window.currentUser?.email||'',_ts:serverTimestamp()});toast('Conteo guardado. Consumos calculados automáticamente.');};
 window.cpExplodeObra=async obraId=>{
-  const o=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!o)return toast('No se encontró la obra.');
+  const o=cpFindWork(obraId);if(!o)return toast('No se encontró la obra.');
   if(cpPlanForWork(o))return toast('La OT ya tiene un plan de materiales.');
   await addDoc(collection(db,'planesMateriales'),{obraId:o.id,ot:o.ot||o.nro||'',cliente:o.cliente||'',descripcion:o.desc||o.descripcion||'',estado:'pendiente de explosion',origen:'venta sincronizada',componentesVenta:cpQuoteItemsForWork(o),items:[],fechaAlta:todayISO(),_ts:serverTimestamp()});
   toast('OT sincronizada con Compras. Ya podés hacer la explosión.');
@@ -990,7 +1012,7 @@ const COL_CHECKS=[
 function obraCreatedDate(o){
   try{if(o._ts?.toDate)return o._ts.toDate();if(o.createdAt?.toDate)return o.createdAt.toDate();const s=o.fechaCreacion||o.fecha||o.fpresupuesto||'';if(s){if(/^\d{4}-\d{2}-\d{2}/.test(s))return new Date(s+'T12:00:00');const p=s.split('/');if(p.length===3)return new Date(+p[2],+p[1]-1,+p[0]);}}catch{}return null;
 }
-function analysisFor(o){return C.analisisOT.find(a=>a.obraId===o.id||String(a.ot||'')===String(o.ot||''));}
+function analysisFor(o){return C.analisisOT.find(a=>a.obraId===o.id||window.TIZComprasObrasCoreV1.same(a.ot,o.ot));}
 function colFor(o){return C.preparacionCol.find(a=>a.obraId===o.id||String(a.ot||'')===String(o.ot||''));}
 function elapsedHours(o){const d=obraCreatedDate(o);return d?Math.max(0,(Date.now()-d.getTime())/3600000):null;}
 function isActiveObra(o){return !['Cobrado','Rechazado','Vencido'].includes(o.estado||'');}
@@ -998,7 +1020,7 @@ function pctChecks(keys,data){const c=data?.checks||{};return Math.round(keys.fi
 
 
 function memosFor(obraId,sector){
-  return (C.ayudamemorias||[]).filter(m=>m.obraId===obraId&&m.sector===sector).sort((a,b)=>{
+  return (C.ayudamemorias||[]).filter(m=>(m.obraId===obraId||sector==='Compras'&&window.TIZComprasObrasCoreV1.same(m.ot,cpFindWork(obraId)?.ot))&&m.sector===sector).sort((a,b)=>{
     if(!!a.resuelto!==!!b.resuelto)return a.resuelto?1:-1;
     return String(a.fecha||'9999-12-31').localeCompare(String(b.fecha||'9999-12-31'));
   });
@@ -1013,7 +1035,7 @@ function memoListHTML(obraId,sector){
   </div>`).join('')}${arr.length>4?`<div class="am-meta">+ ${arr.length-4} ayudamemorias más</div>`:''}</div>`;
 }
 window.amOpen=(obraId,sector)=>{
-  const o=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!o)return;
+  const o=(sector==='Compras'?cpFindWork(obraId):(window.DB?.obras||[]).find(x=>x.id===obraId));if(!o)return;
   let modal=document.getElementById('am-modal');
   if(!modal){
     modal=document.createElement('div');modal.id='am-modal';modal.className='cp-modal-bg';
@@ -1038,14 +1060,14 @@ window.amClose=()=>document.getElementById('am-modal')?.classList.remove('show')
 window.amQuick=(days)=>{document.getElementById('am-fecha').value=addDaysISO(todayISO(),days);};
 window.amSave=async()=>{
   const modal=document.getElementById('am-modal'),texto=document.getElementById('am-texto').value.trim();if(!texto){alert('Escribí el ayudamemoria.');return;}
-  const o=(window.DB?.obras||[]).find(x=>x.id===modal.dataset.obraId);if(!o)return;
+  const o=modal.dataset.sector==='Compras'?cpFindWork(modal.dataset.obraId):(window.DB?.obras||[]).find(x=>x.id===modal.dataset.obraId);if(!o)return;
   await addDoc(collection(db,'ayudamemoriasOT'),{obraId:o.id,ot:o.ot||'',cliente:o.cliente||'',sector:modal.dataset.sector,texto,tipo:document.getElementById('am-tipo').value,responsable:document.getElementById('am-resp').value.trim(),fecha:document.getElementById('am-fecha').value,mostrarTareas:document.getElementById('am-tareas').value==='true',resuelto:false,creado:todayISO(),_ts:serverTimestamp()});
   amClose();toast('Ayudamemoria guardado.');
 };
 window.amToggle=async(id,on)=>{await updateDoc(doc(db,'ayudamemoriasOT',id),{resuelto:on,resueltoFecha:on?todayISO():'',_tsResuelto:serverTimestamp()});};
 
 function renderControlOT(el){
-  const obras=(window.DB?.obras||[]).filter(isActiveObra).sort((a,b)=>(elapsedHours(b)||0)-(elapsedHours(a)||0));
+  const obras=cpWorks();
   const q=String(window.cpOTSearch||'').toLowerCase(),filter=window.cpOTFilter||'pendientes';
   let list=obras.filter(o=>!q||[o.ot,o.cliente,o.desc].join(' ').toLowerCase().includes(q));
   if(filter==='vencidas')list=list.filter(o=>!analysisFor(o)&&elapsedHours(o)!==null&&elapsedHours(o)>=48);
@@ -1058,7 +1080,7 @@ function renderControlOT(el){
   el.innerHTML=`<div class="cp-pay-toolbar"><div><div class="cp-pay-title">Control rápido de insumos por OT</div><div class="cp-sub">Se completa principalmente con checks. Las OTs sin análisis se alertan al superar 48 horas.</div></div></div><div class="cp-grid" style="margin-bottom:12px"><div class="cp-card"><div class="cp-lbl">OT activas</div><div class="cp-kpi">${obras.length}</div></div><div class="cp-card"><div class="cp-lbl">Análisis vencidos +48 h</div><div class="cp-kpi" style="color:var(--red)">${late}</div></div><div class="cp-card"><div class="cp-lbl">Insumos completos</div><div class="cp-kpi" style="color:var(--green)">${complete}</div></div><div class="cp-card"><div class="cp-lbl">Promedio abastecimiento</div><div class="cp-kpi">${avgDays}${avgDays==='—'?'':' d'}</div></div></div><div class="cp-panel"><div class="cp-actions"><input style="min-width:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px" placeholder="Buscar OT, cliente o trabajo" value="${esc(window.cpOTSearch||'')}" oninput="window.cpOTSearch=this.value;render()"><button class="cp-btn ${filter==='pendientes'?'primary':''}" onclick="window.cpOTFilter='pendientes';render()">Pendientes</button><button class="cp-btn ${filter==='vencidas'?'danger':''}" onclick="window.cpOTFilter='vencidas';render()">+48 h</button><button class="cp-btn ${filter==='completas'?'primary':''}" onclick="window.cpOTFilter='completas';render()">Completas</button><button class="cp-btn" onclick="window.cpOTFilter='todas';render()">Todas</button></div></div><div class="cp-check-board">${cards||'<div class="cp-panel">No hay OTs para este filtro.</div>'}</div>`;
 }
 window.cpToggleOTCheck=async(obraId,key,on)=>{
-  const o=(window.DB?.obras||[]).find(x=>x.id===obraId);if(!o)return;let a=analysisFor(o);const checks={...(a?.checks||{}),[key]:on};const data={obraId,ot:o.ot||'',cliente:o.cliente||'',descripcion:o.desc||'',checks,fechaInicio:a?.fechaInicio||todayISO(),actualizado:todayISO(),_ts:serverTimestamp()};
+  const o=cpFindWork(obraId);if(!o)return;let a=analysisFor(o);const checks={...(a?.checks||{}),[key]:on};const data={obraId,ot:o.ot||'',cliente:o.cliente||'',descripcion:o.desc||'',checks,fechaInicio:a?.fechaInicio||todayISO(),actualizado:todayISO(),_ts:serverTimestamp()};
   if(key==='completo'&&on)data.fechaCompleto=todayISO();if(key==='completo'&&!on)data.fechaCompleto='';
   if(a)await updateDoc(doc(db,'analisisComprasOT',a.id),data);else await addDoc(collection(db,'analisisComprasOT'),data);
 };
@@ -1138,10 +1160,11 @@ window.colToggleCheck=async(obraId,key,on)=>{const o=(window.DB?.obras||[]).find
 // Integración con navegación existente
 const oldGoTo=window.goTo;
 window.goTo=function(page){if(oldGoTo)oldGoTo(page);if(page==='compras'){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-compras')?.classList.add('active');document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.cpNav==='1'));window.currentPage='compras';render();}};
-const cpOldRefresh=window.refreshCurrent;window.refreshCurrent=function(){if(cpOldRefresh)cpOldRefresh();setTimeout(renderColocacionesV27,0);};
+const cpOldRefresh=window.refreshCurrent;window.refreshCurrent=function(){if(cpOldRefresh)cpOldRefresh();if(window.currentPage==='compras')render();setTimeout(renderColocacionesV27,0);};
 const cpGoToV27=window.goTo;window.goTo=function(page){cpGoToV27(page);if(page==='colocaciones')setTimeout(renderColocacionesV27,20);};
 
 injectStyles();injectUI();startListeners();
+setInterval(()=>{if(window.currentPage==='compras'&&!document.hidden)cpRefreshMother();},60000);
 console.info('[TIZ V28.2] Hotfix Dashboard de Colocaciones cargado');
 
 
@@ -1174,3 +1197,4 @@ window.tizComprasCatalogoV32 = function(){
     return [];
   }
 };
+
