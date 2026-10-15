@@ -173,8 +173,8 @@ test('cerrar desde resultados conserva el evento por fecha con el cierre real e 
  c.applyPatch(o,c.resultPatch(o,'a',{detalle:'Confirmado <portón>',fechaReal:'2026-10-08'},null,'2026-10-09T10:00:00Z','Ariel',w.DB));const before=JSON.stringify(w.DB),html=g.datesBody('2026-10-05')+g.dateDetails(g.entries()[0])+g.body('dashboard','2026-10-05');for(const text of ['Confirmar acceso','Planificada: 06/10/2026','Cierre real: 08/10/2026','Cerrada con retraso · 2 día(s)','Cumplimiento actual','Gestión por responsable','data-g-detail="o/a"'])assert.ok(html.includes(text),text);assert.ok(!html.includes('data-g-result="o/a"'));assert.equal(g.managementMetrics(g.entries(),'2026-10-05').closedLate,1);assert.equal(JSON.stringify(w.DB),before);
  o.estado='Entregado';assert.ok(g.dateDetails(g.entries()[0]).includes('Cierre real: 08/10/2026'));assert.equal(g.calendarRows().length,0);
 });
-test('un cierre en otra semana aparece por fecha real sin duplicar el indicador del plan',()=>{
- const w=ui(),g=w.TIZColocacionesGeneralV129;w.TIZColocacionesCore.today=()=> '2026-10-09';w.DB.obras=[{id:'o',ot:'4700',estado:'Entregado',colocacionesGestion:{acciones:{a:{...action('2026-09-30','Cerrada'),titulo:'Terminada esta semana',fechaReal:'2026-10-08'}}}}];const html=g.datesBody('2026-10-05');assert.ok(html.includes('Gestiones de esta semana con planificación fuera de la semana (1)'));assert.equal((html.match(/class="g147-task">Terminada esta semana/g)||[]).length,1);assert.ok(g.dateDetails(g.entries()[0]).includes('Cierre real: 08/10/2026'));assert.equal(g.managementMetrics(g.entries(),'2026-10-05').done,0);assert.equal(g.managementMetrics(g.entries(),'2026-09-28').done,1);
+test('un cierre en otra semana queda sólo en Histórico sin duplicar el indicador del plan',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;w.TIZColocacionesCore.today=()=> '2026-10-09';w.DB.obras=[{id:'o',ot:'4700',estado:'Entregado',colocacionesGestion:{acciones:{a:{...action('2026-09-30','Cerrada'),titulo:'Terminada esta semana',fechaReal:'2026-10-08'}}}}];const html=g.datesBody('2026-10-05');assert.ok(!html.includes('Terminada esta semana'));assert.ok(g.body('historico').includes('Terminada esta semana'));assert.ok(html.includes('data-view="historico"'));assert.ok(g.dateDetails(g.entries()[0]).includes('Cierre real: 08/10/2026'));assert.equal(g.managementMetrics(g.entries(),'2026-10-05').done,0);assert.equal(g.managementMetrics(g.entries(),'2026-09-28').done,1);
 });
 function importHarness({rows,existing=[],works=[],fail=[],listFailure=false}={}){
  const source=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8'),start=source.indexOf('  async function importSelected('),end=source.indexOf('  function install(',start),state={importRows:rows,importBusy:false},w={},status={textContent:''},error={textContent:''},controls=[{disabled:false}],requests=[],notices=[],stored=new Map(existing.map(a=>[a.id,a]));let renders=0;
@@ -275,4 +275,13 @@ test('editar una acción vinculada guarda su destino propio y conserva el domici
  assert.equal(patch['colocacionesGestion.acciones.a'].zona,'San Miguel');
  assert.equal(o.entregaLogistica.domicilio,'Domicilio de la obra');
  assert.equal(G.cleanAction({...action('2026-10-16'),direccion:'Calle Prueba 123',zona:'San Miguel'}).direccion,'Calle Prueba 123');
+});
+
+test('Por fecha excludes every resolved action and keeps all results in Histórico without deleting data',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;
+ w.DB.obras=[{id:'o',ot:'4776',cliente:'Cliente',estado:'Pendiente',colocacionesGestion:{acciones:{a:{...action('2026-10-13'),titulo:'Pendiente visible'},b:{...action('2026-10-13','Cerrada'),id:'b',titulo:'Terminada con fecha pasada',fechaReal:'2026-10-14'},c:{...action('2026-10-13','Reprogramada'),id:'c',titulo:'Reprogramación anterior',fechaReal:'2026-10-14'},d:{...action('2026-10-13','Cancelada'),id:'d',titulo:'Cancelada anterior'},e:{...action('2026-10-14','Bloqueada'),id:'e',titulo:'Bloqueada visible'}}}}];
+ const before=JSON.stringify(w.DB),calendar=g.datesBody('2026-10-12'),history=g.body('historico');
+ for(const t of ['Pendiente visible','Bloqueada visible']){assert.ok(calendar.includes(t));assert.ok(!history.includes(t));}
+ for(const t of ['Terminada con fecha pasada','Reprogramación anterior','Cancelada anterior']){assert.ok(!calendar.includes(t));assert.ok(history.includes(t));}
+ assert.equal(JSON.stringify(w.DB),before);
 });

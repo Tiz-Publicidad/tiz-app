@@ -189,7 +189,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     if (["quality-checklist-save", "quality-checklist-pdf", "quality-checklist-list", "quality-checklist-mother", "quality-checklist-record-save"].includes(text(req.body?.mode).toLowerCase())) {
       return await require("./calidadChecklistApiV2.js").handle(req, res);
     }
-    if (["preliminary-list", "preliminary-save"].includes(text(req.body?.mode).toLowerCase())) return await require("./analisisPreliminarApiV1.js").handle(req,res);
+    if (["preliminary-list", "preliminary-save", "preliminary-weekly"].includes(text(req.body?.mode).toLowerCase())) return await require("./analisisPreliminarApiV1.js").handle(req,res);
     const email = await operator(req);
     const requestedOt = otBase(req.body?.ot);
     const db = admin.firestore();
