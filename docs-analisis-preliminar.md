@@ -12,7 +12,7 @@ El reloj del navegador se ajusta con la hora del servidor. El seguimiento se act
 
 ## Despliegue
 
-Workflow deploy-functions.yml (identidad de despliegue existente): despliega la API sincronizarBaseMadreV120 con las operaciones preliminary-list y preliminary-save, y las reglas de Firestore. El workflow deploy-analisis-preliminar.yml valida la lógica sin credenciales. Pages publica la interfaz. No requiere Eventarc ni funciones nuevas. Las reglas conservan el acceso previo y reservan analisisPreliminares a la API.
+Workflow deploy-functions.yml (identidad de despliegue existente): despliega la API sincronizarBaseMadreV120 con las operaciones preliminary-list y preliminary-save, conservando los permisos de Firestore existentes. El workflow deploy-analisis-preliminar.yml valida la lógica sin credenciales. Pages publica la interfaz. No requiere Eventarc ni funciones nuevas. La API verifica el puesto del operador. Se conservan los permisos de acceso previos de las cuentas de TIZ.
 
 Los helpers de alta y cambio de estado registran la marca analisisPreliminarAprobadoEn junto con la aprobación. Las actualizaciones leen el estado vigente dentro de una transacción y no reinician la marca. El análisis se materializa al consultarlo usando esa fecha del servidor, por lo que abrir la app más tarde no cambia el vencimiento.
 

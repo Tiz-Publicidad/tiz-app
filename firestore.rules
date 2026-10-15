@@ -12,10 +12,7 @@ service cloud.firestore {
         "carolina.flores@tizpublicidad.com"
       ];
     }
-    // Preliminary reports and their audit history are written only by the authenticated API.
-    match /{collection}/{document=**} {
-      allow read, write: if isTizUser() && collection != "analisisPreliminares";
-    }
+    match /{document=**} { allow read, write: if isTizUser(); }
   }
 }
 
