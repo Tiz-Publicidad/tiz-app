@@ -204,15 +204,16 @@ async function syncBaseMadreFactura(obra, comprobantes, db, obraId, email) {
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     }),
     sheets = google.sheets({ version: "v4", auth });
-  const lookup = await sheets.spreadsheets.values.get({
-    spreadsheetId: BASE_MADRE_ID,
-    range: `'${BASE_MADRE_SHEET}'!C3:C`,
-  });
-  const found = (lookup.data.values || []).findIndex(
-    (row) => otBase(row?.[0]) === ot,
-  );
-  if (found < 0) throw new Error(`La OT ${ot} no existe en Base de datos`);
-  const row = found + 3;
+  const layoutCore = require('./baseMadreLayoutV1');
+  const layout = await layoutCore.read(sheets, BASE_MADRE_ID, BASE_MADRE_SHEET);
+  const col = layoutCore.column(layout.ot);
+  const lookup = await sheets.spreadsheets.values.get({spreadsheetId:BASE_MADRE_ID,range:`'${BASE_MADRE_SHEET}'!${col}3:${col}`});
+  const matches=(lookup.data.values||[]).map((r,i)=>otBase(r?.[0])===ot?i+3:0).filter(Boolean);
+  if(matches.length!==1)throw new Error(`La OT ${ot} debe tener una única fila en Base de datos`);
+  const row=matches[0];
+  const current=await sheets.spreadsheets.values.get({spreadsheetId:BASE_MADRE_ID,range:`'${BASE_MADRE_SHEET}'!A${row}:AL${row}`});
+  const clientNorm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  if(!obra.cliente||clientNorm(current.data.values?.[0]?.[layout.cliente])!==clientNorm(obra.cliente))throw new Error('El cliente de Base Madre no coincide con la obra');
   const seen = new Set(),
     invoices = (comprobantes || [])
       .filter((x) => {

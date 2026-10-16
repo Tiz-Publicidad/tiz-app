@@ -110,13 +110,19 @@ function payloadFromBudget(p={}){
     estado:'Pendiente'
   };
 }
-async function findRow(ot,token){
+async function sheetLayout(token){
+  const d=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A2:AL2'),token);
+  if(!window.TIZBaseMadreLayoutV1)throw Error('Falta cargar el mapa de columnas de Base Madre');
+  return window.TIZBaseMadreLayoutV1.layout(d.values?.[0]||[]);
+}
+async function findRow(ot,token,layout){
   if(!ot)return null;
-  const range=encodeURIComponent(escSheetName(SHEET)+'!C3:C');
-  const d=await sheetsFetch('/values/'+range+'?majorDimension=ROWS',token);
-  const vals=d.values||[];
-  for(let i=0;i<vals.length;i++)if(base(vals[i]?.[0])===base(ot))return i+3;
-  return null;
+  layout=layout||await sheetLayout(token);
+  const col=window.TIZBaseMadreLayoutV1.column(layout.ot);
+  const d=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!'+col+'3:'+col),token);
+  const matches=(d.values||[]).map((r,i)=>base(r?.[0])===base(ot)?i+3:0).filter(Boolean);
+  if(matches.length>1)throw Error('La OT '+ot+' tiene varias filas en Base Madre. Revisá antes de sincronizar.');
+  return matches[0]||null;
 }
 function dateIso(v){
   const s=T(v);if(!s)return'';
@@ -167,36 +173,37 @@ async function readRow(row,token){
   const d=await sheetsFetch('/values/'+range+'?valueRenderOption=UNFORMATTED_VALUE',token);
   return d.values?.[0]||[];
 }
-async function verifyRow(row,payload,token){
+async function verifyRow(row,payload,token,layout){
+  layout=layout||await sheetLayout(token);
   const values=await readRow(row,token);
-  const ot=base(values[2]),cliente=norm(values[5]),neto=N(values[6]),estado=norm(values[24]);
+  const ot=base(values[layout.ot]),cliente=norm(values[layout.cliente]),neto=N(values[layout.neto]),estado=norm(values[24]);
   const errors=[];
   if(ot!==base(payload.ot))errors.push('OT distinta');
   if(cliente!==norm(payload.cliente))errors.push('cliente distinto');
   if(Math.abs(neto-N(payload.neto))>0.01)errors.push('neto distinto');
   if(!['pendiente','entregado','cobrado','cobrado pendiente'].includes(estado))errors.push('estado operativo inválido');
   if(errors.length)throw new Error('Base Madre escribió la fila '+row+' pero la verificación falló: '+errors.join(', '));
-  return {ok:true,row,ot,cliente:values[5],neto,estado:values[24]};
+  return {ok:true,row,ot,cliente:values[layout.cliente],neto,estado:values[24]};
 }
-async function updateExisting(row,payload,token){
-  const old=await readRow(row,token),fecha=T(old[0])||fmtDate(),sem=T(old[1])||String(isoWeek());
-  const body={valueInputOption:'USER_ENTERED',data:[
-    {range:escSheetName(SHEET)+'!A'+row+':H'+row,majorDimension:'ROWS',values:[[fecha,sem,payload.ot,payload.descripcion,payload.contacto,payload.cliente,payload.neto,payload.bruto]]}
-  ]};
-  await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify(body)});
+async function updateExisting(row,payload,token,layout){
+  layout=layout||await sheetLayout(token);
+  const old=await readRow(row,token),fecha=T(old[layout.fecha])||fmtDate(),sem=T(old[layout.semana])||String(isoWeek());
+  if(norm(old[layout.cliente])!==norm(payload.cliente))throw Error('El cliente de Base Madre no coincide con la OT');
+  const data=window.TIZBaseMadreLayoutV1.approvalData(SHEET,row,payload,fecha,sem,layout);
+  await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   return row;
 }
-async function appendNew(payload,token){
-  const lookup=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!C3:C'),token);
+async function appendNew(payload,token,layout){
+  layout=layout||await sheetLayout(token);
+  const col=window.TIZBaseMadreLayoutV1.column(layout.ot);
+  const lookup=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!'+col+'3:'+col),token);
   const values=lookup.values||[];let row=3;
   for(let i=values.length-1;i>=0;i--)if(T(values[i]?.[0])){row=i+4;break}
   const check=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A'+row+':AD'+row)+'?valueRenderOption=FORMULA',token);
   const expectedWeek=`=IF(T${row}="";"";IFERROR(WEEKNUM(INT(T${row});2);""))`;
   if((check.values?.[0]||[]).some((x,column)=>T(x)&&!(column===20&&T(x).replace(/[\s$]/g,'').replace(/,/g,';').toUpperCase()===expectedWeek)))throw new Error('La fila '+row+' tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.');
-  const data=[
-    {range:escSheetName(SHEET)+'!A'+row+':H'+row,values:[[fmtDate(),isoWeek(),payload.ot,payload.descripcion,payload.contacto,payload.cliente,payload.neto,payload.bruto]]},
-    {range:escSheetName(SHEET)+'!Y'+row,values:[[payload.estado]]}
-  ];
+  const data=window.TIZBaseMadreLayoutV1.approvalData(SHEET,row,payload,fmtDate(),isoWeek(),layout);
+  data.push({range:escSheetName(SHEET)+'!Y'+row,values:[[payload.estado]]});
   await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   return row;
 }
@@ -214,9 +221,10 @@ async function syncBudget(p,{interactive=true,silent=false,token=''}={}){
   if(!p||!approved(p.estado))return{ok:false,skipped:true,reason:'no aprobado'};
   const payload=payloadFromBudget(p);if(!payload.ot||!payload.cliente||payload.neto<=0)throw new Error('Faltan OT, cliente o importe para sincronizar la planilla madre');
   token=token||await getToken(interactive);
-  const existing=await findRow(payload.ot,token);
-  const row=existing?await updateExisting(existing,payload,token):await appendNew(payload,token);
-  const verified=await verifyRow(row,payload,token);
+  const layout=await sheetLayout(token);
+  const existing=await findRow(payload.ot,token,layout);
+  const row=existing?await updateExisting(existing,payload,token,layout):await appendNew(payload,token,layout);
+  const verified=await verifyRow(row,payload,token,layout);
   await persistSync(p,row);
   if(!silent)window.showToast?.('OT '+payload.ot+' sincronizada con TIZ 2026 Base de Datos ✓');
   return{ok:true,row,updated:!!existing,payload,verified};
@@ -277,10 +285,10 @@ window.autorizarBaseMadreTIZV111=async function(){throw new Error('La Base Madre
 window.verificarBaseMadreTIZV116=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];
   if(!p)throw new Error('No se encontro la cotizacion');
-  const token=await getToken(true),payload=payloadFromBudget(p),row=await findRow(payload.ot,token);
+  const token=await getToken(true),payload=payloadFromBudget(p),layout=await sheetLayout(token),row=await findRow(payload.ot,token,layout);
   if(!row)return{ok:false,row:null,reason:'no existe en Base Madre',payload};
   const values=await readRow(row,token);
-  return{ok:true,row,payload,actual:{fecha:values[0],semana:values[1],ot:values[2],descripcion:values[3],contacto:values[4],cliente:values[5],neto:values[6],bruto:values[7],estado:values[24]}};
+  return{ok:true,row,payload,actual:{fecha:values[layout.fecha],semana:values[layout.semana],ot:values[layout.ot],descripcion:values[layout.descripcion],contacto:values[layout.contacto],cliente:values[layout.cliente],neto:values[layout.neto],bruto:values[layout.bruto],estado:values[24]}};
 };
 window.repararBaseMadreAprobadaV111=async function(idOrNro){
   const key=base(idOrNro),p=(window.DB?.presupuestos||[]).find(x=>x.id===idOrNro)||(window.DB?.presupuestos||[]).filter(x=>base(x?.nro||x?.cotizacionBase)===key).sort((a,b)=>String(b?.revision||'').localeCompare(String(a?.revision||''),undefined,{numeric:true}))[0];

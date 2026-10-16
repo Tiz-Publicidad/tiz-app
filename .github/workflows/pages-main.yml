@@ -41,14 +41,16 @@ jobs:
           grep -q "</html>" index.html
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' index.html
-          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
+          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' index.html
           grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
-          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' index.html
-          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
+          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' index.html
+          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' index.html
           node --check obrasListadoV1.js
           node --test tests/obrasListadoV1.test.cjs
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
+          node --check functions/baseMadreLayoutV1.js
+          node --test tests/baseMadreLayoutV1.test.cjs
           node --check sectorizacionV35.js
           node --check comprasObrasCoreV1.js
           node --test tests/comprasObrasV1.test.cjs
@@ -70,7 +72,7 @@ jobs:
           node --check functions/calidadChecklistApiV2.js
           node --test tests/calidadChecklistV2.test.cjs tests/calidadPortalV1.test.cjs
           grep -q 'sectorizacionV35.js?v=TIZ-V35-25-CONTACTO-OT-20260929' index.html
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' index.html
@@ -122,10 +124,10 @@ jobs:
           set -e
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" site/produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' site/index.html
-          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
+          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' site/index.html
           grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
-          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' site/index.html
-          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
+          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' site/index.html
+          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' site/index.html
           test -f site/index.html
           test -f site/colocacionesV128.js
           test -f site/colocacionesGeneralUIV129.js
@@ -134,7 +136,7 @@ jobs:
           test -f site/app.js
           test -f site/sectorizacionV35.js
           test -f site/baseMadreSyncV116.js
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' site/index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' site/index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' site/index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' site/index.html

@@ -4,20 +4,25 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function fixture({occupied = false, existing = false, billing = false, weekFormula = '', extra = {}} = {}) {
+function fixture({occupied = false, existing = false, billing = false, weekFormula = '', extra = {}, shifted = false, duplicate = false} = {}) {
   const rows = new Map([[420, {C:'4754'}]]);
   if (existing || billing) rows.set(421, {C:'4755', F:'Farmacity', I:'dato de producción'});
   if (occupied) rows.set(421, {I:'dato de otra OT'});
   if (weekFormula || Object.keys(extra).length) rows.set(421, {...rows.get(421), ...(weekFormula ? {U:weekFormula} : {}), ...extra});
+  if(duplicate)rows.set(422,{C:'4755',F:'Farmacity'});
+  if(shifted)for(const [r,values] of rows)rows.set(r,Object.fromEntries(Object.entries(values).map(([c,v])=>[c>='B'&&c<='I'?String.fromCharCode(c.charCodeAt(0)+1):c,v])));
+  const headers=['Fecha',...(shifted?['F de Prod']:[]),'Sem','OT/CT','Descripcion de la obra','Arquitecto','Cliente','Neto','Bruto'];
+  const otColumn=shifted?'D':'C';
   const calls = [];
   const sheet = {spreadsheets:{values:{
     get: async ({range}) => {
       if (range.endsWith('R421:Y421')) return {data:{values:[Array(8).fill('')]}};
-      if (range.endsWith('C3:C')) {
-        const arr = Array.from({length:419}, (_,i) => [rows.get(i+3)?.C || '']);
+      if(range.endsWith('A2:AL2'))return {data:{values:[headers]}};
+      if (range.endsWith(otColumn+'3:'+otColumn)) {
+        const arr = Array.from({length:420}, (_,i) => [rows.get(i+3)?.[otColumn] || '']);
         return {data:{values:arr}};
       }
-      const m = range.match(/!A(\d+):(?:AD|Y)\d+/);
+      const m = range.match(/!A(\d+):(?:AD|AL|Y)\d+/);
       if (m) {
         const r = rows.get(Number(m[1])) || {};
         const values = Array.from({length:30}, (_,i) => r[String.fromCharCode(65+i)] || '');
@@ -28,8 +33,8 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
     update: async ({range,requestBody}) => {calls.push({range,values:requestBody.values}); const row=Number(range.match(/A(\d+)/)[1]);rows.set(row,{...rows.get(row),C:String(requestBody.values[0][2]),F:requestBody.values[0][5]});},
     batchUpdate: async ({requestBody}) => {
       calls.push(...requestBody.data);
-      const match=requestBody.data[0].range.match(/!A(\d+):H/);
-      if(match){const row=Number(match[1]);rows.set(row,{...rows.get(row),C:String(requestBody.data[0].values[0][2]),F:requestBody.data[0].values[0][5]})}
+      for(const change of requestBody.data){const m=change.range.match(/!([A-Z]+)(\d+)(?::[A-Z]+\d+)?$/);if(!m)continue;const row=Number(m[2]),start=m[1].charCodeAt(0);const old=rows.get(row)||{};change.values[0].forEach((v,i)=>old[String.fromCharCode(start+i)]=v);rows.set(row,old);}
+
     },
     append: async () => {throw new Error('No debe usarse values.append')},
   }}};
@@ -42,7 +47,7 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
   })};
   const admin={auth:()=>({verifyIdToken:async()=>({email:'info@tizpublicidad.com'})}),firestore:()=>firestore};
   const exports={};
-  const context={exports,require:name=>name==='firebase-admin'?admin:name==='googleapis'?{google:{auth:{GoogleAuth:class{}},sheets:()=>sheet}}:{onRequest:(_opts,fn)=>fn},console:{error(){}},Date,Intl};
+  const context={exports,require:name=>name==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):name==='firebase-admin'?admin:name==='googleapis'?{google:{auth:{GoogleAuth:class{}},sheets:()=>sheet}}:{onRequest:(_opts,fn)=>fn},console:{error(){}},Date,Intl};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../functions/baseMadreBackendV120.js'),'utf8'),context);
   const response={statusCode:200,set(){return this},status(code){this.statusCode=code;return this},json(value){this.body=value;return this}};
   const req={method:'POST',body:{ot:'4755',...(billing?{mode:'billing',obraId:'o1'}:{})},get:key=>key==='authorization'?'Bearer test':''};
@@ -99,3 +104,20 @@ test('fórmulas inesperadas, de otra fila, en columnas de escritura o datos manu
   ]){const x=fixture(options);await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);}
 });
 
+
+test('columna F de Prod: reintento actualiza la OT existente en D y conserva Producción',async()=>{
+ const x=fixture({existing:true,shifted:true});x.rows.get(421).B='20/10/26';
+ await x.handler(x.req,x.response);
+ assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,421);assert.equal(x.response.body.updated,true);
+ assert.equal(x.rows.get(421).D,'4755');assert.equal(x.rows.get(421).G,'Farmacity');assert.equal(x.rows.get(421).B,'20/10/26');assert.equal(x.rows.get(421).J,'dato de producción');
+ assert.deepEqual(x.calls.map(c=>c.range),["'Base de datos'!A421:A421","'Base de datos'!C421:I421"]);
+ assert.equal(x.rows.has(422),false);
+});
+test('alta con F de Prod escribe en las columnas actuales y deja B vacía',async()=>{
+ const x=fixture({shifted:true});await x.handler(x.req,x.response);
+ assert.equal(x.response.statusCode,200);assert.equal(x.rows.get(421).D,'4755');assert.equal(x.rows.get(421).B,undefined);
+ assert.equal(x.rows.get(421).G,'Farmacity');assert.equal(x.rows.get(421).H,58513.2);assert.equal(x.rows.get(421).I,70800.97);
+});
+test('no elige arbitrariamente entre dos filas de la OT al sincronizar aprobación',async()=>{
+ const x=fixture({existing:true,shifted:true,duplicate:true});await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);
+});
