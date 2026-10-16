@@ -4,7 +4,7 @@ let motherCache=null,motherReadAt=0;
 async function motherRows(){
  if(motherCache&&Date.now()-motherReadAt<60000)return motherCache;
  const {google}=require('googleapis'),auth=new google.auth.GoogleAuth({scopes:['https://www.googleapis.com/auth/spreadsheets.readonly']}),sheets=google.sheets({version:'v4',auth});
- try{const result=await sheets.spreadsheets.values.batchGet({spreadsheetId:'1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M',ranges:["'Base de datos'!C3:F","'Base de datos'!Y3:Y"],valueRenderOption:'FORMATTED_VALUE'}),[details,states]=result.data.valueRanges||[];motherCache=(details?.values||[]).map((r,i)=>({row:i+3,ot:String(r[0]||''),desc:String(r[1]||''),cliente:String(r[3]||''),status:String(states?.values?.[i]?.[0]||'')}));motherReadAt=Date.now();return motherCache;}catch(e){if(motherCache)return motherCache;throw Error('No se pudo leer TIZ 2026: '+e.message);}
+ try{motherCache=await require('./baseMadreLayoutV1').readWorks(sheets,'1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M','Base de datos');motherReadAt=Date.now();return motherCache;}catch(e){throw Error('No se pudo leer TIZ 2026: '+e.message);}
 }
 async function ensure(db,input,recordId){
  let item=input;

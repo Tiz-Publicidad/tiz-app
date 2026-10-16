@@ -120,10 +120,10 @@ jobs:
           if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(functions/(analisisPreliminar.*|baseMadreBackendV120|allFunctionsV86)\.js|.github/workflows/deploy-functions.yml)$'; then
             targets="$targets,functions:sincronizarBaseMadreV120"
           fi
-          # The secretary reuses only the existing authenticated Base Madre endpoint.
+          # Operational readers and the secretary reuse the existing Base Madre endpoint.
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             secretary_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
-            if [ -n "$secretary_changed" ] && ! printf '%s\n' "$secretary_changed" | grep -Ev '^functions/(clemenSecretaria(Core|Api)V1|baseMadreBackendV120)\.js$' | grep -q .; then
+            if [ -n "$secretary_changed" ] && ! printf '%s\n' "$secretary_changed" | grep -Ev '^functions/(clemenSecretaria(Core|Api)V1|analisisPreliminarApiV1|calidadChecklistApiV2|baseMadreLayoutV1|baseMadreBackendV120)\.js$' | grep -q .; then
               targets=functions:sincronizarBaseMadreV120
             fi
           fi
@@ -138,5 +138,6 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"facturacion-v83-pv0003","description":"Deploy %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/deploy-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/deploy-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
+
 
 
