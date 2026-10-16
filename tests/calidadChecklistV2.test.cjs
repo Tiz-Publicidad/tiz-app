@@ -57,7 +57,7 @@ test('endpoint rechaza usuarios ajenos y solicitudes sin token antes de consulta
 });
 test('recorrido por servidor existente guarda y descarga PDF sin crear una función ni ampliar cuentas',async()=>{
  const b=backend(),exports={},source=fs.readFileSync(require.resolve('../functions/baseMadreBackendV120'),'utf8');
- vm.runInNewContext(source,{exports,console,require:n=>n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):n==='firebase-admin'?b.admin:n==='googleapis'?{google:{}}:n==='firebase-functions/v2/https'?{onRequest:(_,fn)=>fn}:n==='./calidadChecklistApiV2.js'?{handle:b.handler}:n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):require(n)});
+ vm.runInNewContext(source,{exports,console,require:n=>n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):n==='firebase-admin'?b.admin:n==='googleapis'?{google:{}}:n==='firebase-functions/v2/https'?{onRequest:(_,fn)=>fn}:n==='./calidadChecklistApiV2.js'?{handle:b.handler}:require(n)});
  const output=[],headers={},res={set:(k,v)=>headers[k]=v,status(){return this;},json:r=>output.push(r),send:r=>output.push(r)},req={method:'POST',get:k=>k==='authorization'?'Bearer token':'',body:{mode:'quality-checklist-save',formulario:form()}};
  await exports.sincronizarBaseMadreV120(req,res);assert.equal(output[0].ok,true);const saved=output[0];req.body={mode:'quality-checklist-pdf',key:saved.key,etapa:'produccion',revision:1};await exports.sincronizarBaseMadreV120(req,res);
  assert.equal(output[1].subarray(0,4).toString(),'%PDF');assert.equal(headers['Content-Type'],'application/pdf');assert.match(headers['Content-Disposition'],/OT-4773-produccion-R1/);
@@ -86,4 +86,3 @@ test('Cristian no inicia listeners comerciales y no recibe permisos directos en 
  vm.runInNewContext(block+'\ninitListeners();',{window,dataGeneration:1,stopDataSubscriptions(){},setInterval:()=>1,portalTimer:null,onSnapshot(){throw Error('No deben iniciarse listeners Firestore.');}});assert.equal(loaded,1);
  assert.ok(source.includes("'cristiantizpublicidad@gmail.com':     'Calidad'"));assert.ok(!fs.readFileSync(require.resolve('../firestore.rules'),'utf8').includes('cristiantizpublicidad@gmail.com'));
 });
-
