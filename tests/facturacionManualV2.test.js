@@ -59,7 +59,7 @@ test('una NC pendiente de PDF no hereda el enlace de la factura original', () =>
   assert.equal(invoices.find(x => x.cbteTipo === 3).drivePendiente, true);
   assert.equal(invoices.find(x => x.cbteTipo === 1).driveUrl, factura.driveWebViewLink);
 });
-test('NC total anula la factura y manda la OT a Histórico sin saldo a cobrar', () => {
+test('NC total conserva comprobantes y devuelve la OT a Por facturar sin deuda', () => {
   const o = obra(); o.finanzas.total = 2365500;
   const factura = { cbteTipo: 1, ptoVta: 9, cbteNro: 3, numeroCompleto: '00009-00000003', cae: '86372908357849', familia: 'factura', neto: 2365500, iva: 496755, total: 2862255 };
   const nc = { cbteTipo: 3, ptoVta: 9, cbteNro: 1, numeroCompleto: '00009-00000001', cae: '86395270445997', familia: 'credito', neto: 2365500, iva: 496755, total: 2862255, asociado: { cbteTipo: 1, ptoVta: 9, cbteNro: 3 } };
@@ -71,8 +71,11 @@ test('NC total anula la factura y manda la OT a Histórico sin saldo a cobrar', 
   assert.equal(w.invoices.find(i => i.cbteTipo === 1).anuladaPor, nc.numeroCompleto);
   assert.equal(w.invoices.find(i => i.cbteTipo === 3).anulaFactura, factura.numeroCompleto);
   assert.equal(w.porCobrar, 0);
-  assert.equal(w.porFacturar, 0);
-  assert.equal(w.estadoOperativo, 'historico');
+  assert.equal(w.porFacturar, 2365500);
+  assert.equal(w.facturadoNeto, 0);
+  assert.equal(w.facturadoPct, 0);
+  assert.equal(w.tramos.length, 0);
+  assert.equal(w.estadoOperativo, 'pendiente_facturacion');
   assert.equal(w.cobranzaEstado, 'anulado');
 });
 test('NC parcial conserva el saldo abierto', () => {
@@ -84,5 +87,43 @@ test('NC parcial conserva el saldo abierto', () => {
   const w = app(o).window.TIZFacturacionCobranzasDataV2.build().workItems[0];
   assert.equal(w.anuladaConNC, false);
   assert.equal(w.porCobrar, 605);
+  assert.equal(w.porFacturar, 500);
   assert.notEqual(w.estadoOperativo, 'historico');
+});
+
+function acreditada() {
+  const o = obra(); o.ot = '4775'; o.finanzas.total = 30000;
+  const factura = { cbteTipo: 1, ptoVta: 9, cbteNro: 19, numeroCompleto: '00009-00000019', cae: '11111111111111', familia: 'factura', neto: 30000, iva: 6300, total: 36300 };
+  const nc = { cbteTipo: 3, ptoVta: 9, cbteNro: 8, numeroCompleto: '00009-00000008', cae: '22222222222222', familia: 'credito', neto: 30000, iva: 6300, total: 36300, asociado: { cbteTipo: 1, ptoVta: 9, cbteNro: 19 } };
+  return Object.assign(o, { comprobantesArca: [factura, nc], facturaArca: nc, nrfc: nc.numeroCompleto });
+}
+test('refacturación después de NC conserva la pareja original sin duplicar la OT', () => {
+  const o = acreditada();
+  o.comprobantesArca.push({ cbteTipo: 1, ptoVta: 9, cbteNro: 20, numeroCompleto: '00009-00000020', cae: '33333333333333', familia: 'factura', neto: 30000, iva: 6300, total: 36300 });
+  const d = app(o).window.TIZFacturacionCobranzasDataV2.build(), w = d.workItems[0];
+  assert.equal(d.workItems.length, 1);
+  assert.equal(w.invoices.length, 3);
+  assert.equal(w.anuladaConNC, false);
+  assert.equal(w.facturadoNeto, 30000);
+  assert.equal(w.facturadoPct, 100);
+  assert.equal(w.porFacturar, 0);
+  assert.equal(w.porCobrar, 36300);
+  assert.equal(w.tramos.length, 1);
+  assert.equal(w.tramos[0].numero, '00009-00000020');
+});
+test('NC no reabre una OT cerrada explícitamente por el operador', () => {
+  const o = acreditada(); o.historicoCerrado = true; o.cobranzaEstadoManual = 'cobrado';
+  const w = app(o).window.TIZFacturacionCobranzasDataV2.build().workItems[0];
+  assert.equal(w.porFacturar, 0);
+  assert.equal(w.estadoOperativo, 'historico');
+  assert.equal(o.historicoCerrado, true);
+});
+test('es posible registrar una factura de reemplazo tras NC total', async () => {
+  const o = acreditada(), { window, writes } = app(o);
+  await window.TIZFactCobActionsV2.registrarFacturaManual(o.id, { ...fc, neto: 30000, iva: 6300, total: 36300 });
+  const w = window.TIZFacturacionCobranzasDataV2.build().workItems[0];
+  assert.equal(writes.length, 1);
+  assert.equal(w.invoices.length, 3);
+  assert.equal(w.porFacturar, 0);
+  assert.equal(w.porCobrar, 36300);
 });
