@@ -1,6 +1,21 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const C=require('../functions/baseMadreLayoutV1');
 const headers=['Fecha','F de Prod','Sem','OT/CT','Descripcion de la obra','Arquitecto','Cliente','Neto','Bruto'];
+function readerFixture(header,{changed=header}={}){
+ const requests=[],fields={ot:'OT/CT',desc:'Descripcion de la obra',cliente:'Cliente',status:'Status'},records=[{ot:'4679.1',desc:'Anticipo cartel',cliente:'Cliente real',status:'Pendiente'},{ot:'4679.2',desc:'Saldo cartel',cliente:'Cliente real',status:'Cobrado pendiente'},{ot:'4777',desc:'Trabajo terminado',cliente:'Otro cliente',status:'Entregado'}];
+ const sheets={spreadsheets:{values:{get:async args=>{requests.push(args);return {data:{values:[header]}}},batchGet:async args=>{requests.push(args);return {data:{valueRanges:args.ranges.map(range=>{if(range.endsWith('A2:AL2'))return {values:[changed]};const col=range.match(/!([A-Z]+)3:/)[1],index=[...col].reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1,key=Object.keys(fields).find(k=>fields[k]===header[index]);assert.ok(key,'sólo se leen columnas operativas');return {values:records.map(r=>[r[key]])};})}}}}}};
+ return {sheets,requests,records};
+}
+test('listados operativos conservan OT, cliente, descripciones y filas al insertar o reordenar columnas',async()=>{
+ for(const header of [['Fecha','Sem','OT/CT','Descripcion de la obra','Arquitecto','Cliente','Neto','Bruto','Status'],[...headers,'Status'],['Cliente','Neto','Status','F de Prod','Arquitecto','OT/CT','Bruto','Descripcion de la obra']]){
+  const x=readerFixture(header),rows=await C.readWorks(x.sheets,'sheet','Base de datos');assert.deepEqual(rows,x.records.map((r,i)=>({row:i+3,...r})));assert.ok(x.requests.every(r=>r.valueRenderOption==='FORMATTED_VALUE'));
+  const core=require('../functions/analisisPreliminarCoreV1'),works=core.workList(rows,[]);assert.equal(works.length,1);assert.equal(works[0].ot,'4679');assert.equal(works[0].cliente,'Cliente real');assert.deepEqual(works[0].sourceRows,[3,4]);assert.equal(works[0].descripcion,'Anticipo cartel / Saldo cartel');assert.equal(works[0].neto,undefined);
+ }
+});
+test('un encabezado ausente, duplicado o que cambia durante la lectura detiene la importación',async()=>{
+ for(const header of [['Cliente','Descripcion de la obra','Status'],['Cliente','OT/CT','OT','Descripcion de la obra','Status']]){const x=readerFixture(header);await assert.rejects(C.readWorks(x.sheets,'sheet','Base de datos'),/encabezados/);assert.equal(x.requests.length,1);}
+ const h=[...headers,'Status'],x=readerFixture(h,{changed:['Status',...headers]});await assert.rejects(C.readWorks(x.sheets,'sheet','Base de datos'),/cambiaron durante/);
+});
 test('encabezados actuales localizan la OT en D y no escriben F de Prod',()=>{
  const l=C.layout(headers),data=C.approvalData('Base de datos',429,{ot:'4775',descripcion:'Cheque',contacto:'Eduardo',cliente:'Cliente',neto:30000,bruto:36300},'15/10/26',42,l);
  assert.equal(l.ot,3);assert.equal(l.cliente,6);assert.deepEqual(data.map(x=>x.range),["'Base de datos'!A429:A429","'Base de datos'!C429:I429"]);

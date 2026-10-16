@@ -34,13 +34,15 @@ test('la lista muestra fuente vigente, búsqueda y error de actualización sin p
  listeners.input({target:{id:'q1-query',value:'inexistente'}});assert.ok(!works.innerHTML.includes('<b>4773</b>'));listeners.input({target:{id:'q1-query',value:''}});
  fail=true;await window.TIZCalidadV1.refreshMother(true);assert.match(works.innerHTML,/Sin conexión/);assert.match(works.innerHTML,/última lectura/);assert.match(works.innerHTML,/4773/);assert.equal(window.DB.obras[0].calidadGestion.registros.q.detalle,'Conservar');
 });
-test('backend consulta estados actuales sin leer importes ni escribir datos',async()=>{
+test('backend consulta las columnas por encabezado sin leer importes ni escribir datos',async()=>{
  let handler,readArgs;const output=[];
  const source=fs.readFileSync(require.resolve('../functions/baseMadreBackendV120.js'),'utf8');
- const sheets={spreadsheets:{values:{get:async()=>({data:{values:[['Fecha','Sem','OT/CT','Descripcion de la obra','Arquitecto','Cliente','Neto','Bruto']]}}),batchGet:async args=>{readArgs=args;return{data:{valueRanges:[{values:[['4773','Placas','Contacto','Cliente'],['','5S','','TIZ'],['4700','Entregada','','Cliente']]},{values:[['Pendiente'],['Cobrado pendiente'],['Entregado']]}]}};}}}};
+ const headers=['Fecha','F de Prod','Sem','OT/CT','Descripcion de la obra','Arquitecto','Cliente','Neto','Bruto',...Array(15).fill(''),'Status'];
+ const sheets={spreadsheets:{values:{get:async()=>({data:{values:[headers]}}),batchGet:async args=>{readArgs=args;return{data:{valueRanges:[{values:[['4773'],[''],['4700']]},{values:[['Placas'],['5S'],['Entregada']]},{values:[['Cliente'],['TIZ'],['Cliente']]},{values:[['Pendiente'],['Cobrado pendiente'],['Entregado']]},{values:[headers]}]}};}}}};
  const admin={auth:()=>({verifyIdToken:async()=>({email:'info@tizpublicidad.com'})}),firestore:()=>({})};
  vm.runInNewContext(source,{exports:{},console,require:n=>n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):n==='firebase-admin'?admin:n==='googleapis'?{google:{auth:{GoogleAuth:class{}},sheets:()=>sheets}}:{onRequest:(_,fn)=>{handler=fn;return fn;}}});
  const req={method:'POST',get:k=>k==='authorization'?'Bearer token':'',body:{mode:'read-quality'}},res={set(){},status(){return this;},json:r=>output.push(r)};
- await handler(req,res);assert.equal(output[0].ok,true);assert.equal(output[0].rows.length,2);assert.equal(output[0].rows[1].ot,'');assert.deepEqual(JSON.parse(JSON.stringify(readArgs.ranges)),["'Base de datos'!C3:F","'Base de datos'!Y3:Y"]);assert.equal(output[0].rows[0].neto,undefined);
+ await handler(req,res);assert.equal(output[0].ok,true);assert.equal(output[0].rows.length,2);assert.equal(output[0].rows[1].ot,'');assert.deepEqual(JSON.parse(JSON.stringify(readArgs.ranges)),["'Base de datos'!D3:D","'Base de datos'!E3:E","'Base de datos'!G3:G","'Base de datos'!Y3:Y","'Base de datos'!A2:AL2"]);assert.equal(output[0].rows[0].neto,undefined);
  admin.auth=()=>({verifyIdToken:async()=>({email:'outsider@example.com'})});await handler(req,res);assert.equal(output[1].ok,false);
 });
+

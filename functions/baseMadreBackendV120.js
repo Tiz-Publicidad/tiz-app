@@ -205,12 +205,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       return res.json(await require("./estadisticaSourceV1").load(sheets,email));
     }
     if (text(req.body?.mode).toLowerCase() === "read-quality") {
-      const layout=await layoutCore.read(sheets,SPREADSHEET_ID,SHEET),start=layoutCore.column(layout.ot),end=layoutCore.column(layout.cliente);
-      const result = await sheets.spreadsheets.values.batchGet({
-        spreadsheetId:SPREADSHEET_ID, ranges:[`'${SHEET}'!${start}3:${end}`, `'${SHEET}'!Y3:Y`], valueRenderOption:"FORMATTED_VALUE"
-      });
-      const [details, states] = result.data.valueRanges || [];
-      const rows = (details?.values || []).map((r, i) => ({row:i + 3, ot:text(r[0]), desc:text(r[layout.descripcion-layout.ot]), cliente:text(r[layout.cliente-layout.ot]), status:text(states?.values?.[i]?.[0])}))
+      const rows=(await layoutCore.readWorks(sheets,SPREADSHEET_ID,SHEET))
         .filter(r => ["pendiente", "cobrado pendiente"].includes(norm(r.status)) && (r.ot || r.desc || r.cliente));
       return res.json({ok:true, rows, leidoEn:new Date().toISOString()});
     }
