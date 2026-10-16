@@ -45,6 +45,8 @@ jobs:
           grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
           grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C' index.html
           grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
+          node --check obrasListadoV1.js
+          node --test tests/obrasListadoV1.test.cjs
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
           node --check sectorizacionV35.js
