@@ -180,7 +180,7 @@
     wrap.innerHTML=`
       <div class="form-group"><label>Vendedor</label><select id="pp-vendedor"><option>G</option><option>J</option><option>G/J</option></select></div>
       <div class="form-group"><label>Fecha presupuesto</label><input id="pp-fecha" placeholder="DD/MM/AAAA"></div>
-      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option></select></div>
+      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Pendiente</option><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option></select></div>
       <div class="form-group"><label>Moneda</label><select id="pp-moneda"><option value="ARS">ARS $</option><option value="USD">USD</option></select></div>
       <div class="form-group"><label>Plazo estimado</label><input id="pp-plazo" placeholder="Ej: 15 días hábiles"></div>
       <div class="form-group"><label>Anticipo %</label><input id="pp-anticipo" type="number" min="0" max="100" value="50"></div>
@@ -529,10 +529,15 @@
       }
       return obraId;
     };
+    function cargarComercialPP(data={},crearNueva=false){
+      const fields={'pp-fecha':data.fecha||new Date().toLocaleDateString('es-AR'),'pp-estado':crearNueva?'Borrador':data.estado||'Borrador','pp-moneda':data.moneda||'ARS','pp-vendedor':data.vendedor||'G','pp-plazo':data.plazoEstimado||'','pp-anticipo':data.anticipoPct??50,'pp-dias-pago':data.diasPago??'','pp-oc':data.oc||'','pp-obs-comercial':data.observacionesComerciales||''};
+      for(const [id,value]of Object.entries(fields)){const el=document.getElementById(id);if(el)el.value=String(value);}
+      cargarEntregaLogisticaPP(data);
+    }
     const oldNew=window.abrirNuevoPresupuestoCompleto;
-    window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments); setTimeout(()=>{document.getElementById('pp-fecha').value=new Date().toLocaleDateString('es-AR'); document.getElementById('pp-estado').value='Borrador'; document.getElementById('pp-moneda').value='ARS'; document.getElementById('pp-vendedor').value='G'; document.getElementById('pp-plazo').value=''; document.getElementById('pp-anticipo').value='50'; document.getElementById('pp-dias-pago').value=''; document.getElementById('pp-oc').value=''; document.getElementById('pp-obs-comercial').value='';cargarEntregaLogisticaPP({});},0);return r;};
+    window.abrirNuevoPresupuestoCompleto=function(){const r=oldNew?.apply(this,arguments);cargarComercialPP({},true);return r;};
     const oldOpenRevision=window.abrirRevisionCotizacionV354;
-    if(oldOpenRevision)window.abrirRevisionCotizacionV354=function(id){const data=(window.DB?.presupuestos||[]).find(p=>p.id===id)||{};const r=oldOpenRevision.apply(this,arguments);setTimeout(()=>cargarEntregaLogisticaPP(data),0);return r;};
+    if(oldOpenRevision)window.abrirRevisionCotizacionV354=function(id,crearNueva=false){const data=(window.DB?.presupuestos||[]).find(p=>p.id===id);if(!data)return oldOpenRevision.apply(this,arguments);const r=oldOpenRevision.apply(this,arguments);cargarComercialPP(data,crearNueva);return r;};
     const oldSave=window.guardarPresupuestoCompleto;
     window.guardarPresupuestoCompleto=async function(){
       if(window.__tizPresupuestoGuardando){window.showToast?.('El presupuesto ya se está guardando. Esperá un momento.');return;}
@@ -606,3 +611,4 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })();
+
