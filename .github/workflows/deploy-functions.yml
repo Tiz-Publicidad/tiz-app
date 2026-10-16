@@ -29,6 +29,9 @@ jobs:
         working-directory: functions
       - name: Validate fiscal code
         run: |
+          node --check clemenSecretariaV1.js
+          node --check clemenSecretariaCoreV1.js
+          node --test tests/clemenSecretariaV1.test.cjs
           node --check estadisticaSourceV1.js
           node --test tests/estadisticaSourceV1.test.cjs
           node --check operacionesV1.js
@@ -114,6 +117,13 @@ jobs:
           # Preliminary analysis uses the already authorized Base Madre API.
           if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(functions/(analisisPreliminar.*|baseMadreBackendV120|allFunctionsV86)\.js|.github/workflows/deploy-functions.yml)$'; then
             targets="$targets,functions:sincronizarBaseMadreV120"
+          fi
+          # The secretary reuses only the existing authenticated Base Madre endpoint.
+          if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            secretary_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
+            if [ -n "$secretary_changed" ] && ! printf '%s\n' "$secretary_changed" | grep -Ev '^functions/(clemenSecretaria(Core|Api)V1|baseMadreBackendV120)\.js$' | grep -q .; then
+              targets=functions:sincronizarBaseMadreV120
+            fi
           fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive
       - name: Record deployment status

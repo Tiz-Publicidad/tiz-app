@@ -265,6 +265,7 @@ td.strong { color: var(--text); font-weight: 500; }
 .drive-status-missing{color:var(--text3);background:rgba(255,255,255,.03)}
 
 </style>
+<link rel="stylesheet" href="clemenSecretariaV1.css?v=TIZ-CLEMEN-SECRETARIA-20261016A">
 </head>
 <body>
 
@@ -1205,6 +1206,7 @@ onAuthStateChanged(auth, async user => {
     initListeners();
   } else {
     window.currentUser = null;
+    window.TIZClemenSecretariaV1?.reset();
     window.TIZOperacionesV1?.reset();
     window.TIZEstadisticaSourceV1?.reset();
     document.getElementById('est-kpis')?.replaceChildren();
@@ -1299,6 +1301,11 @@ function initListeners() {
 }
 
 // Análisis preliminar: endpoint autenticado para todos los puestos, incluidos portales restringidos.
+window.clemenSecretariaApiV1 = async body => {
+  if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({...body,mode:'secretary-'+body.mode})});
+  const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Clemen.');return result;
+};
 window.operacionesApiV1 = async body => {
   if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
   const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({...body,mode:'operations-'+body.mode})});
@@ -1521,6 +1528,7 @@ function pct(works, tipo) {
 
 // Navigation
 window.goTo = function(page) {
+  if((page==='ia'||page==='tareas')&&window.TIZClemenSecretariaV1){window.TIZClemenSecretariaV1.show(page==='tareas'?'agenda':'dia');return;}
   if(window.currentUser?.restrictedOperaciones&&page!=='operaciones')return window.showToast?.('Tu perfil está habilitado para Operaciones.');
   if(page==='operaciones'&&!window.canViewOperaciones())return window.showToast?.('Sin acceso a Operaciones.');
   if(page==='estadistica'&&!window.canViewIndicadores())return window.showToast?.('Estadística está habilitada para Administración y Pablo.');
@@ -3647,10 +3655,12 @@ async function syncToSheets(data) {
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-BIDIRECCIONAL-20260929C"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H-DERECHA"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-ANALISIS48H"></script>
-<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261016K"></script>
+<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261016L"></script>
 <script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A"></script>
 <script src="operacionesV1.js?v=TIZ-OPERACIONES-20261016C-OSCURO"></script>
-<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261016K"></script>
+<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261016L"></script>
+<script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016A"></script>
+<script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016A"></script>
 </body>
 </html>
 
