@@ -52,6 +52,7 @@ jobs:
           node --check functions/baseMadreLayoutV1.js
           node --test tests/baseMadreLayoutV1.test.cjs
           node --check sectorizacionV35.js
+          node --test tests/cotizacionesEstadoV1.test.cjs
           node --check comprasObrasCoreV1.js
           node --test tests/comprasObrasV1.test.cjs
           node --check clemenSecretariaV1.js
@@ -71,7 +72,7 @@ jobs:
           node --check functions/calidadChecklistCoreV2.js
           node --check functions/calidadChecklistApiV2.js
           node --test tests/calidadChecklistV2.test.cjs tests/calidadPortalV1.test.cjs
-          grep -q 'sectorizacionV35.js?v=TIZ-V35-25-CONTACTO-OT-20260929' index.html
+          grep -q 'sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016' index.html
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
@@ -167,6 +168,7 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"tiz-pages-pv0003","description":"Pages %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/pages-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/pages-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
+
 
 
 
