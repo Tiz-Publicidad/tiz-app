@@ -3,6 +3,7 @@
 const admin = require("firebase-admin");
 const {google} = require("googleapis");
 const {onRequest} = require("firebase-functions/v2/https");
+const layoutCore = require("./baseMadreLayoutV1");
 
 const SPREADSHEET_ID = "1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M";
 const SHEET = "Base de datos";
@@ -135,7 +136,9 @@ function invoicesFrom(obra = {}) {
 async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const obra = await findObra(db, requestedOt, obraId);
   if (!obra) throw Object.assign(new Error(`No se encontró la obra ${requestedOt}`), {status:404});
-  const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C`});
+  const layout = await layoutCore.read(sheets, SPREADSHEET_ID, SHEET);
+  const otColumn = layoutCore.column(layout.ot);
+  const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!${otColumn}3:${otColumn}`});
   const matchingRows = (lookup.data.values || []).map((row,index) => otBase(row?.[0]) === requestedOt ? index + 3 : 0).filter(Boolean);
   if (matchingRows.length > 1) throw Object.assign(new Error(`La OT ${requestedOt} tiene varias filas en Base Madre. No se modificó ninguna: conciliá por factura.`), {status:409});
   const found = matchingRows.length ? matchingRows[0] - 3 : -1;
@@ -145,7 +148,7 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const fullRow = current.data.values?.[0] || [], cell = fullRow.slice(17);
   const clientNames=[obra.cliente];
   if (obra.clienteId) {const c=await db.collection('clientes').doc(text(obra.clienteId)).get();if(c.exists){const d=c.data();clientNames.push(d.nombre,d.razonSocial,d.razon_social,d.nombreFiscal)}}
-  if (!text(fullRow[5]) || !clientNames.some(name=>norm(name)===norm(fullRow[5]))) throw Object.assign(new Error('El cliente de Base Madre no coincide con la obra'), {status:409});
+  if (!text(fullRow[layout.cliente]) || !clientNames.some(name=>norm(name)===norm(fullRow[layout.cliente]))) throw Object.assign(new Error('El cliente de Base Madre no coincide con la obra'), {status:409});
   const invoices = invoicesFrom(obra);
   const hasCredit = invoices.some((invoice) => norm(invoice.familia) === "credito" || [3,8,203,208].includes(Number(invoice.cbteTipo)));
   if (hasCredit) throw Object.assign(new Error('La obra tiene nota de crédito: conservar y conciliar sus comprobantes por separado'), {status:409});
@@ -202,11 +205,12 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       return res.json(await require("./estadisticaSourceV1").load(sheets,email));
     }
     if (text(req.body?.mode).toLowerCase() === "read-quality") {
+      const layout=await layoutCore.read(sheets,SPREADSHEET_ID,SHEET),start=layoutCore.column(layout.ot),end=layoutCore.column(layout.cliente);
       const result = await sheets.spreadsheets.values.batchGet({
-        spreadsheetId:SPREADSHEET_ID, ranges:[`'${SHEET}'!C3:F`, `'${SHEET}'!Y3:Y`], valueRenderOption:"FORMATTED_VALUE"
+        spreadsheetId:SPREADSHEET_ID, ranges:[`'${SHEET}'!${start}3:${end}`, `'${SHEET}'!Y3:Y`], valueRenderOption:"FORMATTED_VALUE"
       });
       const [details, states] = result.data.valueRanges || [];
-      const rows = (details?.values || []).map((r, i) => ({row:i + 3, ot:text(r[0]), desc:text(r[1]), cliente:text(r[3]), status:text(states?.values?.[i]?.[0])}))
+      const rows = (details?.values || []).map((r, i) => ({row:i + 3, ot:text(r[0]), desc:text(r[layout.descripcion-layout.ot]), cliente:text(r[layout.cliente-layout.ot]), status:text(states?.values?.[i]?.[0])}))
         .filter(r => ["pendiente", "cobrado pendiente"].includes(norm(r.status)) && (r.ot || r.desc || r.cliente));
       return res.json({ok:true, rows, leidoEn:new Date().toISOString()});
     }
@@ -236,29 +240,32 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       neto:net,
       bruto:Math.round(net * (1 + (num(p.ivaPct || p.iva || 21) || 21) / 100) * 100) / 100,
     };
-    const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!C3:C`});
+    const layout = await layoutCore.read(sheets, SPREADSHEET_ID, SHEET);
+  const otColumn = layoutCore.column(layout.ot);
+  const lookup = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!${otColumn}3:${otColumn}`});
     const values = lookup.data.values || [];
-    const found = values.findIndex((row) => otBase(row?.[0]) === requestedOt);
+    const matches = values.map((r,i)=>otBase(r?.[0])===requestedOt?i:-1).filter(i=>i>=0);
+    if(matches.length>1)throw Object.assign(new Error("La OT tiene varias filas en Base Madre; revisar antes de sincronizar"),{status:409});
+    const found = matches[0] ?? -1;
     let rowNumber = found >= 0 ? found + 3 : nextEmptyRow(values);
     const date = shortDate(p.fecha || p.fechaAprobacion);
     const [dd,mm,yy] = date.split("/").map(Number);
     const week = isoWeek(new Date(2000 + yy, mm - 1, dd));
-    if (found >= 0) {
-      await sheets.spreadsheets.values.update({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:H${rowNumber}`, valueInputOption:"USER_ENTERED", requestBody:{values:[[date, week, payload.ot, payload.descripcion, payload.contacto, payload.cliente, payload.neto, payload.bruto]]}});
-    } else {
-      await assertEmptyRow(sheets, rowNumber);
-      await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data:[
-        {range:`'${SHEET}'!A${rowNumber}:H${rowNumber}`, values:[[date, week, payload.ot, payload.descripcion, payload.contacto, payload.cliente, payload.neto, payload.bruto]]},
-        {range:`'${SHEET}'!Y${rowNumber}`, values:[["Pendiente"]]},
-      ]}});
+    if (found < 0) await assertEmptyRow(sheets, rowNumber);
+    else {
+      const existing = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${rowNumber}:AL${rowNumber}`});
+      if(norm(existing.data.values?.[0]?.[layout.cliente])!==norm(payload.cliente))throw Object.assign(new Error('El cliente de Base Madre no coincide con la OT'),{status:409});
     }
+    const data=layoutCore.approvalData(SHEET,rowNumber,payload,date,week,layout);
+    if(found<0)data.push({range:`'${SHEET}'!Y${rowNumber}`,values:[["Pendiente"]]});
+    await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID,requestBody:{valueInputOption:"USER_ENTERED",data}});
     const verify = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:AD${rowNumber}`});
     const actual = verify.data.values?.[0] || [];
-    if (otBase(actual[2]) !== requestedOt || norm(actual[5]) !== norm(payload.cliente)) throw new Error("La verificación final de la fila falló");
+    if (otBase(actual[layout.ot]) !== requestedOt || norm(actual[layout.cliente]) !== norm(payload.cliente)) throw new Error("La verificación final de la fila falló");
     const mark = {baseMadreSyncAt:new Date().toISOString(), baseMadreRow:rowNumber, baseMadreSpreadsheetId:SPREADSHEET_ID, baseMadreSyncVersion:"BACKEND-V120", baseMadreSyncBy:email};
     await db.collection("presupuestos").doc(p.id).set(mark, {merge:true});
     if (p.obraId) await db.collection("obras").doc(p.obraId).set(mark, {merge:true});
-    return res.json({ok:true, row:rowNumber, updated:found >= 0, payload, actual:{fecha:actual[0], semana:actual[1], ot:actual[2], descripcion:actual[3], contacto:actual[4], cliente:actual[5], neto:actual[6], bruto:actual[7], estado:actual[24]}});
+    return res.json({ok:true, row:rowNumber, updated:found >= 0, payload, actual:{fecha:actual[layout.fecha], semana:actual[layout.semana], ot:actual[layout.ot], descripcion:actual[layout.descripcion], contacto:actual[layout.contacto], cliente:actual[layout.cliente], neto:actual[layout.neto], bruto:actual[layout.bruto], estado:actual[24]}});
   } catch (error) {
     console.error("Base Madre V120", error);
     return res.status(error.status || 502).json({ok:false, error:error.message || "No se pudo sincronizar la Base Madre"});
