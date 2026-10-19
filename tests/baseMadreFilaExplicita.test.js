@@ -19,7 +19,7 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
       if (range.endsWith('R421:Y421')) return {data:{values:[Array(8).fill('')]}};
       if(range.endsWith('A2:AL2'))return {data:{values:[headers]}};
       if (range.endsWith(otColumn+'3:'+otColumn)) {
-        const arr = Array.from({length:420}, (_,i) => [rows.get(i+3)?.[otColumn] || '']);
+        const arr = Array.from({length:Math.max(422,...rows.keys())-2}, (_,i) => [rows.get(i+3)?.[otColumn] || '']);
         return {data:{values:arr}};
       }
       const m = range.match(/!A(\d+):(?:AD|AL|Y)\d+/);
@@ -61,10 +61,11 @@ test('alta nueva escribe A:H e Y de una fila explícita sin desplazar columnas',
   assert.deepEqual(x.calls.map(c=>c.range),["'Base de datos'!A421:H421","'Base de datos'!Y421"]);
   assert.equal(x.rows.get(421).C,'4755');
 });
-test('bloquea una fila con datos ajenos y no sobrescribe Producción',async()=>{
+test('salta una fila con datos ajenos y no sobrescribe Producción',async()=>{
   const x=fixture({occupied:true});await x.handler(x.req,x.response);
-  assert.equal(x.response.statusCode,409);
-  assert.equal(x.calls.length,0);
+  assert.equal(x.response.statusCode,200);
+  assert.equal(x.response.body.row,422);
+  assert.equal(x.rows.get(422).C,'4755');
   assert.equal(x.rows.get(421).I,'dato de otra OT');
 });
 test('reintento de OT existente actualiza solo A:H en la fila encontrada',async()=>{
@@ -94,14 +95,14 @@ test('tolera separadores y referencias absolutas de la misma fórmula de plantil
   const x=fixture({weekFormula:'=IF($T$421="","",IFERROR(WEEKNUM(INT($T$421),2),""))'});
   await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);
 });
-test('fórmulas inesperadas, de otra fila, en columnas de escritura o datos manuales bloquean el alta',async()=>{
+test('preserva fórmulas inesperadas y datos manuales al elegir otra fila',async()=>{
   for(const options of [
     {weekFormula:'=WEEKNUM(T421;2)'},
     {weekFormula:'=IF(T420="";"";IFERROR(WEEKNUM(INT(T420);2);""))'},
     {extra:{H:'=G421*1.21'}},
     {extra:{U:'41'}},
     {weekFormula:'=IF(T421="";"";IFERROR(WEEKNUM(INT(T421);2);""))',extra:{I:'Trabajo manual'}}
-  ]){const x=fixture(options);await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);}
+  ]){const x=fixture(options);await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,422);assert.equal(x.calls.some(c=>c.range.includes('421')),false);}
 });
 
 
@@ -121,3 +122,21 @@ test('alta con F de Prod escribe en las columnas actuales y deja B vacía',async
 test('no elige arbitrariamente entre dos filas de la OT al sincronizar aprobación',async()=>{
  const x=fixture({existing:true,shifted:true,duplicate:true});await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);
 });
+
+
+ test('dos tareas sin OT no bloquean una aprobación y el reintento no duplica',async()=>{
+ const x=fixture({shifted:true});
+ x.rows.set(421,{A:'19/10/26',B:'23/10/2026',C:'43',E:'Visita Proveedor Led',F:'Caro/Ari'});
+ x.rows.set(422,{A:'19/10/26',B:'21/10/2026',C:'43',E:'Bacha Fabrica',F:'Gian'});
+ const before=JSON.stringify([...x.rows]);
+ await x.handler(x.req,x.response);
+ assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,423);
+ assert.equal(JSON.stringify([...x.rows].filter(([r])=>r<423)),before);
+ x.calls.length=0;await x.handler(x.req,x.response);
+ assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,423);assert.equal(x.response.body.updated,true);
+ assert.equal(x.rows.get(424),undefined);
+ });
+ test('si las siguientes 50 filas están ocupadas falla sin escribir',async()=>{
+ const x=fixture();for(let r=421;r<471;r++)x.rows.set(r,{E:'Tarea manual'});
+ await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);
+ });

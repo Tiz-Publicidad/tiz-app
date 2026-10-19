@@ -34,15 +34,25 @@ function nextEmptyRow(values) {
   return 3;
 }
 async function assertEmptyRow(sheets, row) {
-  const check = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${row}:AD${row}`, valueRenderOption:"FORMULA"});
+  const check = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${row}:AL${row}`, valueRenderOption:"FORMULA"});
   // U is prefilled in the template even on rows without an OT. It is not a
   // business record and none of the approval writes modify this column.
   const expectedWeek = `=IF(T${row}="";"";IFERROR(WEEKNUM(INT(T${row});2);""))`;
   const templateWeek = (value, column) => column === 20 &&
     text(value).replace(/[\s$]/g, "").replace(/,/g, ";").toUpperCase() === expectedWeek;
   if ((check.data.values?.[0] || []).some((v, column) => text(v) && !templateWeek(v, column))) {
-    throw Object.assign(new Error(`La fila ${row} tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.`), {status:409});
+    throw Object.assign(new Error(`La fila ${row} tiene datos fuera de la columna OT.`), {status:409, code:"ROW_OCCUPIED"});
   }
+}
+
+async function nextAvailableRow(sheets, start) {
+  // Manual planning tasks may have no OT. Preserve them and any formulas,
+  // checking the entire supported row before choosing the next free slot.
+  for (let row = start; row < start + 50; row++) {
+    try { await assertEmptyRow(sheets, row); return row; }
+    catch (error) { if (error.code !== "ROW_OCCUPIED") throw error; }
+  }
+  throw Object.assign(new Error("No hay una fila libre en las próximas 50 filas de la Base de datos."), {status:409});
 }
 
 function totalBudget(p) {
@@ -246,7 +256,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     const date = shortDate(p.fecha || p.fechaAprobacion);
     const [dd,mm,yy] = date.split("/").map(Number);
     const week = isoWeek(new Date(2000 + yy, mm - 1, dd));
-    if (found < 0) await assertEmptyRow(sheets, rowNumber);
+    if (found < 0) rowNumber = await nextAvailableRow(sheets, rowNumber);
     else {
       const existing = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${rowNumber}:AL${rowNumber}`});
       if(norm(existing.data.values?.[0]?.[layout.cliente])!==norm(payload.cliente))throw Object.assign(new Error('El cliente de Base Madre no coincide con la OT'),{status:409});
@@ -266,5 +276,6 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     return res.status(error.status || 502).json({ok:false, error:error.message || "No se pudo sincronizar la Base Madre"});
   }
 });
+
 
 
