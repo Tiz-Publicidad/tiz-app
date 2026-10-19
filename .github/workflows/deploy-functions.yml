@@ -99,10 +99,10 @@ jobs:
           fi
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             colocaciones_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
-            if [ -n "$colocaciones_changed" ] && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|allFunctionsV86|facturacionIntegralApiV83)\.js$' | grep -q .; then
+            if [ -n "$colocaciones_changed" ] && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|colocacionesPortalV153|allFunctionsV86|facturacionIntegralApiV83)\.js$' | grep -q .; then
               targets=functions:facturacionIntegralEmitirV83
             fi
-            if git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- colocacionesV128.js | grep -q . && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|allFunctionsV86|facturacionIntegralApiV83)\.js$' | grep -q .; then
+            if git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- colocacionesV128.js | grep -q . && ! printf '%s\n' "$colocaciones_changed" | grep -Ev '^functions/(colocacionesGeneralV129|colocacionesCoreV129|colocacionesSheetV130|colocacionesPortalV153|allFunctionsV86|facturacionIntegralApiV83)\.js$' | grep -q .; then
               targets=functions:facturacionIntegralEmitirV83
             fi
           fi
@@ -138,6 +138,7 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"facturacion-v83-pv0003","description":"Deploy %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/deploy-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/deploy-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
+
 
 
 
