@@ -143,6 +143,20 @@ function invoicesFrom(obra = {}) {
     seen.add(key); return true;
   }).sort((a,b) => dateIso(a.fecha).localeCompare(dateIso(b.fecha)));
 }
+const BILLING_HEADERS=["% facturado","Neto facturado","Saldo por facturar (neto)","Documentos y % de la obra","Estado de facturación"];
+function includesExistingInvoices(existing, numbers) {
+  const old=text(existing).split(/\s*\/\s*/).filter(Boolean),all=text(numbers).split(/\s*\/\s*/).filter(Boolean),used=new Set();
+  return old.every(value=>{const matches=all.map((n,i)=>sameInvoiceNumbers(value,n)?i:-1).filter(i=>i>=0);if(matches.length!==1||used.has(matches[0]))return false;used.add(matches[0]);return true});
+}
+function billingSummary(obra,invoices) {
+  const budget=num(obra.finanzas?.total||obra.neto||obra.importe||obra.infoPresupuesto?.importe);
+  const complete=budget>0&&invoices.length>0&&invoices.every(x=>x.neto!==undefined&&x.neto!==null&&text(x.neto)!==''&&Number.isFinite(Number(x.neto))&&Number(x.neto)>=0);
+  const net=complete?Math.round(invoices.reduce((a,x)=>a+Number(x.neto),0)*100)/100:null;
+  const pct=complete?net/budget:null,pending=complete?Math.max(0,Math.round((budget-net)*100)/100):null;
+  const documents=invoices.map(x=>{const n=Number(x.neto),known=x.neto!==undefined&&x.neto!==null&&text(x.neto)!==''&&Number.isFinite(n)&&n>=0;return [text(x.tipo)||'Factura',invoiceNumber(x),sheetDate(x.fecha),known&&budget>0?(100*n/budget).toLocaleString('es-AR',{maximumFractionDigits:2})+'% de la obra':'% sin verificar',known?'Neto $'+n.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):'Neto sin verificar'].filter(Boolean).join(' · ')}).join('\n');
+  const state=!complete?'Revisar importes':net-budget>0.01?'Revisar: supera la obra':pending<=0.01?'Facturado total':net>0?'Facturado parcial':'Sin facturar';
+  return {budget,net,pct,pending,documents,state,complete,values:[pct??'',net??'',pending??'',documents,state]};
+}
 async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const obra = await findObra(db, requestedOt, obraId);
   if (!obra) throw Object.assign(new Error(`No se encontró la obra ${requestedOt}`), {status:404});
@@ -168,30 +182,38 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const due = invoices.map((x) => dateIso(x.fechaPrevistaCobro || x.fechaVencimientoPago)).filter(Boolean).sort()[0]
     || dateIso(obra.fechaPrevistaCobro || obra.finanzas?.fechaPrevistaCobro);
   const numbers = invoices.map(invoiceNumber).filter(Boolean).join(" / ") || text(obra.nrfc);
-  if (text(cell[1]) && numbers && !sameInvoiceNumbers(cell[1], numbers)) {
+  if (text(cell[1]) && numbers && !includesExistingInvoices(cell[1], numbers)) {
     throw Object.assign(new Error(`La OT ${requestedOt} tiene otro número de FC en Base Madre. No se sobrescribió.`), {status:409});
   }
   const paid = payments.reduce((sum,p) => sum + num(p.importe) + num(p.retenciones), 0);
   const invoiced = invoices.reduce((sum,invoice) => sum + num(invoice.total || invoice.neto), 0);
+  const summary=billingSummary(obra,invoices);
   const data = [];
-  if (numbers && !text(cell[1])) data.push({range:`'${SHEET}'!S${rowNumber}`, values:[[numbers]]});
+  if (numbers && !sameInvoiceNumbers(cell[1], numbers)) data.push({range:`'${SHEET}'!S${rowNumber}`, values:[[numbers]]});
   const invoiceDate=sheetDate(lastInvoice.fecha || obra.ffc);
   if (invoiceDate && !text(cell[0])) data.push({range:`'${SHEET}'!R${rowNumber}`, values:[[invoiceDate]]});
   if (due && !text(cell[2])) data.push({range:`'${SHEET}'!T${rowNumber}`, values:[[sheetDate(due)]]});
   if (due && !text(cell[3])) data.push({range:`'${SHEET}'!U${rowNumber}`, values:[[weekFromDate(due)]]});
   if (lastPayment.fecha && !text(cell[4])) data.push({range:`'${SHEET}'!V${rowNumber}`, values:[[weekFromDate(lastPayment.fecha)]]});
-  if (((invoiced > 0 && paid >= invoiced - 0.01) || norm(obra.cobranzaEstadoManual) === "cobrado") && norm(cell[7]) !== 'cobrado') data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado"]]});
+  if (((summary.complete && summary.pending <= 0.01 && invoiced > 0 && paid >= invoiced - 0.01) || norm(obra.cobranzaEstadoManual) === "cobrado") && norm(cell[7]) !== 'cobrado') data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado"]]});
   else if (!hasCredit && (paid > 0 || norm(obra.cobranzaEstadoManual) === "cobrado pendiente") && norm(cell[7]) !== "cobrado") data.push({range:`'${SHEET}'!Y${rowNumber}`, values:[["Cobrado pendiente"]]});
+  const billingHeaders=await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!AB2:AF2`});
+  const headers=billingHeaders.data.values?.[0]||[];
+  if(BILLING_HEADERS.every((h,i)=>text(headers[i])===h)){
+    const target=await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!AB${rowNumber}:AF${rowNumber}`,valueRenderOption:'FORMULA'});
+    if((target.data.values?.[0]||[]).some(v=>text(v).startsWith('=')))throw Object.assign(new Error('El resumen de facturación contiene una fórmula. No se sobrescribió.'),{status:409});
+    data.push({range:`'${SHEET}'!AB${rowNumber}:AF${rowNumber}`,values:[[summary.pct===null?'':(100*summary.pct).toLocaleString('es-AR',{maximumFractionDigits:6})+'%',...summary.values.slice(1)]]});
+  }else if(headers.some(v=>BILLING_HEADERS.includes(text(v))))throw Object.assign(new Error('Revisá los encabezados del resumen de facturación AB:AF.'),{status:409});
   if (data.length) {
     const formulas=await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!R${rowNumber}:Y${rowNumber}`,valueRenderOption:'FORMULA'});
     const cells=formulas.data.values?.[0]||[];
-    for(let i=data.length-1;i>=0;i--){const column=data[i].range.match(/!([A-Z]+)/)[1].charCodeAt(0)-'R'.charCodeAt(0);if(text(cells[column]).startsWith('=')){if(column===3){data.splice(i,1);continue}throw Object.assign(new Error('La celda de destino contiene una fórmula; revisar antes de actualizar'),{status:409})}}
+    for(let i=data.length-1;i>=0;i--){const letters=data[i].range.match(/!([A-Z]+)/)[1];if(letters.length>1)continue;const column=letters.charCodeAt(0)-'R'.charCodeAt(0);if(text(cells[column]).startsWith('=')){if(column===3){data.splice(i,1);continue}throw Object.assign(new Error('La celda de destino contiene una fórmula; revisar antes de actualizar'),{status:409})}}
     if(data.length)await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data}});
   }
   const signature = [numbers, lastInvoice.fecha || obra.ffc || "", due, payments.length, paid, obra.cobranzaEstadoManual || "", obra.estadoGestionFactCob || ""].join("|");
-  const mark = {baseMadreFactCobSyncAt:new Date().toISOString(), baseMadreFactCobSignature:signature, baseMadreRow:rowNumber, baseMadreFactCobSyncVersion:"BACKEND-V121", baseMadreFactCobSyncBy:email};
+  const mark = {baseMadreFactCobSyncAt:new Date().toISOString(), baseMadreFactCobSignature:signature, baseMadreRow:rowNumber, baseMadreFactCobSyncVersion:"BACKEND-V148", baseMadreFactCobSyncBy:email};
   await db.collection("obras").doc(obra.id).set(mark, {merge:true});
-  return {ok:true, row:rowNumber, mode:"billing", updated:data.length > 0, numeroFactura:numbers};
+  return {ok:true, row:rowNumber, mode:"billing", updated:data.length > 0, numeroFactura:numbers, resumenFacturacion:{porcentaje:summary.pct,neto:summary.net,saldo:summary.pending,estado:summary.state}};
 }
 
 exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"public", timeoutSeconds:60}, async (req, res) => {

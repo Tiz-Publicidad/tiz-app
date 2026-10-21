@@ -266,7 +266,7 @@ let repairMonitorBusy=false;
 const billingRetryAt=new Map();
 async function syncPendingBilling(){
   if(billingMonitorBusy)return;
-  const pending=(window.DB?.obras||[]).find(o=>{const p=billingPayload(o);return (billingRetryAt.get(o.id)||0)<Date.now()&&p.numeroFactura&&p.signature!==T(o.baseMadreFactCobSignature)});
+  const pending=(window.DB?.obras||[]).find(o=>{const p=billingPayload(o);return (billingRetryAt.get(o.id)||0)<Date.now()&&p.numeroFactura&&(p.signature!==T(o.baseMadreFactCobSignature)||o.baseMadreFactCobSyncVersion!=='BACKEND-V148')});
   if(!pending)return;billingMonitorBusy=true;
   try{await syncBillingBackend(pending,{silent:true});billingRetryAt.delete(pending.id)}catch(e){billingRetryAt.set(pending.id,Date.now()+300000);console.warn('[TIZ V121 monitor]',e)}finally{billingMonitorBusy=false}
 }
