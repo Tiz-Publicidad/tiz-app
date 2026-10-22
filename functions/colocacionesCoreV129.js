@@ -7,6 +7,31 @@
   function week(v){if(!iso(v))return {label:'Sin fecha',start:'',end:''};const d=new Date(v+'T12:00:00Z'),start=shift(v,1-(d.getUTCDay()||7)),thursday=new Date(shift(start,3)+'T12:00:00Z'),year=thursday.getUTCFullYear(),jan4=`${year}-01-04`,janD=new Date(jan4+'T12:00:00Z'),first=shift(jan4,1-(janD.getUTCDay()||7)),number=1+Math.round((new Date(start+'T12:00:00Z')-new Date(first+'T12:00:00Z'))/604800000);return {start,end:shift(start,6),number,year,label:`${year}-W${String(number).padStart(2,'0')}`}}
   const open=a=>['Pendiente','Bloqueada'].includes(a.estado);
   const overdue=(a,day)=>open(a)&&!!iso(a.fecha)&&a.fecha<=shift(day,-2);
+  const ARIEL='arielbenitezpublicidad@gmail.com';
+  const requestFields=['solicitudExterna','estadoSolicitud','solicitadaPor','solicitadaEn','solicitudFechaOriginal','respuestaPor','respuestaEn','respuestaMotivo','confirmadaPor','confirmadaEn','historialSolicitud'];
+  function requestMetadata(old,next,email,at){
+    const meta=Object.fromEntries(requestFields.filter(k=>old?.[k]!==undefined).map(k=>[k,old[k]]));
+    const external=text(email).toLowerCase()!==ARIEL, assigned=/(^| )ariel( |$)/.test(norm(next.responsable));
+    const changed=!!old&&['titulo','fecha','responsable','direccion','zona'].some(k=>text(old[k])!==text(next[k]));
+    if(external&&assigned&&open(next)&&(!old||changed))Object.assign(meta,{solicitudExterna:true,estadoSolicitud:'Pendiente de Ariel',solicitadaPor:email,solicitadaEn:at,solicitudFechaOriginal:next.fecha||'',respuestaPor:'',respuestaEn:'',respuestaMotivo:'',confirmadaPor:'',confirmadaEn:''});
+    if(external&&old?.solicitudExterna&&!assigned&&changed)meta.estadoSolicitud='Reasignada';
+    return meta;
+  }
+  function respondRequest(old,response,day,at,email){
+    if(text(email).toLowerCase()!==ARIEL)throw new Error('Sólo Ariel puede responder esta solicitud.');
+    if(!old?.solicitudExterna||!open(old)||!['Pendiente de Ariel','Confirmada por Ariel','Aceptada por Ariel','Reprogramada por Ariel'].includes(old.estadoSolicitud))throw new Error('Esta solicitud ya no está disponible para responder.');
+    const decision=response.decision,motivo=text(response.motivo).slice(0,2000);
+    if(!['aceptar','rechazar','reprogramar'].includes(decision))throw new Error('Elegí una respuesta válida.');
+    if(decision==='aceptar'&&old.estadoSolicitud!=='Pendiente de Ariel')throw new Error('Esta solicitud ya fue aceptada.');
+    if(decision!=='aceptar'&&!motivo)throw new Error('Indicá el motivo para informar a quien cargó la acción.');
+    if(decision==='reprogramar'&&(!iso(response.fecha)||response.fecha<day||response.fecha===old.fecha))throw new Error('Indicá una nueva fecha de hoy o posterior, distinta de la actual.');
+    const estadoSolicitud={aceptar:'Aceptada por Ariel',rechazar:'Rechazada por Ariel',reprogramar:'Reprogramada por Ariel'}[decision];
+    return {...old,estadoSolicitud,respuestaPor:email,respuestaEn:at,respuestaMotivo:motivo,actualizadoPor:email,actualizadoEn:at,
+      historialSolicitud:{...(old.historialSolicitud||{}),[at.replace(/[^a-z0-9]/gi,'')]:{decision,motivo,fechaAnterior:old.fecha||'',fechaNueva:decision==='reprogramar'?response.fecha:old.fecha||'',usuario:email,fecha:at}},
+      ...(decision==='rechazar'?{estado:'Cancelada',resultado:'Solicitud rechazada: '+motivo,gestionadaPor:email,gestionadaEn:at,fechaReal:day}:{}),
+      ...(decision==='reprogramar'?{fecha:response.fecha,fechaAnterior:old.fecha||''}:{}),
+      ...(decision!=='rechazar'?{confirmadaPor:email,confirmadaEn:at}:{})};
+  }
   function resolveDraftAction(old,result,next,day,at,email){
     if(!open(old))throw new Error('Esta acción ya fue gestionada.');
     if(!text(result.detalle)||!iso(result.fechaReal))throw new Error('Completá el resultado y la fecha real.');
@@ -35,6 +60,6 @@
   function nearby(rows,anchor,day){if(!anchor||!visit(anchor.accion))return [];const z=zone(anchor.accion.direccion,anchor.accion.zona);if(!z)return [];const end=week(day).end;return rows.filter(r=>r.key!==anchor.key&&open(r.accion)&&r.accion.estado!=='Bloqueada'&&visit(r.accion)&&norm(zone(r.accion.direccion,r.accion.zona))===norm(z)&&(!r.accion.fecha||r.accion.fecha<=end)).map(r=>{const sameWork=!!anchor.tipoTrabajo&&norm(anchor.tipoTrabajo)===norm(r.tipoTrabajo),sameType=r.accion.tipo===anchor.accion.tipo;return {...r,score:2+(sameWork?2:0)+(sameType?1:0),motivo:`Misma zona: ${z}${sameWork?' · mismo tipo de obra':''}${sameType?' · misma tarea':''}${r.accion.fecha&&r.accion.fecha<day?' · pendiente vencido':''}`}}).sort((a,b)=>b.score-a.score||(a.accion.fecha||'9999').localeCompare(b.accion.fecha||'9999'))}
   function planPatch(o,selected,day,id,email,at){if(!iso(day))throw new Error('Indicá el día de salida.');if(o.colocacionesGestion?.cierre?.cerrada)throw new Error('La colocación está cerrada.');const p={};for(const item of selected){const a=o.colocacionesGestion?.acciones?.[item.actionId];if(!a||!open(a)||a.estado==='Bloqueada'||!visit(a))throw new Error('Una acción cambió o no admite visita. Volvé a revisar.');if(text(a.actualizadoEn||a.creadoEn)!==text(item.version)||text(a.fecha)!==text(item.fecha))throw new Error('Una acción fue modificada. Volvé a revisar.');p[`colocacionesGestion.acciones.${a.id}`]={...a,fecha:day,salidaId:id,fechaAnterior:a.fecha||'',actualizadoEn:at,actualizadoPor:email};p[`colocacionesGestion.eventos.salida${id}${a.id}`]={accion:`Salida agrupada: ${a.titulo}. Compromiso anterior ${a.fecha||'sin fecha'}; nueva fecha ${day}`,fecha:at,usuario:email}}p['colocacionesGestion.actualizadoEn']=at;p['colocacionesGestion.actualizadoPor']=email;return p}
   function report(o,contacts=[],legacy=[]){const g=o.colocacionesGestion||{};return {ot:text(o.ot),cliente:text(o.cliente),descripcion:text(o.desc),direccion:text(g.direccion||o.entregaLogistica?.domicilio||o.direccion),zona:text(g.zona),modalidad:text(g.modalidad),tipoTrabajo:text(g.tipoTrabajo),contactos:contacts.map(c=>({nombre:text(c.nombre),cargo:text(c.cargo),telefono:text(c.telefono),email:text(c.email)})),acciones:[...Object.values(g.acciones||{}),...legacy].map(a=>({titulo:text(a.titulo),tipo:text(a.tipo),fecha:text(a.fecha),responsable:text(a.responsable),prioridad:text(a.prioridad),estado:text(a.estado),observaciones:text(a.observaciones),contacto:contacts.find(c=>c.id===a.contactoId)?.nombre||'',hora:text(a.hora),duracion:Number(a.duracion)||0,direccion:text(a.direccion),zona:text(a.zona),fechaReal:text(a.fechaReal),resultado:text(a.resultado),cantidadReal:text(a.cantidadReal),control:text(a.control),retrabajo:text(a.retrabajo)})),preparacion:Object.entries(g.preparacion||{}).map(([k,v])=>({paso:k,estado:text(v.estado),detalle:text(v.detalle),url:text(v.url),fecha:text(v.fecha),destinatario:contacts.find(c=>c.id===v.contactoId)?.nombre||''})),notas:Object.values(g.notas||{}).map(n=>({tipo:text(n.tipo),texto:text(n.texto),fecha:text(n.fecha)}))}}
-  return {text,norm,iso,shift,week,open,overdue,resolveDraftAction,correctClosedAction,visit,zone,validate,cleanAction,nearby,planPatch,report};
+  return {ARIEL,requestMetadata,respondRequest,text,norm,iso,shift,week,open,overdue,resolveDraftAction,correctClosedAction,visit,zone,validate,cleanAction,nearby,planPatch,report};
 });
 

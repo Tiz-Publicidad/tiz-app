@@ -268,7 +268,7 @@ test('retiro sin OT muestra su dirección a Ariel y genera navegación Google Ma
 });
 test('editar una acción vinculada guarda su destino propio y conserva el domicilio de la obra',async()=>{
  const w=ui(),C=w.TIZColocacionesCore,source=fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8'),start=source.indexOf('  async function saveInline('),end=source.indexOf('  async function correctClosed',start);
- const o={id:'o',entregaLogistica:{domicilio:'Domicilio de la obra'},colocacionesGestion:{acciones:{a:{...action('2026-10-16'),direccion:'Retiro anterior',zona:'Zona anterior',actualizadoEn:'v1'}}}},win={};let patch;
+ const o={id:'o',entregaLogistica:{domicilio:'Domicilio de la obra'},colocacionesGestion:{acciones:{a:{...action('2026-10-16'),direccion:'Retiro anterior',zona:'Zona anterior',actualizadoEn:'v1'}}}},win={TIZColocacionesGeneralCore:G};let patch;
  vm.runInNewContext(source.slice(start,end)+'\nwindow.save=saveInline;',{window:win,blockers:()=>[],mutate:async(id,fn)=>{patch=fn(o);return patch},actions:C.actions,db:()=>({}),open:G.open,validateAction:C.validateAction,isoDate:C.isoDate,stamp:()=> 'v2',actor:()=> 'Compras'});
  await win.save('o','a',{titulo:'Buscar materiales',fecha:'2026-10-16',responsable:'Ariel',observaciones:'Coordinar retiro',direccion:'Calle Prueba 456',zona:'San Miguel'},'v1');
  assert.equal(patch['colocacionesGestion.acciones.a'].direccion,'Calle Prueba 456');
@@ -292,4 +292,38 @@ test('Por fecha hides empty days and undated groups while preserving overdue and
  const before=JSON.stringify(w.DB),html=g.datesBody('2026-10-12');assert.equal((html.match(/<section class="c128-day /g)||[]).length,2);assert.ok(html.includes('13/10/2026'));assert.ok(html.includes('17/10/2026'));assert.ok(html.includes('Pendiente vencida'));assert.ok(html.includes('Pendiente futura'));assert.ok(html.includes('data-g-detail="o/a"'));assert.ok(!html.includes('Sin acciones'));assert.ok(!html.includes('Acciones abiertas sin fecha'));assert.equal(JSON.stringify(w.DB),before);
  w.DB.obras[0].colocacionesGestion.acciones.a.estado='Cerrada';w.DB.obras[0].colocacionesGestion.acciones.b.estado='Cerrada';const empty=g.datesBody('2026-10-12');assert.ok(!empty.includes('c128-day'));assert.ok(!empty.includes('Sin acciones'));assert.ok(!empty.includes('Acciones abiertas sin fecha'));assert.ok(empty.includes('data-week-step'));
  w.DB.obras[0].colocacionesGestion.acciones.d={...action(''),id:'d',titulo:'Pendiente sin fecha'};assert.ok(g.datesBody('2026-10-12').includes('Acciones abiertas sin fecha (1)'));
+});
+
+
+test('Nueva acción abre el formulario aunque existan acciones vencidas y propone Ariel',async()=>{
+ let dialog;const events={},doc={getElementById:()=>({}),createElement:()=>dialog={innerHTML:'',setAttribute(){},addEventListener(){},querySelector:()=>null,remove(){}},body:{append(){}}};
+ const w=ui(doc),g=w.TIZColocacionesGeneralV129;w.canViewPage=()=>true;w.canAnnotateSector=()=>true;w.TIZColocacionesUIV128={blockers:()=>[{}],render(){}};
+ g.attach({addEventListener:(name,fn)=>events[name]=fn});const b={dataset:{gRowNew:'1'},hasAttribute:name=>name==='data-g-row-new'};
+ await events.click({target:{closest:()=>b}});assert.match(dialog.innerHTML,/Nueva acción/);assert.match(dialog.innerHTML,/data-g-form="inline"/);assert.match(dialog.innerHTML,/name="responsable"[^>]*value="Ariel"/);
+});
+test('las solicitudes muestran texto y colores a quien las carga; sólo Ariel ve las tres respuestas',()=>{
+ const w=ui(),g=w.TIZColocacionesGeneralV129;w.DB.obras=[{id:'o',ot:'4786',estado:'Pendiente',colocacionesGestion:{acciones:{a:{...action('2026-10-23'),solicitudExterna:true,estadoSolicitud:'Pendiente de Ariel'}}}}];
+ const row=g.entries()[0];w.currentUser={email:'pablo.aciar@tizpublicidad.com'};
+ assert.match(g.compactRow(row),/Pendiente de aceptación de Ariel/);assert.match(g.requestBadge(row.accion),/amber/);assert.equal(g.requestControls(row),'');
+ w.currentUser={email:G.ARIEL};const html=g.requestControls(row);for(const label of ['Aceptar','Rechazar','Reprogramar'])assert.ok(html.includes(label));
+ assert.match(g.requestBadge({...row.accion,estadoSolicitud:'Aceptada por Ariel'}),/green/);
+ assert.match(g.requestBadge({...row.accion,estadoSolicitud:'Rechazada por Ariel',respuestaMotivo:'Sin permiso <script>'}),/red/);assert.ok(!g.requestBadge({...row.accion,respuestaMotivo:'<script>'}).includes('<script>'));
+});
+test('solicitud de cualquier compañero incluido Admin espera aceptación, se conserva al editar y se renueva ante cambio de compromiso',()=>{
+ const a=action('2026-10-23'),at='2026-10-22T15:00:00Z';
+ for(const email of ['giancarlo.pareja@gmail.com','info@tizpublicidad.com','pablo.aciar@tizpublicidad.com','julieta.aguirre@tizpublicidad.com','carolina.flores@tizpublicidad.com'])assert.equal(G.requestMetadata(null,a,email,at).estadoSolicitud,'Pendiente de Ariel');
+ assert.deepEqual(G.requestMetadata(null,a,G.ARIEL,at),{});assert.deepEqual(G.requestMetadata(null,{...a,responsable:'Pablo'},'info@tizpublicidad.com',at),{});
+ const old={...a,...G.requestMetadata(null,a,'pablo.aciar@tizpublicidad.com',at),estadoSolicitud:'Aceptada por Ariel'};
+ assert.equal(G.requestMetadata(old,{...old,observaciones:'Un dato'},'pablo.aciar@tizpublicidad.com',at).estadoSolicitud,'Aceptada por Ariel');
+ assert.equal(G.requestMetadata(old,{...old,fecha:'2026-10-24'},'pablo.aciar@tizpublicidad.com',at).estadoSolicitud,'Pendiente de Ariel');
+});
+test('Ariel acepta, rechaza con motivo o reprograma con historial; se rechazan permisos, fechas y respuestas duplicadas',()=>{
+ const at='2026-10-22T15:00:00Z',day='2026-10-22',a={...action('2026-10-23'),...G.requestMetadata(null,action('2026-10-23'),'pablo.aciar@tizpublicidad.com',at)};
+ const accepted=G.respondRequest(a,{decision:'aceptar'},day,at,G.ARIEL);assert.equal(accepted.estadoSolicitud,'Aceptada por Ariel');assert.equal(accepted.estado,'Pendiente');
+ assert.throws(()=>G.respondRequest(a,{decision:'aceptar'},day,at,'info@tizpublicidad.com'),/Sólo Ariel/);
+ assert.throws(()=>G.respondRequest(accepted,{decision:'aceptar'},day,at,G.ARIEL),/ya fue aceptada/);
+ assert.throws(()=>G.respondRequest(a,{decision:'rechazar'},day,at,G.ARIEL),/motivo/);
+ const rejected=G.respondRequest(a,{decision:'rechazar',motivo:'Falta permiso'},day,at,G.ARIEL);assert.equal(rejected.estado,'Cancelada');assert.equal(rejected.resultado,'Solicitud rechazada: Falta permiso');assert.equal(G.open(rejected),false);
+ for(const fecha of ['2026-10-21','2026-02-30','2026-10-23',''])assert.throws(()=>G.respondRequest(a,{decision:'reprogramar',motivo:'Otro compromiso',fecha},day,at,G.ARIEL),/nueva fecha/);
+ const next=G.respondRequest(a,{decision:'reprogramar',motivo:'Otro compromiso',fecha:'2026-10-26'},day,at,G.ARIEL);assert.equal(next.fecha,'2026-10-26');assert.equal(next.fechaAnterior,'2026-10-23');assert.equal(next.solicitudFechaOriginal,'2026-10-23');assert.equal(next.estadoSolicitud,'Reprogramada por Ariel');assert.equal(G.open(next),true);assert.equal(Object.values(next.historialSolicitud)[0].motivo,'Otro compromiso');
 });
