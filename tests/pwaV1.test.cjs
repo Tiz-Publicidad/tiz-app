@@ -39,7 +39,7 @@ test('install uses the browser prompt and the mobile drawer reuses the existing 
 
 
 test('Pablo recibe el aviso manual; Carolina y Ariel actualizan automáticamente sin aviso',async()=>{
- for(const email of ['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com']){const p=page(email);await p.flush();assert.equal(p.document.getElementById('tiz-update').hidden,false);assert.equal(p.posted(),undefined);assert.equal(p.reloads(),0);}
+ for(const email of ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com']){const p=page(email);await p.flush();assert.equal(p.document.getElementById('tiz-update').hidden,false);assert.equal(p.posted(),undefined);assert.equal(p.reloads(),0);}
  for(const email of ['carolina.flores@tizpublicidad.com','arielbenitezpublicidad@gmail.com','julieta.aguirre@tizpublicidad.com']){const p=page(email);await p.flush();assert.equal(p.document.getElementById('tiz-update').hidden,true);assert.equal(p.posted().type,'TIZ_APPLY_UPDATE');p.swEvents.controllerchange();assert.equal(p.reloads(),1);}
 });
 test('actualización automática espera cambios sin guardar, un guardado activo y la identificación del usuario',async()=>{

@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - 'functions/**'
+      - 'firestore.rules'
+      - 'firebase.json'
       - '.github/workflows/deploy-functions.yml'
 
 permissions:
@@ -29,6 +31,7 @@ jobs:
         working-directory: functions
       - name: Validate fiscal code
         run: |
+          node --test tests/giancarloAdminV1.test.cjs
           node --check clemenSecretariaV1.js
           node --check clemenSecretariaCoreV1.js
           node --test tests/clemenSecretariaV1.test.cjs
@@ -127,7 +130,14 @@ jobs:
               targets=functions:sincronizarBaseMadreV120
             fi
           fi
+          # Account permissions are checked by every fiscal entry point separately.
+          if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^functions/(index|facturacionEntregaV84|facturacionRecuperarV86)\.js$'; then
+            targets="$targets,functions:arcaProduccionStatus,functions:arcaProduccionEmitirOT4680,functions:facturaEnviarEmail,functions:arcaHomologacionStatus,functions:arcaHomologacionEmitirPrueba,functions:facturacionHomologacionArchivarV84,functions:facturacionEnviarEmailV84,functions:facturacionRecuperarHistoricosV86"
+          fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive
+          if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(firestore.rules|firebase.json)$'; then
+            firebase deploy --only firestore:rules --project tiz---app --non-interactive
+          fi
       - name: Record deployment status
         if: always()
         env:

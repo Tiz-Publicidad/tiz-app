@@ -38,7 +38,7 @@ async function requireAdmin(req) {
   const decoded = await admin.auth().verifyIdToken(header.slice(7));
   const email = String(decoded.email || "").toLowerCase();
   const allowed = new Set(allowedEmails.value().split(",").map(v => v.trim().toLowerCase()).filter(Boolean));
-  if (!allowed.has(email)) throw Object.assign(new Error("Usuario sin permiso para facturación"), { status: 403 });
+  if (!allowed.has(email) && !(email === 'giancarlo.pareja@tizpublicidad.com' && allowed.has('info@tizpublicidad.com'))) throw Object.assign(new Error("Usuario sin permiso para facturación"), { status: 403 });
   return { email };
 }
 

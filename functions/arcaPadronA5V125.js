@@ -74,7 +74,7 @@ async function operator(req) {
       .map((x) => x.trim().toLowerCase())
       .filter(Boolean),
   );
-  if (!emails.has(email))
+  if (!emails.has(email) && !(email === 'giancarlo.pareja@tizpublicidad.com' && emails.has('info@tizpublicidad.com')))
     throw Object.assign(new Error("Usuario sin permiso para consultar ARCA"), {
       status: 403,
     });

@@ -10,7 +10,7 @@ const reportFor=(w,s)=>w.reportes?.[s];
 const status=(w,s)=>{const r=reportFor(w,s);if(r?.presentadoEn)return r.enTermino?'✓ En término':'✓ Fuera de término';const mins=Math.ceil((Date.parse(w.venceEn)-now())/60000);return mins<=0?'Vencido hace '+Math.floor(-mins/60)+' h '+(-mins%60)+' min':Math.floor(mins/60)+' h '+(mins%60)+' min';};
 const fmt=v=>new Date(v).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires',dateStyle:'short',timeStyle:'short'});
 function mayWrite(sector){return !!window.currentUser&&(window.currentUser.isAdmin||allowedSectors.includes(sector)||window.canAnnotateSector?.(sectors[sector])||window.currentUser.sector===sectors[sector]);}
-function manager(){return ['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());}
+function manager(){return ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());}
 function currentSector(){if(selectedPage!==window.currentPage){selected='';expanded=false;selectedPage=window.currentPage;}const page=pageSector[window.currentPage];if(selected)return selected;if(page&&mayWrite(page))return page;return window.TIZAnalisisSectorV1||Object.keys(sectors).find(k=>sectors[k]===window.currentUser?.sector)||'ventas';}
 function host(){const page=document.getElementById('page-'+window.currentPage);return page?.querySelector('#calidad-root,#c128-root')||page;}
 function workList(){if(session!==window.currentUser?.email)return [];return data.map(w=>({id:w.obraId,obraOperativaId:w.obraOperativaId,ot:w.ot,cliente:w.cliente,descripcion:w.descripcion,driveFolderUrl:w.driveFolderUrl,aprobadoEn:w.aprobadoEn,inicioTipo:w.inicioTipo}));}

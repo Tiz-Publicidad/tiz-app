@@ -220,7 +220,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       return res.json({ok:true, rows, leidoEn:new Date().toISOString()});
     }
     if (text(req.body?.mode).toLowerCase() === "read-billing") {
-      if (email !== "info@tizpublicidad.com" && email !== "pablo.aciar@tizpublicidad.com") {
+      if (email !== "info@tizpublicidad.com" && email !== "giancarlo.pareja@tizpublicidad.com" && email !== "pablo.aciar@tizpublicidad.com") {
         throw Object.assign(new Error("Sin permiso para conciliar facturación"), {status:403});
       }
       const result = await sheets.spreadsheets.values.get({
