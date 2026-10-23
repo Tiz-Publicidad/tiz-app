@@ -51,6 +51,8 @@ jobs:
           node --check baseMadreSyncV116.js
           node --check functions/baseMadreLayoutV1.js
           node --test tests/baseMadreLayoutV1.test.cjs
+          node --check clienteContactosV1.js
+          node --test tests/clienteContactosV1.test.cjs
           node --check sectorizacionV35.js
           node --test tests/cotizacionesEstadoV1.test.cjs
           node --check comprasObrasCoreV1.js
@@ -138,6 +140,7 @@ jobs:
           test ! -d site/functions/node_modules
           test -f site/app.js
           test -f site/sectorizacionV35.js
+          test -f site/clienteContactosV1.js
           test -f site/baseMadreSyncV116.js
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023' site/index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' site/index.html

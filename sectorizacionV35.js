@@ -230,50 +230,17 @@
     return (window.DB?.clientes||[]).find(c=>[c.nombre,c.razonSocial,c.razon_social,c.nombreFiscal].some(x=>normContacto(x)===n))||null;
   }
   function contactosClienteActual(){
-    const c=clienteCotizacionActual();if(!c)return[];
-    const pools=[];
-    // El contacto principal de la ficha siempre encabeza la lista, aunque haya
-    // contactos más recientes guardados en otras obras del mismo cliente.
-    if(String(c.contacto||'').trim())pools.push({nombre:c.contacto,telefono:c.cel||'',email:c.email||''});
-
-    if(Array.isArray(c.contactosEntrega))pools.push(...c.contactosEntrega);
-    if(Array.isArray(c.contactosRetiro))pools.push(...c.contactosRetiro);
-    const seen=new Set(),out=[];
-    for(const x of pools){const nombre=String(x?.nombre||x?.contacto||'').trim();if(!nombre)continue;const k=normContacto(nombre);if(seen.has(k))continue;seen.add(k);out.push({nombre,telefono:String(x?.telefono||x?.tel||x?.cel||'').trim(),email:String(x?.email||x?.correo||'').trim()});}
-    return out;
+    return window.TIZClienteContactosV1.list(window.DB,{cliente:val('pp-cliente').trim()});
   }
   function aplicarContactoClientePP(inputId,telId,emailId,listId){
     const input=document.getElementById(inputId),list=document.getElementById(listId);if(!input||!list)return;
     const contactos=contactosClienteActual();list.innerHTML=contactos.map(x=>'<option value="'+esc(x.nombre)+'">'+esc([x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('');
-    const exact=contactos.find(x=>normContacto(x.nombre)===normContacto(input.value));
-    if(exact){const tel=document.getElementById(telId),mail=document.getElementById(emailId);if(tel&&!tel.value)tel.value=exact.telefono||'';if(mail&&!mail.value)mail.value=exact.email||'';}
+    window.TIZClienteContactosV1.fill(input,document.getElementById(telId),document.getElementById(emailId),contactos);
   }
   window.sugerirContactoClientePP=function(){aplicarContactoClientePP('pp-entrega-contacto','pp-entrega-contacto-tel','pp-entrega-contacto-email','pp-entrega-contactos-list')};
   window.sugerirRetiraClientePP=function(){aplicarContactoClientePP('pp-entrega-retira','pp-entrega-retira-tel','pp-entrega-retira-email','pp-entrega-retira-list')};
-  function mergeContacto(lista,nombre,telefono,email){
-    nombre=String(nombre||'').trim();if(!nombre)return Array.isArray(lista)?lista:[];
-    const arr=Array.isArray(lista)?lista:[],key=normContacto(nombre),out=arr.filter(x=>normContacto(x?.nombre||x?.contacto)!==key);
-    out.unshift({nombre,telefono:String(telefono||'').trim(),email:String(email||'').trim(),actualizadoAt:new Date().toISOString()});
-    return out.slice(0,30);
-  }
   async function recordarContactoEntregaCliente(clienteNombre,e){
-    const cliente=clienteCotizacionActual();if(!cliente?.id||typeof window.updateDoc_!=='function')return false;
-    const patch={};
-    if(String(e?.contacto||'').trim()){
-      patch.contactosEntrega=mergeContacto(cliente.contactosEntrega,e.contacto,e.contactoTelefono,e.contactoEmail);
-      patch.contactoEntregaActualizadoAt=new Date().toISOString();
-    }
-    if(String(e?.retira||'').trim()){
-      patch.contactosRetiro=mergeContacto(cliente.contactosRetiro,e.retira,e.retiraTelefono,e.retiraEmail);
-      patch.contactoRetiroActualizadoAt=new Date().toISOString();
-    }
-    let contactos=Array.isArray(cliente.contactos)?cliente.contactos:[];
-    for(const [nombre,telefono,email] of [[e?.contacto,e?.contactoTelefono,e?.contactoEmail],[e?.retira,e?.retiraTelefono,e?.retiraEmail]]){
-      if(nombre&&normContacto(nombre)!==normContacto(cliente.contacto))contactos=mergeContacto(contactos,nombre,telefono,email);
-    }
-    if(contactos!==cliente.contactos)patch.contactos=contactos;
-    if(!Object.keys(patch).length)return false;
-    await window.updateDoc_('clientes',cliente.id,patch);Object.assign(cliente,patch);return true;
+    return window.recordarContactosClienteV1({cliente:clienteNombre},window.TIZClienteContactosV1.fromLogistics(e));
   }
   function cargarEntregaLogisticaPP(data={}){
     const e=data.entregaLogistica||data.logistica||{}, set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||'';};
@@ -551,7 +518,7 @@
       const id=window.editingId?.presupuesto||existente?.id||'';
       const actual=(window.DB?.presupuestos||[]).find(p=>p.id===id)||existente||{};
       const data={nro,revision,cliente,desc:desc||items.map(i=>i.desc).join(' / '),importe:total,fecha:val('pp-fecha')||new Date().toLocaleDateString('es-AR'),estado:val('pp-estado')||'Enviado',nota:val('pp-nota'),cond:val('pp-condicion'),validez:+val('pp-validez')||7,items,calculosAuxiliares:window.collectCalculosAuxPP?.()||window.ppCalculosAux||[],vendedor:val('pp-vendedor'),moneda:val('pp-moneda')||'ARS',plazoEstimado:val('pp-plazo'),anticipoPct:+val('pp-anticipo')||0,diasPago:+val('pp-dias-pago')||0,oc:val('pp-oc'),observacionesComerciales:val('pp-obs-comercial'),entregaLogistica:entregaLogisticaActual(),creadoPor:window.currentUser?.email||'',obraId:actual.obraId||'',cotizacionBase:numero};
-      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;try{await recordarContactoEntregaCliente(cliente,data.entregaLogistica)}catch(e){console.warn('[TIZ contactos cliente] No se pudo recordar el contacto',e)}let baseMadreOk=false,baseMadreError='';if(normEstado(data.estado)==='Aprobado'){await window.ensureObraFromPresupuestoV358(presupuestoId,data);if(typeof window.sincronizarBaseMadreBackendV120==='function'){try{await window.sincronizarBaseMadreBackendV120({...data,id:presupuestoId},{silent:true});baseMadreOk=true}catch(e){baseMadreError=e?.message||String(e);console.error('[TIZ Base Madre] Falló la sincronización backend',e)}}else baseMadreError='El sincronizador central todavía no está disponible';}document.getElementById('modal-prespdf').classList.remove('open');if(normEstado(data.estado)==='Aprobado'){if(baseMadreOk)window.showToast?.('Presupuesto aprobado + Base de Datos sincronizada ✓');else{window.showToast?.('Presupuesto aprobado; Base de Datos pendiente');setTimeout(()=>alert('La OT fue aprobada, pero NO se cargó en TIZ 2026 Base de Datos.\n\n'+baseMadreError+'\n\nNo hace falta volver a crear la OT; corregiremos sólo la sincronización.'),50)}}else window.showToast?.(id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
+      try{let ref;if(id){await window.updateDoc_('presupuestos',id,data);ref={id};}else ref=await window.addDoc_('presupuestos',data);const presupuestoId=ref?.id||id;if(window.editingId)window.editingId.presupuesto=presupuestoId;window._cotizacionBaseId=presupuestoId;try{await recordarContactoEntregaCliente(cliente,data.entregaLogistica)}catch(e){console.warn('[TIZ contactos cliente] No se pudo recordar el contacto',e);setTimeout(()=>window.showToast?.('Presupuesto guardado; no se pudo agregar el contacto a Clientes. Volvé a guardar para reintentar.'),100)}let baseMadreOk=false,baseMadreError='';if(normEstado(data.estado)==='Aprobado'){await window.ensureObraFromPresupuestoV358(presupuestoId,data);if(typeof window.sincronizarBaseMadreBackendV120==='function'){try{await window.sincronizarBaseMadreBackendV120({...data,id:presupuestoId},{silent:true});baseMadreOk=true}catch(e){baseMadreError=e?.message||String(e);console.error('[TIZ Base Madre] Falló la sincronización backend',e)}}else baseMadreError='El sincronizador central todavía no está disponible';}document.getElementById('modal-prespdf').classList.remove('open');if(normEstado(data.estado)==='Aprobado'){if(baseMadreOk)window.showToast?.('Presupuesto aprobado + Base de Datos sincronizada ✓');else{window.showToast?.('Presupuesto aprobado; Base de Datos pendiente');setTimeout(()=>alert('La OT fue aprobada, pero NO se cargó en TIZ 2026 Base de Datos.\n\n'+baseMadreError+'\n\nNo hace falta volver a crear la OT; corregiremos sólo la sincronización.'),50)}}else window.showToast?.(id?'Presupuesto actualizado':'Presupuesto comercial guardado');}catch(e){console.error(e);window.showToast?.('No se pudo guardar el presupuesto');}finally{window.__tizPresupuestoGuardando=false;}
     };
   }
 
