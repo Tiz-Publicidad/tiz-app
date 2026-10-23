@@ -100,7 +100,7 @@ jobs:
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             backend_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
             if [ -n "$backend_changed" ] && ! printf '%s\n' "$backend_changed" | grep -Ev '^functions/(facturacionIntegralApiV83|condicionesPagoV127|arcaFechasV1|facturaDrive2026)\.js$' | grep -q .; then
-              targets=functions:facturacionIntegralEmitirV83
+              targets=functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83
             fi
           fi
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
