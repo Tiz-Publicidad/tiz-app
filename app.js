@@ -25,6 +25,7 @@ provider.setCustomParameters({ hd: 'tizpublicidad.com' });
 // Para sumar/quitar usuarios, modificar solo este mapa.
 const USER_ROLE_MAP = {
   'info@tizpublicidad.com':              'Admin',
+  'giancarlo.pareja@tizpublicidad.com': 'Admin',
   'giancarlo.pareja@gmail.com':          'Admin',
   'pablo.aciar@tizpublicidad.com':       'Producción',
   'julieta.aguirre@tizpublicidad.com':   'Diseño',
@@ -185,12 +186,13 @@ onAuthStateChanged(auth, async user => {
     const role = getUserRole(user.email);
     window.currentUser = {
       email: user.email,
-      name: user.displayName,
+      name: user.email === 'giancarlo.pareja@tizpublicidad.com' ? 'Giancarlo Pareja' : user.displayName,
       photo: user.photoURL,
       role,
       // sector se mantiene por compatibilidad con funciones existentes
       sector: role,
       isAdmin: role === 'Admin',
+      vendedor: user.email === 'giancarlo.pareja@tizpublicidad.com' ? 'G' : '',
     };
     hideLoginScreen();
     updateUserUI();

@@ -1,9 +1,9 @@
 'use strict';
 const admin=require('firebase-admin'),PDFDocument=require('pdfkit'),crypto=require('node:crypto'),C=require('./calidadChecklistCoreV2');
-const USERS={'info@tizpublicidad.com':'Ventas','pablo.aciar@tizpublicidad.com':'Producción','julieta.aguirre@tizpublicidad.com':'Diseño','carolina.flores@tizpublicidad.com':'Compras','cristiantizpublicidad@gmail.com':'Calidad'};
+const USERS={'info@tizpublicidad.com':'Ventas','giancarlo.pareja@tizpublicidad.com':'Ventas','pablo.aciar@tizpublicidad.com':'Producción','julieta.aguirre@tizpublicidad.com':'Diseño','carolina.flores@tizpublicidad.com':'Compras','cristiantizpublicidad@gmail.com':'Calidad'};
 const ORIGINS=new Set(['https://tiz-publicidad.github.io','https://tiz---app.web.app','https://tiz---app.firebaseapp.com']);
 const fail=(s,status=400)=>Object.assign(Error(s),{status});
-async function operator(req){const h=req.get('authorization')||'';if(!h.startsWith('Bearer '))throw fail('Iniciá sesión en TIZ.',401);const token=await admin.auth().verifyIdToken(h.slice(7)),email=C.norm(token.email);if(!USERS[email])throw fail('Tu cuenta no tiene acceso a estos formularios.',403);return {email,sector:USERS[email],isAdmin:email==='info@tizpublicidad.com',restrictedChecklists:email==='cristiantizpublicidad@gmail.com'};}
+async function operator(req){const h=req.get('authorization')||'';if(!h.startsWith('Bearer '))throw fail('Iniciá sesión en TIZ.',401);const token=await admin.auth().verifyIdToken(h.slice(7)),email=C.norm(token.email);if(!USERS[email])throw fail('Tu cuenta no tiene acceso a estos formularios.',403);return {email,sector:USERS[email],isAdmin:['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(email),restrictedChecklists:email==='cristiantizpublicidad@gmail.com'};}
 function keyFor(record){const identity=record.obraId?'obra:'+record.obraId:record.ot?'ot:'+record.ot:'referencia:'+C.norm(record.cliente)+'|'+C.norm(record.descripcion);return crypto.createHash('sha256').update(identity).digest('hex').slice(0,32);}
 async function save(db,body,user,at=new Date().toISOString()){
  const input=body.formulario||{},stage=C.T(input.etapa);if(!C.STAGES[stage])throw fail('Etapa inválida.');

@@ -3,7 +3,7 @@
  'use strict';
  const STAGES={produccion:'Aprobación para Producción',colocacion:'Liberación para Colocación',resultado:'Resultado de la Colocación'};
  const PREVIOUS={colocacion:'produccion',resultado:'colocacion'},STATES=['Pendiente','Conforme','No conforme','No aplica'];
- const PLANNERS=['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com','julieta.aguirre@tizpublicidad.com'];
+ const PLANNERS=['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','julieta.aguirre@tizpublicidad.com'];
  const T=v=>String(v??'').trim(),norm=v=>T(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const canWrite=u=>!!u&&!u.restrictedColocaciones;

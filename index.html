@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" href="assets/tiz-app-192.png">
 <link rel="apple-touch-icon" href="assets/tiz-app-192.png">
 <link rel="stylesheet" href="pwa.css?v=TIZ-PWA-V1-20261012">
-<script defer src="pwa.js?v=TIZ-PWA-V1-20261012"></script>
+<script defer src="pwa.js?v=TIZ-PWA-V1-20261012-GIANCARLO-20261023"></script>
 <title>TIZ V29 STABLE — Cotización Automática</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -741,7 +741,7 @@ td.strong { color: var(--text); font-weight: 500; }
         <div id="clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;z-index:400;max-height:220px;overflow-y:auto;margin-top:2px;box-shadow:0 12px 30px rgba(0,0,0,.45)"></div>
       </div>
       <div class="form-group"><label>Vendedor</label>
-        <select id="f-vendedor"><option>G</option><option>J</option><option>G/J</option></select>
+        <select id="f-vendedor"><option value="G">G · Giancarlo</option><option>J</option><option>G/J</option></select>
       </div>
       <div class="form-group"><label>Estado</label>
         <select id="f-estado"><option selected>Pendiente</option><option>Enviado</option><option>Aprobado</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option></select>
@@ -947,7 +947,7 @@ td.strong { color: var(--text); font-weight: 500; }
     <input type="hidden" id="pre-id">
     <div class="form-grid">
       <div class="form-group"><label>Nro presupuesto</label><input id="fp-nro"></div>
-      <div class="form-group"><label>Vendedor</label><select id="fp-vend"><option>G</option><option>J</option><option>G/J</option></select></div>
+      <div class="form-group"><label>Vendedor</label><select id="fp-vend"><option value="G">G · Giancarlo</option><option>J</option><option>G/J</option></select></div>
       <div class="form-group full"><label>Cliente</label><input id="fp-cliente"></div>
       <div class="form-group full"><label>Descripción</label><input id="fp-desc"></div>
       <div class="form-group"><label>Importe</label><input id="fp-importe" type="number"></div>
@@ -1098,11 +1098,13 @@ provider.setCustomParameters({ hd: 'tizpublicidad.com' });
 // PERMISOS
 // ============================================================
 const ADMIN_EMAIL = 'info@tizpublicidad.com';
+const ADMIN_EMAILS = new Set([ADMIN_EMAIL, 'giancarlo.pareja@tizpublicidad.com']);
 
 // Mapa email → sector. Completar con los emails reales del equipo.
 const USER_SECTOR_MAP = {
   'contrerasfedericograbriel365@gmail.com': 'Operaciones',
   'info@tizpublicidad.com':              'Ventas',
+  'giancarlo.pareja@tizpublicidad.com': 'Ventas',
   'pablo.aciar@tizpublicidad.com':       'Producción',
   'julieta.aguirre@tizpublicidad.com':   'Diseño',
   'carolina.flores@tizpublicidad.com':   'Compras',
@@ -1132,9 +1134,9 @@ function getUserSector(email) {
 }
 // Colocaciones is visible to authenticated users; edits keep sector permissions.
 window.canViewPage = page => !!window.currentUser && (window.currentUser.restrictedColocaciones ? page==='colocaciones' : page==='colocaciones');
-window.canViewOperaciones = () => ['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com','contrerasfedericograbriel365@gmail.com'].includes(String(window.currentUser?.email||'').toLowerCase());
+window.canViewOperaciones = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','contrerasfedericograbriel365@gmail.com'].includes(String(window.currentUser?.email||'').toLowerCase());
 window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
-window.canViewIndicadores = () => ['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());
+window.canViewIndicadores = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());
 window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
   if (window.currentUser.isAdmin) return true;
@@ -1192,10 +1194,11 @@ onAuthStateChanged(auth, async user => {
     const sector = getUserSector(user.email);
     window.currentUser = {
       email: user.email,
-      name: user.displayName,
+      name: user.email === 'giancarlo.pareja@tizpublicidad.com' ? 'Giancarlo Pareja' : user.displayName,
       photo: user.photoURL,
       sector,
-      isAdmin: user.email === ADMIN_EMAIL,
+      isAdmin: ADMIN_EMAILS.has(String(user.email||'').toLowerCase()),
+      vendedor: user.email === 'giancarlo.pareja@tizpublicidad.com' ? 'G' : '',
       restrictedOperaciones:user.email==='contrerasfedericograbriel365@gmail.com',
       restrictedColocaciones:user.email==='arielbenitezpublicidad@gmail.com',
       restrictedChecklists:user.email==='cristiantizpublicidad@gmail.com',
@@ -3622,7 +3625,7 @@ async function syncToSheets(data) {
 
 <script src="excelMadre.js?v=TIZ-V40-BASE-20260903"></script>
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
-<script src="functions/calidadChecklistCoreV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C"></script>
+<script src="functions/calidadChecklistCoreV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C-GIANCARLO-20261023"></script>
 <script src="calidadChecklistsV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C"></script>
 <script src="calidadV1.js?v=TIZ-CALIDAD-COMPLETA-20261015"></script>
 <script src="comprasObrasCoreV1.js?v=TIZ-COMPRAS-OBRAS-20261015"></script>
@@ -3633,7 +3636,7 @@ async function syncToSheets(data) {
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261016A"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-GIANCARLO-20261023"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016"></script>
@@ -3657,9 +3660,9 @@ async function syncToSheets(data) {
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022"></script>
 <script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE"></script>
-<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A"></script>
+<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023"></script>
 <script src="operacionesV1.js?v=TIZ-OPERACIONES-20261016C-OSCURO"></script>
-<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE"></script>
+<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 </body>

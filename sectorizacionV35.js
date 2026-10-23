@@ -178,7 +178,7 @@
     const desc=document.getElementById('pp-desc')?.closest('.form-group');
     const wrap=document.createElement('div'); wrap.style.display='contents';
     wrap.innerHTML=`
-      <div class="form-group"><label>Vendedor</label><select id="pp-vendedor"><option>G</option><option>J</option><option>G/J</option></select></div>
+      <div class="form-group"><label>Vendedor</label><select id="pp-vendedor"><option value="G">G · Giancarlo</option><option>J</option><option>G/J</option></select></div>
       <div class="form-group"><label>Fecha presupuesto</label><input id="pp-fecha" placeholder="DD/MM/AAAA"></div>
       <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Pendiente</option><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option></select></div>
       <div class="form-group"><label>Moneda</label><select id="pp-moneda"><option value="ARS">ARS $</option><option value="USD">USD</option></select></div>

@@ -1,7 +1,7 @@
 'use strict';
 const C=require('./analisisPreliminarCoreV1');
 const FEDE='contrerasfedericograbriel365@gmail.com';
-const USERS=new Set([FEDE,'pablo.aciar@tizpublicidad.com','info@tizpublicidad.com']);
+const USERS=new Set([FEDE,'pablo.aciar@tizpublicidad.com','info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com']);
 const text=v=>String(v??'').trim();
 function authorize(email){email=text(email).toLowerCase();if(!USERS.has(email))throw Object.assign(Error('Sin permiso para Operaciones.'),{status:403});return email;}
 const key=w=>w.ot?'ot-'+C.baseOt(w.ot):w.id;

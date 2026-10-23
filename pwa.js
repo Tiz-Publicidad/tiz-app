@@ -4,7 +4,7 @@
   const base=new URL('./',document.baseURI);
   const installed=()=>installedThisSession||window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
   let promptEvent=null,registration=null,applying=false,installedThisSession=false,pendingUpdate=false;
-  const updateEditors=new Set(['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com']);
+  const updateEditors=new Set(['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com']);
   const managesUpdates=()=>updateEditors.has(String(window.currentUser?.email||'').toLowerCase());
   const edited=new Map();
   const value=el=>['checkbox','radio'].includes(el.type)?el.checked:el.value;

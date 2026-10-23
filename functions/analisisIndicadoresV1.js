@@ -1,6 +1,6 @@
 'use strict';
 const C=require('./analisisPreliminarCoreV1');
-const MANAGERS=new Set(['info@tizpublicidad.com','pablo.aciar@tizpublicidad.com']);
+const MANAGERS=new Set(['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com']);
 const canView=user=>MANAGERS.has(C.norm(user?.email));
 const localDate=value=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value));
 function shift(day,n){const d=new Date(day+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}

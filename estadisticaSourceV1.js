@@ -6,7 +6,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const money=v=>v===null||v===undefined?'Sin dato':new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(v);
 const percent=(a,t)=>a===null||!(t>0)?null:Math.round(a/t*100);
 const badge=(a,t)=>{const p=percent(a,t);return p===null?'<span style="color:var(--text3)">Sin meta</span>':`<span class="badge badge-${p>=100?'green':p>=80?'amber':'red'}">${p}%</span>`;};
-const allowed=()=>window.currentUser?.isAdmin&&String(window.currentUser.email||'').toLowerCase()==='info@tizpublicidad.com';
+const allowed=()=>window.currentUser?.isAdmin&&['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(String(window.currentUser.email||'').toLowerCase());
 function current(){return allowed()&&window.currentPage==='estadistica'&&['tabla','mensual','metas'].includes(window.estTab);}
 function reset(){snapshot=null;error='';busy=false;lastRead=0;request++;}
 async function load(force){if(!allowed()||busy||!force&&lastRead&&Date.now()-lastRead<60000)return;busy=true;error='';const email=session,id=++request;render();try{const value=await window.estadisticaSourceApiV1();if(id!==request||!allowed()||email!==window.currentUser.email)return;snapshot=value;lastRead=Date.now();}catch(e){if(id===request&&email===window.currentUser?.email)error=e.message;}finally{if(id===request){busy=false;if(current())render();}}}

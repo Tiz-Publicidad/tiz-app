@@ -18,7 +18,7 @@ function parse(rows){
  return {ok:true,year:2026,source:{spreadsheetId:ID,tab:'Estadistica',range:'A1:AB59'},sectors,readAt:new Date().toISOString()};
 }
 async function load(sheets,email){
- if(String(email||'').toLowerCase()!=='info@tizpublicidad.com')throw Object.assign(Error('Estadísticas económicas habilitadas sólo para Administración.'),{status:403});
+ if(!['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(String(email||'').toLowerCase()))throw Object.assign(Error('Estadísticas económicas habilitadas sólo para Administración.'),{status:403});
  const response=await sheets.spreadsheets.values.get({spreadsheetId:ID,range:"'Estadistica'!A1:AB59",valueRenderOption:'UNFORMATTED_VALUE'});
  return parse(response.data.values||[]);
 }
