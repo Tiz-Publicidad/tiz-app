@@ -14,6 +14,7 @@ const {
 const { archivarFacturaPdfEnDrive } = require("./facturaDrive2026");
 const { validarDiasPago } = require("./condicionesPagoV127");
 const fechas = require("./arcaFechasV1");
+const fce = require("./arcaFceV1");
 if (!admin.apps.length) admin.initializeApp();
 const cert = defineSecret("ARCA_PROD_CERTIFICATE_PEM"),
   key = defineSecret("ARCA_PROD_PRIVATE_KEY_PEM"),
@@ -86,11 +87,11 @@ async function operator(req) {
     });
   return email;
 }
-function tra() {
+function tra(service = "wsfe") {
   const n = new Date(),
     g = new Date(n - 600000).toISOString().replace(/\.\d{3}Z$/, "Z"),
     e = new Date(n.getTime() + 600000).toISOString().replace(/\.\d{3}Z$/, "Z");
-  return `<?xml version="1.0"?><loginTicketRequest version="1.0"><header><uniqueId>${Math.floor(n.getTime() / 1000)}</uniqueId><generationTime>${g}</generationTime><expirationTime>${e}</expirationTime></header><service>wsfe</service></loginTicketRequest>`;
+  return `<?xml version="1.0"?><loginTicketRequest version="1.0"><header><uniqueId>${Math.floor(n.getTime() / 1000)}</uniqueId><generationTime>${g}</generationTime><expirationTime>${e}</expirationTime></header><service>${esc(service)}</service></loginTicketRequest>`;
 }
 function cms(x) {
   const p = forge.pkcs7.createSignedData();
@@ -119,6 +120,7 @@ async function soap(url, action, body) {
         SOAPAction: action,
       },
       body,
+      signal: AbortSignal.timeout(15000),
     }),
     t = await r.text(),
     f = tag(t, "faultstring");
@@ -126,19 +128,40 @@ async function soap(url, action, body) {
   if (!r.ok) throw new Error(`ARCA respondió HTTP ${r.status}`);
   return t;
 }
-async function credentials() {
-  const e = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body><loginCms xmlns="http://wsaa.view.sua.dvadac.desein.afip.gov"><in0>${cms(tra())}</in0></loginCms></soapenv:Body></soapenv:Envelope>`,
+const credentialCache = new Map();
+async function credentials(service = "wsfe") {
+  if (!["wsfe", "wsfecred"].includes(service)) throw new Error("Servicio ARCA inválido");
+  const cached=credentialCache.get(service);
+  if(cached && cached.expires>Date.now()+60000)return cached.value;
+  const e = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body><loginCms xmlns="http://wsaa.view.sua.dvadac.desein.afip.gov"><in0>${cms(tra(service))}</in0></loginCms></soapenv:Body></soapenv:Envelope>`,
     x = await soap(WSAA, "", e),
     r = tag(x, "loginCmsReturn"),
     token = tag(r, "token"),
     sign = tag(r, "sign");
   if (!token || !sign) throw new Error("WSAA no devolvió credenciales válidas");
-  return { token, sign };
+  const value={token,sign},expires=Date.parse(tag(r,"expirationTime"));
+  if(Number.isFinite(expires))credentialCache.set(service,{value,expires});
+  return value;
 }
 async function call(method, inner, cr) {
   const a = `<Auth><Token>${esc(cr.token)}</Token><Sign>${esc(cr.sign)}</Sign><Cuit>${esc(issuer.value())}</Cuit></Auth>`,
     e = `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><${method} xmlns="http://ar.gov.afip.dif.FEV1/">${a}${inner || ""}</${method}></soap:Body></soap:Envelope>`;
   return soap(WSFE, `http://ar.gov.afip.dif.FEV1/${method}`, e);
+}
+async function consultarObligacionFce({cuit,fecha,total}) {
+  try {
+    const cr=await credentials('wsfecred');
+    const xml=await soap(fce.URL,fce.NS+'consultarMontoObligadoRecepcion',fce.request({...cr,issuer:issuer.value(),cuit,fecha}));
+    return {...fce.parse(xml,total),cuit,fecha};
+  } catch(error) {
+    if(error.status)throw error;
+    throw Object.assign(new Error('No se pudo verificar la obligación de FCE en ARCA. Revisá que el certificado tenga habilitado el servicio WSFECRED y reintentá. No se emitió ningún comprobante.'),{status:503});
+  }
+}
+function importeConsultaFce(body){
+  const neto=round2(body.neto),exento=body.tratamientoIva==='exento',cfg=ivaConfig(body.alicuota??21,exento);
+  if(!Number.isFinite(Number(body.neto))||neto<=0)throw Object.assign(new Error('Importe neto inválido'),{status:400});
+  return round2(neto+(exento?0:round2(neto*cfg.pct/100)));
 }
 function day(add = 0) {
   const d = new Date(Date.now() + Number(add || 0) * 86400000),
@@ -293,7 +316,7 @@ async function syncBaseMadreFactura(obra, comprobantes, db, obraId, email) {
 }
 const secrets = [cert, key, issuer, allowed];
 const facturacionIntegralEmitirV83 = onRequest(
-  { region: "us-central1", invoker: "public", secrets, timeoutSeconds: 90 },
+  { region: "us-central1", invoker: "public", secrets, timeoutSeconds: 120 },
   async (req, res) => {
     cors(req, res);
     if (req.method === "OPTIONS") return res.status(204).send("");
@@ -310,6 +333,16 @@ const facturacionIntegralEmitirV83 = onRequest(
       authorized = false;
     try {
       const email = await operator(req);
+      if(req.body?.mode==='fce-check'){
+        const cfg=validateType(Number(req.body.cbteTipo));
+        if(cfg.familia!=='factura')return res.json({ok:true,nota:true,requiereFce:false});
+        const cuit=String(req.body.docNro||'').replace(/\D/g,''),fecha=fechas.iso(req.body.fechaEmision),total=importeConsultaFce(req.body);
+        if(!/^\d{11}$/.test(cuit))throw Object.assign(new Error('CUIT receptor inválido'),{status:400});
+        const check=await consultarObligacionFce({cuit,fecha,total});
+        let configurada=false,configError='',cbuFinal='';
+        if(check.requiereFce){try{const settings=await fce.loadConfig(google);configurada=true;cbuFinal=settings.cbuFce.slice(-4);}catch(e){configError=e.message;}}
+        return res.json({ok:true,...check,fceConfigurada:configurada,configError,cbuFinal,sistemaCirculacion:'SCA'});
+      }
       if(req.body?.mode==='date-limits'){
         const tipo=Number(req.body.cbteTipo),cfg=validateType(tipo),concepto=fechas.concept(req.body.concepto??1),cr=await credentials();
         const last=await lastAuthorized(tipo,cr);
@@ -443,6 +476,13 @@ const facturacionIntegralEmitirV83 = onRequest(
         iniciadoAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       const cr = await credentials(),last=await lastAuthorized(tipo,cr);
+      // Mandatory server-side check: caller flags or an old preview cannot bypass it.
+      const verificacionFce=cfg.familia==='factura'?await consultarObligacionFce({cuit,fecha,total}):null;
+      fce.enforce(cfg,verificacionFce);
+      const settingsFce=cfg.fce&&cfg.familia==='factura'?await fce.loadConfig(google):null;
+      const anulacionFce=cfg.fce&&cfg.familia!=='factura'?String(req.body?.anulacionFce||'N'):null;
+      fce.validateDue(cfg,vto.iso,fecha,fechas.today());
+      const opcionales=fce.optionalXml(cfg,settingsFce,anulacionFce||'N');
       // Recheck under the same type/PV lock; another operator may have emitted meanwhile.
       fechas.validate(fecha,fechas.limits({concepto,fce:!!cfg.fce,...last}));
       const next=last.ultimoNumero+1,
@@ -452,10 +492,9 @@ const facturacionIntegralEmitirV83 = onRequest(
         ivaXml = exento
           ? ""
           : `<Iva><AlicIva><Id>${ivaCfg.id}</Id><BaseImp>${neto.toFixed(2)}</BaseImp><Importe>${iva.toFixed(2)}</Importe></AlicIva></Iva>`,
-        fceVto = concepto!==1
-          ? `<FchServDesde>${periodo.fechaServicioDesde.replace(/-/g,'')}</FchServDesde><FchServHasta>${periodo.fechaServicioHasta.replace(/-/g,'')}</FchServHasta><FchVtoPago>${vto.arca}</FchVtoPago>`
-          : cfg.fce ? `<FchVtoPago>${vto.arca}</FchVtoPago>` : "";
-      const detail = `<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${PTO}</PtoVta><CbteTipo>${tipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>${concepto}</Concepto><DocTipo>80</DocTipo><DocNro>${cuit}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${hoy.arca}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${(exento ? 0 : neto).toFixed(2)}</ImpNeto><ImpOpEx>${(exento ? neto : 0).toFixed(2)}</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA>${fceVto}<MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>${cond}</CondicionIVAReceptorId>${asocXml}${ivaXml}</FECAEDetRequest></FeDetReq></FeCAEReq>`,
+        fceVto = (concepto!==1?`<FchServDesde>${periodo.fechaServicioDesde.replace(/-/g,'')}</FchServDesde><FchServHasta>${periodo.fechaServicioHasta.replace(/-/g,'')}</FchServHasta>`:'')+
+          ((cfg.fce?(cfg.familia==='factura'||anulacionFce==='S'):concepto!==1)?`<FchVtoPago>${vto.arca}</FchVtoPago>`:'');
+      const detail = `<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${PTO}</PtoVta><CbteTipo>${tipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>${concepto}</Concepto><DocTipo>80</DocTipo><DocNro>${cuit}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${hoy.arca}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${(exento ? 0 : neto).toFixed(2)}</ImpNeto><ImpOpEx>${(exento ? neto : 0).toFixed(2)}</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA>${fceVto}<MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>${cond}</CondicionIVAReceptorId>${asocXml}${ivaXml}${opcionales}</FECAEDetRequest></FeDetReq></FeCAEReq>`,
         xml = await call("FECAESolicitar", detail, cr),
         result = tag(xml, "Resultado"),
         cae = tag(xml, "CAE"),
@@ -476,6 +515,9 @@ const facturacionIntegralEmitirV83 = onRequest(
           familia: cfg.familia,
           letra: cfg.letra,
           fce: !!cfg.fce,
+          ...(settingsFce||{}),
+          ...(anulacionFce?{anulacionFce}:{}),
+          ...(verificacionFce?{verificacionFce}:{}),
           ptoVta: PTO,
           cbteTipo: tipo,
           cbteNro: next,

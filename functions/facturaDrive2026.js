@@ -166,8 +166,8 @@ function pdfBuffer(factura, obra, issuerCuit) {
         .text(`COD. ${cod}`, mid - 28, 85, { width: 56, align: "center" });
       doc
         .font("Helvetica-Bold")
-        .fontSize(19)
-        .text(titulo, mid + 42, 59, { width: 220 });
+        .fontSize(titulo.length>25?10:19)
+        .text(titulo, mid + 42, 59, { width: 220, height: 34 });
       labelValue(
         doc,
         "Punto de Venta:",
@@ -361,6 +361,11 @@ function pdfBuffer(factura, obra, issuerCuit) {
         totalsTop = 55;
       }
       doc.rect(left, totalsTop, width, 128).stroke();
+      if ([201,206].includes(Number(factura.cbteTipo))) {
+        doc.font('Helvetica-Bold').fontSize(8).text('Factura de Crédito Electrónica MiPyME',left+10,totalsTop+14,{width:300});
+        doc.font('Helvetica').fontSize(8).text(`CBU: ${factura.cbuFce || 'No informado'}`,left+10,totalsTop+36,{width:300});
+        doc.text('Sistema de Circulación Abierta (SCA)',left+10,totalsTop+54,{width:300});
+      }
       const tx = 385,
         valx = 478;
       const rows = [
