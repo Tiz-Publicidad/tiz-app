@@ -71,7 +71,7 @@ test('alta desde navegador busca la próxima fila libre, preserva tareas y no du
    const data=JSON.parse(options.body).data;writes.push(...data);
    for(const d of data){const m=d.range.match(/!([A-Z]+)(\d+)/),row=Number(m[2]),col=[...m[1]].reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1,r=rows.get(row)||[];d.values[0].forEach((v,i)=>r[col+i]=v);rows.set(row,r);}
    result={};
-  }else if(address.includes('?fields='))result={sheets:[{properties:{title:'Base de datos',sheetId:1,gridProperties:{rowCount:2205,columnCount:38}}}]};
+  }else if(address.includes('fields=sheets('))result={sheets:[{properties:{title:'Base de datos',sheetId:1,gridProperties:{rowCount:2205,columnCount:38}}}]};
   else if(address.includes('A2:AL2'))result={values:[headers]};
   else if(address.includes('D3:D'))result={values:Array.from({length:Math.max(...rows.keys())-2},(_,i)=>[rows.get(i+3)?.[3]||''])};
   else{
@@ -97,4 +97,12 @@ test('si una fila se ocupa durante la lectura, busca la siguiente sin tocarla',a
   appendRows:async()=>assert.fail('hay espacio en la grilla')
  });
  assert.equal(row,451);assert.deepEqual(calls,[[450,649,40],[450,450,40],[451,451,40]]);
+});
+
+test('las ventas nuevas omiten filas vacías ocultadas manualmente',async()=>{
+ const row=await C.nextFreeRow(450,{
+  getGrid:async()=>({sheetId:1,rowCount:2203,columnCount:38,hiddenRows:[450,451,452]}),
+  readRows:async()=>[],appendRows:async()=>assert.fail('hay filas visibles libres')
+ });
+ assert.equal(row,453);
 });

@@ -36,9 +36,10 @@ function nextEmptyRow(values) {
 async function nextAvailableRow(sheets, start) {
   return layoutCore.nextFreeRow(start, {
     getGrid: async () => {
-      const result = await sheets.spreadsheets.get({spreadsheetId:SPREADSHEET_ID,fields:"sheets(properties(sheetId,title,gridProperties))"});
-      const properties = result.data.sheets?.find(s => s.properties.title === SHEET)?.properties;
-      return {...properties?.gridProperties, sheetId:properties?.sheetId};
+      const result = await sheets.spreadsheets.get({spreadsheetId:SPREADSHEET_ID,ranges:[`'${SHEET}'!A3:A`],includeGridData:true,fields:"sheets(properties(sheetId,title,gridProperties),data(startRow,rowMetadata(hiddenByUser)))"});
+      const sheet = result.data.sheets?.find(s => s.properties.title === SHEET), properties = sheet?.properties;
+      const hiddenRows = (sheet?.data || []).flatMap(d => (d.rowMetadata || []).flatMap((r,i) => r.hiddenByUser ? [d.startRow+i+1] : []));
+      return {...properties?.gridProperties, sheetId:properties?.sheetId, hiddenRows};
     },
     readRows: async (first,last,count) => {
       const result = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${first}:${layoutCore.column(count-1)}${last}`,valueRenderOption:"FORMULA"});

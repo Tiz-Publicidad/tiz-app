@@ -74,7 +74,7 @@ jobs:
           node --check functions/calidadChecklistApiV2.js
           node --test tests/calidadChecklistV2.test.cjs tests/calidadPortalV1.test.cjs
           grep -q 'sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016' index.html
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-LIBRE-20261023' index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' index.html
@@ -139,7 +139,7 @@ jobs:
           test -f site/app.js
           test -f site/sectorizacionV35.js
           test -f site/baseMadreSyncV116.js
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-LIBRE-20261023' site/index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023' site/index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' site/index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' site/index.html

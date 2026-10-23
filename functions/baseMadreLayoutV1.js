@@ -33,7 +33,7 @@
     // Read in blocks, including every column: manual tasks and formulas may lack an OT.
     for(let first=start;first<=grid.rowCount;first+=200){
       const last=Math.min(first+199,grid.rowCount),rows=await readRows(first,last,grid.columnCount);
-      for(let row=first;row<=last;row++)if(emptyRow(rows[row-first]||[],row)){
+      for(let row=first;row<=last;row++)if(!grid.hiddenRows?.includes(row)&&emptyRow(rows[row-first]||[],row)){
         // Recheck the candidate immediately before returning it for writing.
         const fresh=await readRows(row,row,grid.columnCount);
         if(emptyRow(fresh[0]||[],row))return row;
