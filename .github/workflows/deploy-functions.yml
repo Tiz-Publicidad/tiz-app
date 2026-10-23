@@ -45,6 +45,9 @@ jobs:
           node --check colocacionesGeneralUIV129.js
           node --test tests/colocacionesV131.test.cjs
           node --check functions/index.js
+          node --check functions/arcaFechasV1.js
+          node --check facturadorIntegralV83.js
+          node --test tests/arcaFechasV1.test.cjs
           node --check functions/facturacionIntegralApiV83.js
           node --check functions/facturaDrive2026.js
           node --check functions/facturacionDriveRetryV83.js
@@ -96,7 +99,7 @@ jobs:
           fi
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             backend_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
-            if [ -n "$backend_changed" ] && ! printf '%s\n' "$backend_changed" | grep -Ev '^functions/(facturacionIntegralApiV83|condicionesPagoV127)\.js$' | grep -q .; then
+            if [ -n "$backend_changed" ] && ! printf '%s\n' "$backend_changed" | grep -Ev '^functions/(facturacionIntegralApiV83|condicionesPagoV127|arcaFechasV1|facturaDrive2026)\.js$' | grep -q .; then
               targets=functions:facturacionIntegralEmitirV83
             fi
           fi

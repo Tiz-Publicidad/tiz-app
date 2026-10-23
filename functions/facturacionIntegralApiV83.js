@@ -13,6 +13,7 @@ const {
 } = require("./arcaFiscalCoreV83");
 const { archivarFacturaPdfEnDrive } = require("./facturaDrive2026");
 const { validarDiasPago } = require("./condicionesPagoV127");
+const fechas = require("./arcaFechasV1");
 if (!admin.apps.length) admin.initializeApp();
 const cert = defineSecret("ARCA_PROD_CERTIFICATE_PEM"),
   key = defineSecret("ARCA_PROD_PRIVATE_KEY_PEM"),
@@ -156,6 +157,18 @@ function day(add = 0) {
     iso: `${p.year}-${p.month}-${p.day}`,
   };
 }
+async function lastAuthorized(tipo,cr){
+  const xml=await call('FECompUltimoAutorizado',`<PtoVta>${PTO}</PtoVta><CbteTipo>${tipo}</CbteTipo>`,cr);
+  const raw=tag(xml,'CbteNro');
+  if(!/^\d+$/.test(raw)||tag(xml,'Errors'))throw new Error('No se pudo consultar el último comprobante de ARCA. '+tag(xml,'Msg'));
+  const numero=Number(raw);if(!numero)return {ultimoNumero:0,ultimaFecha:''};
+  const detail=await call('FECompConsultar',`<FeCompConsReq><CbteTipo>${tipo}</CbteTipo><CbteNro>${numero}</CbteNro><PtoVta>${PTO}</PtoVta></FeCompConsReq>`,cr);
+  const result=tag(detail,'ResultGet'),date=tag(result,'CbteFch');
+  if(!result||tag(detail,'Errors')||!/^\d{8}$/.test(date))throw new Error('No se pudo verificar la fecha del último comprobante en ARCA. '+tag(detail,'Msg'));
+  const ultimaFecha=fechas.iso(date.slice(0,4)+'-'+date.slice(4,6)+'-'+date.slice(6,8));
+  return {ultimoNumero:numero,ultimaFecha};
+}
+
 function list(o) {
   const a = Array.isArray(o.comprobantesArca)
     ? [...o.comprobantesArca]
@@ -297,6 +310,11 @@ const facturacionIntegralEmitirV83 = onRequest(
       authorized = false;
     try {
       const email = await operator(req);
+      if(req.body?.mode==='date-limits'){
+        const tipo=Number(req.body.cbteTipo),cfg=validateType(tipo),concepto=fechas.concept(req.body.concepto??1),cr=await credentials();
+        const last=await lastAuthorized(tipo,cr);
+        return res.json({ok:true,ptoVta:PTO,cbteTipo:tipo,concepto,...fechas.limits({concepto,fce:!!cfg.fce,...last})});
+      }
       if (req.body?.confirmacion !== "EMITIR COMPROBANTE REAL PV 00009")
         throw Object.assign(new Error("Falta confirmación final"), {
           status: 400,
@@ -312,6 +330,11 @@ const facturacionIntegralEmitirV83 = onRequest(
         throw Object.assign(new Error("Falta identificar operación"), {
           status: 400,
         });
+      op = db.collection("arcaEmisiones").doc(`v83-${obraId}-${idKey}`);
+      const old = await op.get();
+      if(old.exists&&old.data()?.status==='autorizada')return res.json({ok:true,...old.data().comprobante,repetida:true});
+      const concepto=fechas.concept(req.body?.concepto??1),fecha=fechas.validate(req.body?.fechaEmision||fechas.today(),fechas.limits({concepto,fce:!!cfg.fce}));
+      const periodo=fechas.serviceDates({concepto,fecha,desde:req.body?.fechaServicioDesde,hasta:req.body?.fechaServicioHasta,diasPago:diasPagoElegidos});
       const ref = db.collection("obras").doc(obraId),
         snap = await ref.get();
       if (!snap.exists)
@@ -387,16 +410,8 @@ const facturacionIntegralEmitirV83 = onRequest(
       const iva = exento ? 0 : round2((neto * ivaCfg.pct) / 100),
         total = round2(neto + iva),
         dias = diasPagoElegidos,
-        hoy = day(),
-        vto = day(dias);
-      op = db.collection("arcaEmisiones").doc(`v83-${obraId}-${idKey}`);
-      const old = await op.get();
-      if (old.exists && old.data()?.status === "autorizada")
-        return res.json({
-          ok: true,
-          ...old.data().comprobante,
-          repetida: true,
-        });
+        hoy = {iso:fecha,arca:fecha.replace(/-/g,'')},
+        vto = {iso:periodo.fechaVencimientoPago,arca:periodo.fechaVencimientoPago.replace(/-/g,'')};
       lock = db.collection("arcaLocks").doc(`pv9-tipo${tipo}`);
       await db.runTransaction(async (tx) => {
         const s = await tx.get(lock),
@@ -427,21 +442,20 @@ const facturacionIntegralEmitirV83 = onRequest(
         operador: email,
         iniciadoAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      const cr = await credentials(),
-        lx = await call(
-          "FECompUltimoAutorizado",
-          `<PtoVta>${PTO}</PtoVta><CbteTipo>${tipo}</CbteTipo>`,
-          cr,
-        ),
-        next = Number(tag(lx, "CbteNro") || 0) + 1,
+      const cr = await credentials(),last=await lastAuthorized(tipo,cr);
+      // Recheck under the same type/PV lock; another operator may have emitted meanwhile.
+      fechas.validate(fecha,fechas.limits({concepto,fce:!!cfg.fce,...last}));
+      const next=last.ultimoNumero+1,
         asocXml = asoc
           ? `<CbtesAsoc><CbteAsoc><Tipo>${asoc.cbteTipo}</Tipo><PtoVta>${asoc.ptoVta}</PtoVta><Nro>${asoc.cbteNro}</Nro>${cfg.fce ? `<Cuit>${cuit}</Cuit>` : ""}</CbteAsoc></CbtesAsoc>`
           : "",
         ivaXml = exento
           ? ""
           : `<Iva><AlicIva><Id>${ivaCfg.id}</Id><BaseImp>${neto.toFixed(2)}</BaseImp><Importe>${iva.toFixed(2)}</Importe></AlicIva></Iva>`,
-        fceVto = cfg.fce ? `<FchVtoPago>${vto.arca}</FchVtoPago>` : "";
-      const detail = `<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${PTO}</PtoVta><CbteTipo>${tipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>1</Concepto><DocTipo>80</DocTipo><DocNro>${cuit}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${hoy.arca}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${(exento ? 0 : neto).toFixed(2)}</ImpNeto><ImpOpEx>${(exento ? neto : 0).toFixed(2)}</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA>${fceVto}<MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>${cond}</CondicionIVAReceptorId>${asocXml}${ivaXml}</FECAEDetRequest></FeDetReq></FeCAEReq>`,
+        fceVto = concepto!==1
+          ? `<FchServDesde>${periodo.fechaServicioDesde.replace(/-/g,'')}</FchServDesde><FchServHasta>${periodo.fechaServicioHasta.replace(/-/g,'')}</FchServHasta><FchVtoPago>${vto.arca}</FchVtoPago>`
+          : cfg.fce ? `<FchVtoPago>${vto.arca}</FchVtoPago>` : "";
+      const detail = `<FeCAEReq><FeCabReq><CantReg>1</CantReg><PtoVta>${PTO}</PtoVta><CbteTipo>${tipo}</CbteTipo></FeCabReq><FeDetReq><FECAEDetRequest><Concepto>${concepto}</Concepto><DocTipo>80</DocTipo><DocNro>${cuit}</DocNro><CbteDesde>${next}</CbteDesde><CbteHasta>${next}</CbteHasta><CbteFch>${hoy.arca}</CbteFch><ImpTotal>${total.toFixed(2)}</ImpTotal><ImpTotConc>0.00</ImpTotConc><ImpNeto>${(exento ? 0 : neto).toFixed(2)}</ImpNeto><ImpOpEx>${(exento ? neto : 0).toFixed(2)}</ImpOpEx><ImpTrib>0.00</ImpTrib><ImpIVA>${iva.toFixed(2)}</ImpIVA>${fceVto}<MonId>PES</MonId><MonCotiz>1.000000</MonCotiz><CondicionIVAReceptorId>${cond}</CondicionIVAReceptorId>${asocXml}${ivaXml}</FECAEDetRequest></FeDetReq></FeCAEReq>`,
         xml = await call("FECAESolicitar", detail, cr),
         result = tag(xml, "Resultado"),
         cae = tag(xml, "CAE"),
@@ -467,6 +481,8 @@ const facturacionIntegralEmitirV83 = onRequest(
           cbteNro: next,
           numeroCompleto: numero,
           fecha: hoy.iso,
+          concepto,
+          ...(concepto!==1?{fechaServicioDesde:periodo.fechaServicioDesde,fechaServicioHasta:periodo.fechaServicioHasta}:{}),
           cae,
           caeVto,
           cliente: String(obra.cliente || ""),
