@@ -14,7 +14,11 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
   const headers=['Fecha',...(shifted?['F de Prod']:[]),'Sem','OT/CT','Descripcion de la obra','Arquitecto','Cliente','Neto','Bruto'];
   const otColumn=shifted?'D':'C';
   const calls = [];
-  const sheet = {spreadsheets:{values:{
+  let rowCount=2205;
+  const sheet = {spreadsheets:{
+    get:async()=>({data:{sheets:[{properties:{title:'Base de datos',sheetId:1,gridProperties:{rowCount,columnCount:38}}}]}}),
+    batchUpdate:async({requestBody})=>{rowCount+=requestBody.requests[0].appendDimension.length;},
+    values:{
     get: async ({range}) => {
       if (range.endsWith('R421:Y421')) return {data:{values:[Array(8).fill('')]}};
       if(range.endsWith('A2:AL2'))return {data:{values:[headers]}};
@@ -22,11 +26,13 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
         const arr = Array.from({length:Math.max(422,...rows.keys())-2}, (_,i) => [rows.get(i+3)?.[otColumn] || '']);
         return {data:{values:arr}};
       }
-      const m = range.match(/!A(\d+):(?:AD|AL|Y)\d+/);
+      const m = range.match(/!A(\d+):(?:AD|AL|Y)(\d+)/);
       if (m) {
-        const r = rows.get(Number(m[1])) || {};
-        const values = Array.from({length:30}, (_,i) => r[String.fromCharCode(65+i)] || '');
-        return {data:{values:[values]}};
+        const values=Array.from({length:Number(m[2])-Number(m[1])+1},(_,offset)=>{
+          const r=rows.get(Number(m[1])+offset)||{};
+          return Array.from({length:38},(_,i)=>r[require('../functions/baseMadreLayoutV1').column(i)]??'');
+        });
+        return {data:{values}};
       }
       throw new Error('rango inesperado: '+range);
     },
@@ -136,7 +142,20 @@ test('no elige arbitrariamente entre dos filas de la OT al sincronizar aprobaci�
  assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,423);assert.equal(x.response.body.updated,true);
  assert.equal(x.rows.get(424),undefined);
  });
- test('si las siguientes 50 filas están ocupadas falla sin escribir',async()=>{
- const x=fixture();for(let r=421;r<471;r++)x.rows.set(r,{E:'Tarea manual'});
- await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);
+ test('sigue buscando después de más de 50 filas ocupadas',async()=>{
+ const x=fixture();for(let r=421;r<671;r++)x.rows.set(r,{E:'Tarea manual'});
+ await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,671);assert.equal(x.rows.get(670).E,'Tarea manual');
  });
+
+test('datos fuera de AD y valores falsy ocupan la fila',async()=>{
+ for(const extra of [{AL:'Dato manual'},{K:0},{K:false},{AL:'=""'}]){
+  const x=fixture({extra});await x.handler(x.req,x.response);
+  assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,422);
+  assert.deepEqual(x.rows.get(421),extra);
+ }
+});
+test('extiende al final si toda la planilla está ocupada',async()=>{
+ const x=fixture();for(let r=421;r<=2205;r++)x.rows.set(r,{E:'Tarea manual'});
+ await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,2206);
+ assert.equal(x.rows.get(2205).E,'Tarea manual');
+});
