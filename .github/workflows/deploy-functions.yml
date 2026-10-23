@@ -93,7 +93,7 @@ jobs:
           targets=functions:facturacionIntegralEmitirV83,functions:facturacionReintentarDriveV83,functions:sincronizarBaseMadreV120,functions:arcaPadronConsultarV125
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")
-            if ! printf '%s\n' "$changed" | grep -Ev '^(functions/arcaPadronA5V125.js|tests/arcaPadronV125.test.js|.github/workflows/deploy-functions.yml|.github/workflows/deploy-arca-padron.yml)$' | grep -q .; then
+            if printf '%s\n' "$changed" | grep -Eq '^functions/arcaPadronA5V125[.]js$' && ! printf '%s\n' "$changed" | grep -Ev '^(functions/arcaPadronA5V125.js|tests/arcaPadronV125.test.js|.github/workflows/deploy-functions.yml|.github/workflows/deploy-arca-padron.yml)$' | grep -q .; then
               targets=functions:arcaPadronConsultarV125
             fi
           fi
