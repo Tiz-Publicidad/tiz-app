@@ -33,26 +33,19 @@ function nextEmptyRow(values) {
   }
   return 3;
 }
-async function assertEmptyRow(sheets, row) {
-  const check = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${row}:AL${row}`, valueRenderOption:"FORMULA"});
-  // U is prefilled in the template even on rows without an OT. It is not a
-  // business record and none of the approval writes modify this column.
-  const expectedWeek = `=IF(T${row}="";"";IFERROR(WEEKNUM(INT(T${row});2);""))`;
-  const templateWeek = (value, column) => column === 20 &&
-    text(value).replace(/[\s$]/g, "").replace(/,/g, ";").toUpperCase() === expectedWeek;
-  if ((check.data.values?.[0] || []).some((v, column) => text(v) && !templateWeek(v, column))) {
-    throw Object.assign(new Error(`La fila ${row} tiene datos fuera de la columna OT.`), {status:409, code:"ROW_OCCUPIED"});
-  }
-}
-
 async function nextAvailableRow(sheets, start) {
-  // Manual planning tasks may have no OT. Preserve them and any formulas,
-  // checking the entire supported row before choosing the next free slot.
-  for (let row = start; row < start + 50; row++) {
-    try { await assertEmptyRow(sheets, row); return row; }
-    catch (error) { if (error.code !== "ROW_OCCUPIED") throw error; }
-  }
-  throw Object.assign(new Error("No hay una fila libre en las próximas 50 filas de la Base de datos."), {status:409});
+  return layoutCore.nextFreeRow(start, {
+    getGrid: async () => {
+      const result = await sheets.spreadsheets.get({spreadsheetId:SPREADSHEET_ID,fields:"sheets(properties(sheetId,title,gridProperties))"});
+      const properties = result.data.sheets?.find(s => s.properties.title === SHEET)?.properties;
+      return {...properties?.gridProperties, sheetId:properties?.sheetId};
+    },
+    readRows: async (first,last,count) => {
+      const result = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${first}:${layoutCore.column(count-1)}${last}`,valueRenderOption:"FORMULA"});
+      return result.data.values || [];
+    },
+    appendRows: async (sheetId,length) => sheets.spreadsheets.batchUpdate({spreadsheetId:SPREADSHEET_ID,requestBody:{requests:[{appendDimension:{sheetId,dimension:"ROWS",length}}]}})
+  });
 }
 
 function totalBudget(p) {

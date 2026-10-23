@@ -58,3 +58,43 @@ test('al emitir se busca la OT en D antes de sincronizar su factura',async()=>{
 test('al emitir no se modifica una fila si la OT es inexistente o ambigua',async()=>{
  for(const rows of [[],[['4775'],['4775']]]){const x=fiscalFixture(rows);await assert.rejects(x.run(),/única fila/);assert.equal(x.writes.length,0);assert.equal(x.marked.length,0);}
 });
+
+test('alta desde navegador busca la próxima fila libre, preserva tareas y no duplica al reintentar',async()=>{
+ const source=fs.readFileSync(require.resolve('../baseMadreSyncV116.js'),'utf8');
+ const rows=new Map([[420,Object.assign([],{3:'4774'})]]),writes=[];
+ for(let row=421;row<=675;row++)rows.set(row,Object.assign([],{4:'Tarea manual',37:'Dato a preservar'}));
+ const before=JSON.stringify([...rows]);
+ const window={TIZBaseMadreLayoutV1:C,DB:{presupuestos:[],obras:[]}};
+ const fetch=async(url,options)=>{
+  const address=decodeURIComponent(url);let result;
+  if(options.method==='POST'){
+   const data=JSON.parse(options.body).data;writes.push(...data);
+   for(const d of data){const m=d.range.match(/!([A-Z]+)(\d+)/),row=Number(m[2]),col=[...m[1]].reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1,r=rows.get(row)||[];d.values[0].forEach((v,i)=>r[col+i]=v);rows.set(row,r);}
+   result={};
+  }else if(address.includes('?fields='))result={sheets:[{properties:{title:'Base de datos',sheetId:1,gridProperties:{rowCount:2205,columnCount:38}}}]};
+  else if(address.includes('A2:AL2'))result={values:[headers]};
+  else if(address.includes('D3:D'))result={values:Array.from({length:Math.max(...rows.keys())-2},(_,i)=>[rows.get(i+3)?.[3]||''])};
+  else{
+   const m=address.match(/!A(\d+):(?:AL|AD)(\d+)/);assert.ok(m,address);
+   result={values:Array.from({length:Number(m[2])-Number(m[1])+1},(_,i)=>rows.get(Number(m[1])+i)||[])};
+  }
+  return {ok:true,json:async()=>result};
+ };
+ vm.runInNewContext(source.slice(0,source.indexOf('let billingMonitorBusy'))+'\nwindow.testSync=syncBudget;})();',{window,fetch,Date,Intl,console});
+ const budget={estado:'Aprobado',nro:'4775',cliente:'Cliente',desc:'Placas DT',importe:30000};
+ const result=await window.testSync(budget,{token:'test',silent:true});
+ assert.equal(result.row,676);assert.equal(result.updated,false);assert.equal(rows.get(676)[3],'4775');
+ assert.equal(JSON.stringify([...rows].filter(([r])=>r<676)),before);
+ const retry=await window.testSync(budget,{token:'test',silent:true});
+ assert.equal(retry.row,676);assert.equal(retry.updated,true);assert.equal(rows.has(677),false);
+});
+
+test('si una fila se ocupa durante la lectura, busca la siguiente sin tocarla',async()=>{
+ const calls=[];
+ const row=await C.nextFreeRow(450,{
+  getGrid:async()=>({sheetId:1,rowCount:1000,columnCount:40}),
+  readRows:async(first,last,count)=>{calls.push([first,last,count]);return first===last&&first===450?[[0]]:[];},
+  appendRows:async()=>assert.fail('hay espacio en la grilla')
+ });
+ assert.equal(row,451);assert.deepEqual(calls,[[450,649,40],[450,450,40],[451,451,40]]);
+});

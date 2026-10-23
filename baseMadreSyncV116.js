@@ -199,9 +199,19 @@ async function appendNew(payload,token,layout){
   const lookup=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!'+col+'3:'+col),token);
   const values=lookup.values||[];let row=3;
   for(let i=values.length-1;i>=0;i--)if(T(values[i]?.[0])){row=i+4;break}
-  const check=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A'+row+':AD'+row)+'?valueRenderOption=FORMULA',token);
-  const expectedWeek=`=IF(T${row}="";"";IFERROR(WEEKNUM(INT(T${row});2);""))`;
-  if((check.values?.[0]||[]).some((x,column)=>T(x)&&!(column===20&&T(x).replace(/[\s$]/g,'').replace(/,/g,';').toUpperCase()===expectedWeek)))throw new Error('La fila '+row+' tiene datos fuera de la columna OT. Revisá la Base de datos antes de sincronizar otra fila.');
+  const core=window.TIZBaseMadreLayoutV1;
+  row=await core.nextFreeRow(row,{
+    getGrid:async()=>{
+      const result=await sheetsFetch('?fields=sheets(properties(sheetId,title,gridProperties))',token);
+      const properties=result.sheets?.find(s=>s.properties.title===SHEET)?.properties;
+      return {...properties?.gridProperties,sheetId:properties?.sheetId};
+    },
+    readRows:async(first,last,count)=>{
+      const result=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A'+first+':'+core.column(count-1)+last)+'?valueRenderOption=FORMULA',token);
+      return result.values||[];
+    },
+    appendRows:async(sheetId,length)=>sheetsFetch(':batchUpdate',token,{method:'POST',body:JSON.stringify({requests:[{appendDimension:{sheetId,dimension:'ROWS',length}}]})})
+  });
   const data=window.TIZBaseMadreLayoutV1.approvalData(SHEET,row,payload,fmtDate(),isoWeek(),layout);
   data.push({range:escSheetName(SHEET)+'!Y'+row,values:[[payload.estado]]});
   await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
