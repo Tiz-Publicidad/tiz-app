@@ -78,8 +78,11 @@ jobs:
           grep -q 'sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016' index.html
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
-          grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
+          grep -q 'facturadorIntegralV83.js?v=TIZ-FC-FECHA-ARCA-20261023' index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' index.html
+          node --check functions/arcaFechasV1.js
+          node --check facturadorIntegralV83.js
+          node --test tests/arcaFechasV1.test.cjs
           node --check facturacionCobranzasDataV2.js
           node --check facturacionCobranzasActionsV2.js
           node --check facturacionBaseMadreReconcileV2.js
@@ -144,7 +147,7 @@ jobs:
           test -f site/baseMadreSyncV116.js
           grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023' site/index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' site/index.html
-          grep -q 'facturadorIntegralV83.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
+          grep -q 'facturadorIntegralV83.js?v=TIZ-FC-FECHA-ARCA-20261023' site/index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' site/index.html
           test -f site/facturacionCobranzasDataV2.js
           test -f site/facturacionCobranzasActionsV2.js

@@ -194,8 +194,8 @@ function pdfBuffer(factura, obra, issuerCuit) {
       );
       labelValue(doc, "CUIT:", issuerCuit, mid + 42, 145, 210);
 
-      const fDesde = fmtDate(factura.fecha),
-        fHasta = fmtDate(factura.fecha),
+      const fDesde = fmtDate(factura.fechaServicioDesde || factura.fecha),
+        fHasta = fmtDate(factura.fechaServicioHasta || factura.fecha),
         fPago = fmtDate(factura.fechaPrevistaCobro || factura.fecha);
       doc
         .font("Helvetica-Bold")
