@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function fixture({occupied = false, existing = false, billing = false, weekFormula = '', extra = {}, shifted = false, duplicate = false} = {}) {
+function fixture({occupied = false, existing = false, billing = false, weekFormula = '', extra = {}, shifted = false, duplicate = false, hidden = false} = {}) {
   const rows = new Map([[420, {C:'4754'}]]);
   if (existing || billing) rows.set(421, {C:'4755', F:'Farmacity', I:'dato de producción'});
   if (occupied) rows.set(421, {I:'dato de otra OT'});
@@ -16,7 +16,7 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
   const calls = [];
   let rowCount=2205;
   const sheet = {spreadsheets:{
-    get:async()=>({data:{sheets:[{properties:{title:'Base de datos',sheetId:1,gridProperties:{rowCount,columnCount:38}}}]}}),
+    get:async()=>({data:{sheets:[{properties:{title:'Base de datos',sheetId:1,gridProperties:{rowCount,columnCount:38}},data:[{startRow:420,rowMetadata:[{hiddenByUser:hidden}]}]}]}}),
     batchUpdate:async({requestBody})=>{rowCount+=requestBody.requests[0].appendDimension.length;},
     values:{
     get: async ({range}) => {
@@ -158,4 +158,10 @@ test('extiende al final si toda la planilla está ocupada',async()=>{
  const x=fixture();for(let r=421;r<=2205;r++)x.rows.set(r,{E:'Tarea manual'});
  await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,2206);
  assert.equal(x.rows.get(2205).E,'Tarea manual');
+});
+
+test('el servidor consulta la visibilidad y salta la primera fila oculta',async()=>{
+ const x=fixture({hidden:true});await x.handler(x.req,x.response);
+ assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,422);
+ assert.equal(x.rows.has(421),false);
 });

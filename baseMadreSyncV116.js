@@ -202,9 +202,10 @@ async function appendNew(payload,token,layout){
   const core=window.TIZBaseMadreLayoutV1;
   row=await core.nextFreeRow(row,{
     getGrid:async()=>{
-      const result=await sheetsFetch('?fields=sheets(properties(sheetId,title,gridProperties))',token);
-      const properties=result.sheets?.find(s=>s.properties.title===SHEET)?.properties;
-      return {...properties?.gridProperties,sheetId:properties?.sheetId};
+      const result=await sheetsFetch('?includeGridData=true&ranges='+encodeURIComponent(escSheetName(SHEET)+'!A3:A')+'&fields=sheets(properties(sheetId,title,gridProperties),data(startRow,rowMetadata(hiddenByUser)))',token);
+      const sheet=result.sheets?.find(s=>s.properties.title===SHEET),properties=sheet?.properties;
+      const hiddenRows=(sheet?.data||[]).flatMap(d=>(d.rowMetadata||[]).flatMap((r,i)=>r.hiddenByUser?[d.startRow+i+1]:[]));
+      return {...properties?.gridProperties,sheetId:properties?.sheetId,hiddenRows};
     },
     readRows:async(first,last,count)=>{
       const result=await sheetsFetch('/values/'+encodeURIComponent(escSheetName(SHEET)+'!A'+first+':'+core.column(count-1)+last)+'?valueRenderOption=FORMULA',token);
