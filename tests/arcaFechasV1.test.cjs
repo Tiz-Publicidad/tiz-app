@@ -21,14 +21,14 @@ test('período de servicios y vencimiento usan la fecha elegida y conservan el p
  assert.equal(F.serviceDates({concepto:1,fecha:'2026-10-20',diasPago:0}).fechaVencimientoPago,'2026-10-20');
  assert.throws(()=>F.serviceDates({concepto:2,fecha:hoy,desde:hoy,hasta:'2026-10-01',diasPago:15}),/posterior/);
 });
-function server({last='20261020',lastNumber=25,malformed=false,oldAuthorized=null,obligado='N',montoDesde=121,consultaError=false,configReady=true,authError=null}={}){
- const requests=[],writes=[],pdf=[],o={ot:'4800',cliente:'Cliente',neto:100},refs=new Map();
+function server({last='20261020',lastNumber=25,malformed=false,oldAuthorized=null,obligado='N',montoDesde=121,consultaError=false,configReady=true,authError=null,publicMinimum=null,approvedNet=100,publicMinimumError=false}={}){
+ const requests=[],writes=[],pdf=[],o={ot:'4800',cliente:'Cliente',neto:approvedNet},refs=new Map();
  function doc(col,id){const key=col+'/'+id;if(!refs.has(key))refs.set(key,{get:async()=>({exists:col==='obras'||(col==='arcaEmisiones'&&!!oldAuthorized),data:()=>col==='obras'?o:{status:'autorizada',comprobante:oldAuthorized}}),set:async data=>writes.push({col,id,data}),update:async data=>writes.push({col,id,data})});return refs.get(key);}
  const db={collection:col=>({doc:id=>doc(col,id)}),runTransaction:async fn=>fn({get:async r=>({exists:false,data:()=>({})}),set:(r,d)=>writes.push({lock:d})})};
  function firestore(){return db;}firestore.FieldValue={serverTimestamp:()=>({at:true})};
  const admin={apps:[{}],firestore,auth:()=>({verifyIdToken:async()=>({email:'info@tizpublicidad.com'})})};
  const FixedDate=class extends Date{constructor(...a){super(...(a.length?a:['2026-10-23T18:00:00Z']))}static now(){return +new Date('2026-10-23T18:00:00Z')}};
- const context={module:{exports:{}},Date:FixedDate,Intl,console:{error(){}},require:n=>n==='firebase-admin'?admin:n==='googleapis'?{google:{}}:n==='node-forge'?{}:n==='firebase-functions/v2/https'?{onRequest:(_,h)=>h}:n==='firebase-functions/params'?{defineSecret:name=>({value:()=>name==='ARCA_ALLOWED_EMAILS'?'info@tizpublicidad.com':'issuer'})}:n==='./arcaFiscalCoreV83'?fiscal:n==='./arcaFceV1'?{...require('../functions/arcaFceV1'),loadConfig:async()=>{if(!configReady)throw Error('Falta configuración privada');return {cbuFce:'9999999100000000000017',sistemaCirculacion:'SCA'}}}:n==='./arcaFechasV1'?{...F,today:()=>hoy,limits:x=>F.limits({hoy,...x})}:n==='./condicionesPagoV127'?require('../functions/condicionesPagoV127'):n==='./facturaDrive2026'?{archivarFacturaPdfEnDrive:async x=>{pdf.push(x);return {fileId:'pdf',webViewLink:'https://drive.google.com/file/d/pdf/view'}}}:null};
+ const context={module:{exports:{}},Date:FixedDate,Intl,console:{error(){}},require:n=>n==='firebase-admin'?admin:n==='googleapis'?{google:{}}:n==='node-forge'?{}:n==='firebase-functions/v2/https'?{onRequest:(_,h)=>h}:n==='firebase-functions/params'?{defineSecret:name=>({value:()=>name==='ARCA_ALLOWED_EMAILS'?'info@tizpublicidad.com':'issuer'})}:n==='./arcaFceMinimoV1'?{check:async input=>{if(publicMinimumError)throw Error('Fuente oficial inaccesible');return publicMinimum?require('../functions/arcaFceMinimoV1').decision(input,publicMinimum):null}}:n==='./arcaFiscalCoreV83'?fiscal:n==='./arcaFceV1'?{...require('../functions/arcaFceV1'),loadConfig:async()=>{if(!configReady)throw Error('Falta configuración privada');return {cbuFce:'9999999100000000000017',sistemaCirculacion:'SCA'}}}:n==='./arcaFechasV1'?{...F,today:()=>hoy,limits:x=>F.limits({hoy,...x})}:n==='./condicionesPagoV127'?require('../functions/condicionesPagoV127'):n==='./facturaDrive2026'?{archivarFacturaPdfEnDrive:async x=>{pdf.push(x);return {fileId:'pdf',webViewLink:'https://drive.google.com/file/d/pdf/view'}}}:null};
  vm.runInNewContext(fs.readFileSync(require.resolve('../functions/facturacionIntegralApiV83'),'utf8')+'\nsoap=async()=>testFce();credentials=async(service)=>{if(service==="wsfecred"&&testAuthError)throw testAuthError;return {}};call=async(method,inner)=>testCall(method,inner);',Object.assign(context,{testAuthError:authError,testFce:async()=>{if(consultaError)throw consultaError instanceof Error?consultaError:Error('sin conexión');return `<consultarMontoObligadoRecepcionReturn><obligado>${obligado}</obligado>${montoDesde===null?'':`<montoDesde>${montoDesde}</montoDesde>`}</consultarMontoObligadoRecepcionReturn>`;},testCall:async(method,inner)=>{requests.push({method,inner});if(method==='FECompUltimoAutorizado')return malformed?'<Errors/>':`<CbteNro>${lastNumber}</CbteNro>`;if(method==='FECompConsultar')return `<ResultGet><CbteFch>${last}</CbteFch></ResultGet>`;if(method==='FECAESolicitar')return '<Resultado>A</Resultado><CAE>12345678901234</CAE><CAEFchVto>20261102</CAEFchVto>';throw Error(method);}}));
  async function run(extra={}){let status=200,body;await context.module.exports.facturacionIntegralEmitirV83({method:'POST',get:n=>n==='authorization'?'Bearer test':'',body:{confirmacion:'EMITIR COMPROBANTE REAL PV 00009',obraId:'o',idempotencyKey:'unique',cbteTipo:1,docNro:'30715740326',domicilioFiscal:'Domicilio',neto:100,diasPago:30,items:[{descripcion:'Cartel',cantidad:1,unitario:100}],...extra}},{set(){},status(s){status=s;return this},json(b){body=b},send(){}});return {status,body};}
  return {run,requests,writes,pdf};
@@ -97,4 +97,20 @@ test('consulta FCE informa etapa y causa sin emitir ni modificar documentos',asy
 });
 test('un error FCE durante emisión nunca solicita CAE',async()=>{
  const x=server({authError:Error('coe.notAuthorized')}),r=await x.run();assert.equal(r.body.code,'FCE_SERVICIO_NO_AUTORIZADO');assert.equal(x.requests.some(x=>x.method==='FECAESolicitar'),false);assert.equal(x.pdf.length,0);
+});
+
+test('importe $50.000 + IVA usa el mínimo oficial y no requiere WSFECRED para consultar o emitir una común',async()=>{
+ const x=server({publicMinimum:{desde:'2026-04-14',montoDesde:5549862},authError:Error('coe.notAuthorized'),approvedNet:50000});
+ const check=await x.run({mode:'fce-check',neto:50000,fechaEmision:'2026-10-23'});assert.equal(check.status,200,check.body.error);assert.equal(check.body.requiereFce,false);assert.equal(check.body.criterio,'inferior_minimo_general');assert.equal(check.body.total,60500);assert.equal(x.writes.length,0);assert.equal(x.requests.length,0);
+ const issue=await x.run({neto:50000,items:[{descripcion:'Cartel',cantidad:1,unitario:50000}]});assert.equal(issue.status,200,issue.body.error);assert.equal(x.requests.filter(r=>r.method==='FECAESolicitar').length,1);assert.equal(issue.body.cbteTipo,1);
+});
+test('no permite emitir FCE por debajo del mínimo ni declara común un importe superior cuando la consulta falla',async()=>{
+ const minimum={desde:'2026-04-14',montoDesde:5549862};
+ const low=server({publicMinimum:minimum}),fce=await low.run({cbteTipo:201});assert.equal(fce.status,422);assert.equal(low.requests.some(r=>r.method==='FECAESolicitar'),false);
+ const high=server({publicMinimum:minimum,consultaError:Error('ARCA no disponible')}),r=await high.run({mode:'fce-check',neto:6000000,fechaEmision:'2026-10-23'});assert.equal(r.status,503);assert.equal(high.writes.length,0);assert.equal(high.requests.length,0);
+});
+
+test('si no se puede leer el mínimo se conserva la consulta de ARCA; dos fuentes fallidas nunca habilitan emisión',async()=>{
+ const available=server({publicMinimumError:true,obligado:'S'}),check=await available.run({mode:'fce-check',fechaEmision:'2026-10-23'});assert.equal(check.status,200);assert.equal(check.body.requiereFce,true);
+ const down=server({publicMinimumError:true,consultaError:true}),r=await down.run({mode:'fce-check',fechaEmision:'2026-10-23'});assert.equal(r.status,503);assert.equal(down.writes.length,0);assert.equal(down.requests.length,0);
 });

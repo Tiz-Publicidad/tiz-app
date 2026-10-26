@@ -15,6 +15,7 @@ const { archivarFacturaPdfEnDrive } = require("./facturaDrive2026");
 const { validarDiasPago } = require("./condicionesPagoV127");
 const fechas = require("./arcaFechasV1");
 const fce = require("./arcaFceV1");
+const fceMinimum = require("./arcaFceMinimoV1");
 if (!admin.apps.length) admin.initializeApp();
 const cert = defineSecret("ARCA_PROD_CERTIFICATE_PEM"),
   key = defineSecret("ARCA_PROD_PRIVATE_KEY_PEM"),
@@ -155,6 +156,8 @@ async function call(method, inner, cr) {
   return soap(WSFE, `http://ar.gov.afip.dif.FEV1/${method}`, e);
 }
 async function consultarObligacionFce({cuit,fecha,total}) {
+  // The floor comes from ARCA's public page, not a client flag or a fixed amount.
+  try{const minimum=await fceMinimum.check({fecha,total});if(minimum)return {...minimum,cuit,fecha};}catch(_){/* Keep the recipient query as the fallback; never infer a result on failure. */}
   let stage='autenticacion';
   try {
     const cr=await credentials('wsfecred');
