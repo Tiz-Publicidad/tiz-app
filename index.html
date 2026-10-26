@@ -891,11 +891,15 @@ td.strong { color: var(--text); font-weight: 500; }
         <div class="form-group full"><label>Modalidad</label><select id="pp-entrega-tipo" onchange="actualizarEntregaLogisticaPP()"><option value="a_definir">A definir</option><option value="retiro_fabrica">Retira en fábrica</option><option value="envio">Envío a domicilio</option><option value="colocacion">Con colocación</option></select></div>
         <div class="form-group pp-entrega-domicilio" style="display:none"><label>Domicilio</label><input id="pp-entrega-domicilio" placeholder="Calle, número, localidad y referencia"></div>
         <div class="form-group pp-entrega-fecha" style="display:none"><label id="pp-entrega-fecha-label">Fecha prevista</label><input id="pp-entrega-fecha" type="date"></div>
-        <div class="form-group pp-entrega-contacto" style="display:none"><label>Contacto en destino</label><input id="pp-entrega-contacto" list="pp-entrega-contactos-list" placeholder="Nombre del contacto" oninput="sugerirContactoClientePP()"><datalist id="pp-entrega-contactos-list"></datalist><small style="color:var(--text3)">Al guardar el presupuesto, los contactos nuevos se agregan a este cliente.</small></div>
+        <div class="form-group full pp-entrega-contacto" style="display:none"><label for="pp-entrega-contacto-select">Contacto guardado del cliente</label><select id="pp-entrega-contacto-select" onchange="elegirContactoClientePP('contacto')"><option value="">Seleccionar contacto…</option><option value="__nuevo">+ Agregar contacto nuevo</option></select></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label for="pp-entrega-contacto">Contacto en destino</label><input id="pp-entrega-contacto" list="pp-entrega-contactos-list" placeholder="Nombre del contacto" oninput="sugerirContactoClientePP()"><datalist id="pp-entrega-contactos-list"></datalist><small style="color:var(--text3)">Al guardar el presupuesto, los contactos nuevos se agregan a este cliente.</small></div>
         <div class="form-group pp-entrega-contacto" style="display:none"><label>Teléfono contacto</label><input id="pp-entrega-contacto-tel" placeholder="Teléfono / WhatsApp"></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label for="pp-entrega-contacto-cargo">Cargo</label><input id="pp-entrega-contacto-cargo" placeholder="Compras, administración, recepción…"></div>
         <div class="form-group pp-entrega-contacto full" style="display:none"><label>Email contacto</label><input id="pp-entrega-contacto-email" type="email" placeholder="correo@cliente.com"></div>
+        <div class="form-group full pp-entrega-retira" style="display:none"><label for="pp-entrega-retira-select">Persona guardada del cliente</label><select id="pp-entrega-retira-select" onchange="elegirContactoClientePP('retira')"><option value="">Seleccionar contacto…</option><option value="__nuevo">+ Agregar contacto nuevo</option></select></div>
         <div class="form-group pp-entrega-retira" style="display:none"><label>Persona que retira</label><input id="pp-entrega-retira" list="pp-entrega-retira-list" placeholder="Nombre del contacto" oninput="sugerirRetiraClientePP()"><datalist id="pp-entrega-retira-list"></datalist></div>
         <div class="form-group pp-entrega-retira" style="display:none"><label>Teléfono</label><input id="pp-entrega-retira-tel" placeholder="Teléfono / WhatsApp"></div>
+        <div class="form-group pp-entrega-retira" style="display:none"><label for="pp-entrega-retira-cargo">Cargo</label><input id="pp-entrega-retira-cargo" placeholder="Compras, administración, recepción…"></div>
         <div class="form-group pp-entrega-retira full" style="display:none"><label>Email</label><input id="pp-entrega-retira-email" type="email" placeholder="correo@cliente.com"></div>
         <div class="form-group full pp-entrega-detalle" style="display:none"><label id="pp-entrega-detalle-label">Indicaciones adicionales</label><textarea id="pp-entrega-detalle" placeholder="Horarios, acceso, permisos, equipos necesarios u otras indicaciones"></textarea></div>
       </div><div style="font-size:11px;color:var(--text3);margin-top:4px">Esta información se comparte en la OT con Producción, Colocaciones y los demás sectores que la necesiten.</div></div>
@@ -930,8 +934,9 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-group"><label>CUIT</label><input id="fc-cuit"></div>
       <div class="form-group"><label>Contacto</label><input id="fc-contacto" list="fc-contactos-list" oninput="sugerirContactoFichaClienteV1()"><datalist id="fc-contactos-list"></datalist></div>
       <div class="form-group"><label>Celular</label><input id="fc-cel"></div>
+      <div class="form-group"><label>Cargo del contacto</label><input id="fc-cargo"></div>
       <div class="form-group full"><label>Email</label><input id="fc-email"></div>
-      <div class="form-group full"><label>Otros contactos del cliente</label><textarea id="fc-contactos" rows="4" placeholder="Un contacto por línea: Nombre | teléfono | email"></textarea><small style="color:var(--text3)">Se sugieren al crear nuevos presupuestos y obras de este cliente.</small></div>
+      <div class="form-group full"><label>Otros contactos del cliente</label><textarea id="fc-contactos" rows="4" placeholder="Un contacto por línea: Nombre | teléfono | email | cargo"></textarea><small style="color:var(--text3)">Se sugieren al crear nuevos presupuestos y obras de este cliente.</small></div>
       <div class="form-group full"><label>Notas</label><textarea id="fc-notas"></textarea></div>
     </div>
     <div class="modal-actions">
@@ -1072,7 +1077,7 @@ td.strong { color: var(--text); font-weight: 500; }
 
 <div class="toast" id="toast"></div>
 
-<script src="clienteContactosV1.js?v=TIZ-CONTACTOS-CLIENTE-20261023"></script>
+<script src="clienteContactosV1.js?v=TIZ-CONTACTOS-CARGO-20261026"></script>
 
 <!-- Firebase SDK -->
 <script type="module">
@@ -2062,8 +2067,9 @@ window.editCliente = id => {
   document.getElementById('fc-contacto').value=c.contacto||'';
   document.getElementById('fc-cel').value=c.cel||'';
   document.getElementById('fc-email').value=c.email||'';
+  document.getElementById('fc-cargo').value=c.contactoCargo||'';
   const otros=window.TIZClienteContactosV1.list(window.DB,{clienteId:c.id}).filter(x=>window.TIZClienteContactosV1.norm(x.nombre)!==window.TIZClienteContactosV1.norm(c.contacto));
-  document.getElementById('fc-contactos').value=otros.map(x=>[x.nombre,x.telefono,x.email].join(' | ')).join('\n');
+  document.getElementById('fc-contactos').value=otros.map(x=>[x.nombre,x.telefono,x.email,x.cargo].join(' | ')).join('\n');
   window.sugerirContactoFichaClienteV1();
   document.getElementById('fc-notas').value=c.notas||'';
   openModal('cliente');
@@ -2177,7 +2183,7 @@ function renderVendedores() {
 window.openModal = (type) => {
   if (type==='cliente' && !window.editingId.cliente) {
     const n = document.getElementById('fc-numero'); if(n) n.value = nextClienteNumero();
-    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
   }
   if (type==='obra') {
     if (!window.editingId.obra) {
@@ -2441,7 +2447,7 @@ window.nuevoClienteDesdePresupuesto = nombre => {
   window.editingId.cliente = null;
   document.getElementById('fc-numero').value = nextClienteNumero();
   document.getElementById('fc-nombre').value = nombre;
-  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   window._volvioDePresupuesto = true;
   document.getElementById('modal-cliente').classList.add('open');
 };
@@ -2460,7 +2466,7 @@ window.sugerirClientes = q => {
 };
 window.elegirCliente=(nombre,id='',cuit='')=>{const input=document.getElementById('f-cliente');if(input){input.value=nombre;input.dataset.clienteId=id;input.dataset.clienteCuit=cuit}const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=cuit?'Razón social seleccionada · CUIT '+cuit:'Cliente sin CUIT vinculado';const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
 window.cerrarSugerencias=()=>{const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
-window.nuevoClienteDesdeObra=nombre=>{window.cerrarSugerencias();window.editingId.cliente=null;document.getElementById('fc-numero').value=nextClienteNumero();document.getElementById('fc-nombre').value=nombre||'';['fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('modal-cliente').classList.add('open')};
+window.nuevoClienteDesdeObra=nombre=>{window.cerrarSugerencias();window.editingId.cliente=null;document.getElementById('fc-numero').value=nextClienteNumero();document.getElementById('fc-nombre').value=nombre||'';['fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('modal-cliente').classList.add('open')};
 window.guardarClienteObraV55=async()=>{
   const obraId=window.editingId?.obra,input=document.getElementById('f-cliente');if(!obraId||!input)return showToast('No hay una obra abierta');
   const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>String(c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'').trim();
@@ -2658,13 +2664,13 @@ window.sugerirContactoFichaClienteV1 = () => {
   const core=window.TIZClienteContactosV1,c=(window.DB.clientes||[]).find(c=>c.id===window.editingId.cliente),input=document.getElementById('fc-contacto'),list=document.getElementById('fc-contactos-list');
   const choices=c?core.list(window.DB,{clienteId:c.id}):[];
   list.innerHTML=choices.map(x=>'<option value="'+String(x.nombre).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))+'"></option>').join('');
-  core.fill(input,document.getElementById('fc-cel'),document.getElementById('fc-email'),choices);
+  core.fill(input,document.getElementById('fc-cel'),document.getElementById('fc-email'),choices,document.getElementById('fc-cargo'));
 };
 
 window.saveCliente = async () => {
   const numeroCliente = document.getElementById('fc-numero')?.value || nextClienteNumero();
   const contactos=(document.getElementById('fc-contactos')?.value||'').split(/\r?\n/).map(line=>{
-    const [nombre,telefono,email]=line.split('|').map(x=>x.trim());return {nombre,telefono:telefono||'',email:email||''};
+    const [nombre,telefono,email,cargo]=line.split('|').map(x=>x.trim());return {nombre,telefono:telefono||'',email:email||'',cargo:cargo||''};
   }).filter(x=>x.nombre);
   const data = {
     numeroCliente,
@@ -2673,13 +2679,14 @@ window.saveCliente = async () => {
     contacto: document.getElementById('fc-contacto').value.trim(),
     cel: document.getElementById('fc-cel').value.trim(),
     email: document.getElementById('fc-email').value.trim(),
+    contactoCargo: document.getElementById('fc-cargo').value.trim(),
     contactos,
     notas: document.getElementById('fc-notas').value.trim(),
   };
   if(!data.nombre){showToast('Ingresá un nombre');return;}
   const id = window.editingId.cliente;
   const previous=(window.DB.clientes||[]).find(c=>c.id===id),core=window.TIZClienteContactosV1;
-  data.contactos=core.merge(contactos,previous&&core.norm(previous.contacto)!==core.norm(data.contacto)?[{nombre:previous.contacto,telefono:previous.cel,email:previous.email}]:[]);
+  data.contactos=core.merge(contactos,previous&&core.norm(previous.contacto)!==core.norm(data.contacto)?[{nombre:previous.contacto,telefono:previous.cel,email:previous.email,cargo:previous.contactoCargo}]:[]);
   if(id){await updateDoc_('clientes',id,data);Object.assign(previous||{},data);}
   else {const ref=await addDoc_('clientes',data);if(ref?.id&&!window.DB.clientes.some(c=>c.id===ref.id))window.DB.clientes.push({id:ref.id,...data});}
   const fCliente = document.getElementById('f-cliente');
@@ -3604,7 +3611,7 @@ async function syncToSheets(data) {
     if(window.editingId) window.editingId.cliente=null;
     if(document.getElementById('fc-numero') && typeof window.nextClienteNumero==='function') document.getElementById('fc-numero').value=window.nextClienteNumero();
     if(document.getElementById('fc-nombre')) document.getElementById('fc-nombre').value=nombre||'';
-    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-contactos','fc-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
     document.getElementById('modal-cliente')?.classList.add('open');
   };
 
@@ -3666,7 +3673,7 @@ async function syncToSheets(data) {
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261016A"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-GIANCARLO-20261023-CONTACTOS"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>

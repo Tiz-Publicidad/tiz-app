@@ -191,7 +191,7 @@
   }
 
   function entregaLogisticaActual(){
-    return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),contactoTelefono:val('pp-entrega-contacto-tel').trim(),contactoEmail:val('pp-entrega-contacto-email').trim(),retira:val('pp-entrega-retira').trim(),retiraTelefono:val('pp-entrega-retira-tel').trim(),retiraEmail:val('pp-entrega-retira-email').trim(),detalle:val('pp-entrega-detalle').trim()};
+    return {tipo:val('pp-entrega-tipo')||'a_definir',domicilio:val('pp-entrega-domicilio').trim(),fecha:val('pp-entrega-fecha'),contacto:val('pp-entrega-contacto').trim(),contactoTelefono:val('pp-entrega-contacto-tel').trim(),contactoEmail:val('pp-entrega-contacto-email').trim(),contactoCargo:val('pp-entrega-contacto-cargo').trim(),retira:val('pp-entrega-retira').trim(),retiraTelefono:val('pp-entrega-retira-tel').trim(),retiraEmail:val('pp-entrega-retira-email').trim(),retiraCargo:val('pp-entrega-retira-cargo').trim(),detalle:val('pp-entrega-detalle').trim()};
   }
   function validarLogisticaCotizacion({permitirBorrador=false}={}){
     const estado=normEstado(val('pp-estado'));
@@ -220,7 +220,7 @@
     const etiquetas={a_definir:'A definir',retiro_fabrica:'Retira en fábrica',envio:'Envío a domicilio',colocacion:'Con colocación'};
     const resumen=document.getElementById('pp-entrega-resumen');if(resumen)resumen.textContent='— '+etiquetas[tipo];
     const fecha=document.getElementById('pp-entrega-fecha-label');if(fecha)fecha.textContent=retiro?'Fecha prevista de retiro':envio?'Fecha prevista de entrega':'Fecha prevista de colocación';
-    const contactoLabel=document.querySelector('.pp-entrega-contacto label');if(contactoLabel)contactoLabel.textContent=indef?'Contacto de referencia':colocacion?'Contacto en obra':'Contacto en destino';
+    const contactoLabel=document.querySelector('label[for="pp-entrega-contacto"]');if(contactoLabel)contactoLabel.textContent=indef?'Contacto de referencia':colocacion?'Contacto en obra':'Contacto en destino';
     const detalle=document.getElementById('pp-entrega-detalle-label');if(detalle)detalle.textContent=colocacion?'Acceso, horarios, permisos y equipos':indef?'Indicaciones / referencia':'Indicaciones para la entrega';
     window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
   };
@@ -234,16 +234,35 @@
   }
   function aplicarContactoClientePP(inputId,telId,emailId,listId){
     const input=document.getElementById(inputId),list=document.getElementById(listId);if(!input||!list)return;
-    const contactos=contactosClienteActual();list.innerHTML=contactos.map(x=>'<option value="'+esc(x.nombre)+'">'+esc([x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('');
-    window.TIZClienteContactosV1.fill(input,document.getElementById(telId),document.getElementById(emailId),contactos);
+    const contactos=contactosClienteActual();list.innerHTML=contactos.map(x=>'<option value="'+esc(x.nombre)+'">'+esc([x.cargo,x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('');
+    const cargo=document.getElementById(inputId+'-cargo'),select=document.getElementById(inputId+'-select');
+    if(select){
+      select.innerHTML='<option value="">Seleccionar contacto…</option>'+contactos.map(x=>'<option value="'+esc('contacto:'+window.TIZClienteContactosV1.norm(x.nombre))+'">'+esc([x.nombre,x.cargo,x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('')+'<option value="__nuevo">+ Agregar contacto nuevo</option>';
+      const selected=contactos.findIndex(x=>window.TIZClienteContactosV1.norm(x.nombre)===window.TIZClienteContactosV1.norm(input.value));
+      select.value=selected<0?'':'contacto:'+window.TIZClienteContactosV1.norm(contactos[selected].nombre);
+    }
+    window.TIZClienteContactosV1.fill(input,document.getElementById(telId),document.getElementById(emailId),contactos,cargo);
   }
   window.sugerirContactoClientePP=function(){aplicarContactoClientePP('pp-entrega-contacto','pp-entrega-contacto-tel','pp-entrega-contacto-email','pp-entrega-contactos-list')};
   window.sugerirRetiraClientePP=function(){aplicarContactoClientePP('pp-entrega-retira','pp-entrega-retira-tel','pp-entrega-retira-email','pp-entrega-retira-list')};
+  window.elegirContactoClientePP=function(tipo){
+    if(!['contacto','retira'].includes(tipo))return;
+    const prefix='pp-entrega-'+tipo,select=document.getElementById(prefix+'-select'),input=document.getElementById(prefix);
+    if(!select||!input||!select.value)return;
+    const choices=contactosClienteActual(),selected=select.value==='__nuevo'?null:choices.find(x=>'contacto:'+window.TIZClienteContactosV1.norm(x.nombre)===select.value);
+    if(select.value!=='__nuevo'&&!selected)return;
+    input.value=selected?.nombre||'';
+    for(const [suffix,key] of [['-tel','telefono'],['-email','email'],['-cargo','cargo']]){const el=document.getElementById(prefix+suffix);if(el)el.value=selected?.[key]||'';}
+    input._tizContactAutofill={telefono:selected?.telefono||'',email:selected?.email||'',cargo:selected?.cargo||''};
+    if(!selected)input.focus?.();
+  };
   async function recordarContactoEntregaCliente(clienteNombre,e){
     return window.recordarContactosClienteV1({cliente:clienteNombre},window.TIZClienteContactosV1.fromLogistics(e));
   }
   function cargarEntregaLogisticaPP(data={}){
     const e=data.entregaLogistica||data.logistica||{}, set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||'';};
+    for(const id of ['pp-entrega-contacto','pp-entrega-retira']){const el=document.getElementById(id);if(el)delete el._tizContactAutofill;}
+    set('pp-entrega-contacto-cargo',e.contactoCargo);set('pp-entrega-retira-cargo',e.retiraCargo);
     set('pp-entrega-tipo',e.tipo||'a_definir');set('pp-entrega-domicilio',e.domicilio);set('pp-entrega-fecha',e.fecha);set('pp-entrega-contacto',e.contacto);set('pp-entrega-contacto-tel',e.contactoTelefono||e.telefonoContacto);set('pp-entrega-contacto-email',e.contactoEmail||e.emailContacto);set('pp-entrega-retira',e.retira);set('pp-entrega-retira-tel',e.retiraTelefono||e.telefonoRetira);set('pp-entrega-retira-email',e.retiraEmail||e.emailRetira);set('pp-entrega-detalle',e.detalle);
     window.actualizarEntregaLogisticaPP();window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
   }

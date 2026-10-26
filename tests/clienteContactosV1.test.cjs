@@ -38,3 +38,54 @@ test('el guardado del presupuesto suma contactos a la ficha actual sin perder al
 test('los contactos sin cliente válido no se guardan en otra ficha',async()=>{
  const f=formFixture();await assert.rejects(f.window.recordarContactosClienteV1({cliente:'Desconocido'},[{nombre:'Belén'}]),/cliente existente/);assert.equal(f.writes.length,0);
 });
+
+test('desplegable muestra todos los contactos aunque ya esté escrito otro nombre',()=>{
+ const f=formFixture();f.field('pp-entrega-contacto').value='Ana';f.window.sugerirContactoClientePP();
+ assert.match(f.field('pp-entrega-contacto-select').innerHTML,/Ana/);
+ assert.match(f.field('pp-entrega-contacto-select').innerHTML,/Belén Núñez/);
+ f.field('pp-entrega-contacto-select').value='contacto:belen nunez';f.window.elegirContactoClientePP('contacto');
+ assert.equal(f.field('pp-entrega-contacto').value,'Belén Núñez');assert.equal(f.field('pp-entrega-contacto-tel').value,'222');assert.equal(f.field('pp-entrega-contacto-email').value,'belen@example.test');
+});
+
+test('selección explícita reemplaza los datos del contacto anterior y nuevo contacto limpia los campos',()=>{
+ const f=formFixture();f.current.contactos[0].cargo='Compradora';f.field('pp-entrega-contacto-tel').value='otro';
+ f.field('pp-entrega-contacto-select').value='contacto:belen nunez';f.window.elegirContactoClientePP('contacto');
+ assert.equal(f.field('pp-entrega-contacto-tel').value,'222');assert.equal(f.field('pp-entrega-contacto-cargo').value,'Compradora');
+ f.field('pp-entrega-contacto-select').value='contacto:ana';f.window.elegirContactoClientePP('contacto');assert.equal(f.field('pp-entrega-contacto-cargo').value,'');
+ f.field('pp-entrega-contacto-select').value='__nuevo';f.window.elegirContactoClientePP('contacto');
+ for(const suffix of ['','-tel','-email','-cargo'])assert.equal(f.field('pp-entrega-contacto'+suffix).value,'');
+});
+
+test('cargo y contactos históricos quedan disponibles en otros presupuestos sin modificar el principal',async()=>{
+ const f=formFixture();f.window.DB.presupuestos.push({cliente:'Miniso',entregaLogistica:{contacto:'Tayanna',contactoTelefono:'777',contactoEmail:'tay@example.test',contactoCargo:'Compras'}});
+ f.window.sugerirContactoClientePP();assert.match(f.field('pp-entrega-contacto-select').innerHTML,/Tayanna · Compras · 777 · tay@example.test/);
+ await f.window.remember('Miniso',{contacto:'Belén Núñez',contactoTelefono:'222',contactoEmail:'belen@example.test',contactoCargo:'Compradora'});
+ assert.equal(f.latest().contactos.find(x=>C.norm(x.nombre)==='belen nunez').cargo,'Compradora');
+ assert.equal(f.latest().contacto,'Ana');
+ f.field('pp-entrega-retira-select').value='contacto:belen nunez';f.window.elegirContactoClientePP('retira');assert.equal(f.field('pp-entrega-retira-cargo').value,'Compradora');
+});
+
+test('el desplegable no ofrece contactos de otro cliente',()=>{
+ const f=formFixture();f.window.DB.clientes.push({id:'otro',nombre:'Otro cliente',contactos:[{nombre:'Exclusivo'}]});
+ f.field('pp-cliente').value='Otro cliente';f.window.sugerirContactoClientePP();const options=f.field('pp-entrega-contacto-select').innerHTML;
+ assert.match(options,/Exclusivo/);assert.doesNotMatch(options,/Belén|Ana/);
+});
+
+test('cargo viaja con la logística del presupuesto y se restaura al reabrirlo',()=>{
+ const f=formFixture(),ctx={window:f.window,document:{getElementById:f.field},val:id=>f.field(id).value};
+ vm.runInNewContext(sector.slice(sector.indexOf('  function entregaLogisticaActual('),sector.indexOf('  function validarLogisticaCotizacion('))+'\nwindow.collect=entregaLogisticaActual;',ctx);
+ vm.runInNewContext(sector.slice(sector.indexOf('  function cargarEntregaLogisticaPP('),sector.indexOf('  function cleanObraModal('))+'\nwindow.load=cargarEntregaLogisticaPP;',ctx);
+ f.window.actualizarEntregaLogisticaPP=()=>{};
+ f.field('pp-entrega-contacto').value='Belén';f.field('pp-entrega-contacto-cargo').value='Compradora';f.field('pp-entrega-retira-cargo').value='Depósito';
+ const saved=f.window.collect();assert.equal(saved.contactoCargo,'Compradora');assert.equal(saved.retiraCargo,'Depósito');
+ f.field('pp-entrega-contacto')._tizContactAutofill={telefono:'obsoleto'};
+ f.window.load({entregaLogistica:saved});assert.equal(f.field('pp-entrega-contacto-cargo').value,'Compradora');assert.equal(f.field('pp-entrega-retira-cargo').value,'Depósito');
+});
+
+test('ficha de cliente conserva cargo del principal y de los contactos adicionales',async()=>{
+ const f=formFixture();f.window.editingId={cliente:'m'};for(const id of ['modal-obra','modal-prespdf'])f.field(id).classList={contains:()=>false};
+ const ctx={window:f.window,document:{getElementById:f.field},nextClienteNumero:()=>1,updateDoc_:async(_col,_id,data)=>Object.assign(f.current,data),closeModal(){},showToast(){}};
+ vm.runInNewContext(html.slice(html.lastIndexOf('window.saveCliente ='),html.lastIndexOf('window.saveCliente =')+html.slice(html.lastIndexOf('window.saveCliente =')).indexOf('\n};')+4),ctx);
+ f.field('fc-nombre').value='Miniso';f.field('fc-contacto').value='Ana';f.field('fc-cargo').value='Compradora';f.field('fc-contactos').value='Belén | 222 | belen@example.test | Compras';
+ await f.window.saveCliente();assert.equal(f.current.contactoCargo,'Compradora');assert.equal(f.current.contactos[0].cargo,'Compras');
+});
