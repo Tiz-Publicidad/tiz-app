@@ -53,11 +53,11 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
   })};
   const admin={auth:()=>({verifyIdToken:async()=>({email:'info@tizpublicidad.com'})}),firestore:()=>firestore};
   const exports={};
-  const context={exports,require:name=>name==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):name==='firebase-admin'?admin:name==='googleapis'?{google:{auth:{GoogleAuth:class{}},sheets:()=>sheet}}:{onRequest:(_opts,fn)=>fn},console:{error(){}},Date,Intl};
+  const context={exports,require:name=>name==='./facturabilidadV1'?require('../functions/facturabilidadV1'):name==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):name==='firebase-admin'?admin:name==='googleapis'?{google:{auth:{GoogleAuth:class{}},sheets:()=>sheet}}:{onRequest:(_opts,fn)=>fn},console:{error(){}},Date,Intl};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../functions/baseMadreBackendV120.js'),'utf8'),context);
   const response={statusCode:200,set(){return this},status(code){this.statusCode=code;return this},json(value){this.body=value;return this}};
   const req={method:'POST',body:{ot:'4755',...(billing?{mode:'billing',obraId:'o1'}:{})},get:key=>key==='authorization'?'Bearer test':''};
-  return {handler:exports.sincronizarBaseMadreV120,req,response,calls,rows};
+  return {handler:exports.sincronizarBaseMadreV120,req,response,calls,rows,budget,obra};
 }
 
 test('alta nueva escribe A:H e Y de una fila explícita sin desplazar columnas',async()=>{
@@ -164,4 +164,21 @@ test('el servidor consulta la visibilidad y salta la primera fila oculta',async(
  const x=fixture({hidden:true});await x.handler(x.req,x.response);
  assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,422);
  assert.equal(x.rows.has(421),false);
+});
+
+test('No facturable aprobado escribe N/A y conserva fechas, estado, cobros y producción',async()=>{
+ const x=fixture({existing:true,extra:{R:'10/10/26',T:'30/10/26',Y:'Entregado'}});x.budget.noFacturable=true;await x.handler(x.req,x.response);
+ assert.equal(x.response.statusCode,200);assert.equal(x.rows.get(421).S,'N/A');assert.equal(x.rows.get(421).R,'10/10/26');assert.equal(x.rows.get(421).T,'30/10/26');assert.equal(x.rows.get(421).Y,'Entregado');assert.equal(x.rows.get(421).I,'dato de producción');
+});
+test('no toca la fila si Nro FC ya tiene factura o fórmula',async()=>{
+ for(const S of ['00009-00000001','=A1']){const x=fixture({existing:true,extra:{S}});x.budget.noFacturable=true;await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);assert.equal(x.rows.get(421).S,S);}
+});
+test('destildar borra solamente N/A y deja la factura existente intacta',async()=>{
+ for(const S of ['N/A','00009-00000001']){const x=fixture({existing:true,extra:{S,R:'10/10/26'}});x.budget.noFacturable=false;await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.rows.get(421).S,S==='N/A'?'':S);assert.equal(x.rows.get(421).R,'10/10/26');}
+});
+test('la sincronización de cobros conserva N/A sin inventar facturas',async()=>{
+ const x=fixture({billing:true,extra:{S:'N/A'}});x.obra.noFacturable=true;x.obra.comprobantesArca=[];x.obra.neto=100;await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.rows.get(421).S,'N/A');assert.equal(x.rows.get(421).Y,'Cobrado pendiente');assert.equal(x.calls.some(c=>c.range.includes('!R')),false);
+});
+test('el servidor rechaza No facturable si la obra tiene comprobantes aun con Nro FC vacío',async()=>{
+ const x=fixture({billing:true});x.obra.noFacturable=true;await x.handler(x.req,x.response);assert.equal(x.response.statusCode,409);assert.equal(x.calls.length,0);
 });

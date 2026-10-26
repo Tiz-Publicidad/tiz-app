@@ -52,6 +52,8 @@ jobs:
           node --check functions/facturaDrive2026.js
           node --check functions/facturacionDriveRetryV83.js
           node --check functions/baseMadreBackendV120.js
+          node --check functions/facturabilidadV1.js
+          node --test tests/noFacturableV1.test.cjs tests/cotizacionesEstadoV1.test.cjs tests/cobrosParcialesV2.test.js
           node --check functions/baseMadreLayoutV1.js
           node --test tests/baseMadreLayoutV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
@@ -134,7 +136,7 @@ jobs:
             fi
           fi
           # Account permissions are checked by every fiscal entry point separately.
-          if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^functions/(index|facturacionEntregaV84|facturacionRecuperarV86)\.js$'; then
+          if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^functions/(index|arcaProduccionGeneral|facturacionEntregaV84|facturacionRecuperarV86)\.js$'; then
             targets="$targets,functions:arcaProduccionStatus,functions:arcaProduccionEmitirOT4680,functions:facturaEnviarEmail,functions:arcaHomologacionStatus,functions:arcaHomologacionEmitirPrueba,functions:facturacionHomologacionArchivarV84,functions:facturacionEnviarEmailV84,functions:facturacionRecuperarHistoricosV86"
           fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive

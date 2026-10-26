@@ -5,7 +5,7 @@ function setup({credit=false,duplicate=false,wrongOt=false,formula=false}={}){
  const o={ot:wrongOt?'4709':'4708',cliente:'Cliente',comprobantesArca:[{numeroCompleto:'00009-00001472',cbteTipo:credit?3:1,familia:credit?'credito':'factura',fecha:'2026-09-07',total:121,neto:100,fechaVencimientoPago:'2026-10-07'}],cobranzaEstadoManual:'cobrado'};
  const db={collection:()=>({doc:()=>({get:async()=>({exists:true,id:'o',data:()=>o}),set:async()=>{}})})};
  const sheets={spreadsheets:{values:{get:async args=>({data:{values:args.range.endsWith('A2:AL2')?[['Fecha','Sem','OT/CT','Descripcion de la obra','Arquitecto','Cliente','Neto','Bruto']]:args.range.endsWith('C3:C')?(duplicate?[['4708'],['4708']]:[['4708']]):args.valueRenderOption==='FORMULA'?[[...Array(3).fill(''),formula?'=WEEKNUM(T3;2)':'']]:[row]}}),batchUpdate:async args=>writes.push(args)}}};
- const exports={};vm.runInNewContext(source+'\nexports.testSync=syncBilling;', {exports,console,require:n=>n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):n==='firebase-admin'?{}:n==='googleapis'?{google:{}}:{onRequest:(_,h)=>h}});
+ const exports={};vm.runInNewContext(source+'\nexports.testSync=syncBilling;', {exports,console,require:n=>n==='./facturabilidadV1'?require('../functions/facturabilidadV1'):n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):n==='firebase-admin'?{}:n==='googleapis'?{google:{}}:{onRequest:(_,h)=>h}});
  return{writes,run:()=>exports.testSync({db,sheets,requestedOt:'4708',obraId:'o',email:'info@tizpublicidad.com'})};
 }
 test('no exporta una nota de crédito a la celda de factura',async()=>{const {writes,run}=setup({credit:true});await assert.rejects(run,/nota de crédito/);assert.equal(writes.length,0)});

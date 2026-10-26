@@ -4,6 +4,7 @@ const admin = require("firebase-admin");
 const {google} = require("googleapis");
 const {onRequest} = require("firebase-functions/v2/https");
 const layoutCore = require("./baseMadreLayoutV1");
+const billability = require("./facturabilidadV1");
 
 const SPREADSHEET_ID = "1mOhuPKcMG8PO3QsY3g84WL4p3o43t4ilK8Jx1DHjF5M";
 const SHEET = "Base de datos";
@@ -153,6 +154,7 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const clientNames=[obra.cliente];
   if (obra.clienteId) {const c=await db.collection('clientes').doc(text(obra.clienteId)).get();if(c.exists){const d=c.data();clientNames.push(d.nombre,d.razonSocial,d.razon_social,d.nombreFiscal)}}
   if (!text(fullRow[layout.cliente]) || !clientNames.some(name=>norm(name)===norm(fullRow[layout.cliente]))) throw Object.assign(new Error('El cliente de Base Madre no coincide con la obra'), {status:409});
+  if(obra.noFacturable===true)billability.assertNoInvoices(obra);
   const invoices = invoicesFrom(obra);
   const hasCredit = invoices.some((invoice) => norm(invoice.familia) === "credito" || [3,8,203,208].includes(Number(invoice.cbteTipo)));
   if (hasCredit) throw Object.assign(new Error('La obra tiene nota de crédito: conservar y conciliar sus comprobantes por separado'), {status:409});
@@ -161,16 +163,16 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   const lastPayment = [...payments].sort((a,b) => dateIso(a.fecha).localeCompare(dateIso(b.fecha))).pop() || {};
   const due = invoices.map((x) => dateIso(x.fechaPrevistaCobro || x.fechaVencimientoPago)).filter(Boolean).sort()[0]
     || dateIso(obra.fechaPrevistaCobro || obra.finanzas?.fechaPrevistaCobro);
-  const numbers = invoices.map(invoiceNumber).filter(Boolean).join(" / ") || text(obra.nrfc);
-  if (text(cell[1]) && numbers && !sameInvoiceNumbers(cell[1], numbers)) {
+  const numbers = obra.noFacturable===true ? "N/A" : invoices.map(invoiceNumber).filter(Boolean).join(" / ") || (billability.isNA(obra.nrfc)?"":text(obra.nrfc));
+  if (text(cell[1]) && !billability.isNA(cell[1]) && numbers && !sameInvoiceNumbers(cell[1], numbers)) {
     throw Object.assign(new Error(`La OT ${requestedOt} tiene otro número de FC en Base Madre. No se sobrescribió.`), {status:409});
   }
   const paid = payments.reduce((sum,p) => sum + num(p.importe) + num(p.retenciones), 0);
-  const invoiced = invoices.reduce((sum,invoice) => sum + num(invoice.total || invoice.neto), 0);
-  const data = [];
-  if (numbers && !text(cell[1])) data.push({range:`'${SHEET}'!S${rowNumber}`, values:[[numbers]]});
+  const invoiced = obra.noFacturable===true ? num(obra.finanzas?.total||obra.neto||obra.importe||obra.infoPresupuesto?.importe) : invoices.reduce((sum,invoice) => sum + num(invoice.total || invoice.neto), 0);
+  const data = numbers&&numbers!=="N/A"?[]:billability.markerData(SHEET,rowNumber,obra.noFacturable,fullRow);
+  if (numbers && numbers!=="N/A" && (!text(cell[1])||billability.isNA(cell[1]))) data.push({range:`'${SHEET}'!S${rowNumber}`, values:[[numbers]]});
   const invoiceDate=sheetDate(lastInvoice.fecha || obra.ffc);
-  if (invoiceDate && !text(cell[0])) data.push({range:`'${SHEET}'!R${rowNumber}`, values:[[invoiceDate]]});
+  if (numbers!=="N/A" && invoiceDate && !text(cell[0])) data.push({range:`'${SHEET}'!R${rowNumber}`, values:[[invoiceDate]]});
   if (due && !text(cell[2])) data.push({range:`'${SHEET}'!T${rowNumber}`, values:[[sheetDate(due)]]});
   if (due && !text(cell[3])) data.push({range:`'${SHEET}'!U${rowNumber}`, values:[[weekFromDate(due)]]});
   if (lastPayment.fecha && !text(cell[4])) data.push({range:`'${SHEET}'!V${rowNumber}`, values:[[weekFromDate(lastPayment.fecha)]]});
@@ -181,6 +183,11 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
     const cells=formulas.data.values?.[0]||[];
     for(let i=data.length-1;i>=0;i--){const column=data[i].range.match(/!([A-Z]+)/)[1].charCodeAt(0)-'R'.charCodeAt(0);if(text(cells[column]).startsWith('=')){if(column===3){data.splice(i,1);continue}throw Object.assign(new Error('La celda de destino contiene una fórmula; revisar antes de actualizar'),{status:409})}}
     if(data.length)await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID, requestBody:{valueInputOption:"USER_ENTERED", data}});
+  }
+  if(data.some(change=>change.range===`'${SHEET}'!S${rowNumber}`)){
+    const verified=await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${rowNumber}:Y${rowNumber}`,valueRenderOption:'FORMATTED_VALUE'});
+    const actual=text(verified.data.values?.[0]?.[18]);
+    if(numbers==='N/A'&&!billability.isNA(actual)||!numbers&&obra.noFacturable===false&&billability.isNA(actual))throw new Error('No se pudo verificar la condición de facturación en Nro FC');
   }
   const signature = [numbers, lastInvoice.fecha || obra.ffc || "", due, payments.length, paid, obra.cobranzaEstadoManual || "", obra.estadoGestionFactCob || ""].join("|");
   const mark = {baseMadreFactCobSyncAt:new Date().toISOString(), baseMadreFactCobSignature:signature, baseMadreRow:rowNumber, baseMadreFactCobSyncVersion:"BACKEND-V121", baseMadreFactCobSyncBy:email};
@@ -255,16 +262,21 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       const existing = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${rowNumber}:AL${rowNumber}`});
       if(norm(existing.data.values?.[0]?.[layout.cliente])!==norm(payload.cliente))throw Object.assign(new Error('El cliente de Base Madre no coincide con la OT'),{status:409});
     }
-    const data=layoutCore.approvalData(SHEET,rowNumber,payload,date,week,layout);
+    const obra=p.noFacturable===true?await findObra(db,requestedOt,p.obraId):null;
+    if(p.noFacturable===true&&obra)billability.assertNoInvoices(obra);
+    const fiscalRow=found>=0?(await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${rowNumber}:AL${rowNumber}`,valueRenderOption:'FORMULA'})).data.values?.[0]||[]:[];
+    const marker=billability.markerData(SHEET,rowNumber,p.noFacturable,fiscalRow);
+    const data=[...layoutCore.approvalData(SHEET,rowNumber,payload,date,week,layout),...marker];
     if(found<0)data.push({range:`'${SHEET}'!Y${rowNumber}`,values:[["Pendiente"]]});
     await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID,requestBody:{valueInputOption:"USER_ENTERED",data}});
     const verify = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:AD${rowNumber}`});
     const actual = verify.data.values?.[0] || [];
     if (otBase(actual[layout.ot]) !== requestedOt || norm(actual[layout.cliente]) !== norm(payload.cliente)) throw new Error("La verificación final de la fila falló");
+    if(p.noFacturable===true&&!billability.isNA(actual[18])||p.noFacturable===false&&billability.isNA(actual[18]))throw new Error('No se pudo verificar la condición de facturación en Nro FC');
     const mark = {baseMadreSyncAt:new Date().toISOString(), baseMadreRow:rowNumber, baseMadreSpreadsheetId:SPREADSHEET_ID, baseMadreSyncVersion:"BACKEND-V120", baseMadreSyncBy:email};
     await db.collection("presupuestos").doc(p.id).set(mark, {merge:true});
     if (p.obraId) await db.collection("obras").doc(p.obraId).set(mark, {merge:true});
-    return res.json({ok:true, row:rowNumber, updated:found >= 0, payload, actual:{fecha:actual[layout.fecha], semana:actual[layout.semana], ot:actual[layout.ot], descripcion:actual[layout.descripcion], contacto:actual[layout.contacto], cliente:actual[layout.cliente], neto:actual[layout.neto], bruto:actual[layout.bruto], estado:actual[24]}});
+    return res.json({ok:true, row:rowNumber, updated:found >= 0, payload, actual:{fecha:actual[layout.fecha], semana:actual[layout.semana], ot:actual[layout.ot], descripcion:actual[layout.descripcion], contacto:actual[layout.contacto], cliente:actual[layout.cliente], neto:actual[layout.neto], bruto:actual[layout.bruto], estado:actual[24],numeroFactura:actual[18]||""}});
   } catch (error) {
     console.error("Base Madre V120", error);
     return res.status(error.status || 502).json({ok:false, error:error.message || "No se pudo sincronizar la Base Madre"});

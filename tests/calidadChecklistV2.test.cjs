@@ -57,7 +57,7 @@ test('endpoint rechaza usuarios ajenos y solicitudes sin token antes de consulta
 });
 test('recorrido por servidor existente guarda y descarga PDF sin crear una función ni ampliar cuentas',async()=>{
  const b=backend(),exports={},source=fs.readFileSync(require.resolve('../functions/baseMadreBackendV120'),'utf8');
- vm.runInNewContext(source,{exports,console,require:n=>n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):n==='firebase-admin'?b.admin:n==='googleapis'?{google:{}}:n==='firebase-functions/v2/https'?{onRequest:(_,fn)=>fn}:n==='./calidadChecklistApiV2.js'?{handle:b.handler}:require(n)});
+ vm.runInNewContext(source,{exports,console,require:n=>n==='./facturabilidadV1'?require('../functions/facturabilidadV1'):n==='./baseMadreLayoutV1'?require('../functions/baseMadreLayoutV1'):n==='firebase-admin'?b.admin:n==='googleapis'?{google:{}}:n==='firebase-functions/v2/https'?{onRequest:(_,fn)=>fn}:n==='./calidadChecklistApiV2.js'?{handle:b.handler}:require(n)});
  const output=[],headers={},res={set:(k,v)=>headers[k]=v,status(){return this;},json:r=>output.push(r),send:r=>output.push(r)},req={method:'POST',get:k=>k==='authorization'?'Bearer token':'',body:{mode:'quality-checklist-save',formulario:form()}};
  await exports.sincronizarBaseMadreV120(req,res);assert.equal(output[0].ok,true);const saved=output[0];req.body={mode:'quality-checklist-pdf',key:saved.key,etapa:'produccion',revision:1};await exports.sincronizarBaseMadreV120(req,res);
  assert.equal(output[1].subarray(0,4).toString(),'%PDF');assert.equal(headers['Content-Type'],'application/pdf');assert.match(headers['Content-Disposition'],/OT-4773-produccion-R1/);
