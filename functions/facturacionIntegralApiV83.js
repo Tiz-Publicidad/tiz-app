@@ -129,10 +129,13 @@ async function soap(url, action, body) {
   return t;
 }
 const credentialCache = new Map();
+const credentialPending = new Map();
 async function credentials(service = "wsfe") {
   if (!["wsfe", "wsfecred"].includes(service)) throw new Error("Servicio ARCA inválido");
   const cached=credentialCache.get(service);
   if(cached && cached.expires>Date.now()+60000)return cached.value;
+  if(credentialPending.has(service))return credentialPending.get(service);
+  const pending=(async()=>{
   const e = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body><loginCms xmlns="http://wsaa.view.sua.dvadac.desein.afip.gov"><in0>${cms(tra(service))}</in0></loginCms></soapenv:Body></soapenv:Envelope>`,
     x = await soap(WSAA, "", e),
     r = tag(x, "loginCmsReturn"),
@@ -142,6 +145,9 @@ async function credentials(service = "wsfe") {
   const value={token,sign},expires=Date.parse(tag(r,"expirationTime"));
   if(Number.isFinite(expires))credentialCache.set(service,{value,expires});
   return value;
+  })();
+  credentialPending.set(service,pending);
+  try{return await pending}finally{credentialPending.delete(service)}
 }
 async function call(method, inner, cr) {
   const a = `<Auth><Token>${esc(cr.token)}</Token><Sign>${esc(cr.sign)}</Sign><Cuit>${esc(issuer.value())}</Cuit></Auth>`,
@@ -149,13 +155,17 @@ async function call(method, inner, cr) {
   return soap(WSFE, `http://ar.gov.afip.dif.FEV1/${method}`, e);
 }
 async function consultarObligacionFce({cuit,fecha,total}) {
+  let stage='autenticacion';
   try {
     const cr=await credentials('wsfecred');
+    stage='consulta';
     const xml=await soap(fce.URL,fce.NS+'consultarMontoObligadoRecepcion',fce.request({...cr,issuer:issuer.value(),cuit,fecha}));
+    stage='respuesta';
     return {...fce.parse(xml,total),cuit,fecha};
   } catch(error) {
-    if(error.status)throw error;
-    throw Object.assign(new Error('No se pudo verificar la obligación de FCE en ARCA. Revisá que el certificado tenga habilitado el servicio WSFECRED y reintentá. No se emitió ningún comprobante.'),{status:503});
+    const failure=fce.diagnostic(error,stage);
+    console.error('FCE verification failed',{code:failure.code,etapa:failure.etapa});
+    throw failure;
   }
 }
 function importeConsultaFce(body){
@@ -676,7 +686,7 @@ const facturacionIntegralEmitirV83 = onRequest(
           .catch(() => {});
       return res
         .status(e.status || 502)
-        .json({ ok: false, error: e.message || "No se pudo emitir" });
+        .json({ ok: false, error: e.message || "No se pudo emitir",...(e.code?.startsWith('FCE_')?{code:e.code,etapa:e.etapa}:{}) });
     }
   },
 );

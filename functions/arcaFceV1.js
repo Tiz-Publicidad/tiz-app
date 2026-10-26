@@ -5,6 +5,18 @@ const NS='http://ar.gob.afip.wsfecred/FECredService/';
 const CONFIG_FOLDER='1XYk0vAIsGZCAiJ4s7TGyQYJdVBYvYdGy';
 const CONFIG_NAME='TIZ-configuracion-FCE.json';
 const fail=(message,status=422)=>Object.assign(new Error(message),{status});
+function diagnostic(error,stage='consulta'){
+ const text=[error?.code,error?.name,error?.message,error?.cause?.code].join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ let code='FCE_CONSULTA_FALLIDA',message='No se pudo completar la consulta de FCE en ARCA.';
+ if(/alreadyauthenticated|ya posee un ta valido|ticket de acceso.*valido/.test(text)){code='FCE_TICKET_ACTIVO';message='ARCA informa que ya existe una autorización vigente para WSFECRED. Hay que revisar la reutilización de esa autorización en el servidor.';}
+ else if(/notauthorized|not authorized|no autorizado|no se encuentra autorizado|servicio.*no.*habilitado|no.*servicio.*habilitado/.test(text)){code='FCE_SERVICIO_NO_AUTORIZADO';message='ARCA rechazó la autorización de WSFECRED. Revisá la relación del certificado con «Web Service Registro de Facturas de Crédito Electrónica MiPyMEs» para el CUIT emisor.';}
+ else if(/cms\.cert\.expired|certificado.*vencido|signing certificate.*expired/.test(text)){code='FCE_CERTIFICADO_VENCIDO';message='ARCA informó que el certificado de autenticación está vencido. Hay que actualizarlo en el servidor.';}
+ else if(/timeouterror|aborterror|etimedout|timeout/.test(text)){code='FCE_TIEMPO_AGOTADO';message='La consulta de FCE a ARCA agotó el tiempo de espera. Reintentá «Verificar FCE».';}
+ else if(/fetch failed|enotfound|econnreset|econnrefused|sin conexion|cert_has_expired|unable_to_verify/.test(text)){code='FCE_CONEXION';message='El servidor no pudo conectarse con ARCA para verificar FCE. Reintentá «Verificar FCE»; si persiste, hay que revisar la conexión del servidor.';}
+ else if(stage==='respuesta'){code='FCE_RESPUESTA_INVALIDA';message='ARCA devolvió una respuesta incompleta o rechazada al consultar FCE. Hay que revisar la respuesta del servicio.';}
+ else if(stage==='autenticacion'){code='FCE_AUTENTICACION';message='Falló la autenticación del servidor ante ARCA para consultar WSFECRED. Hay que revisar su autorización y certificado.';}
+ return Object.assign(new Error(`${message} No se emitió ningún comprobante. [${code}]`),{status:503,code,etapa:stage});
+}
 const esc=v=>String(v??'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 function tag(xml,name){const m=String(xml||'').match(new RegExp(`<(?:\\w+:)?${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${name}>`,'i'));return m?m[1].trim().replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'):'';}
 function request({token,sign,issuer,cuit,fecha}){
@@ -56,4 +68,4 @@ function optionalXml(cfg,settings,anulacion='N'){
  return `<Opcionales><Opcional><Id>22</Id><Valor>${anulacion}</Valor></Opcional></Opcionales>`;
 }
 function validateDue(cfg,due,fecha,hoy){if(cfg.fce&&cfg.familia==='factura'&&due<(fecha>hoy?fecha:hoy))throw fail('El vencimiento de pago de la FCE debe ser igual o posterior a hoy y a la fecha de emisión. Aumentá el plazo de pago.',400);}
-module.exports={URL,NS,request,parse,enforce,validCbu,config,loadConfig,optionalXml,validateDue};
+module.exports={URL,NS,request,parse,enforce,validCbu,config,loadConfig,optionalXml,validateDue,diagnostic};
