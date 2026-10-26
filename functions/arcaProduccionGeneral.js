@@ -158,6 +158,7 @@ const arcaProduccionEmitirGeneral = onRequest({
     const snap = await obraRef.get();
     if (!snap.exists) throw Object.assign(new Error("No se encontró la OT"), {status:404});
     const obra = snap.data() || {};
+    if(obra.noFacturable===true)throw Object.assign(new Error('La obra está marcada No facturable. Revisar el presupuesto antes de emitir.'),{status:409});
     const ot = String(obra.ot || "").match(/\d{4,7}/)?.[0].replace(/^0+/,"") || "";
 
     const cuit = String(req.body?.docNro || obra.clienteCuit || obra.cuit || "").replace(/\D/g,"");

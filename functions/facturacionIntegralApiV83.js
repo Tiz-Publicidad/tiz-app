@@ -372,6 +372,7 @@ const facturacionIntegralEmitirV83 = onRequest(
         snap = await ref.get();
       if (!snap.exists)
         throw Object.assign(new Error("No se encontró la OT"), { status: 404 });
+      if(snap.data()?.noFacturable===true&&cfg.familia==='factura')throw Object.assign(new Error('La obra está marcada No facturable. Revisar el presupuesto antes de emitir.'),{status:409});
       const obra = snap.data() || {},
         cuit = String(
           req.body?.docNro || obra.clienteCuit || obra.cuit || "",

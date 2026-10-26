@@ -41,14 +41,16 @@ jobs:
           grep -q "</html>" index.html
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' index.html
-          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' index.html
-          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
-          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' index.html
-          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' index.html
+          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-NO-FACTURABLE-20261026' index.html
+          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-NO-FACTURABLE-20261026' index.html
+          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-NO-FACTURABLE-20261026' index.html
+          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-NO-FACTURABLE-20261026' index.html
           node --check obrasListadoV1.js
           node --test tests/obrasListadoV1.test.cjs
           node --check produccionV34.js
           node --check baseMadreSyncV116.js
+          node --check functions/facturabilidadV1.js
+          node --test tests/noFacturableV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js tests/cobrosParcialesV2.test.js
           node --check functions/baseMadreLayoutV1.js
           node --test tests/baseMadreLayoutV1.test.cjs
           node --check clienteContactosV1.js
@@ -75,8 +77,8 @@ jobs:
           node --check functions/calidadChecklistCoreV2.js
           node --check functions/calidadChecklistApiV2.js
           node --test tests/calidadChecklistV2.test.cjs tests/calidadPortalV1.test.cjs
-          grep -q 'sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016' index.html
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023' index.html
+          grep -q 'sectorizacionV35.js?v=TIZ-NO-FACTURABLE-20261026' index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-NO-FACTURABLE-20261026' index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-FCE-SCA-20261023' index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' index.html
@@ -132,10 +134,10 @@ jobs:
           set -e
           grep -q "PRODUCCION-INTEGRAL-V1-20260914" site/produccionV34.js
           grep -q 'produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914' site/index.html
-          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' site/index.html
-          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' site/index.html
-          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' site/index.html
-          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' site/index.html
+          grep -q 'facturacionCobranzasDataV2.js?v=TIZ-NO-FACTURABLE-20261026' site/index.html
+          grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-NO-FACTURABLE-20261026' site/index.html
+          grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-NO-FACTURABLE-20261026' site/index.html
+          grep -q 'facturacionCobranzasUIV2.js?v=TIZ-NO-FACTURABLE-20261026' site/index.html
           test -f site/index.html
           test -f site/colocacionesV128.js
           test -f site/colocacionesGeneralUIV129.js
@@ -145,7 +147,7 @@ jobs:
           test -f site/sectorizacionV35.js
           test -f site/clienteContactosV1.js
           test -f site/baseMadreSyncV116.js
-          grep -q 'baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023' site/index.html
+          grep -q 'baseMadreSyncV116.js?v=TIZ-NO-FACTURABLE-20261026' site/index.html
           grep -q 'driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923' site/index.html
           grep -q 'facturadorIntegralV83.js?v=TIZ-FC-FCE-SCA-20261023' site/index.html
           grep -q 'facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930' site/index.html

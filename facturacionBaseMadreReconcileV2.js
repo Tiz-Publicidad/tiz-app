@@ -20,6 +20,7 @@ function classify(sheet,works){
   const w=chooseWork(works,s),parsed=invoice(s.numeroFactura),matches=parsed&&w?invoiceMatches(w,{...s,numeroFactura:parsed.number}):[],inv=matches.length===1?matches[0]:null;let tipo='ok',detalle='Coincide con TIZ';
   if(!w){tipo=works.some(w=>String(w.ot)===s.ot)?'ambiguo':'sin_ot';detalle=tipo==='sin_ot'?'No hay una OT en Facturación/Cobranzas':'La OT o el cliente no tienen una coincidencia única'}
   else if(!w.obraId||w.anuladaConNC){tipo='ambiguo';detalle=w.anuladaConNC?'Factura anulada con NC: conservar su anulación':'La OT no está vinculada a una obra'}
+  else if(/^n\s*\/\s*a$/i.test(s.numeroFactura)){tipo='ok';detalle=w.noFacturable?'No facturable · N/A':'N/A en Base Madre: revisar la condición en el presupuesto';if(!w.noFacturable)tipo='ambiguo'}
   else if((s.numeroFactura&&!parsed)||matches.length>1){tipo='ambiguo';detalle='Número de factura compuesto o identidad fiscal ambigua'}
   else if(s.numeroFactura&&(!s.fechaFactura||s.neto<=0||(s.bruto>0&&s.bruto<s.neto))){tipo='ambiguo';detalle='Faltan fecha o importes válidos de la factura'}
   else if((inv&&inv.neto>0&&Math.abs(inv.neto-s.neto)>1)||(!inv&&parsed&&w.importeAprobado>0&&s.neto>w.importeAprobado+1)){tipo='importe';detalle='El neto difiere: revisar el importe antes de importar'}

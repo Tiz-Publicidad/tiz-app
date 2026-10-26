@@ -143,7 +143,7 @@ function billingPayload(o={}){
   const invoices=invoiceList(o),payments=Array.isArray(o.cobros)?o.cobros:[],last=invoices[invoices.length-1]||{},lastPay=[...payments].sort((a,b)=>dateIso(a.fecha).localeCompare(dateIso(b.fecha))).pop()||{};
   const dueDates=invoices.map(x=>dateIso(x.fechaPrevistaCobro||x.fechaVencimientoPago)).filter(Boolean).sort();
   const due=dueDates[0]||dateIso(o.fechaPrevistaCobro||o.finanzas?.fechaPrevistaCobro);
-  const numbers=invoices.map(invoiceNumber).filter(Boolean).join(' / ');
+  const numbers=o.noFacturable===true?'N/A':invoices.map(invoiceNumber).filter(Boolean).join(' / ');
   const paid=payments.reduce((a,x)=>a+N(x.importe)+N(x.retenciones),0),invoiced=invoices.reduce((a,x)=>a+N(x.total||x.neto),0);
   const signature=[numbers||T(o.nrfc),last.fecha||o.ffc||'',due||'',payments.length,paid,o.cobranzaEstadoManual||'',o.estadoGestionFactCob||''].join('|');
   return{ot:base(o.ot||o.nroCotizacion||o.infoPresupuesto?.nro),fechaFactura:sheetDate(last.fecha||o.ffc),numeroFactura:numbers||T(o.nrfc),fechaProyectada:sheetDate(due),semanaProyectada:weekFromIso(due),semanaConfirmada:lastPay.fecha?weekFromIso(lastPay.fecha):'',paid,invoiced,cobrado:invoiced>0&&paid>=invoiced-.01,cobroParcial:paid>0,signature};
@@ -247,6 +247,7 @@ async function syncBudgetBackend(p,{silent=false}={}){
   const idToken=await user.getIdToken();
   const response=await fetch(BACKEND_URL,{method:'POST',headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},body:JSON.stringify({ot})});
   const result=await response.json().catch(()=>({}));if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo sincronizar la Base Madre');
+  if(p.noFacturable===true&&T(result.actual?.numeroFactura)!=='N/A')throw new Error('El servidor todavía no confirmó N/A en Nro FC. Base Madre sigue pendiente de sincronización.');
   const mark={baseMadreSyncAt:new Date().toISOString(),baseMadreRow:result.row||null,baseMadreSpreadsheetId:SPREADSHEET_ID,baseMadreSyncVersion:'BACKEND-V120'};
   Object.assign(p,mark);if(!silent)window.showToast?.('OT '+ot+' sincronizada con TIZ 2026 Base de Datos ✓');return result;
 }

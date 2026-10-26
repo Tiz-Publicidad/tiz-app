@@ -34,3 +34,15 @@ test('elegir Aprobado explícitamente sigue creando la obra y sincronizando Base
 test('editar una aprobada mantiene su estado y la opción Pendiente existe para cotizaciones anteriores',()=>{
  const f=fixture();f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,'Aprobado');assert.match(sector,/<option>Pendiente<\/option>/);
 });
+
+test('No facturable se conserva en edición/revisión y se limpia en un presupuesto nuevo',()=>{
+ const f=fixture();f.approved.noFacturable=true;f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-no-facturable').checked,true);f.window.abrirRevisionCotizacionV354('approved',true);assert.equal(f.field('pp-no-facturable').checked,true);f.window.abrirNuevoPresupuestoCompleto();assert.equal(f.field('pp-no-facturable').checked,false);
+});
+test('aprobar No facturable propaga la condición a obra y deja auditoría; destildar la revierte',async()=>{
+ const f=fixture();f.window.abrirRevisionCotizacionV354('approved');f.field('pp-no-facturable').checked=true;await f.window.guardarPresupuestoCompleto();assert.equal(f.approved.noFacturable,true);assert.equal(f.window.DB.obras[0].noFacturable,true);assert.equal(f.approved.historialFacturabilidad[0].nuevo,true);assert.equal(f.syncs[0].noFacturable,true);
+ f.field('pp-no-facturable').checked=false;await f.window.guardarPresupuestoCompleto();assert.equal(f.approved.noFacturable,false);assert.equal(f.window.DB.obras[0].noFacturable,false);assert.equal(f.approved.historialFacturabilidad.length,2);
+});
+
+test('una obra con comprobantes no cambia de condición ni guarda el presupuesto',async()=>{
+ const f=fixture();f.window.DB.obras.push({id:'o',ot:'4800',presupuestoId:'approved'});f.window.TIZFacturacionCobranzasDataV2={build:()=>({workItems:[{obraId:'o',invoices:[{numeroCompleto:'1234'}]}]})};f.window.abrirRevisionCotizacionV354('approved');f.field('pp-no-facturable').checked=true;await f.window.guardarPresupuestoCompleto();assert.equal(f.writes.length,0);assert.equal(f.approved.noFacturable,undefined);assert.equal(f.window.__tizPresupuestoGuardando,false);
+});

@@ -23,7 +23,7 @@ async function registrarCobro(obraId,payload){
  }:null;
  const retenciones=retencionesDetalle?Math.round(Object.values(retencionesDetalle).reduce((a,b)=>a+b,0)*100)/100:amount(payload?.retenciones,'retenciones');
  if(retencionesDetalle&&payload?.retenciones!=null&&Math.abs(retenciones-Number(payload.retenciones))>.01)throw new Error('El total de retenciones no coincide con el detalle');
- const base=payload?.base==='cotizacion'?'cotizacion':'facturado';
+ const base=w.noFacturable||payload?.base==='cotizacion'?'cotizacion':'facturado';
  const saldoCotizacion=Math.max(0,Math.round((w.importeAprobado-w.cobrado-w.retenciones)*100)/100);
  const saldo=base==='cotizacion'?saldoCotizacion:w.porCobrar;
  const row={id:'cob-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),invoiceKey:String(payload?.invoiceKey||''),facturaNumero:String(payload?.facturaNumero||''),fecha,...(()=>{const s=fechas().semana(fecha);return{semanaCobroInicio:s.inicio,semanaCobroFin:s.fin,semanaCobroISO:s.iso,mesCobro:s.mes};})(),importe:amount(payload?.importe,'cobro'),medio:String(payload?.medio||''),referencia:String(payload?.referencia||''),retenciones,retencionesDetalle:retencionesDetalle||{},base,modo:String(payload?.modo||'importe'),porcentaje:amount(payload?.porcentaje,'porcentaje'),observaciones:String(payload?.observaciones||''),creadoAt:now()};
@@ -36,6 +36,7 @@ async function registrarCobro(obraId,payload){
 async function registrarFacturaManual(obraId,payload){
  if(!window.currentUser?.isAdmin)throw new Error('Solo administración puede registrar facturas');
  const o=obra(obraId),w=work(obraId);if(!o)throw new Error('No se encontró la OT');
+ if(o.noFacturable===true||w?.noFacturable)throw new Error('La obra está marcada No facturable. Revisá el presupuesto antes de registrar una factura.');
  const m=String(payload?.numeroCompleto||'').trim().match(/^(\d{1,5})-(\d{1,8})$/);
  if(!m||Number(m[1])!==3||!Number(m[2]))throw new Error('Ingresá un número del punto de venta 0003 (00003-00000001)');
  const cbteTipo=Number(payload?.cbteTipo),tipo={1:'Factura A',6:'Factura B',201:'Factura de Crédito Electrónica A',206:'Factura de Crédito Electrónica B'}[cbteTipo];
@@ -61,12 +62,12 @@ async function cambiarEstadoGestionInterno(obraId,estado,opts={}){const o=obra(o
  if(opts.importeEsperado!=null&&Math.abs(Number(opts.importeEsperado)-w.porCobrar)>.01)throw new Error('El saldo cambió. Volvé a abrir el registro del pago para revisar el importe.');
  const fecha=validarFechaPago(String(opts.fechaPago||''));patch.fechaCobro=fecha;const s=fechas().semana(fecha);patch.semanaCobroInicio=s.inicio;patch.semanaCobroISO=s.iso;
  if(w.porCobrar>.01&&!opts.cierreExcepcional){
-  const pago={id:'cob-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),fecha,importe:Math.round(w.porCobrar*100)/100,retenciones:0,retencionesDetalle:{},base:'facturado',modo:'total',medio:'',referencia:'',observaciones:'Pago sin retenciones registrado al marcar Cobrado',creadoAt:now(),creadoPor:String(window.currentUser?.email||''),semanaCobroInicio:s.inicio,semanaCobroFin:s.fin,semanaCobroISO:s.iso,mesCobro:s.mes};
+  const pago={id:'cob-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),fecha,importe:Math.round(w.porCobrar*100)/100,retenciones:0,retencionesDetalle:{},base:w.noFacturable?'cotizacion':'facturado',modo:'total',medio:'',referencia:'',observaciones:'Pago sin retenciones registrado al marcar Cobrado',creadoAt:now(),creadoPor:String(window.currentUser?.email||''),semanaCobroInicio:s.inicio,semanaCobroFin:s.fin,semanaCobroISO:s.iso,mesCobro:s.mes};
   patch.cobros=[...(o.cobros||[]),pago];
  }
 }
 if(v==='cobrado'||v==='historico'){patch.cobranzaEstadoManual='cobrado';patch.historicoCerrado=true}else if(v==='cobrado_pendiente'){patch.cobranzaEstadoManual='cobrado pendiente';patch.historicoCerrado=false}else{patch.historicoCerrado=false}await save(o,patch);return patch}
 async function cambiarEstadoGestion(obraId,estado,opts={}){if(cierresEnCurso.has(obraId))throw new Error('El pago de esta OT se está guardando.');cierresEnCurso.add(obraId);try{return await cambiarEstadoGestionInterno(obraId,estado,opts)}finally{cierresEnCurso.delete(obraId)}}
-function emitirArca(obraId){if(typeof window.abrirFacturacionGeneralV63!=='function')throw new Error('El facturador ARCA no esta disponible');return window.abrirFacturacionGeneralV63(obraId)}
+function emitirArca(obraId){if(obra(obraId)?.noFacturable===true||work(obraId)?.noFacturable)throw new Error('La obra está marcada No facturable. Revisá el presupuesto.');if(typeof window.abrirFacturacionGeneralV63!=='function')throw new Error('El facturador ARCA no esta disponible');return window.abrirFacturacionGeneralV63(obraId)}
 window.TIZFactCobActionsV2={registrarCobro,registrarFacturaManual,guardarSeguimiento,guardarGestionFactura,guardarCondicionPago,guardarEstadoCobranza,cambiarEstadoGestion,emitirArca};
 })();

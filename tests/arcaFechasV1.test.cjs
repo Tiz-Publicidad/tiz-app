@@ -21,8 +21,8 @@ test('período de servicios y vencimiento usan la fecha elegida y conservan el p
  assert.equal(F.serviceDates({concepto:1,fecha:'2026-10-20',diasPago:0}).fechaVencimientoPago,'2026-10-20');
  assert.throws(()=>F.serviceDates({concepto:2,fecha:hoy,desde:hoy,hasta:'2026-10-01',diasPago:15}),/posterior/);
 });
-function server({last='20261020',lastNumber=25,malformed=false,oldAuthorized=null,obligado='N',montoDesde=121,consultaError=false,configReady=true}={}){
- const requests=[],writes=[],pdf=[],o={ot:'4800',cliente:'Cliente',neto:100},refs=new Map();
+function server({last='20261020',lastNumber=25,malformed=false,oldAuthorized=null,obligado='N',montoDesde=121,consultaError=false,configReady=true,noFacturable=false}={}){
+ const requests=[],writes=[],pdf=[],o={ot:'4800',cliente:'Cliente',neto:100,noFacturable},refs=new Map();
  function doc(col,id){const key=col+'/'+id;if(!refs.has(key))refs.set(key,{get:async()=>({exists:col==='obras'||(col==='arcaEmisiones'&&!!oldAuthorized),data:()=>col==='obras'?o:{status:'autorizada',comprobante:oldAuthorized}}),set:async data=>writes.push({col,id,data}),update:async data=>writes.push({col,id,data})});return refs.get(key);}
  const db={collection:col=>({doc:id=>doc(col,id)}),runTransaction:async fn=>fn({get:async r=>({exists:false,data:()=>({})}),set:(r,d)=>writes.push({lock:d})})};
  function firestore(){return db;}firestore.FieldValue={serverTimestamp:()=>({at:true})};
@@ -88,4 +88,11 @@ test('factura común por debajo del umbral no agrega opcionales FCE; FCE con ven
 
 test('nota FCE usa el régimen original, opcional de anulación y no manda CBU ni vencimiento de factura',async()=>{
  const x=server({consultaError:true}),r=await x.run({cbteTipo:202,concepto:3,asociado:{cbteTipo:201,ptoVta:9,cbteNro:1},anulacionFce:'N'});assert.equal(r.status,200,r.body.error);const xml=x.requests.find(r=>r.method==='FECAESolicitar').inner;assert.match(xml,/<Id>22<\/Id><Valor>N<\/Valor>/);assert.doesNotMatch(xml,/<Id>2101<\/Id>|<Id>27<\/Id>|<FchVtoPago>/);assert.match(xml,/<FchServDesde>/);
+});
+
+test('servidor bloquea emisión nueva para No facturable antes de consultar ARCA',async()=>{
+ const x=server({noFacturable:true}),r=await x.run();assert.equal(r.status,409);assert.match(r.body.error,/No facturable/);assert.equal(x.requests.length,0);assert.equal(x.pdf.length,0);
+});
+test('reintento de factura autorizada nunca vuelve a emitir aunque cambie la condición',async()=>{
+ const x=server({noFacturable:true,oldAuthorized:{numeroCompleto:'00009-00000025'}}),r=await x.run();assert.equal(r.body.repetida,true);assert.equal(x.requests.length,0);
 });
