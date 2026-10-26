@@ -297,8 +297,8 @@
         fceState={key,data};
         const letter=[1,201].includes(t)?'A':'B',target=data.requiereFce?(letter==='A'?201:206):(letter==='A'?1:6);
         for(const opt of [...typeEl.options])if((data.requiereFce?[1,6]:[201,206]).includes(Number(opt.value)))opt.disabled=true;
-        const threshold=data.obligado?` Umbral de ARCA: ${money(data.montoDesde)} (total con IVA).`:'';
-        status.textContent=(data.requiereFce?'Corresponde FCE. Factura común bloqueada.':'Corresponde factura común para este cliente, fecha e importe.')+threshold+
+        const threshold=data.montoDesde?` ${data.criterio==='inferior_minimo_general'?'Mínimo general publicado por ARCA':'Umbral de ARCA'}: ${money(data.montoDesde)} (total con IVA).`:'';
+        status.textContent=(data.criterio==='inferior_minimo_general'?'El importe está por debajo del mínimo general de FCE. Corresponde factura común.':data.requiereFce?'Corresponde FCE. Factura común bloqueada.':'Corresponde factura común para este cliente, fecha e importe.')+threshold+
           (data.requiereFce?(data.fceConfigurada?` CBU terminado en ${data.cbuFinal} · Sistema de Circulación Abierta (SCA).`:' '+data.configError):'');
         status.style.color=data.requiereFce?'var(--accent,#e8b84b)':'var(--green,#35c58a)';
         if(target!==t){change.style.display='';change.textContent=data.requiereFce?`Usar FCE ${letter}`:`Usar Factura ${letter}`;change.onclick=()=>{typeEl.value=String(target);$('#fv83-ok').checked=false;typeEl.onchange();};}
