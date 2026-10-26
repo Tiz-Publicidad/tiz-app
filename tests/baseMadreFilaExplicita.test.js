@@ -57,7 +57,7 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../functions/baseMadreBackendV120.js'),'utf8'),context);
   const response={statusCode:200,set(){return this},status(code){this.statusCode=code;return this},json(value){this.body=value;return this}};
   const req={method:'POST',body:{ot:'4755',...(billing?{mode:'billing',obraId:'o1'}:{})},get:key=>key==='authorization'?'Bearer test':''};
-  return {handler:exports.sincronizarBaseMadreV120,req,response,calls,rows};
+  return {handler:exports.sincronizarBaseMadreV120,req,response,calls,rows,budget};
 }
 
 test('alta nueva escribe A:H e Y de una fila explícita sin desplazar columnas',async()=>{
@@ -95,7 +95,7 @@ test('alta conserva la fórmula de semana preparada en U y el reintento no dupli
   assert.equal(x.calls.some(c=>c.range.includes('!U421')),false);
   x.calls.length=0;await x.handler(x.req,x.response);
   assert.equal(x.response.statusCode,200);assert.equal(x.response.body.updated,true);
-  assert.deepEqual(x.calls.map(c=>c.range),["'Base de datos'!A421:H421"]);
+  assert.deepEqual(x.calls.map(c=>c.range),["'Base de datos'!C421:H421"]);
 });
 test('tolera separadores y referencias absolutas de la misma fórmula de plantilla',async()=>{
   const x=fixture({weekFormula:'=IF($T$421="","",IFERROR(WEEKNUM(INT($T$421),2),""))'});
@@ -164,4 +164,11 @@ test('el servidor consulta la visibilidad y salta la primera fila oculta',async(
  const x=fixture({hidden:true});await x.handler(x.req,x.response);
  assert.equal(x.response.statusCode,200);assert.equal(x.response.body.row,422);
  assert.equal(x.rows.has(421),false);
+});
+
+test('venta aprobada hoy usa semana de aprobación aunque el presupuesto sea del viernes',async()=>{
+ const x=fixture();Object.assign(x.budget,{fecha:'23/10/26',fechaVenta:'2026-10-26'});await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.rows.get(421).A,'26/10/26');assert.equal(x.rows.get(421).B,44);assert.equal(x.budget.fecha,'23/10/26');
+});
+test('reintento conserva fecha y semana corregidas en planilla sin reescribir esas celdas',async()=>{
+ for(const shifted of [false,true]){const x=fixture({existing:true,shifted,extra:{A:'26/10/26',B:44}});Object.assign(x.budget,{fecha:'23/10/26',fechaAprobacion:'23/10/26'});await x.handler(x.req,x.response);assert.equal(x.response.statusCode,200);assert.equal(x.rows.get(421).A,'26/10/26');assert.equal(x.rows.get(421)[shifted?'C':'B'],44);assert.equal(x.calls.some(w=>w.range.includes('!A421')),false);}
 });

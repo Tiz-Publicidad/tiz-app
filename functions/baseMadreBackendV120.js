@@ -247,21 +247,22 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     if(matches.length>1)throw Object.assign(new Error("La OT tiene varias filas en Base Madre; revisar antes de sincronizar"),{status:409});
     const found = matches[0] ?? -1;
     let rowNumber = found >= 0 ? found + 3 : nextEmptyRow(values);
-    const date = shortDate(p.fecha || p.fechaAprobacion);
-    const [dd,mm,yy] = date.split("/").map(Number);
-    const week = isoWeek(new Date(2000 + yy, mm - 1, dd));
+    let existingRow=[];
     if (found < 0) rowNumber = await nextAvailableRow(sheets, rowNumber);
     else {
       const existing = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID,range:`'${SHEET}'!A${rowNumber}:AL${rowNumber}`});
-      if(norm(existing.data.values?.[0]?.[layout.cliente])!==norm(payload.cliente))throw Object.assign(new Error('El cliente de Base Madre no coincide con la OT'),{status:409});
+      existingRow=existing.data.values?.[0]||[];
+      if(norm(existingRow[layout.cliente])!==norm(payload.cliente))throw Object.assign(new Error('El cliente de Base Madre no coincide con la OT'),{status:409});
     }
-    const data=layoutCore.approvalData(SHEET,rowNumber,payload,date,week,layout);
+    const period=layoutCore.salesPeriod(p,existingRow,layout);
+    const data=layoutCore.approvalData(SHEET,rowNumber,payload,existingRow[layout.fecha]?undefined:period.fecha,existingRow[layout.semana]!==''&&existingRow[layout.semana]!=null?undefined:period.semana,layout);
     if(found<0)data.push({range:`'${SHEET}'!Y${rowNumber}`,values:[["Pendiente"]]});
     await sheets.spreadsheets.values.batchUpdate({spreadsheetId:SPREADSHEET_ID,requestBody:{valueInputOption:"USER_ENTERED",data}});
     const verify = await sheets.spreadsheets.values.get({spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A${rowNumber}:AD${rowNumber}`});
     const actual = verify.data.values?.[0] || [];
     if (otBase(actual[layout.ot]) !== requestedOt || norm(actual[layout.cliente]) !== norm(payload.cliente)) throw new Error("La verificación final de la fila falló");
-    const mark = {baseMadreSyncAt:new Date().toISOString(), baseMadreRow:rowNumber, baseMadreSpreadsheetId:SPREADSHEET_ID, baseMadreSyncVersion:"BACKEND-V120", baseMadreSyncBy:email};
+    if(layoutCore.salesDate(actual[layout.fecha])!==period.iso||String(actual[layout.semana])!==String(period.semana))throw new Error('La verificación de fecha o semana de venta falló');
+    const mark = {fechaVenta:period.iso,baseMadreSyncAt:new Date().toISOString(), baseMadreRow:rowNumber, baseMadreSpreadsheetId:SPREADSHEET_ID, baseMadreSyncVersion:"BACKEND-V120", baseMadreSyncBy:email};
     await db.collection("presupuestos").doc(p.id).set(mark, {merge:true});
     if (p.obraId) await db.collection("obras").doc(p.obraId).set(mark, {merge:true});
     return res.json({ok:true, row:rowNumber, updated:found >= 0, payload, actual:{fecha:actual[layout.fecha], semana:actual[layout.semana], ot:actual[layout.ot], descripcion:actual[layout.descripcion], contacto:actual[layout.contacto], cliente:actual[layout.cliente], neto:actual[layout.neto], bruto:actual[layout.bruto], estado:actual[24]}});

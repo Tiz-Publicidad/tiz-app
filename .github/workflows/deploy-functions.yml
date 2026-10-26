@@ -53,7 +53,7 @@ jobs:
           node --check functions/facturacionDriveRetryV83.js
           node --check functions/baseMadreBackendV120.js
           node --check functions/baseMadreLayoutV1.js
-          node --test tests/baseMadreLayoutV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js
+          node --test tests/ventasSemanaV1.test.cjs tests/baseMadreLayoutV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
           node --check calidadChecklistsV2.js
           node --check functions/calidadChecklistCoreV2.js

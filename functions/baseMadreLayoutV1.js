@@ -18,8 +18,38 @@
     return out;
   }
   function column(index){let s='';for(let n=index+1;n>0;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;}
+  function salesDate(value){
+    if(value==null||value==='')return '';
+    let date;
+    if(typeof value?.toDate==='function')date=value.toDate();
+    else if(typeof value==='object'&&Number.isFinite(value.seconds??value._seconds))date=new Date(Number(value.seconds??value._seconds)*1000);
+    else if(typeof value==='number')date=new Date(Date.UTC(1899,11,30)+Math.round(value)*86400000);
+    else if(typeof value?.getTime==='function')date=value;
+    let raw=String(value).trim(),m;
+    if(!date&&/^\d{4}-\d{2}-\d{2}T/.test(raw))date=new Date(raw);
+    if(date){
+      if(!Number.isFinite(date.getTime()))throw Error('Fecha de venta inválida');
+      if(typeof value==='number')raw=date.toISOString().slice(0,10);
+      else{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const get=t=>parts.find(p=>p.type===t).value;raw=get('year')+'-'+get('month')+'-'+get('day');}
+    }
+    if((m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/))){/* ISO calendar date */}
+    else if((m=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/))){let year=Number(m[3]);if(year<100)year+=2000;m=[raw,String(year),m[2],m[1]];}
+    else throw Error('Fecha de venta inválida; revisar la aprobación');
+    const y=Number(m[1]),month=Number(m[2]),day=Number(m[3]),check=new Date(Date.UTC(y,month-1,day));
+    if(check.getUTCFullYear()!==y||check.getUTCMonth()!==month-1||check.getUTCDate()!==day)throw Error('Fecha de venta inválida; revisar la aprobación');
+    return String(y)+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  }
+  function salesPeriod(p={},existing=[],l={},now=new Date()){
+    const stored=existing[l.fecha],week=existing[l.semana];
+    const candidate=stored||p.fechaVenta||p.fechaAprobacion||p.promovidoEn||now;
+    const iso=salesDate(candidate),[y,m,d]=iso.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));
+    date.setUTCDate(date.getUTCDate()+4-(date.getUTCDay()||7));
+    const calculated=Math.ceil((((date-new Date(Date.UTC(date.getUTCFullYear(),0,1)))/86400000)+1)/7);
+    if(!stored&&week!==''&&week!=null&&Number(week)!==calculated)throw Error('La fila tiene semana sin fecha de venta; revisar antes de sincronizar');
+    return {iso,fecha:String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+String(y).slice(-2),semana:stored&&week!==''&&week!=null?week:calculated};
+  }
   function approvalData(sheet,row,payload,fecha,semana,l){
-    const data=Object.entries({...payload,fecha,semana}).filter(([k])=>k in names).map(([k,v])=>({index:l[k],value:v})).sort((a,b)=>a.index-b.index),groups=[];
+    const data=Object.entries({...payload,fecha,semana}).filter(([k,v])=>k in names&&v!==undefined).map(([k,v])=>({index:l[k],value:v})).sort((a,b)=>a.index-b.index),groups=[];
     for(const cell of data){const last=groups[groups.length-1];if(last&&last.end+1===cell.index){last.end=cell.index;last.values.push(cell.value)}else groups.push({start:cell.index,end:cell.index,values:[cell.value]});}
     return groups.map(g=>({range:"'"+sheet.replace(/'/g,"''")+"'!"+column(g.start)+row+':'+column(g.end)+row,values:[g.values]}));
   }
@@ -55,5 +85,5 @@
     const size=Math.max(0,...values.slice(0,keys.length).map(v=>v.values?.length||0));
     return Array.from({length:size},(_,i)=>({row:i+3,...Object.fromEntries(keys.map((k,j)=>[k==='descripcion'?'desc':k,String(values[j]?.values?.[i]?.[0]??'').trim()]))}));
   }
-  return {layout,column,approvalData,emptyRow,nextFreeRow,read,readWorks};
+  return {layout,column,salesDate,salesPeriod,approvalData,emptyRow,nextFreeRow,read,readWorks};
 });
