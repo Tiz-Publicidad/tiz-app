@@ -20,6 +20,7 @@ function fixture({occupied = false, existing = false, billing = false, weekFormu
     batchUpdate:async({requestBody})=>{rowCount+=requestBody.requests[0].appendDimension.length;},
     values:{
     get: async ({range}) => {
+      if (range.endsWith('AB2:AF2')) return {data:{values:[]}};
       if (range.endsWith('R421:Y421')) return {data:{values:[Array(8).fill('')]}};
       if(range.endsWith('A2:AL2'))return {data:{values:[headers]}};
       if (range.endsWith(otColumn+'3:'+otColumn)) {
