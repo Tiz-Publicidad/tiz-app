@@ -42,7 +42,7 @@ test('sincronización del navegador reusa fila 429 y conserva producción, gasto
  };
  vm.runInNewContext(source.slice(0,source.indexOf('let billingMonitorBusy'))+'\nwindow.testSync=syncBudget;})();', {window,fetch,Date,Intl,console});
  const result=await window.testSync({estado:'Aprobado',nro:'4775',cliente:'Cliente',desc:'Cheque',importe:30000},{token:'test',silent:true});
- assert.equal(result.row,429);assert.equal(result.updated,true);assert.equal(r[1],'20/10/26');assert.equal(r[9],10000);assert.equal(r[18],'00009-00000019');assert.equal(r[3],'4775');assert.equal(writes.length,2);
+ assert.equal(result.row,429);assert.equal(result.updated,true);assert.equal(r[1],'20/10/26');assert.equal(r[9],10000);assert.equal(r[18],'00009-00000019');assert.equal(r[3],'4775');assert.equal(writes.length,1);assert.equal(r[0],'15/10/26');assert.equal(r[2],42);assert.equal(writes.some(w=>w.range.includes('!A429')||w.range.includes('!C429')),false);
 });
 function fiscalFixture(lookup){
  const writes=[],marked=[];

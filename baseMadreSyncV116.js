@@ -107,7 +107,8 @@ function payloadFromBudget(p={}){
     cliente:T(p.cliente),
     neto,
     bruto:Math.round(neto*(1+ivaPct/100)*100)/100,
-    estado:'Pendiente'
+    estado:'Pendiente',
+    fechaVenta:p.fechaVenta||'',fechaAprobacion:p.fechaAprobacion||'',promovidoEn:p.promovidoEn||''
   };
 }
 async function sheetLayout(token){
@@ -187,7 +188,7 @@ async function verifyRow(row,payload,token,layout){
 }
 async function updateExisting(row,payload,token,layout){
   layout=layout||await sheetLayout(token);
-  const old=await readRow(row,token),fecha=T(old[layout.fecha])||fmtDate(),sem=T(old[layout.semana])||String(isoWeek());
+  const old=await readRow(row,token),period=window.TIZBaseMadreLayoutV1.salesPeriod(payload,old,layout),fecha=old[layout.fecha]?undefined:period.fecha,sem=old[layout.semana]!==''&&old[layout.semana]!=null?undefined:period.semana;
   if(norm(old[layout.cliente])!==norm(payload.cliente))throw Error('El cliente de Base Madre no coincide con la OT');
   const data=window.TIZBaseMadreLayoutV1.approvalData(SHEET,row,payload,fecha,sem,layout);
   await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
@@ -213,7 +214,8 @@ async function appendNew(payload,token,layout){
     },
     appendRows:async(sheetId,length)=>sheetsFetch(':batchUpdate',token,{method:'POST',body:JSON.stringify({requests:[{appendDimension:{sheetId,dimension:'ROWS',length}}]})})
   });
-  const data=window.TIZBaseMadreLayoutV1.approvalData(SHEET,row,payload,fmtDate(),isoWeek(),layout);
+  const period=core.salesPeriod(payload);
+  const data=core.approvalData(SHEET,row,payload,period.fecha,period.semana,layout);
   data.push({range:escSheetName(SHEET)+'!Y'+row,values:[[payload.estado]]});
   await sheetsFetch('/values:batchUpdate',token,{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data})});
   return row;
