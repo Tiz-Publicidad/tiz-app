@@ -214,7 +214,7 @@
       if(!titulo&&!pending(current,database).some(a=>!selected.includes(a.id)))throw new Error('Anotá qué queda por hacer o elegí cerrar la colocación completa.');
       patch['colocacionesGestion.eventos.'+recordId+'evento']={accion:'Trabajo realizado registrado; colocación abierta: '+resultado,fecha:at,usuario:user};
     }
-    if(full||!fields.terminadas?.length)patch['colocacionesGestion.acciones.'+recordId]={id:recordId,titulo:resultado.slice(0,500),tipo:'Seguimiento',estado:'Cerrada',fecha:'',fechaReal:fecha,resultado,responsable:'',origen:'Registro posterior',todoDia:true,control:'Sin revisar',creadoEn:at,creadoPor:user,gestionadaEn:at,gestionadaPor:user,actualizadoEn:at,actualizadoPor:user};
+    if(full||!fields.terminadas?.length)patch['colocacionesGestion.acciones.'+recordId]={id:recordId,titulo:resultado.slice(0,500),tipo:'Seguimiento',estado:'Cerrada',fecha:'',fechaApertura:'',fechaReal:fecha,resultado,responsable:'',origen:'Registro posterior',todoDia:true,control:'Sin revisar',creadoEn:at,creadoPor:user,gestionadaEn:at,gestionadaPor:user,actualizadoEn:at,actualizadoPor:user};
     else patch['colocacionesGestion.notas.'+recordId]={tipo:'Registro posterior',texto:resultado,fecha:at,fechaReal:fecha,usuario:user};
     return patch;
   }
