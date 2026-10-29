@@ -125,8 +125,7 @@ async function soap(url, action, body) {
     }),
     t = await r.text(),
     f = tag(t, "faultstring");
-  if (f) throw new Error(`ARCA: ${f}`);
-  if (!r.ok) throw new Error(`ARCA respondió HTTP ${r.status}`);
+  if (f || !r.ok) throw fce.soapFailure(r.status,t,body);
   return t;
 }
 const credentialCache = new Map();
@@ -167,7 +166,7 @@ async function consultarObligacionFce({cuit,fecha,total}) {
     return {...fce.parse(xml,total),cuit,fecha};
   } catch(error) {
     const failure=fce.diagnostic(error,stage);
-    console.error('FCE verification failed',{code:failure.code,etapa:failure.etapa});
+    console.error('FCE verification failed',{code:failure.code,etapa:failure.etapa,...fce.soapDetails(error)});
     throw failure;
   }
 }
