@@ -22,3 +22,49 @@ test('consultas simultáneas de FCE solicitan un solo ticket y reutilizan su aut
 test('una autenticación fallida libera la consulta pendiente y permite reintentar',async()=>{
  const x=credentialsFixture(),a=x.get('wsfecred'),b=x.get('wsfecred');x.reject();const result=await Promise.allSettled([a,b]);assert.equal(result.filter(r=>r.status==='rejected').length,2);const retry=x.get('wsfecred');assert.equal(x.calls(),2);x.release();await retry;
 });
+
+{
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const diagnostic=require('../functions/arcaSoapDiagnosticV1'),fce=require('../functions/arcaFceV1');
+function soapFixture(status,xml){
+ const source=fs.readFileSync(require.resolve('../functions/facturacionIntegralApiV83'),'utf8');
+ const chunk=source.slice(source.indexOf('async function soap('),source.indexOf('const credentialCache ='));
+ const context={AbortSignal,fce,fetch:async()=>({ok:status>=200&&status<300,status,text:async()=>xml}),tag:(x,n)=>{const match=x.match(new RegExp('<'+n+'>([\\s\\S]*?)</'+n+'>'));return match?match[1]:'';}};
+ vm.createContext(context);vm.runInContext(chunk+'\nthis.run=soap;',context);return context.run;
+}
+test('HTTP fallido conserva estado sin registrar el cuerpo HTML ni credenciales',async()=>{
+ const soap=soapFixture(502,'<html>PRIVATE_BODY</html>');
+ await assert.rejects(soap('url','action','<token>PRIVATE_TOKEN</token>'),error=>{
+  assert.deepEqual(diagnostic.details(error),{httpStatus:502});
+  assert.equal(fce.diagnostic(error,'consulta').code,'FCE_HTTP_ERROR');
+  assert.doesNotMatch(JSON.stringify(diagnostic.details(error)),/PRIVATE/);return true;
+ });
+});
+test('rechazo SOAP conserva motivo útil y elimina credenciales y CUIT del detalle',async()=>{
+ const xml='<Fault><faultcode>soap:Server</faultcode><faultstring>Rechazo de operación. token=SHORT_TOKEN sign=SHORT_SIGN &lt;token&gt;ECHO&lt;/token&gt; CUIT 30700000001</faultstring></Fault>';
+ const soap=soapFixture(500,xml);
+ await assert.rejects(soap('url','action','<token>SHORT_TOKEN</token><sign>SHORT_SIGN</sign>'),error=>{
+  const detail=diagnostic.details(error);assert.equal(detail.httpStatus,500);assert.equal(detail.faultCode,'soap:Server');
+  assert.match(detail.detail,/Rechazo de operación/);assert.doesNotMatch(detail.detail,/SHORT_TOKEN|SHORT_SIGN|ECHO|30700000001/);
+  const publicError=fce.diagnostic(error,'consulta');assert.equal(publicError.code,'FCE_RECHAZO_ARCA');assert.doesNotMatch(publicError.message,/soap:Server|SHORT|CUIT/);return true;
+ });
+});
+test('SOAP exitoso conserva la respuesta y un rechazo no autorizado sigue distinguiéndose',async()=>{
+ const xml='<consultarMontoObligadoRecepcionReturn><obligado>N</obligado></consultarMontoObligadoRecepcionReturn>';
+ assert.equal(await soapFixture(200,xml)('url','action',''),xml);
+ const error=diagnostic.failure(500,'<faultcode>soap:Server</faultcode><faultstring>coe.notAuthorized: Computador no autorizado</faultstring>','');
+ assert.equal(fce.diagnostic(error,'consulta').code,'FCE_SERVICIO_NO_AUTORIZADO');
+});
+test('FCE registra campos saneados del error y no registra el objeto ni la solicitud',async()=>{
+ const source=fs.readFileSync(require.resolve('../functions/facturacionIntegralApiV83'),'utf8');
+ const chunk=source.slice(source.indexOf('async function consultarObligacionFce('),source.indexOf('function importeConsultaFce('));
+ const logs=[],error=diagnostic.failure(503,'','');
+ const context={fceMinimum:{check:async()=>null},credentials:async()=>({token:'PRIVATE',sign:'PRIVATE'}),soap:async()=>{throw error},fce,issuer:{value:()=> '30700000001'},soapDiagnostic:diagnostic,console:{error:(...args)=>logs.push(args)}};
+ vm.createContext(context);vm.runInContext(chunk+'\nthis.run=consultarObligacionFce;',context);
+ await assert.rejects(context.run({cuit:'33708800959',fecha:'2026-10-29',total:7461818.32}),/FCE_HTTP_ERROR/);
+ assert.equal(logs.length,1);assert.equal(logs[0][1].etapa,'consulta');assert.equal(logs[0][1].httpStatus,503);assert.doesNotMatch(JSON.stringify(logs),/PRIVATE|30700000001|33708800959/);
+});
+
+
+}
