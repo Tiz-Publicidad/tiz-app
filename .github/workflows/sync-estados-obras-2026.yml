@@ -1,7 +1,7 @@
 name: Conciliar estados de Obras con planilla 2026
 on:
   push:
-    branches: [codex/obras-estados-20261029]
+    branches: [main]
     paths:
       - scripts/syncEstadosObras2026.cjs
       - tests/estadosObras2026.test.cjs
