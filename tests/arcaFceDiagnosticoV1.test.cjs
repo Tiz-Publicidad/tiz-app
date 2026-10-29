@@ -68,3 +68,22 @@ test('FCE registra campos saneados del error y no registra el objeto ni la solic
 
 
 }
+
+test('normaliza el CUIT emisor antes de construir la consulta FCE',()=>{
+ for(const issuer of ['30700000001',' 30700000001\r\n','30-70000000-1',' 30-70000000-1 \n']){
+  const xml=fce.request({issuer,token:'private',sign:'private',cuit:'33708800959',fecha:'2026-10-29'});
+  assert.match(xml,/<cuitRepresentada>30700000001<\/cuitRepresentada>/);
+  assert.match(xml,/<cuitConsultada>33708800959<\/cuitConsultada>/);
+ }
+});
+test('configuración inválida se bloquea localmente sin inventar ni revelar una CUIT',()=>{
+ for(const issuer of ['',undefined,'3070000000','CUIT=30700000001','30700000001X','<token>PRIVATE</token>']){
+  assert.throws(()=>fce.request({issuer,token:'private',sign:'private',cuit:'33708800959',fecha:'2026-10-29'}),error=>{
+   assert.equal(error.code,'ARCA_CUIT_EMISOR_INVALIDO');
+   const failure=fce.diagnostic(error,'consulta');
+   assert.equal(failure.code,'FCE_CUIT_EMISOR_INVALIDO');
+   assert.doesNotMatch(failure.message,/PRIVATE|30700000001|CUIT=/);
+   return true;
+  });
+ }
+});
