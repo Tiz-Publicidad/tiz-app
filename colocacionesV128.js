@@ -187,7 +187,38 @@
       'sectores.colocaciones.estado':'Instalada','sectores.colocaciones.real':fmtDate(fecha),'sectores.colocaciones.instalada':true,
       ...(!historico?{'sectores.colocaciones.fotosFinales':checks.fotos?.estado==='Listo'&&!!checks.fotos?.url}:{})};
   }
-  window.TIZColocacionesCore = {closeWorkPatch,pendingInstallation,newInstallation,phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
+  function performedWorkPatch(current,fields,at,user,recordId,database={}) {
+    if(data(current).cierre?.cerrada)throw new Error('La colocación ya está cerrada. Actualizá la ficha.');
+    if(String(data(current).actualizadoEn||'')!==String(fields.version||''))throw new Error('La obra cambió mientras completabas el registro. Volvé a abrirlo para revisar.');
+    if(!/^[a-zA-Z0-9_-]{1,90}$/.test(recordId)||data(current).acciones?.[recordId]||data(current).notas?.[recordId])throw new Error('Este registro ya se guardó o no es válido. Actualizá la ficha.');
+    const fecha=isoDate(fields.fecha),resultado=String(fields.resultado||'').trim(),full=fields.modo==='completo';
+    if(!['completo','parcial'].includes(fields.modo))throw new Error('Elegí cerrar la colocación completa o dejar pendientes.');
+    if(!fecha||fecha>today())throw new Error('Indicá una fecha real válida, de hoy o anterior.');
+    if(!resultado||resultado.length>3000)throw new Error('Contá qué se hizo, hasta 3000 caracteres.');
+    const patch={};
+    if(full){
+      if(fields.confirmarCompleto!==true)throw new Error('Confirmá que querés cerrar la colocación completa.');
+      Object.assign(patch,closeWorkPatch(current,{fecha,resultado,forzarCierre:true},at,user,recordId+'evento',database));
+      Object.assign(patch['colocacionesGestion.cierre'],{registroPosterior:true,motivoExcepcion:'Trabajo realizado sin carga previa'});
+    }else{
+      const selected=Array.isArray(fields.terminadas)?fields.terminadas:[];
+      if(selected.length>100||new Set(selected).size!==selected.length)throw new Error('Revisá las tareas seleccionadas.');
+      for(const id of selected)Object.assign(patch,resultPatch(current,id,{detalle:resultado,fechaReal:fecha,control:fields.control||'Sin revisar'},null,at,user,database));
+      const titulo=String(fields.pendiente||'').trim(),responsable=String(fields.responsable||'').trim(),rawFecha=String(fields.fechaPendiente||'').trim(),fechaPendiente=isoDate(rawFecha);
+      if(titulo){
+        if(titulo.length>500||responsable.length>160)throw new Error('La tarea o el responsable superan el largo permitido.');
+        if(rawFecha&&(!fechaPendiente||fechaPendiente<today()))throw new Error('La fecha del pendiente debe ser de hoy o posterior; también podés dejarla sin fecha.');
+        const next=validateAction({id:recordId+'pendiente',titulo,responsable,fecha:fechaPendiente,tipo:'Seguimiento',estado:'Pendiente',todoDia:true,prioridad:'Normal',origen:'Registro posterior',creadoEn:at,creadoPor:user,actualizadoEn:at,actualizadoPor:user});
+        patch['colocacionesGestion.acciones.'+next.id]=next;
+      }
+      if(!titulo&&!pending(current,database).some(a=>!selected.includes(a.id)))throw new Error('Anotá qué queda por hacer o elegí cerrar la colocación completa.');
+      patch['colocacionesGestion.eventos.'+recordId+'evento']={accion:'Trabajo realizado registrado; colocación abierta: '+resultado,fecha:at,usuario:user};
+    }
+    if(full||!fields.terminadas?.length)patch['colocacionesGestion.acciones.'+recordId]={id:recordId,titulo:resultado.slice(0,500),tipo:'Seguimiento',estado:'Cerrada',fecha:'',fechaReal:fecha,resultado,responsable:'',origen:'Registro posterior',todoDia:true,control:'Sin revisar',creadoEn:at,creadoPor:user,gestionadaEn:at,gestionadaPor:user,actualizadoEn:at,actualizadoPor:user};
+    else patch['colocacionesGestion.notas.'+recordId]={tipo:'Registro posterior',texto:resultado,fecha:at,fechaReal:fecha,usuario:user};
+    return patch;
+  }
+  window.TIZColocacionesCore = {performedWorkPatch,closeWorkPatch,pendingInstallation,newInstallation,phoneLinks,safeVisitURL,visitPatch,isoDate,today,shift,quote,logistics,contacts,actions,pending,bucket,validateAction,resultPatch,applyPatch,calendar,suggestions,parseImportRows};
   if (typeof document === 'undefined') return;
   const state={view:'base',filter:'todas',query:'',id:'',tab:'ficha',calendarStart:'',busy:false,importBusy:false,editor:null,importRows:[],drafts:{},editors:{}};
   const db=()=>window.DB||{obras:[],presupuestos:[],clientes:[]};
@@ -228,12 +259,12 @@
   function closeModal(){if(state.busy||state.importBusy||window.TIZColocacionesFotosV146?.busy())return;overlay().classList.remove('show');state.editor=null;state.drafts={};state.editors={};focusReturn?.focus?.();}
   function showModal(id,tab='ficha',editor=null){if(!canRead())return;focusReturn=document.activeElement;state.id=id;state.tab=tab;state.editor=editor;state.drafts={};state.editors={};drawModal();overlay().classList.add('show');overlay().querySelector('button,input,select')?.focus();}
   function error(e){console.error('[Colocaciones V128]',e);const x=document.getElementById('c128-error');if(x)x.textContent=e.message||String(e);else toast(e.message||String(e));}
-  function captureDraft(){const f=document.querySelector('#c128-overlay form');if(f){state.drafts[state.tab]=Object.fromEntries(new FormData(f));f.querySelectorAll('input[type=checkbox]').forEach(el=>state.drafts[state.tab][el.name]=el.checked)}}
-  function restoreDraft(){const f=document.querySelector('#c128-overlay form'), draft=state.drafts[state.tab];if(f&&draft)Object.entries(draft).forEach(([k,v])=>{const el=f.elements.namedItem(k);if(el){if(el.type==='checkbox')el.checked=!!v;else el.value=v}});toggleTime();}
+  function captureDraft(){const f=document.querySelector('#c128-overlay form');if(f){state.drafts[state.tab]=Object.fromEntries(new FormData(f));f.querySelectorAll('input[type=checkbox]').forEach(el=>state.drafts[state.tab][el.name]=el.checked);if(f.dataset?.form==='performedWork')state.drafts[state.tab].__terminadas=new FormData(f).getAll('terminadas')}}
+  function restoreDraft(){const f=document.querySelector('#c128-overlay form'), draft=state.drafts[state.tab];if(f&&draft)Object.entries(draft).forEach(([k,v])=>{const el=f.elements.namedItem(k);if(el){if(el.type==='checkbox')el.checked=!!v;else el.value=v}});toggleTime();togglePerformedForm();if(f&&draft?.__terminadas)f.querySelectorAll('input[name=terminadas]').forEach(el=>el.checked=draft.__terminadas.includes(el.value));}
   function drawModal(){
     const o=obra(state.id), r=overlay();
     const body=!o?newActionForm(null,state.editor?.fecha):tabHTML(o);
-    r.innerHTML=`<div class="c128-dialog"><div class="c128-head"><div><h3>${o?`Cotización ${esc(quote(o,db()).nro||o.ot||'—')} · ${esc(o.cliente||'')}`:'Nueva acción de colocación'}</h3><div class="c128-muted">${o?esc(o.desc||''):'Seleccioná la obra y el compromiso'}</div></div>${btn('Cerrar','data-close="1"')}</div>${o?`<details><summary>Más datos y herramientas de la obra</summary><div class="c128-actions">${btn('Imprimir ficha','data-print-work="1"')}${canWrite()?btn('Actualizar ficha en Drive','data-archive-work="1"'):''}${g129Doc(o)}</div><div class="c128-tabs" role="tablist" aria-label="Ficha de obra">${Object.entries({ficha:'Ficha de obra',contactos:'Contactos',ubicacion:'Datos de colocación',preparacion:'Preparación',fotos:'Fotos',salida:'Preparar visita',historico:'Histórico'}).map(([k,v])=>`<button type="button" class="btn btn-ghost" role="tab" aria-selected="${state.tab===k}" data-tab="${k}" data-active="${state.tab===k}">${v}</button>`).join('')}</div></details>`:''}<div id="c128-modal-content">${body}</div><div id="c128-error" class="c128-error" role="alert"></div></div>`;restoreDraft();
+    r.innerHTML=`<div class="c128-dialog"><div class="c128-head"><div><h3>${o?`Cotización ${esc(quote(o,db()).nro||o.ot||'—')} · ${esc(o.cliente||'')}`:'Nueva acción de colocación'}</h3><div class="c128-muted">${o?esc(o.desc||''):'Seleccioná la obra y el compromiso'}</div></div>${btn('Cerrar','data-close="1"')}</div>${o&&canWrite()&&!data(o).cierre?.cerrada&&state.editor?.kind!=='performedWork'?`<div class="c128-actions">${btn('✓ Ya se realizó','data-performed-work="1"')}</div>`:''}${o?`<details><summary>Más datos y herramientas de la obra</summary><div class="c128-actions">${btn('Imprimir ficha','data-print-work="1"')}${canWrite()?btn('Actualizar ficha en Drive','data-archive-work="1"'):''}${g129Doc(o)}</div><div class="c128-tabs" role="tablist" aria-label="Ficha de obra">${Object.entries({ficha:'Ficha de obra',contactos:'Contactos',ubicacion:'Datos de colocación',preparacion:'Preparación',fotos:'Fotos',salida:'Preparar visita',historico:'Histórico'}).map(([k,v])=>`<button type="button" class="btn btn-ghost" role="tab" aria-selected="${state.tab===k}" data-tab="${k}" data-active="${state.tab===k}">${v}</button>`).join('')}</div></details>`:''}<div id="c128-modal-content">${body}</div><div id="c128-error" class="c128-error" role="alert"></div></div>`;restoreDraft();
   }
   function g129Doc(o){const doc=data(o).documento||{};return `${doc.url?`<a class="btn btn-ghost" href="${esc(doc.url)}" target="_blank" rel="noopener">Abrir PDF en Drive</a>`:''}<span class="c128-muted">${doc.error?'Drive pendiente: '+esc(doc.error):doc.fecha&&(!data(o).actualizadoEn||doc.fecha>=data(o).actualizadoEn)?'Ficha en Drive · '+fmtDate(doc.fecha):'Ficha de Drive pendiente de actualización'}</span>`;}
   const options=(list,value)=>list.map(x=>`<option value="${esc(x)}" ${x===value?'selected':''}>${esc(x)}</option>`).join('');
@@ -241,7 +272,15 @@
   function actionFields(o,a={}){return `<div class="c128-grid"><label class="c128-full">Acción<input name="titulo" required maxlength="500" value="${esc(a.titulo||'')}" placeholder="Qué hay que hacer"></label><label>Tipo<select name="tipo">${options(['Seguimiento','Relevamiento','Planos','Insumos','Contratar externo','Coordinación','Colocación','Entrega','Control final'],a.tipo||'Seguimiento')}</select></label><label>Responsable<input name="responsable" required list="c128-owners" value="${esc(a.responsable||'')}"><datalist id="c128-owners">${['Gian','Pablo','Julieta','Carolina','Ariel','Cristian'].map(x=>`<option value="${x}">`).join('')}</datalist></label><label>Fecha compromiso<input name="fecha" type="date" value="${esc(a.fecha||'')}"></label><label>Prioridad<select name="prioridad">${options(['Normal','Alta','Urgente'],a.prioridad||'Normal')}</select></label><label>Contacto<select name="contactoId">${o?contactOptions(o,a.contactoId):'<option value="">Sin asignar</option>'}</select></label><label>Estado<select name="estado">${options(['Pendiente','Bloqueada'],a.estado||'Pendiente')}</select></label><label class="c128-full">Observaciones / bloqueo<textarea name="observaciones" rows="2" maxlength="2000">${esc(a.observaciones||'')}</textarea></label><label class="c128-full c128-checkline"><input type="checkbox" name="todoDia" ${a.todoDia!==false?'checked':''}>Todo el día</label><label>Hora de inicio<input type="time" name="hora" value="${esc(a.hora||'')}"></label><label>Duración (minutos)<input type="number" name="duracion" min="15" max="1440" step="15" value="${esc(a.duracion||60)}"></label><label class="c128-full">Lugar / domicilio<input name="direccion" value="${esc(a.direccion??(o?logistics(o,db()).direccion:''))}"></label><label>Zona / localidad<input name="zona" list="c128-zones" value="${esc(a.zona??data(o||{}).zona??'')}" placeholder="Ej.: CABA, San Miguel, Zona Norte"><datalist id="c128-zones"><option value="CABA"><option value="Zona Norte"><option value="Zona Oeste"><option value="Zona Sur"></datalist></label><label>Aviso previo<select name="aviso">${[0,30,60,1440].map(x=>`<option value="${x}" ${Number(a.aviso??1440)===x?'selected':''}>${x===0?'Sin aviso':x===1440?'1 día antes':x+' minutos antes'}</option>`).join('')}</select></label></div>`;}
   function newActionForm(o,fecha){const e=state.editor||{},a=e.action||{fecha:fecha||'',titulo:e.titulo||''};return `<form data-form="action"><h3>${e.editId?'Editar pendiente':'Agregar pendiente'}</h3>${!o?`<label>Obra / cotización<select name="obraId" required id="c128-form-work"><option value="">Seleccionar…</option>${allWorks().map(x=>`<option value="${esc(x.id)}">${esc(x.ot)} · ${esc(x.cliente)}</option>`).join('')}</select></label>`:''}<label>Fecha de apertura<input type="date" name="fechaApertura" value="${esc(a.fechaApertura??(e.editId?'':today()))}"></label><label>Qué hay que hacer<textarea name="titulo" required rows="3" maxlength="500">${esc(a.titulo||'')}</textarea></label><div class="c128-grid"><label>Fecha (opcional)<input type="date" name="fecha" value="${esc(a.fecha||'')}"></label><label>Responsable<input name="responsable" required value="${esc(a.responsable||'')}"></label></div><details style="margin-top:12px"><summary>Más detalles</summary>${actionFields(o,a).replace(/<label class="c128-full">Acción[\s\S]*?<\/label>/,'').replace(/<label>Responsable[\s\S]*?<\/label>/,'').replace(/<label>Fecha compromiso[\s\S]*?<\/label>/,'')}</details><div class="c128-actions"><button type="submit" class="btn btn-primary">Guardar pendiente</button>${o?btn('Cancelar','data-cancel="1"'):''}</div></form>`;}
   function taskHTML(o,a){return `<div class="c128-task"><div class="c128-row">${chip(a.tipo||'Seguimiento')}${chip(fmtDate(a.fecha),bucket(a)==='vencidas'?'red':bucket(a)==='hoy'?'amber':'')}</div><div class="c128-task-title">${esc(a.titulo)}</div><div class="c128-muted">${esc(a.responsable||'Sin responsable')} · ${esc(contacts(o,db()).find(c=>c.id===a.contactoId)?.nombre||'Sin contacto')} · ${esc(a.estado)}${a.virtual?' · Fecha heredada de la obra':''}</div>${a.observaciones?`<div class="c128-muted">${esc(a.observaciones)}</div>`:''}<div class="c128-actions">${canWrite()?btn('Registrar resultado',`data-result="${esc(a.id)}"`,true)+btn('Editar',`data-edit-action="${esc(a.id)}"`):''}${a.fecha?btn('Calendario .ics',`data-export="${esc(a.id)}"`):''}</div></div>`;}
+  function performedWorkForm(o){
+    const rows=pending(o,db());
+    return `<form data-form="performedWork"><h3>Registrar trabajo ya realizado</h3><p class="c128-muted">Para trabajos que se hicieron y todavía no se anotaron.</p><input type="hidden" name="version" value="${esc(data(o).actualizadoEn||'')}"><input type="hidden" name="recordId" value="${esc(state.editor.recordId)}"><label>Qué querés hacer<select name="modo" id="c128-performed-mode" required><option value="">Elegir…</option><option value="completo">Cerrar colocación completa</option><option value="parcial">Registrar lo realizado y dejar pendiente</option></select></label><label>Fecha real del trabajo<input type="date" name="fecha" required max="${today()}" value="${today()}"></label><label>Qué se hizo<textarea name="resultado" rows="3" maxlength="3000" required placeholder="Contá brevemente el trabajo realizado"></textarea></label>
+      <fieldset id="c128-performed-partial" hidden disabled><legend>Lo que queda pendiente</legend>${rows.length?`<p>Marcá sólo las tareas que ya se hicieron. Las demás siguen abiertas.</p>${rows.map(a=>`<label class="c128-checkline"><input type="checkbox" name="terminadas" value="${esc(a.id)}">${esc(a.titulo)}</label>`).join('')}<label>Control de las tareas realizadas<select name="control">${options(['Sin revisar','Conforme','Con observaciones'],'Sin revisar')}</select></label><small class="c128-muted">Para terminar una tarea de tipo Colocación se requiere control conforme.</small>`:''}<label>Qué queda por hacer ${rows.length?'(si no está cargado)':''}<textarea name="pendiente" maxlength="500" rows="2" ${rows.length?'':'required'}></textarea></label><div class="c128-grid"><label>Responsable del nuevo pendiente<input name="responsable" maxlength="160"></label><label>Fecha del pendiente (opcional)<input name="fechaPendiente" type="date" min="${today()}"></label></div><small class="c128-muted">Si agregás un pendiente, asignale un responsable. Podés dejar la fecha para después.</small></fieldset>
+      <fieldset id="c128-performed-full" hidden disabled><legend>Cierre completo</legend><p>Finaliza el seguimiento de Colocaciones de esta OT y queda en el Histórico.</p>${rows.length?`<p>Hay ${rows.length} pendientes previos. Se conservarán registrados como pendientes al momento del cierre; no se marcarán realizados automáticamente.</p>`:''}<p class="c128-muted">Se registra como trabajo realizado sin carga previa. No aprueba fotos ni controles faltantes.</p><label class="c128-checkline"><input name="confirmarCompleto" type="checkbox" required>Confirmo que quiero cerrar la colocación completa</label></fieldset>
+      <div class="c128-actions"><button type="submit" class="btn btn-primary">Guardar trabajo realizado</button>${btn('Cancelar','data-cancel="1"')}</div></form>`;
+  }
   function tabHTML(o){
+    if(state.editor?.kind==='performedWork')return performedWorkForm(o);
     const g=data(o), l=logistics(o,db());
     if(state.tab==='fotos')return window.TIZColocacionesFotosV146?.html(o)||'<div class="c128-note">El módulo de fotos está cargando. Volvé a abrir la obra.</div>';
     if(state.tab==='salida')return visitForm(o);
@@ -279,7 +318,11 @@
     const f=e.target;if(!f.dataset.form)return;e.preventDefault();if(state.busy)return;
     try{
       const d=new FormData(f), type=f.dataset.form, id=state.id||d.get('obraId'), o=obra(id);if(!o)throw new Error('Seleccioná una obra disponible.');const at=stamp(),user=actor();
-      if(type==='visit'){const fields=Object.fromEntries(d);f.querySelectorAll('input[type=checkbox]').forEach(el=>fields[el.name]=el.checked);await mutate(id,current=>visitPatch(current,fields,d.get('version'),at,user,db()));
+      if(type==='performedWork'){
+        const fields={...Object.fromEntries(d),terminadas:d.getAll('terminadas'),confirmarCompleto:d.has('confirmarCompleto')};
+        await mutate(id,current=>performedWorkPatch(current,fields,at,user,d.get('recordId'),db()));
+        state.tab=fields.modo==='completo'?'historico':'ficha';
+      }else if(type==='visit'){const fields=Object.fromEntries(d);f.querySelectorAll('input[type=checkbox]').forEach(el=>fields[el.name]=el.checked);await mutate(id,current=>visitPatch(current,fields,d.get('version'),at,user,db()));
       }else if(type==='action'){
         const aid=state.editor?.editId||uid(), a=actionFromForm(f,aid);
         await mutate(id,current=>{if(data(current).cierre?.cerrada)throw new Error('Reabrí el seguimiento antes de agregar acciones.');const old=actions(current,db()).find(x=>x.id===aid);if(old&&!open(old))throw new Error('La acción ya fue gestionada.');const patch={[`colocacionesGestion.acciones.${aid}`]:{...old,...a,...window.TIZColocacionesGeneralCore.requestMetadata(old,a,window.currentUser?.email||user,at),creadoEn:old?.creadoEn||at,creadoPor:old?.creadoPor||user,actualizadoEn:at,actualizadoPor:user}};delete patch[`colocacionesGestion.acciones.${aid}`].virtual;if(aid==='legacy')patch['colocacionesGestion.legacyCapturada']=true;return patch;});state.id=id;state.tab='ficha';
@@ -316,6 +359,7 @@
       if(b.hasAttribute('data-open'))return showModal(b.dataset.open,b.dataset.openTab||'ficha');
       if(b.hasAttribute('data-day'))return showModal('','acciones',{kind:'action',fecha:b.dataset.day});
       if(b.hasAttribute('data-new'))return showModal(b.dataset.new,'acciones',{kind:'action'});
+      if(b.hasAttribute('data-performed-work')){state.tab='acciones';state.editor={kind:'performedWork',recordId:uid()};state.drafts={};drawModal();return}
       if(b.hasAttribute('data-tab')){captureDraft();state.editors[state.tab]=state.editor;state.tab=b.dataset.tab;state.editor=state.editors[state.tab]||null;drawModal();return}
       if(b.hasAttribute('data-cancel')){if(state.tab==='acciones')state.tab='ficha';state.editor=null;delete state.editors[state.tab];delete state.drafts[state.tab];drawModal();return}
       if(b.hasAttribute('data-contact')){state.tab='contactos';state.editor={kind:'contact',id:b.dataset.contact};state.drafts={};drawModal();return}
@@ -328,9 +372,14 @@
       if(b.hasAttribute('data-reopen')){await mutate(state.id,()=>({'colocacionesGestion.cierre.cerrada':false,[`colocacionesGestion.eventos.${uid()}`]:{accion:'Seguimiento reabierto',fecha:stamp(),usuario:actor()},'sectores.colocaciones.estado':'A coordinar','sectores.colocaciones.real':'','sectores.colocaciones.instalada':false}));drawModal();toast('Seguimiento reabierto');return}
     }catch(err){error(err)}
   }
+  function togglePerformedForm(){
+    const mode=document.getElementById('c128-performed-mode');if(!mode)return;
+    for(const [id,value] of [['c128-performed-full','completo'],['c128-performed-partial','parcial']]){const box=document.getElementById(id);box.hidden=mode.value!==value;box.disabled=box.hidden;}
+  }
   async function change(e){
     if(e.target.name==='nombre'&&e.target.form?.dataset.form==='contact'){const f=e.target.form;window.TIZClienteContactosV1?.fill(e.target,f.elements.telefono,f.elements.email,window.TIZClienteContactosV1.list(db(),obra(state.id)));}
     if(e.target.name==='todoDia'||e.target.id==='c128-result-type')toggleTime();
+    if(e.target.id==='c128-performed-mode')togglePerformedForm();
     if(e.target.name==='fechaVisita'){const f=e.target.closest('form');f?.querySelectorAll('input[type=checkbox]').forEach(el=>el.checked=false)}
     if(e.target.id==='c128-mode'){captureDraft();drawModal()}
     if(e.target.id==='c128-form-work'){const o=obra(e.target.value);const f=e.target.form;if(o){f.elements.contactoId.innerHTML=contactOptions(o);f.elements.direccion.value=logistics(o,db()).direccion}}
@@ -391,7 +440,7 @@
   function install(){
     if(!window.refreshCurrent){setTimeout(install,250);return}style();window.__TIZ_COLOCACIONES_V128__=true;
     window.renderColocacionesV128=render;window.renderColocaciones=render;
-    window.TIZColocacionesUIV128={render,blockers,saveInline,correctClosed,calendar:agendaHTML,importMatrices,open:showModal,view:v=>{state.view=v;render()},edit:(id,a,kind)=>showModal(id,'acciones',kind==='result'?{kind,id:a.id}:{kind:'action',editId:a.id,action:a})};
+    window.TIZColocacionesUIV128={render,blockers,saveInline,correctClosed,calendar:agendaHTML,importMatrices,open:showModal,performed:id=>showModal(id,'acciones',{kind:'performedWork',recordId:uid()}),view:v=>{state.view=v;render()},edit:(id,a,kind)=>showModal(id,'acciones',kind==='result'?{kind,id:a.id}:{kind:'action',editId:a.id,action:a})};
     const previous=window.refreshCurrent;window.refreshCurrent=function(){if(window.currentPage==='colocaciones')return render();return previous.apply(this,arguments)};
     const oldFicha=window.openSectorFichaV31;window.openSectorFichaV31=function(id,sector){if(sector==='Colocaciones')return showModal(id);return oldFicha?.apply(this,arguments)};
     const oldSector=window.openSectorV34;window.openSectorV34=function(key,id){if(key==='colocaciones')return showModal(id||window.editingId?.obra);return oldSector?.apply(this,arguments)};
@@ -402,6 +451,8 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(install,1800));else setTimeout(install,1800);
 })();
+
+
 
 
 
