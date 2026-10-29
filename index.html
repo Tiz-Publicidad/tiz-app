@@ -1082,7 +1082,7 @@ td.strong { color: var(--text); font-weight: 500; }
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, runTransaction, getDocFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -1329,6 +1329,33 @@ window.estadisticaSourceApiV1 = async () => {
   const result=await response.json();
   if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudieron leer los resultados de TIZ 2026.');
   return result;
+};
+// Copia en TIZ de Google Sheets. La lectura nunca escribe en la planilla.
+window.obrasPlanillaLeerGoogleV1 = async () => {
+  if (!auth.currentUser) throw new Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{
+    signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'read-obras'})
+  });
+  const result=await response.json();
+  if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo leer Google Sheets.');
+  return result;
+};
+window.obrasPlanillaLeerCopiaV1 = async () => {
+  if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
+  const snap=await getDocFromServer(doc(db,'integraciones','obras2026'));
+  return snap.exists()?snap.data():null;
+};
+window.obrasPlanillaGuardarCopiaV1 = async value => {
+  if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
+  if(!['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(auth.currentUser.email||'').toLowerCase()))throw new Error('Tu cuenta no puede copiar la planilla.');
+  const copy=window.TIZObrasPlanillaCoreV1.validateCopy(value),email=auth.currentUser.email,ref=doc(db,'integraciones','obras2026');
+  const saved={...copy,copiedAt:new Date().toISOString(),copiedBy:email};
+  await runTransaction(db,async transaction=>{
+    const existing=await transaction.get(ref);
+    if(existing.exists()&&Date.parse(existing.data().sourceReadAt)>Date.parse(copy.sourceReadAt))throw new Error('Ya hay una copia más reciente. Volvé a copiar desde Google Sheets.');
+    transaction.set(ref,saved);
+  });
+  return saved;
 };
 window.analisisPreliminarApiV1 = async body => {
   if (!auth.currentUser) throw new Error('Iniciá sesión en TIZ.');
@@ -3703,6 +3730,8 @@ async function syncToSheets(data) {
 <script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
+<script src="obrasPlanillaCoreV1.js?v=TIZ-OBRAS-COPIA-SHEETS-20261029"></script>
+<script src="obrasPlanillaV1.js?v=TIZ-OBRAS-COPIA-SHEETS-20261029"></script>
 </body>
 </html>
 

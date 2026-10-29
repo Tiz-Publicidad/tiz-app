@@ -213,14 +213,16 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
         .filter(r => ["pendiente", "cobrado pendiente"].includes(norm(r.status)) && (r.ot || r.desc || r.cliente));
       return res.json({ok:true, rows, leidoEn:new Date().toISOString()});
     }
-    if (text(req.body?.mode).toLowerCase() === "read-billing") {
+    if (["read-billing", "read-obras"].includes(text(req.body?.mode).toLowerCase())) {
       if (email !== "info@tizpublicidad.com" && email !== "giancarlo.pareja@tizpublicidad.com" && email !== "pablo.aciar@tizpublicidad.com") {
         throw Object.assign(new Error("Sin permiso para conciliar facturación"), {status:403});
       }
+      const works = text(req.body?.mode).toLowerCase() === "read-obras";
       const result = await sheets.spreadsheets.values.get({
-        spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A2:Z`, valueRenderOption:"FORMATTED_VALUE"
+        spreadsheetId:SPREADSHEET_ID, range:`'${SHEET}'!A2:${works ? 'AL' : 'Z'}`, valueRenderOption:"FORMATTED_VALUE"
       });
-      return res.json({ok:true, rows:result.data.values || [], firstRow:2});
+      res.set("Cache-Control", "no-store");
+      return res.json({ok:true, rows:result.data.values || [], firstRow:2, ...(works ? {spreadsheetId:SPREADSHEET_ID,sheet:SHEET,readAt:new Date().toISOString()} : {})});
     }
     if (!requestedOt) throw Object.assign(new Error("Falta una OT válida"), {status:400});
     if (text(req.body?.mode).toLowerCase() === "billing") {
@@ -270,6 +272,3 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     return res.status(error.status || 502).json({ok:false, error:error.message || "No se pudo sincronizar la Base Madre"});
   }
 });
-
-
-
