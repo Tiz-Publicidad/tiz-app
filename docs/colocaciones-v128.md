@@ -34,3 +34,13 @@ Colocaciones usa el punto de acceso Firebase existente con `sector: colocaciones
 Base de datos incluye obras aprobadas sin acciones y muestra OT, cliente, descripción, domicilio, zona, contactos, modalidad, tarea, compromiso, responsable y estado. Los detalles se completan en la ficha de la obra. Las tareas pueden guardarse sin fecha; al asignarla aparecen también en Calendario, segunda solapa, sin salir de la base. Calendario incluye ayer, hoy y los siguientes diez días.
 
 Una acción Pendiente o Bloqueada de anteayer o anterior detiene el uso operativo de Colocaciones. La pantalla muestra todos esos pendientes sin aplicar filtros. Para continuar se registra resultado y fecha real: cierre o próxima acción con responsable y compromiso de hoy o posterior. Se conserva el compromiso original. También se resuelven tareas sin OT, con control transaccional de versión. Cerrar la ventana no elimina el bloqueo. El bloqueo se aplica al flujo de Colocaciones; los demás módulos conservan su navegación.
+
+## Trabajo realizado sin carga previa
+
+El botón «✓ Ya se realizó» está disponible en las filas vinculadas a una OT y arriba de su ficha, incluso si todavía no tiene acciones. Pide fecha real y qué se hizo, sin crear una planificación ficticia.
+
+- «Cerrar colocación completa» requiere una confirmación explícita y registra un cierre por trabajo realizado sin carga previa. Conserva qué pendientes existían al cerrar y no aprueba fotos ni controles faltantes.
+- «Registrar lo realizado y dejar pendiente» permite terminar sólo las acciones seleccionadas, conservar las demás y agregar un nuevo pendiente con responsable y fecha opcional. Las tareas de tipo Colocación conservan el requisito de control conforme para cerrarse.
+
+Se guarda quién registró el resultado y cuándo. El guardado verifica que la obra no haya cambiado ni esté cerrada, usa la transacción de Colocaciones y sigue la sincronización existente con la planilla. Cerrar Colocaciones no cambia producción ni facturación.
+
