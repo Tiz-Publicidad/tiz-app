@@ -195,7 +195,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
   try {
     if (["secretary-list", "secretary-save"].includes(text(req.body?.mode).toLowerCase())) return await require("./clemenSecretariaApiV1").handle(req,res);
     if (["operations-list", "operations-save"].includes(text(req.body?.mode).toLowerCase())) return await require("./operacionesV1").handle(req,res);
-    if (["quality-checklist-save", "quality-checklist-pdf", "quality-checklist-list", "quality-checklist-mother", "quality-checklist-record-save"].includes(text(req.body?.mode).toLowerCase())) {
+    if (["quality-checklist-save", "quality-checklist-pdf", "quality-checklist-list", "quality-checklist-mother", "quality-checklist-record-save", "quality-checklist-obras-sync", "quality-checklist-obras-save"].includes(text(req.body?.mode).toLowerCase())) {
       return await require("./calidadChecklistApiV2.js").handle(req, res);
     }
     if (["preliminary-list", "preliminary-save", "preliminary-weekly"].includes(text(req.body?.mode).toLowerCase())) return await require("./analisisPreliminarApiV1.js").handle(req,res);

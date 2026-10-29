@@ -45,6 +45,10 @@ jobs:
           grep -q 'facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930' index.html
           grep -q 'facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016' index.html
           grep -q 'facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016' index.html
+          node --check obrasSeguimientoV2.js
+          node --check functions/obrasSeguimientoCoreV2.js
+          node --check functions/obrasSeguimientoApiV2.js
+          node --test tests/obrasSeguimientoV2.test.cjs tests/obrasSeguimientoApiV2.test.cjs
           node --check obrasListadoV1.js
           node --test tests/obrasListadoV1.test.cjs
           node --check produccionV34.js
@@ -178,10 +182,3 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"tiz-pages-pv0003","description":"Pages %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/pages-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/pages-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
-
-
-
-
-
-
-

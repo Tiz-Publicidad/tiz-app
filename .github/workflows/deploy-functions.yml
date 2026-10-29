@@ -57,6 +57,10 @@ jobs:
           node --check functions/baseMadreLayoutV1.js
           node --test tests/baseMadreLayoutV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
+          node --check obrasSeguimientoV2.js
+          node --check functions/obrasSeguimientoCoreV2.js
+          node --check functions/obrasSeguimientoApiV2.js
+          node --test tests/obrasSeguimientoV2.test.cjs tests/obrasSeguimientoApiV2.test.cjs
           node --check calidadChecklistsV2.js
           node --check functions/calidadChecklistCoreV2.js
           node --check functions/calidadChecklistApiV2.js
@@ -116,8 +120,8 @@ jobs:
           fi
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             quality_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
-            if printf '%s\n' "$quality_changed" | grep -Eq '^functions/calidadChecklist(Core|Api)V2\.js$'; then
-              if ! printf '%s\n' "$quality_changed" | grep -Ev '^functions/(calidadChecklistCoreV2|calidadChecklistApiV2|allFunctionsV86|baseMadreBackendV120)\.js$' | grep -q .; then
+            if printf '%s\n' "$quality_changed" | grep -Eq '^functions/(calidadChecklist(Core|Api)V2|calidadPortalV1|obrasSeguimiento(Core|Api)V2)\.js$'; then
+              if ! printf '%s\n' "$quality_changed" | grep -Ev '^functions/(calidadChecklistCoreV2|calidadChecklistApiV2|calidadPortalV1|obrasSeguimientoCoreV2|obrasSeguimientoApiV2|allFunctionsV86|baseMadreBackendV120)\.js$' | grep -q .; then
                 targets=functions:sincronizarBaseMadreV120
               else
                 targets="$targets,functions:sincronizarBaseMadreV120"
@@ -131,7 +135,7 @@ jobs:
           # Operational readers and the secretary reuse the existing Base Madre endpoint.
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             secretary_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
-            if [ -n "$secretary_changed" ] && ! printf '%s\n' "$secretary_changed" | grep -Ev '^functions/(clemenSecretaria(Core|Api)V1|analisisPreliminar(Core|Api)V1|operacionesV1|calidadChecklistApiV2|baseMadreLayoutV1|baseMadreBackendV120)\.js$' | grep -q .; then
+            if [ -n "$secretary_changed" ] && ! printf '%s\n' "$secretary_changed" | grep -Ev '^functions/(clemenSecretaria(Core|Api)V1|analisisPreliminar(Core|Api)V1|operacionesV1|calidadChecklistApiV2|calidadPortalV1|obrasSeguimiento(Core|Api)V2|baseMadreLayoutV1|baseMadreBackendV120)\.js$' | grep -q .; then
               targets=functions:sincronizarBaseMadreV120
             fi
           fi
@@ -153,8 +157,3 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"facturacion-v83-pv0003","description":"Deploy %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/deploy-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/deploy-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
-
-
-
-
-
