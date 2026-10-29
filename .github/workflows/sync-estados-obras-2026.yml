@@ -1,0 +1,33 @@
+name: Conciliar estados de Obras con planilla 2026
+on:
+  push:
+    branches: [codex/obras-estados-20261029]
+    paths:
+      - scripts/syncEstadosObras2026.cjs
+      - tests/estadosObras2026.test.cjs
+      - .github/workflows/sync-estados-obras-2026.yml
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  conciliar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APPLY_ESTADOS: 'false'
+      EXPECTED_SOURCE_SHA: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/estadosObras2026.test.cjs
+      - run: npm ci
+        working-directory: functions
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: tiz---app
+          workload_identity_provider: projects/52620104053/locations/global/workloadIdentityPools/github-arca-constancia/providers/tiz-app
+          service_account: github-arca-constancia@tiz---app.iam.gserviceaccount.com
+      - run: node scripts/syncEstadosObras2026.cjs
+
