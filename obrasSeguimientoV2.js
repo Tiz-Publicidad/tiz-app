@@ -2,8 +2,9 @@
 (function(){
 'use strict';
 const C=window.TIZObrasSeguimientoCoreV2,E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const S={query:'',states:new Set(C.STATES),qualityQuery:'',qualityAll:false,syncing:false,message:'',error:'',modal:null,saving:false,qualityKey:''};
-const groups=()=>C.grouped(window.DB?.obras||[]),user=()=>window.currentUser;
+const S={query:'',states:new Set(C.STATES),qualityQuery:'',qualityAll:false,syncing:false,message:'',error:'',unmatched:[],modal:null,saving:false,qualityKey:''};
+const order=v=>Number(String(v||'').match(/\d+/)?.[0])||-1;
+const groups=()=>C.grouped(window.DB?.obras||[]).sort((a,b)=>order(b.ot)-order(a.ot)),user=()=>window.currentUser;
 // Una fecha importada no abre avisos sobre una obra histórica ya cobrada.
 const workAlerts=g=>g.estado==='Cobrado'&&!g.seguimiento.planificadoPorCalidad&&!g.seguimiento.actualizadoEn?[]:C.alerts(g);
 const date=v=>{const d=C.iso(v);return d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'—';};
@@ -19,10 +20,10 @@ function setup(){css();const page=document.getElementById('page-obras');if(!page
  }return root;}
 function renderRows(){const body=document.getElementById('obras2-body');if(!body)return;const all=groups(),q=C.norm(S.query),shown=all.filter(g=>S.states.has(g.estado)&&(!q||C.norm([g.ot,g.desc,g.cliente].join(' ')).includes(q)));
  document.getElementById('obras2-count').textContent=shown.length+' de '+all.length+' obras';body.innerHTML=shown.map(g=>'<tr><td>'+date(g.fechaAlta)+'</td><td>'+E(g.semana||'—')+'</td><td><b>'+E(g.ot||'Sin OT')+'</b></td><td>'+E(g.desc||'—')+'</td><td>'+E(g.cliente||'—')+'</td><td>'+date(g.produccionPrevista)+'</td><td>'+date(g.colocacionPrevista)+'</td><td>'+badge(g.estado)+'</td><td>'+editButton(g)+'</td></tr>').join('')||'<tr><td colspan="9" class="o2-muted">No hay obras para los estados y la búsqueda seleccionados.</td></tr>';
- const feedback=document.getElementById('obras2-feedback');feedback.innerHTML=(S.error?'<p class="o2-error" role="alert">'+E(S.error)+'</p>':'')+(S.message?'<p class="o2-message" role="status">'+E(S.message)+'</p>':'');const button=document.querySelector('[data-o2-sync]');if(button){button.disabled=S.syncing;button.textContent=S.syncing?'Actualizando…':'Actualizar referencia';}
+ const feedback=document.getElementById('obras2-feedback');feedback.innerHTML=(S.error?'<p class="o2-error" role="alert">'+E(S.error)+'</p>':'')+(S.message?'<p class="o2-message" role="status">'+E(S.message)+'</p>':'')+(S.unmatched.length?'<details class="o2-muted"><summary>Ver obras sin coincidencia segura</summary><ul>'+S.unmatched.map(g=>'<li>CT/OT '+E(g.ot||'sin número')+' · '+E(g.cliente)+'</li>').join('')+'</ul></details>':'');const button=document.querySelector('[data-o2-sync]');if(button){button.disabled=S.syncing;button.textContent=S.syncing?'Actualizando…':'Actualizar referencia';}
 }
 function render(){if(!user()||window.currentPage!=='obras')return;setup();renderRows();}
-async function sync(){if(S.syncing||!C.canSync(user()))return;S.syncing=true;S.error='';S.message='Buscando las CT/OT y actualizando sus datos…';renderRows();try{const r=await window.calidadChecklistApiV2({mode:'obras-sync'});S.message=r.obrasVinculadas+' obras vinculadas · '+r.documentosActualizados+' registros actualizados'+(r.sinVincular?.length?' · '+r.sinVincular.length+' sin coincidencia segura.':'');window.showToast?.('Referencia de obras actualizada.');}catch(e){S.error=e.message;S.message='';}finally{S.syncing=false;renderRows();}}
+async function sync(){if(S.syncing||!C.canSync(user()))return;S.syncing=true;S.error='';S.message='Buscando las CT/OT y actualizando sus datos…';renderRows();try{const r=await window.calidadChecklistApiV2({mode:'obras-sync'});S.unmatched=r.sinVincular||[];S.message=r.obrasVinculadas+' obras vinculadas · '+r.documentosActualizados+' registros actualizados'+(r.sinVincular?.length?' · '+r.sinVincular.length+' sin coincidencia segura.':'');window.showToast?.('Referencia de obras actualizada.');}catch(e){S.error=e.message;S.message='';}finally{S.syncing=false;renderRows();}}
 const field=(title,name,type,value,quality=false)=>'<label>'+title+'<input name="'+name+'" type="'+type+'" value="'+E(value||'')+'" '+(quality?'data-o2-quality-field ':'')+(type==='date'&&!name.endsWith('Prevista')?'max="'+C.day()+'"':'')+'></label>';
 const checkbox=(label,name,checked,quality=false)=>'<label class="o2-check"><input type="checkbox" name="'+name+'" '+(checked?'checked ':'')+(quality?'data-o2-quality-field ':'')+'>'+label+'</label>';
 function close(){if(S.saving)return;S.modal?.remove();S.modal=null;}
