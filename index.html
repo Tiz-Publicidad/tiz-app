@@ -876,7 +876,7 @@ td.strong { color: var(--text); font-weight: 500; }
     <div style="margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Ítems a cotizar</div>
     <div id="pp-items-wrap">
       <div style="display:flex;gap:6px;margin-bottom:6px;padding:0 2px">
-        <span style="flex:1;font-size:10px;color:var(--text3);text-transform:uppercase">Descripción del ítem</span>
+        <span style="width:28px;flex-shrink:0;font-size:10px;color:var(--text3);text-align:center">N°</span><span style="flex:1;font-size:10px;color:var(--text3);text-transform:uppercase">Descripción del ítem</span>
         <span style="width:120px;font-size:10px;color:var(--text3);text-transform:uppercase">$ Unitario</span>
         <span style="width:65px;font-size:10px;color:var(--text3);text-transform:uppercase">Cant</span>
         <span style="width:120px;font-size:10px;color:var(--text3);text-transform:uppercase;text-align:right">Subtotal</span>
@@ -2901,6 +2901,7 @@ window.guardarPresupuestoCompleto = async () => {
   }
 
   const payload = {
+    tipoFacturaSolicitada:document.getElementById('pp-tipo-factura')?.value??presupuestoAnterior?.tipoFacturaSolicitada??'',
     emisorComercial:window.TIZPresupuestoEmisorV1.forSave(presupuestoAnterior),
     nro, revision, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
     importe: total, fecha: hoy, estado: 'Pendiente', nota, cond, items, calculosAuxiliares, totalCalculosAuxiliares:calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
@@ -3084,6 +3085,7 @@ function renderPPItems() {
   if (!wrap) return;
   wrap.innerHTML = window.ppItems.map((it, i) => `
     <div class="pp-item-row">
+      <span aria-label="Renglón ${i+1}" style="width:28px;flex-shrink:0;text-align:center;color:var(--accent);font-weight:600">${i+1}</span>
       <input value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Descripción del ítem ${i+1}" oninput="updateItemPP(${i},'desc',this.value)" style="flex:1">
       <input type="number" value="${it.precio||''}" placeholder="$ Unit" oninput="updateItemPP(${i},'precio',this.value)" style="width:110px">
       <input type="number" value="${it.cant||1}" placeholder="Cant" oninput="updateItemPP(${i},'cant',this.value)" style="width:70px">
@@ -3169,6 +3171,7 @@ window.generarPDF = async () => {
     nombreArchivo: nombreBase, cotizacionBase:String(nro).replace(/\D/g,''),
     revisionAnteriorId:window._cotizacionRevisionAnteriorId||'', esRevision:!!window._cotizacionRevisionAnteriorId,
     entregaLogistica, calculosAuxiliares, plazoEstimado, anticipoPct, diasPago, oc, observacionesComerciales,
+    tipoFacturaSolicitada:document.getElementById('pp-tipo-factura')?.value??documentoExistente?.tipoFacturaSolicitada??'',
     vendedor:document.getElementById('pp-vendedor')?.value||'',moneda:document.getElementById('pp-moneda')?.value||'ARS'
   };
   if(window.editingId.presupuesto && !window._cotizacionEsRevisionNueva){
@@ -3196,17 +3199,17 @@ window.generarPDF = async () => {
   window._postCotizacionDriveV353({
     action:'guardarCotizacionArchivos', nroCotizacion:window.tizNumeroCotizacion(nro), revision, cliente, descripcion:descGeneral,
     fecha:fmtFecha(hoy), validez:fmtFecha(validez), nota, condicion:cond, total,
-    items:items.map(it=>({descripcion:String(it.desc||''), unitario:+it.precio||0, unidades:+it.cant||1, subtotal:(+it.precio||0)*(+it.cant||1)})),
+    items:items.map((it,i)=>({orden:i+1,descripcion:String(it.desc||''), unitario:+it.precio||0, unidades:+it.cant||1, subtotal:(+it.precio||0)*(+it.cant||1)})),
     nombreBase, firestoreId:ref?.id||'', entregaLogistica, emisorComercial
   });
 
-  const rows = items.map(it=>`<tr><td>${esc(it.desc)}</td><td class="num">${fmtPesoPresupuesto(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPesoPresupuesto(round2Presupuesto((+it.precio||0)*(+it.cant||1)))}</td></tr>`).join('');
+  const rows = items.map((it,i)=>`<tr><td class="cant">${i+1}</td><td>${esc(it.desc)}</td><td class="num">${fmtPesoPresupuesto(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPesoPresupuesto(round2Presupuesto((+it.precio||0)*(+it.cant||1)))}</td></tr>`).join('');
   const html = `<div class="ct-page">
     <div class="ct-header">
       <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ ${esc(emisorComercial.direccion)}</div></div>
       <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${window.tizNumeroCotizacion(nro)}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
     </div>
-    <div class="ct-items"><table class="ct-table"><colgroup><col style="width:59%"><col style="width:14%"><col style="width:12%"><col style="width:15%"></colgroup><thead><tr><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="ct-items"><table class="ct-table"><colgroup><col style="width:5%"><col style="width:54%"><col style="width:14%"><col style="width:12%"><col style="width:15%"></colgroup><thead><tr><th>N°</th><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPesoPresupuesto(total)}</b></div></div>
     <div class="ct-footer"><span>☎ 11-3479-9737</span><span>✉ INFO@TIZPUBLICIDAD.COM</span><span>WWW.TIZPUBLICIDAD.COM</span><span>⌖ ${esc(emisorComercial.direccion.toLocaleUpperCase('es-AR'))}</span></div>
   </div>`;
@@ -3699,12 +3702,12 @@ async function syncToSheets(data) {
 <script src="comprasObrasCoreV1.js?v=TIZ-COMPRAS-OBRAS-20261015"></script>
 <script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015-DRIVE"></script>
 <script src="operacionesV31.js?v=TIZ-V31-3-CONTACTO-OT-20260929"></script>
-<script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
+<script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901&orden=20261030"></script>
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A&baja=20261030"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261016A"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
@@ -3720,7 +3723,7 @@ async function syncToSheets(data) {
 <!-- FACTURACIÓN / COBRANZAS V2: única interfaz activa -->
 <script src="cobranzasSemanalV127.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
 <script src="functions/arcaFechasV1.js?v=TIZ-ARCA-FECHA-20261023"></script>
-<script src="facturadorIntegralV83.js?v=TIZ-FCE-MINIMO-OFICIAL-20261026"></script>
+<script src="facturadorIntegralV83.js?v=TIZ-FCE-MINIMO-OFICIAL-20261026&tipo-factura=20261030"></script>
 <script src="facturacionEntregaUIV84.js?v=TIZ-FC-V2-EMAIL-V86-DIRECT-SAVE-20260922"></script>
 <script src="facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930"></script>
 <script src="facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030"></script>
@@ -3739,12 +3742,3 @@ async function syncToSheets(data) {
 <script src="obrasBajaUIV1.js?v=TIZ-BAJA-OBRAS-20261030"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-

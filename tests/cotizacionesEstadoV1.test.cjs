@@ -40,3 +40,18 @@ test('los guardados nuevos y las revisiones nuevas reciben Favaloro; editar uno 
  f.window.abrirRevisionCotizacionV354('approved');await f.window.guardarPresupuestoCompleto();assert.match(f.approved.emisorComercial.direccion,/Perón/);
  f.window.abrirRevisionCotizacionV354('approved',true);await f.window.guardarPresupuestoCompleto();const newer=f.window.DB.presupuestos.find(p=>p.nro==='4800'&&p.revision==='1.2');assert.match(newer.emisorComercial.direccion,/Favaloro/);assert.match(f.approved.emisorComercial.direccion,/Perón/);
 });
+test('nueva cotización propone A; guardar B y reabrir conserva la elección por trabajo',async()=>{
+ const f=fixture();f.window.abrirNuevoPresupuestoCompleto();assert.equal(f.field('pp-tipo-factura').value,'A');f.field('pp-tipo-factura').value='B';f.field('pp-cliente').value='Cliente B';f.window.ppItems=[{desc:'Trabajo B',precio:100,cant:1}];await f.window.guardarPresupuestoCompleto();const p=f.window.DB.presupuestos.at(-1);assert.equal(p.tipoFacturaSolicitada,'B');f.window.abrirRevisionCotizacionV354(p.id);assert.equal(f.field('pp-tipo-factura').value,'B');f.window.abrirNuevoPresupuestoCompleto();assert.equal(f.field('pp-tipo-factura').value,'A');
+});
+test('revisión hereda la factura solicitada; cambiarla no altera la revisión de origen',async()=>{
+ const f=fixture();f.approved.tipoFacturaSolicitada='A';f.window.abrirRevisionCotizacionV354('approved',true);assert.equal(f.field('pp-tipo-factura').value,'A');f.field('pp-tipo-factura').value='B';await f.window.guardarPresupuestoCompleto();assert.equal(f.approved.tipoFacturaSolicitada,'A');const next=f.window.DB.presupuestos.find(p=>p.revision==='1.2');assert.equal(next.tipoFacturaSolicitada,'B');f.window.abrirRevisionCotizacionV354(next.id,true);assert.equal(f.field('pp-tipo-factura').value,'B');
+});
+test('aprobación transmite B a la OT y Facturación sin cambiar importes ni registros fiscales',async()=>{
+ const f=fixture();f.approved.tipoFacturaSolicitada='B';f.window.abrirRevisionCotizacionV354('approved');await f.window.guardarPresupuestoCompleto();const o=f.window.DB.obras[0];assert.equal(o.tipoFacturaSolicitada,'B');assert.equal(o.infoPresupuesto.tipoFacturaSolicitada,'B');assert.equal(o.gestionSectores.facturacion.tipoFacturaSolicitada,'B');assert.equal(o.neto,100);assert.equal(f.approved.importe,100);assert.equal(o.comprobantesArca,undefined);
+});
+test('presupuesto anterior sin elección queda A definir y no hereda B del abierto previamente',async()=>{
+ const f=fixture();f.window.DB.presupuestos.push({...f.approved,id:'b',nro:'4801',tipoFacturaSolicitada:'B'});f.window.abrirRevisionCotizacionV354('b');assert.equal(f.field('pp-tipo-factura').value,'B');f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-tipo-factura').value,'');await f.window.guardarPresupuestoCompleto();assert.equal(f.approved.tipoFacturaSolicitada,'');
+});
+test('guardado y pase a producción numeran renglones válidos sin cambiar los precios',async()=>{
+ const f=fixture();f.window.abrirNuevoPresupuestoCompleto();f.field('pp-cliente').value='Cliente';f.field('pp-estado').value='Aprobado';const items=[{desc:'Cartel',precio:100,cant:2},{desc:'',precio:0,cant:1},{desc:'Instalación',precio:50,cant:1}];f.window.ppItems=items;await f.window.guardarPresupuestoCompleto();const p=f.window.DB.presupuestos.at(-1),o=f.window.DB.obras[0];assert.deepEqual(Array.from(p.items,i=>i.orden),[1,2]);assert.equal(p.importe,250);assert.deepEqual(Array.from(o.itemsTecnicos,i=>i.orden),[1,2]);assert.equal(items[0].orden,undefined);assert.equal(items[0].precio,100);
+});
