@@ -57,6 +57,30 @@ async function guardarSeguimiento(obraId,payload){const o=obra(obraId);const seg
 async function guardarGestionFactura(obraId,invoiceKey,payload){const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');const facturacionGestion={...(o.facturacionGestion||{})},key=String(invoiceKey||'').trim();if(!key)throw new Error('No se pudo identificar la factura');facturacionGestion[key]={...(facturacionGestion[key]||{}),estadoEnvio:String(payload?.estadoEnvio||facturacionGestion[key]?.estadoEnvio||''),fechaVencimientoPago:String(payload?.fechaVencimientoPago||facturacionGestion[key]?.fechaVencimientoPago||''),nota:String(payload?.nota||''),driveUrl:String(payload?.driveUrl||facturacionGestion[key]?.driveUrl||''),driveFileId:String(payload?.driveFileId||facturacionGestion[key]?.driveFileId||''),actualizadoAt:now()};await save(o,{facturacionGestion});return facturacionGestion[key]}
 async function guardarCondicionPago(obraId,dias){const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');const value=Math.max(0,n(dias)),finanzas={...(o.finanzas||{}),diasPago:value};await save(o,{finanzas,diasPago:value});return finanzas}
 async function guardarEstadoCobranza(obraId,estado){const o=obra(obraId);if(!o)throw new Error('No se encontro la OT');const v=String(estado||'').toLowerCase().trim();if(!['pendiente','cobrado pendiente','cobrado'].includes(v))throw new Error('Estado de cobranza invalido');const patch={cobranzaEstadoManual:v,historicoCerrado:v==='cobrado',cobranzaEstadoManualAt:now()};await save(o,patch);return patch}
+function seguimientoGestionPatch(o,payload){
+ const nota=String(payload.nota??'');if(nota.length>2000)throw new Error('La aclaración no puede superar los 2000 caracteres.');
+ const previo=o.seguimientoCobranzas||o.gestionCobranza||{},seguimientoCobranzas={...previo,accion:String(previo.accion||previo.proximaAccion||''),fecha:String(previo.fecha||previo.proximaFecha||''),nota,actualizadoAt:now(),actualizadoPor:String(window.currentUser?.email||'')};
+ const historial=Array.isArray(o.seguimientoCobranzasHistorial)?[...o.seguimientoCobranzasHistorial]:[];historial.push({...seguimientoCobranzas,id:'seg-'+Date.now(),notaAnterior:String(previo.nota||previo.observacion||previo.comentario||'')});
+ return{seguimientoCobranzas,seguimientoCobranzasHistorial:historial.slice(-100)};
+}
+async function guardarGestionCobro(obraId,payload={}){
+ if(cierresEnCurso.has(obraId))throw new Error('La gestión de esta OT se está guardando.');
+ cierresEnCurso.add(obraId);
+ try{
+  const o=obra(obraId),w=work(obraId);if(!o||!w)throw new Error('No se encontró la OT');
+  if(payload.notaEsperada!=null&&String(payload.notaEsperada)!==String(w.seguimiento?.nota||'')||payload.estadoEsperado!=null&&payload.estadoEsperado!==w.estadoOperativo)throw new Error('La obra cambió desde que empezaste a editar. Revisá su estado y aclaración antes de guardar.');
+  const actual=w.bajaObra||w.estadoOperativo==='baja'?'baja':w.historicoCerrado||['cobrado','historico'].includes(w.estadoOperativo)?'cobrado':w.estadoOperativo==='cobrado_pendiente'?'cobrado_pendiente':'pendiente';
+  const estado=String(payload.estado||actual);if(!['pendiente','cobrado_pendiente','cobrado','baja'].includes(estado))throw new Error('Estado del cobro inválido');
+  const patch=seguimientoGestionPatch(o,payload);
+  if(estado===actual){await save(o,patch);return patch;}
+  if(estado==='baja'||actual==='baja')throw new Error('Las bajas y reactivaciones se gestionan desde Obras.');
+  if(actual==='cobrado')throw new Error('La obra tiene el cobro cerrado. Revisá los movimientos desde Gestionar antes de cambiar su estado.');
+  if(estado==='pendiente'&&(w.cobrado>0||w.retenciones>0))throw new Error('Hay cobros o retenciones registrados. Revisalos desde Gestionar antes de volver a Pendiente.');
+  if(estado==='cobrado'&&w.facturadoTotal<=.01)throw new Error('No hay facturas para cerrar el cobro. Revisá la obra desde Gestionar.');
+  const target=estado==='pendiente'?(w.porFacturar>.01?(w.invoices.length?'facturado_parcial':'pendiente_facturacion'):'facturado'):estado;
+  return await cambiarEstadoGestionInterno(obraId,target,{nota:String(payload.nota||''),seguimientoCobro:payload,fechaPago:payload.fechaPago,importeEsperado:payload.importeEsperado});
+ }finally{cierresEnCurso.delete(obraId)}
+}
 async function cambiarEstadoGestionInterno(obraId,estado,opts={}){const o=obra(obraId),w=work(obraId);if(!o||!w)throw new Error('No se encontro la OT');const v=String(estado||'').toLowerCase().trim(),validos=['pendiente_facturacion','facturado_parcial','facturado','cobrado_pendiente','cobrado','historico'];if(!validos.includes(v))throw new Error('Estado de gestion invalido');if(v==='pendiente_facturacion'&&w.invoices.length)throw new Error('La OT ya tiene facturas registradas. No se pueden ocultar ni borrar para volver a Pendiente de facturacion.');if((v==='facturado'||v==='facturado_parcial')&&!w.invoices.length)throw new Error('No se puede marcar Facturado sin una factura registrada. Emiti por ARCA o registra la factura historica.');if(v==='facturado'&&w.porFacturar>.01)throw new Error('Todavia queda saldo por facturar. El estado correcto es Facturado parcial.');if(v==='cobrado_pendiente'&&!(w.cobrado>0||w.retenciones>0))throw new Error('No hay cobros ni retenciones registrados para marcar Cobrado pendiente.');if((v==='cobrado'||v==='historico')&&w.porCobrar>.01&&!opts.cierreExcepcional&&!(v==='cobrado'&&opts.fechaPago))throw new Error('Todavia queda saldo por cobrar. Registra el cobro/retenciones antes de cerrar, o usa un cierre excepcional auditado.');const historial=Array.isArray(o.historialGestionFactCob)?[...o.historialGestionFactCob]:[];historial.push({id:'gest-'+Date.now(),estadoAnterior:w.estadoOperativo,estadoNuevo:v,nota:String(opts.nota||''),cierreExcepcional:!!opts.cierreExcepcional,creadoAt:now(),creadoPor:String(window.currentUser?.email||'')});const patch={estadoGestionFactCob:v,estadoGestionFactCobAt:now(),historialGestionFactCob:historial.slice(-200)};if(v==='cobrado'){
  if(opts.importeEsperado!=null&&Math.abs(Number(opts.importeEsperado)-w.porCobrar)>.01)throw new Error('El saldo cambió. Volvé a abrir el registro del pago para revisar el importe.');
  const fecha=validarFechaPago(String(opts.fechaPago||''));patch.fechaCobro=fecha;const s=fechas().semana(fecha);patch.semanaCobroInicio=s.inicio;patch.semanaCobroISO=s.iso;
@@ -65,8 +89,8 @@ async function cambiarEstadoGestionInterno(obraId,estado,opts={}){const o=obra(o
   patch.cobros=[...(o.cobros||[]),pago];
  }
 }
-if(v==='cobrado'||v==='historico'){patch.cobranzaEstadoManual='cobrado';patch.historicoCerrado=true}else if(v==='cobrado_pendiente'){patch.cobranzaEstadoManual='cobrado pendiente';patch.historicoCerrado=false}else{patch.historicoCerrado=false}await save(o,patch);return patch}
+if(v==='cobrado'||v==='historico'){patch.cobranzaEstadoManual='cobrado';patch.historicoCerrado=true}else if(v==='cobrado_pendiente'){patch.cobranzaEstadoManual='cobrado pendiente';patch.historicoCerrado=false}else{patch.historicoCerrado=false}if(opts.seguimientoCobro)Object.assign(patch,seguimientoGestionPatch(o,opts.seguimientoCobro));await save(o,patch);return patch}
 async function cambiarEstadoGestion(obraId,estado,opts={}){if(cierresEnCurso.has(obraId))throw new Error('El pago de esta OT se está guardando.');cierresEnCurso.add(obraId);try{return await cambiarEstadoGestionInterno(obraId,estado,opts)}finally{cierresEnCurso.delete(obraId)}}
 function emitirArca(obraId){if(work(obraId)?.bajaObra)throw new Error('La obra está dada de baja. Reactivala antes de facturar.');if(typeof window.abrirFacturacionGeneralV63!=='function')throw new Error('El facturador ARCA no esta disponible');return window.abrirFacturacionGeneralV63(obraId)}
-window.TIZFactCobActionsV2={registrarCobro,registrarFacturaManual,guardarSeguimiento,guardarGestionFactura,guardarCondicionPago,guardarEstadoCobranza,cambiarEstadoGestion,emitirArca};
+window.TIZFactCobActionsV2={registrarCobro,registrarFacturaManual,guardarSeguimiento,guardarGestionFactura,guardarCondicionPago,guardarEstadoCobranza,guardarGestionCobro,cambiarEstadoGestion,emitirArca};
 })();
