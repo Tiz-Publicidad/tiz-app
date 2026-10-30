@@ -67,6 +67,6 @@ async function cambiarEstadoGestionInterno(obraId,estado,opts={}){const o=obra(o
 }
 if(v==='cobrado'||v==='historico'){patch.cobranzaEstadoManual='cobrado';patch.historicoCerrado=true}else if(v==='cobrado_pendiente'){patch.cobranzaEstadoManual='cobrado pendiente';patch.historicoCerrado=false}else{patch.historicoCerrado=false}await save(o,patch);return patch}
 async function cambiarEstadoGestion(obraId,estado,opts={}){if(cierresEnCurso.has(obraId))throw new Error('El pago de esta OT se está guardando.');cierresEnCurso.add(obraId);try{return await cambiarEstadoGestionInterno(obraId,estado,opts)}finally{cierresEnCurso.delete(obraId)}}
-function emitirArca(obraId){if(typeof window.abrirFacturacionGeneralV63!=='function')throw new Error('El facturador ARCA no esta disponible');return window.abrirFacturacionGeneralV63(obraId)}
+function emitirArca(obraId){if(work(obraId)?.bajaObra)throw new Error('La obra está dada de baja. Reactivala antes de facturar.');if(typeof window.abrirFacturacionGeneralV63!=='function')throw new Error('El facturador ARCA no esta disponible');return window.abrirFacturacionGeneralV63(obraId)}
 window.TIZFactCobActionsV2={registrarCobro,registrarFacturaManual,guardarSeguimiento,guardarGestionFactura,guardarCondicionPago,guardarEstadoCobranza,cambiarEstadoGestion,emitirArca};
 })();
