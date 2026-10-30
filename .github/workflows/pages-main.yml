@@ -166,11 +166,14 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          name: tiz-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: site
 
       - name: Deploy to Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: tiz-pages-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Record Pages deployment status
         if: always()
