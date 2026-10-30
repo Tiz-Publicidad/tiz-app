@@ -341,7 +341,7 @@ function renderCompras(el){
   const items=getFilteredPurchaseItems(),ids=new Set(items.map(i=>i.compra.id)),filtered=C.compras.filter(c=>ids.has(c.id));
   const net=items.reduce((s,i)=>s+num(i.totalNeto),0),iva=items.reduce((s,i)=>s+num(i.ivaImporte),0),gross=items.reduce((s,i)=>s+num(i.totalBruto),0),qty=items.reduce((s,i)=>s+num(i.cantidad),0);
   const periodFields=purchaseFilters.period==='week'?`<div class="cp-field"><label>Semana</label><input id="cp-f-week" value="${esc(purchaseFilters.week)}" onchange="cpFilterChanged()"></div>`:purchaseFilters.period==='month'?`<div class="cp-field"><label>Mes</label><input id="cp-f-month" type="month" value="${esc(purchaseFilters.month)}" onchange="cpFilterChanged()"></div>`:purchaseFilters.period==='custom'?`<div class="cp-field"><label>Desde</label><input id="cp-f-from" type="date" value="${esc(purchaseFilters.from)}" onchange="cpFilterChanged()"></div><div class="cp-field"><label>Hasta</label><input id="cp-f-to" type="date" value="${esc(purchaseFilters.to)}" onchange="cpFilterChanged()"></div>`:'';
-  const rows=filtered.map(c=>{const matched=items.filter(i=>i.compra.id===c.id),labels=matched.slice(0,3).map(i=>`<div title="${esc(i.descripcionOriginal||i.descripcion)}"><b>${esc(i.codigo||'')}</b> ${esc(i.descripcion||i.descripcionOriginal||'')}</div>`).join('');return `<tr><td>${fmtDate(c.fecha)}</td><td><b>${esc(c.proveedor)}</b></td><td><span class="cp-pill ${c.fc==='si'?'yes':'no'}">${c.fc==='si'?'Sí':'No'}</span></td><td>${esc(c.tipoComprobante||'')}</td><td>${esc(c.numeroComprobante||'')}</td><td>${labels}${matched.length>3?`<div class="cp-sub">+${matched.length-3} ítems</div>`:''}</td><td>${money(matched.reduce((s,i)=>s+num(i.totalNeto),0))}</td><td>${money(matched.reduce((s,i)=>s+num(i.ivaImporte),0))}</td><td><b>${money(matched.reduce((s,i)=>s+num(i.totalBruto),0))}</b></td><td>${esc(c.ot||'—')}</td><td><button class="cp-btn" onclick="cpEditCompra('${c.id}')">Editar</button> <button class="cp-btn danger" onclick="cpDeleteCompra('${c.id}')">Borrar</button></td></tr>`;}).join('');
+  const rows=filtered.map(c=>{const matched=items.filter(i=>i.compra.id===c.id),labels=matched.slice(0,3).map(i=>`<div title="${esc(i.descripcionOriginal||i.descripcion)}"><b>${esc(i.codigo||'')}</b> ${esc(i.descripcion||i.descripcionOriginal||'')}</div>`).join('');return `<tr><td>${fmtDate(c.fecha)}</td><td><b>${esc(c.proveedor|| (c.proveedorPendiente?'A completar':''))}</b></td><td><span class="cp-pill ${c.fc==='si'?'yes':'no'}">${c.fc==='si'?'Sí':'No'}</span></td><td>${esc(c.tipoComprobante||'')}</td><td>${esc(c.numeroComprobante||'')}</td><td>${labels}${matched.length>3?`<div class="cp-sub">+${matched.length-3} ítems</div>`:''}</td><td>${money(matched.reduce((s,i)=>s+num(i.totalNeto),0))}</td><td>${money(matched.reduce((s,i)=>s+num(i.ivaImporte),0))}</td><td><b>${money(matched.reduce((s,i)=>s+num(i.totalBruto),0))}</b></td><td>${esc(c.ot||'—')}</td><td><button class="cp-btn" onclick="cpEditCompra('${c.id}')">Editar</button> <button class="cp-btn danger" onclick="cpDeleteCompra('${c.id}')">Borrar</button></td></tr>`;}).join('');
   el.innerHTML=`<div class="cp-panel"><div class="cp-actions" style="justify-content:space-between"><div class="cp-actions"><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button><button class="cp-btn" onclick="cpExportCSV(true)">⬇ Exportar filtrado</button></div><button class="cp-btn" onclick="cpClearFilters()">Limpiar filtros</button></div><div class="cp-filter-grid" style="margin-top:12px"><div class="cp-field"><label>Período</label><select id="cp-f-period" onchange="cpFilterPeriod(this.value)"><option value="all" ${purchaseFilters.period==='all'?'selected':''}>Todo</option><option value="week" ${purchaseFilters.period==='week'?'selected':''}>Semana</option><option value="month" ${purchaseFilters.period==='month'?'selected':''}>Mes</option><option value="custom" ${purchaseFilters.period==='custom'?'selected':''}>Rango</option></select></div>${periodFields}<div class="cp-field"><label>Búsqueda rápida de ítem</label><input id="cp-f-search" value="${esc(purchaseFilters.search)}" placeholder="Código, caño 20x20, chapa…" oninput="cpFilterDebounced(this.value)"></div><div class="cp-field"><label>Proveedor</label><select id="cp-f-provider" onchange="cpFilterChanged()"><option value="">Todos</option>${providers.map(v=>`<option ${purchaseFilters.proveedor===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Familia</label><select id="cp-f-family" onchange="cpFilterChanged(true)"><option value="">Todas</option>${families.map(v=>`<option ${purchaseFilters.familia===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Subfamilia</label><select id="cp-f-subfamily" onchange="cpFilterChanged()"><option value="">Todas</option>${subfamilies.map(v=>`<option ${purchaseFilters.subfamilia===v?'selected':''}>${esc(v)}</option>`).join('')}</select></div><div class="cp-field"><label>Factura</label><select id="cp-f-fc" onchange="cpFilterChanged()"><option value="">Todas</option><option value="si" ${purchaseFilters.fc==='si'?'selected':''}>Con factura</option><option value="no" ${purchaseFilters.fc==='no'?'selected':''}>Sin factura</option></select></div></div><div class="cp-filter-summary"><div class="cp-card"><div class="cp-lbl">Compras</div><div class="cp-kpi">${filtered.length}</div></div><div class="cp-card"><div class="cp-lbl">Ítems</div><div class="cp-kpi">${items.length}</div><div class="cp-sub">${qty.toFixed(2)} unidades</div></div><div class="cp-card"><div class="cp-lbl">Neto filtrado</div><div class="cp-kpi" style="font-size:18px">${money(net)}</div><div class="cp-sub">IVA ${money(iva)}</div></div><div class="cp-card"><div class="cp-lbl">Total filtrado</div><div class="cp-kpi" style="font-size:18px">${money(gross)}</div></div></div></div><div class="cp-table-wrap"><table class="cp-table" style="min-width:1180px"><thead><tr><th>Fecha</th><th>Proveedor</th><th>FC</th><th>Tipo</th><th>Número</th><th>Ítems coincidentes</th><th>Neto</th><th>IVA</th><th>Total</th><th>OT</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="11">No hay compras para estos filtros.</td></tr>'}</tbody></table></div>`;
 }
 
@@ -553,29 +553,30 @@ function cpCurrentPurchaseSignatures(){
 }
 function cpParseMonthlySheet(wb,sheetName,excelCatalog){
   const ws=wb.Sheets[sheetName];if(!ws)return [];
-  const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',blankrows:false});
+  const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',blankrows:true});
   let hi=-1;for(let i=0;i<Math.min(rows.length,30);i++){const h=rows[i].map(cpNormHeader);if(h.some(x=>x.includes('codigo de articulo'))&&h.some(x=>x.includes('ingreso'))) {hi=i;break;}}
   if(hi<0)return [];
   const heads=rows[hi].map(cpNormHeader);
   const col=(...names)=>{for(const n of names){const q=cpNormHeader(n),ix=heads.findIndex(h=>h===q||h.includes(q));if(ix>=0)return ix;}return -1;};
-  const ix={fc:col('FC'),nro:col('N° FC','Nro FC'),sem:col('Semana'),fecha:col('Ingresó','Ingreso'),codigo:col('Codigo de Articulo'),desc:col('Descripcion 1','Descripcion','com'),aclar:col('Aclaracion'),rubro:col('Rubro'),unid:col('Unidades'),unitN:col('$ Unit Neto','Unit Neto'),neto:col('Total Neto'),iva:col('Iva'),unitB:col('$ Unit Bruto','Unit Bruto'),bruto:col('Total Bruto'),medio:col('Medio de Pago')};
+  const ix={proveedor:col('Proveedor'),fc:col('FC'),nro:col('N° FC','Nro FC'),sem:col('Semana'),fecha:col('Ingresó','Ingreso'),codigo:col('Codigo de Articulo'),desc:col('Descripcion 1','Descripcion','com'),aclar:col('Aclaracion'),rubro:col('Rubro'),unid:col('Unidades'),unitN:col('$ Unit Neto','Unit Neto'),neto:col('Total Neto'),iva:col('Iva'),unitB:col('$ Unit Bruto','Unit Bruto'),bruto:col('Total Bruto'),medio:col('Medio de Pago')};
   const out=[];
   for(let ri=hi+1;ri<rows.length;ri++){
     const r=rows[ri],get=k=>ix[k]>=0?r[ix[k]]:'';
     const fecha=cpExcelISO(get('fecha')),codigo=String(get('codigo')||'').trim(),desc=String(get('desc')||'').trim(),bruto=num(get('bruto'));
     if(!fecha&&!codigo&&!desc&&!bruto)continue;
-    if(!fecha||(!codigo&&!desc)||!bruto)continue;
+    if((!codigo&&!desc)||!bruto)continue;
     const art=cpArticleByCode(codigo,excelCatalog);
     const pm=cpPaymentMethod(get('medio')),fcRaw=String(get('fc')||'').trim(),nro=String(get('nro')||'').trim();
     const fcOk=!!fcRaw&&!/^n\/?a$/i.test(fcRaw)&&fcRaw.toLowerCase()!=='ver';
     const row={
-      sheet:sheetName,row:ri+1,fecha,codigo,descripcion:desc,aclaracion:String(get('aclar')||'').trim(),rubro:String(get('rubro')||'').trim(),
+      sheet:sheetName,row:ri+1,fecha,proveedor:String(get('proveedor')||'').trim(),codigo,descripcion:desc,aclaracion:String(get('aclar')||'').trim(),rubro:String(get('rubro')||'').trim(),
       cantidad:num(get('unid'))||1,precioUnitarioNeto:num(get('unitN')),totalNeto:num(get('neto')),ivaImporte:num(get('iva')),
       precioUnitarioBruto:num(get('unitB')),totalBruto:bruto,medioPago:pm.normalizado,medioPagoOriginal:pm.original,
       fc:fcOk?'si':'no',tipoComprobante:fcOk&&/^[ABC]$/i.test(fcRaw)?'Factura '+fcRaw.toUpperCase():(fcOk?'Otro':'Sin comprobante'),
-      numeroComprobante:cpValidInvoiceNumber(nro)?nro:'',numeroComprobanteOriginal:nro,semanaExcel:String(get('sem')||'').trim(),articuloId:art?.id||'',descripcionCatalogo:art?.descripcion||'',unidad:art?.unidad||'',familia:art?.familia||String(get('rubro')||'').trim(),subfamilia:art?.subfamilia||'',catalogSource:art?._catalogSource||'',
+      numeroComprobante:cpValidInvoiceNumber(nro)?nro:'',numeroComprobanteOriginal:nro,semanaExcel:String(get('sem')||'').trim(),articuloId:art?.id||'',descripcionCatalogo:art?.descripcion||'',unidad:art?.unidad||'',familia:String(get('rubro')||'').trim()||art?.familia||'',subfamilia:art?.subfamilia||'',catalogSource:art?._catalogSource||'',
       status:art?'valida':'ambigua',motivo:art?(art._catalogSource==='firestore'?'Vinculada a Artículos':art._catalogSource==='excel'?'Código válido del catálogo Excel; se creará/vinculará al importar':'Código válido de base TIZ; falta vincularlo en Firestore'):'Código sin correspondencia en el catálogo'
     };
+    if(!fecha){row.status='ambigua';row.motivo='Falta la fecha de ingreso en el Excel';}
     out.push(row);
   }
   return out;
@@ -595,24 +596,24 @@ function cpParsePrevisiones(wb){
   }
   return out;
 }
-function cpBuildMigrationPreview(wb,fileName){
+function cpBuildMigrationPreview(wb,fileName,selectedSheet=''){ 
   const excelCatalog=cpParseExcelCatalog(wb);
-  const monthly=['Ene','Feb','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].filter(n=>wb.Sheets[n]);
+  const monthly=['Ene','Feb','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].filter(n=>wb.Sheets[n]&&(!selectedSheet||n===selectedSheet));
   const rows=monthly.flatMap(n=>cpParseMonthlySheet(wb,n,excelCatalog));
   const existing=cpCurrentPurchaseSignatures();
   rows.forEach(r=>{if(existing.has(cpExistingRowSignature(r))){r.status='duplicada';r.motivo='Ya existe una compra equivalente';}});
   const groups=new Map();
   rows.filter(r=>r.status==='valida').forEach(r=>{
     const hasInvoice=cpValidInvoiceNumber(r.numeroComprobante);
-    const k=hasInvoice?[r.sheet,r.fecha,r.tipoComprobante,r.numeroComprobante].join('|'):[r.sheet,'fila',r.row].join('|');
-    if(!groups.has(k))groups.set(k,{key:k,sheet:r.sheet,rows:[],fecha:r.fecha,fc:r.fc,tipoComprobante:r.tipoComprobante,numeroComprobante:r.numeroComprobante,medioPago:r.medioPago,medioPagoOriginal:r.medioPagoOriginal});
+    const k=hasInvoice?[r.sheet,r.fecha,r.tipoComprobante,r.numeroComprobante,r.proveedor].join('|'):[r.sheet,'fila',r.row].join('|');
+    if(!groups.has(k))groups.set(k,{key:k,sheet:r.sheet,rows:[],fecha:r.fecha,proveedor:r.proveedor,fc:r.fc,tipoComprobante:r.tipoComprobante,numeroComprobante:r.numeroComprobante,medioPago:r.medioPago,medioPagoOriginal:r.medioPagoOriginal});
     groups.get(k).rows.push(r);
   });
   const purchases=[...groups.values()].map(g=>{
     const totalNeto=g.rows.reduce((s,r)=>s+num(r.totalNeto),0),ivaTotal=g.rows.reduce((s,r)=>s+num(r.ivaImporte),0),totalBruto=g.rows.reduce((s,r)=>s+num(r.totalBruto),0);
     return {...g,totalNeto,ivaTotal,totalBruto,docId:'imp26_'+cpHash32(fileName+'|'+g.key)};
   });
-  const previsiones=cpParsePrevisiones(wb);
+  const previsiones=selectedSheet?[]:cpParsePrevisiones(wb);
   const existingPays=new Set(C.pagos.map(p=>[p.vencimiento,normText(p.proveedor||p.concepto||''),Math.round(num(p.importe)*100)/100,normText(p.referencia||'')].join('|')));
   previsiones.forEach(p=>{const sig=[p.vencimiento,normText(p.proveedor),Math.round(num(p.importe)*100)/100,normText(p.referencia)].join('|');if(existingPays.has(sig)){p.status='duplicada';p.motivo='Ya existe un compromiso equivalente';}});
   const catalogMissing=[...excelCatalog.values()].filter(a=>!C.articulos.some(x=>String(x.codigo||'').trim().padStart(6,'0')===a.codigo));
@@ -620,14 +621,14 @@ function cpBuildMigrationPreview(wb,fileName){
 }
 function renderMigracion(el){
   const p=migrationPreview;
-  if(!p){el.innerHTML=`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:15px;align-items:flex-start;flex-wrap:wrap"><div><b>Migración controlada desde Excel</b><div class="cp-sub" style="max-width:720px">Primero se analiza el archivo y se muestra una previsualización. No se escribe nada en Firestore hasta confirmar. Los códigos se vinculan contra Artículos y las filas dudosas quedan afuera.</div></div><span class="cp-pill warn">Sin escritura automática</span></div><div class="cp-row" style="margin-top:14px"><div class="cp-field"><label>Archivo histórico de Compras</label><input id="cp-mig-file" type="file" accept=".xlsx,.xls"></div><div class="cp-field"><label>Acción</label><button class="cp-btn primary" style="margin-top:16px;width:100%" onclick="cpAnalizarMigracion()">Analizar y previsualizar</button></div></div><div class="cp-alert amber" style="margin-top:12px"><div>🛡</div><div><b>Protección activa</b><div class="cp-sub">No toca Facturación, Cobranzas, ARCA, Producción ni PDFs. La importación utiliza únicamente las colecciones del módulo Compras.</div></div></div></div>`;return;}
+  if(!p){el.innerHTML=`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:15px;align-items:flex-start;flex-wrap:wrap"><div><b>Migración controlada desde Excel</b><div class="cp-sub" style="max-width:720px">Primero se analiza el archivo y se muestra una previsualización. No se escribe nada en Firestore hasta confirmar. Los códigos se vinculan contra Artículos y las filas dudosas quedan afuera.</div></div><span class="cp-pill warn">Sin escritura automática</span></div><div class="cp-row" style="margin-top:14px"><div class="cp-field"><label>Archivo histórico de Compras</label><input id="cp-mig-file" type="file" accept=".xlsx,.xls"></div><div class="cp-field"><label>Mes a importar</label><select id="cp-mig-month"><option value="">Todos los meses</option>${['Ene','Feb','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map(n=>`<option>${n}</option>`).join('')}</select></div><div class="cp-field"><label>Acción</label><button class="cp-btn primary" style="margin-top:16px;width:100%" onclick="cpAnalizarMigracion()">Analizar y previsualizar</button></div></div><div class="cp-alert amber" style="margin-top:12px"><div>🛡</div><div><b>Protección activa</b><div class="cp-sub">No toca Facturación, Cobranzas, ARCA, Producción ni PDFs. La importación utiliza únicamente las colecciones del módulo Compras.</div></div></div></div>`;return;}
   const valid=p.rows.filter(r=>r.status==='valida'),dup=p.rows.filter(r=>r.status==='duplicada'),amb=p.rows.filter(r=>r.status==='ambigua');
   const linked=valid.filter(r=>r.articuloId).length,baseLinked=valid.filter(r=>!r.articuloId&&r.catalogSource).length,prevOk=p.previsiones.filter(x=>x.status!=='duplicada'&&x.status!=='ambigua'),prevAmb=p.previsiones.filter(x=>x.status==='ambigua');
   const sample=[...amb,...dup,...valid].slice(0,120).map(r=>`<tr><td><span class="cp-pill ${r.status==='valida'?'yes':r.status==='duplicada'?'warn':'no'}">${esc(r.status)}</span></td><td>${esc(r.sheet)} · ${r.row}</td><td>${fmtDate(r.fecha)}</td><td><b>${esc(r.codigo)}</b></td><td>${esc(r.descripcion)}</td><td>${esc(r.rubro)}</td><td>${money(r.totalBruto)}</td><td>${esc(r.medioPagoOriginal||r.medioPago||'—')}</td><td>${esc(r.motivo||'Vinculada al catálogo')}</td></tr>`).join('');
   el.innerHTML=`
     <div class="cp-pay-toolbar"><div><div class="cp-pay-title">Previsualización · ${esc(p.fileName)}</div><div class="cp-sub">Hojas detectadas: ${p.monthly.map(esc).join(', ')}</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpResetMigracion()">Cambiar archivo</button><button class="cp-btn primary" onclick="cpConfirmarMigracion()">Importar sólo filas válidas</button></div></div>
     <div class="cp-grid">
-      <div class="cp-card"><div class="cp-lbl">Filas válidas</div><div class="cp-kpi" style="color:var(--green)">${valid.length}</div><div class="cp-sub">${p.purchases.length} compras agrupadas</div></div>
+      <div class="cp-card"><div class="cp-lbl">Filas válidas</div><div class="cp-kpi" style="color:var(--green)">${valid.length}</div><div class="cp-sub">${p.purchases.length} compras agrupadas · ${money(valid.reduce((s,r)=>s+r.totalBruto,0))}</div></div>
       <div class="cp-card"><div class="cp-lbl">Duplicadas</div><div class="cp-kpi" style="color:var(--amber)">${dup.length}</div><div class="cp-sub">No se importan</div></div>
       <div class="cp-card"><div class="cp-lbl">A revisar</div><div class="cp-kpi" style="color:var(--red)">${amb.length}</div><div class="cp-sub">No se importan</div></div>
       <div class="cp-card"><div class="cp-lbl">Artículos ya vinculados</div><div class="cp-kpi">${linked}</div><div class="cp-sub">${baseLinked} válidos por catálogo a crear/vincular</div></div>
@@ -642,7 +643,7 @@ function renderMigracion(el){
 window.cpResetMigracion=()=>{migrationPreview=null;migrationFileName='';render();};
 window.cpAnalizarMigracion=async()=>{
   const input=document.getElementById('cp-mig-file'),file=input?.files?.[0];if(!file)return toast('Seleccioná el Excel de Compras.');
-  try{toast('Analizando Excel…');await cpEnsureXLSX();const buf=await file.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array',cellDates:true});migrationFileName=file.name;migrationPreview=cpBuildMigrationPreview(wb,file.name);render();toast('Previsualización lista. Todavía no se escribió nada.');}
+  try{toast('Analizando Excel…');await cpEnsureXLSX();const buf=await file.arrayBuffer();const wb=window.XLSX.read(buf,{type:'array',cellDates:true});migrationFileName=file.name;migrationPreview=cpBuildMigrationPreview(wb,file.name,document.getElementById('cp-mig-month')?.value||'');render();toast('Previsualización lista. Todavía no se escribió nada.');}
   catch(e){console.error('[Compras migración]',e);toast('No se pudo analizar el Excel: '+(e?.message||e));}
 };
 window.cpConfirmarMigracion=async()=>{
@@ -670,8 +671,8 @@ window.cpConfirmarMigracion=async()=>{
     for(let start=0;start<purchaseOps.length;start+=400){
       const batch=writeBatch(db);
       purchaseOps.slice(start,start+400).forEach(g=>{
-        const items=g.rows.map(r=>({articuloId:r.articuloId||articleIdByCode.get(String(r.codigo||'').trim().padStart(6,'0'))||'',codigo:r.codigo,descripcionOriginal:r.descripcion,descripcion:r.descripcionCatalogo||r.descripcion,familia:r.familia,rubro:r.rubro,subfamilia:r.subfamilia,unidad:r.unidad||'',cantidad:r.cantidad,precioUnitarioNeto:r.precioUnitarioNeto,totalNeto:r.totalNeto,ivaImporte:r.ivaImporte,ivaPct:r.totalNeto?Math.round((r.ivaImporte/r.totalNeto)*10000)/100:0,totalBruto:r.totalBruto,origenExcel:{archivo:p.fileName,hoja:r.sheet,fila:r.row}}));
-        const data={fecha:g.fecha,semana:paymentWeek(g.fecha),proveedor:'',proveedorPendiente:true,fc:g.fc,tipoComprobante:g.tipoComprobante,numeroComprobante:g.numeroComprobante,medioPago:g.medioPago||'',medioPagoOriginal:g.medioPagoOriginal||'',destino:g.rows.some(isServicePurchaseItem)?'Gasto general':'Stock',ot:'',observacion:g.rows.map(r=>r.aclaracion).filter(Boolean).join(' | '),items,totalNeto:g.totalNeto,ivaTotal:g.ivaTotal,totalBruto:g.totalBruto,origen:'excel_2026',importacion:{archivo:p.fileName,hoja:g.sheet,filas:g.rows.map(r=>r.row),clave:g.key},_ts:serverTimestamp()};
+        const items=g.rows.map(r=>({articuloId:r.articuloId||articleIdByCode.get(String(r.codigo||'').trim().padStart(6,'0'))||'',codigo:r.codigo,descripcionOriginal:r.descripcion,aclaracion:r.aclaracion,descripcion:r.descripcionCatalogo||r.descripcion,familia:r.familia,rubro:r.rubro,subfamilia:r.subfamilia,unidad:r.unidad||'',cantidad:r.cantidad,precioUnitarioNeto:r.precioUnitarioNeto,totalNeto:r.totalNeto,ivaImporte:r.ivaImporte,ivaPct:r.totalNeto?Math.round((r.ivaImporte/r.totalNeto)*10000)/100:0,totalBruto:r.totalBruto,origenExcel:{archivo:p.fileName,hoja:r.sheet,fila:r.row}}));
+        const data={fecha:g.fecha,semana:paymentWeek(g.fecha),proveedor:g.proveedor||'',proveedorPendiente:!g.proveedor,fc:g.fc,tipoComprobante:g.tipoComprobante,numeroComprobante:g.numeroComprobante,medioPago:g.medioPago||'',medioPagoOriginal:g.medioPagoOriginal||'',destino:g.rows.some(isServicePurchaseItem)?'Gasto general':'Stock',ot:'',observacion:g.rows.map(r=>r.aclaracion).filter(Boolean).join(' | '),items,totalNeto:g.totalNeto,ivaTotal:g.ivaTotal,totalBruto:g.totalBruto,origen:'excel_2026',importacion:{archivo:p.fileName,hoja:g.sheet,filas:g.rows.map(r=>r.row),clave:g.key},_ts:serverTimestamp()};
         batch.set(doc(db,'compras',g.docId),data,{merge:true});
       });
       await batch.commit();
