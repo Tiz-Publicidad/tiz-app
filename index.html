@@ -1141,7 +1141,7 @@ function getUserSector(email) {
   return 'Ventas';
 }
 // Colocaciones is visible to authenticated users; edits keep sector permissions.
-window.canViewPage = page => !!window.currentUser && (window.currentUser.restrictedColocaciones ? page==='colocaciones' : page==='colocaciones');
+window.canViewPage = page => !!window.currentUser && (page==='obras'||page==='colocaciones');
 window.canViewOperaciones = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','contrerasfedericograbriel365@gmail.com'].includes(String(window.currentUser?.email||'').toLowerCase());
 window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
 window.canViewIndicadores = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());
@@ -1219,6 +1219,7 @@ onAuthStateChanged(auth, async user => {
     window.currentUser = null;
     window.TIZClemenSecretariaV1?.reset();
     window.TIZOperacionesV1?.reset();
+    window.TIZObrasSeguimientoV2?.resetConsulta();
     window.TIZEstadisticaSourceV1?.reset();
     document.getElementById('est-kpis')?.replaceChildren();
     document.getElementById('est-content')?.replaceChildren();
@@ -1238,10 +1239,10 @@ function updateUserUI() {
     document.getElementById('user-avatar').src   = u.photo;
     document.getElementById('user-avatar').style.display = 'block';
   }
-  if(u.restrictedOperaciones){document.querySelectorAll('.nav-item').forEach(el=>el.style.display=el.getAttribute('onclick')?.includes("goTo('operaciones')")?'flex':'none');document.querySelectorAll('.nav-section').forEach(el=>el.style.display='none');window.currentPage='operaciones';window.goTo?.('operaciones');}
+  if(u.restrictedOperaciones){document.querySelectorAll('.nav-item').forEach(el=>el.style.display=["goTo('operaciones')","goTo('obras')"].some(p=>el.getAttribute('onclick')?.includes(p))?'flex':'none');document.querySelectorAll('.nav-section').forEach(el=>el.style.display='none');window.currentPage='operaciones';window.goTo?.('operaciones');}
   document.querySelectorAll('.operations-only').forEach(el=>el.style.display=window.canViewOperaciones()?'flex':'none');
-  if(u.restrictedColocaciones){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('colocaciones')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='colocaciones';window.goTo?.('colocaciones');}
-  if(u.restrictedChecklists){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=el.getAttribute('onclick')?.includes("goTo('calidad')")?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='calidad';window.goTo?.('calidad');}
+  if(u.restrictedColocaciones){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=["goTo('colocaciones')","goTo('obras')"].some(p=>el.getAttribute('onclick')?.includes(p))?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='colocaciones';window.goTo?.('colocaciones');}
+  if(u.restrictedChecklists){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=["goTo('calidad')","goTo('obras')"].some(p=>el.getAttribute('onclick')?.includes(p))?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='calidad';window.goTo?.('calidad');}
   document.querySelectorAll('.stats-managers-only').forEach(el=>el.style.display=window.canViewIndicadores()?'flex':'none');
   if(!window.canViewIndicadores()){window.TIZEstadisticaSourceV1?.reset();document.getElementById('est-content')?.replaceChildren();if(window.currentPage==='estadistica')window.goTo?.('dashboard');}
   // Ocultar secciones admin-only en sidebar
@@ -1316,6 +1317,11 @@ window.clemenSecretariaApiV1 = async body => {
   if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
   const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({...body,mode:'secretary-'+body.mode})});
   const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Clemen.');return result;
+};
+window.leerObrasConsultaV1 = async () => {
+  if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'obras-consulta-list'})});
+  const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Obras.');return result;
 };
 window.operacionesApiV1 = async body => {
   if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
@@ -1556,12 +1562,12 @@ function pct(works, tipo) {
 // Navigation
 window.goTo = function(page) {
   if((page==='ia'||page==='tareas')&&window.TIZClemenSecretariaV1){window.TIZClemenSecretariaV1.show(page==='tareas'?'agenda':'dia');return;}
-  if(window.currentUser?.restrictedOperaciones&&page!=='operaciones')return window.showToast?.('Tu perfil está habilitado para Operaciones.');
+  if(window.currentUser?.restrictedOperaciones&&page!=='operaciones'&&page!=='obras')return window.showToast?.('Tu perfil está habilitado para Operaciones y la consulta de Obras.');
   if(page==='operaciones'&&!window.canViewOperaciones())return window.showToast?.('Sin acceso a Operaciones.');
   if(page==='estadistica'&&!window.canViewIndicadores())return window.showToast?.('Estadística está habilitada para Administración y Pablo.');
   if(page==='estadistica'&&!window.currentUser?.isAdmin)window.estTab='indicadores';
-  if(window.currentUser?.restrictedChecklists&&page!=='calidad')return window.showToast?.('Tu perfil está habilitado para el módulo de Calidad.');
-  if(window.currentUser?.restrictedColocaciones&&page!=='colocaciones')return window.showToast?.('Tu perfil está habilitado sólo para Colocaciones.');
+  if(window.currentUser?.restrictedChecklists&&page!=='calidad'&&page!=='obras')return window.showToast?.('Tu perfil está habilitado para Calidad y Obras.');
+  if(window.currentUser?.restrictedColocaciones&&page!=='colocaciones'&&page!=='obras')return window.showToast?.('Tu perfil está habilitado para Colocaciones y la consulta de Obras.');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
@@ -3710,7 +3716,7 @@ async function syncToSheets(data) {
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A"></script>
-<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A"></script>
+<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B"></script>
 </body>
 </html>
 
