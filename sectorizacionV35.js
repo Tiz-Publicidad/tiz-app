@@ -490,6 +490,7 @@
       if(normEstado(data?.estado)!=='Aprobado'||!presupuestoId)return null;
       const numero=String(data.nro||'').replace(/\D/g,'');
       const existente=(window.DB?.obras||[]).find(o=>o.presupuestoId===presupuestoId||o.cotizacionId===presupuestoId||(String(o.ot||'').replace(/\D/g,'')===numero&&numero));
+      if(existente&&(existente.bajaObra?.activa===true||String(existente.estado||'').toLowerCase()==='baja'))return existente.id;
       const tecnico=datosTecnicosPresupuesto(data);
       const anteriores=existente?.gestionSectores||{}, info=tecnico.infoPresupuesto, aclaraciones=tecnico.aclaraciones.join('\n');
       const ventas={...(anteriores.ventas||{}),infoPresupuesto:info,responsable:anteriores.ventas?.responsable||data.vendedor||'',compromiso:anteriores.ventas?.compromiso||info.fechaEntrega||'',notasPresupuesto:aclaraciones};
@@ -597,4 +598,3 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })();
-
