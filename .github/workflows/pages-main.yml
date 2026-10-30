@@ -67,6 +67,8 @@ jobs:
           node --test tests/cotizacionesEstadoV1.test.cjs tests/tipoFacturaCotizacionV1.test.cjs tests/cotizacionesOrdenV1.test.cjs
           node --check comprasObrasCoreV1.js
           node --test tests/comprasObrasV1.test.cjs
+          node --check comprasBaseDatosV1.js
+          node --test tests/comprasBaseDatosV1.test.cjs
           node --check clemenSecretariaV1.js
           node --check clemenSecretariaCoreV1.js
           node --test tests/clemenSecretariaV1.test.cjs
