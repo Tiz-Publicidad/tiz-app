@@ -121,15 +121,15 @@ function ensureStyle(){
  .v32-bg{position:fixed;inset:0;background:rgba(0,0,0,.84);z-index:12000;display:none;padding:18px;overflow:auto}.v32-bg.show{display:block}
  .v32-modal{max-width:1510px;margin:auto;background:var(--bg);border:1px solid var(--border);border-radius:13px;min-height:calc(100vh - 36px);box-shadow:0 30px 120px #000;padding:15px;color:var(--text)}
  .v32-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:11px}.v32-title{font-size:20px;font-weight:800}.v32-sub{font-size:10px;color:var(--text3);margin-top:4px}.v32-actions{display:flex;gap:7px;flex-wrap:wrap}
- .v32-summary-head{display:grid;grid-template-columns:1fr 90px 115px 90px 115px 115px 95px 84px 38px;gap:7px;padding:8px 10px;font-size:8px;text-transform:uppercase;color:var(--text3);background:var(--surface2);border-radius:7px 7px 0 0}
- .v32-item{border:1px solid var(--border);background:var(--surface);border-radius:8px;margin-top:7px;overflow:hidden}.v32-item-row{display:grid;grid-template-columns:1fr 90px 115px 90px 115px 115px 95px 84px 38px;gap:7px;align-items:center;padding:9px;cursor:pointer}.v32-item-row.selected{background:rgba(238,46,122,.06);border-left:3px solid var(--accent)}
+ .v32-summary-head{display:grid;grid-template-columns:28px 1fr 90px 115px 90px 115px 115px 95px 84px 38px;gap:7px;padding:8px 10px;font-size:8px;text-transform:uppercase;color:var(--text3);background:var(--surface2);border-radius:7px 7px 0 0}
+ .v32-item{border:1px solid var(--border);background:var(--surface);border-radius:8px;margin-top:7px;overflow:hidden}.v32-item-row{display:grid;grid-template-columns:28px 1fr 90px 115px 90px 115px 115px 95px 84px 38px;gap:7px;align-items:center;padding:9px;cursor:pointer}.v32-item-row.selected{background:rgba(238,46,122,.06);border-left:3px solid var(--accent)}
  .v32-item-row input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px;border-radius:6px;font-size:10px}.v32-number{text-align:right;font:600 10px 'DM Mono',monospace}.v32-green{color:var(--green)}.v32-red{color:var(--red)}
  .v32-work{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:10px;margin-top:12px}.v32-panel{border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:11px}.v32-tabs{display:flex;gap:18px;border-bottom:1px solid var(--border);margin-bottom:10px}.v32-tab{border:0;background:transparent;color:var(--text3);padding:8px 1px;border-bottom:2px solid transparent;cursor:pointer}.v32-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
  .v32-supply-head,.v32-supply{display:grid;grid-template-columns:minmax(220px,1.4fr) 75px 120px 85px 110px 110px 130px 80px 31px;gap:6px;align-items:center}.v32-supply-head{font-size:8px;text-transform:uppercase;color:var(--text3);padding:5px}.v32-supply{margin-bottom:6px}.v32-supply input,.v32-supply select{min-width:0;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px;border-radius:6px;font-size:9px}.v32-supply small{font-size:8px;color:var(--text3)}
  .v32-kpi{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:10px}.v32-kpi b{font-family:'DM Mono',monospace}.v32-alert{border:1px solid var(--border);border-left:3px solid var(--amber);background:var(--surface2);border-radius:7px;padding:8px;margin-top:7px;font-size:9px}.v32-alert.red{border-left-color:var(--red)}
  .v32-fields{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.v32-field label{display:block;font-size:8px;text-transform:uppercase;color:var(--text3);margin-bottom:4px}.v32-field input,.v32-field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:7px}.v32-field.full{grid-column:1/-1}
  .v32-pill{font-size:8px;border-radius:99px;padding:4px 7px;background:rgba(76,175,125,.14);color:#61d79a}.v32-footer{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:13px;padding-top:10px;border-top:1px solid var(--border)}
- @media(max-width:1150px){.v32-work{grid-template-columns:1fr}.v32-summary-head{display:none}.v32-item-row{grid-template-columns:1fr 80px 100px}.v32-item-row>*:nth-child(n+4){display:none}.v32-supply-head{display:none}.v32-supply{grid-template-columns:1fr 70px 100px}.v32-supply>*:nth-child(n+4){display:none}}
+ @media(max-width:1150px){.v32-work{grid-template-columns:1fr}.v32-summary-head{display:none}.v32-item-row{grid-template-columns:28px minmax(0,1fr) 80px 100px}.v32-item-row>*:nth-child(n+5){display:none}.v32-supply-head{display:none}.v32-supply{grid-template-columns:1fr 70px 100px}.v32-supply>*:nth-child(n+4){display:none}}
  `;document.head.appendChild(s);
 }
 function ensureModal(){
@@ -149,11 +149,12 @@ function refreshCatalog(){
 function render(){
  items.forEach(recalcItem);
  const host=document.getElementById('v32-items');
- host.innerHTML=`<div class="v32-summary-head"><span>Descripción del ítem</span><span>Cantidad</span><span>Costo total</span><span>Coef.</span><span>Precio sugerido</span><span>Precio de venta</span><span>Margen</span><span>Estado</span><span></span></div>`+
+ host.innerHTML=`<div class="v32-summary-head"><span>N°</span><span>Descripción del ítem</span><span>Cantidad</span><span>Costo total</span><span>Coef.</span><span>Precio sugerido</span><span>Precio de venta</span><span>Margen</span><span>Estado</span><span></span></div>`+
  items.map((it,i)=>{
    const margin=it.subtotal-it.costoTotal,pct=it.subtotal?margin/it.subtotal*100:0;
    const complete=!!it.descripcion && it.insumos.length>0 && it.unitario>0;
    return `<div class="v32-item"><div class="v32-item-row ${i===selected?'selected':''}" onclick="v32Select(${i})">
+    <span aria-label="Renglón ${i+1}">${i+1}</span>
     <input value="${esc(it.descripcion)}" placeholder="Descripción comercial del ítem" onclick="event.stopPropagation()" oninput="v32Set(${i},'descripcion',this.value)" onblur="v32Refresh()">
     <input type="number" step=".01" value="${it.cantidad}" onclick="event.stopPropagation()" oninput="v32Set(${i},'cantidad',this.value)" onblur="v32Refresh()">
     <span class="v32-number">${money(it.costoTotal)}</span>
