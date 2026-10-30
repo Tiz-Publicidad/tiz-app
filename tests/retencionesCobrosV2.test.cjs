@@ -40,5 +40,10 @@ test('porcentaje y total restan retenciones del monto aplicado',()=>{
  const {ui}=app(),q=form(ui,{porCobrar:1000});q('mode').value='porcentaje';q('pct').value='40';q('ret-iva').value='50';q('pct').fire('change');assert.equal(q('amount').value,'350');assert.equal(q('save').disabled,false);
  q('ret-iva').value='401';q('ret-iva').fire('input');assert.equal(q('save').disabled,true);
 });
-
-
+test('Retenciones del menú reúne manuales y cobros, sin escribir copias ni duplicar al consultar',async()=>{
+ const {window,o,data,actions}=app();window.DB.retenciones=[{id:'manual',cliente:'Otro cliente',bruto:100,suss:5}];
+ await actions.registrarCobro(o.id,{fecha:'2026-10-29',importe:1000,retencionesDetalle:{iva:10,ingresosBrutos:20,ganancias:30,suss:40}});
+ for(let i=0;i<2;i++){const rows=data.retentionRows();assert.equal(rows.length,2);const r=rows[1];assert.equal(r.automatica,true);assert.equal(r.ot,'4731');assert.equal(r.mes,'2026-10');assert.equal(r.bruto,1100);assert.equal(r.retencionesTotal,100);assert.equal(r.iibb,20);assert.equal(r.gan,30);assert.equal(r.bruto-r.retencionesTotal,1000);}
+ assert.equal(window.DB.retenciones.length,1);
+ window.DB.retenciones.push({id:'linked',sourceCobroId:o.cobros[0].id});assert.equal(data.retentionRows().length,2);
+});

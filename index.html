@@ -2125,9 +2125,11 @@ window.saveCliente = async () => {
 
 // RETENCIONES
 function renderRetenciones() {
-  const rets = window.DB.retenciones;
+  const rets = window.TIZFacturacionCobranzasDataV2?.retentionRows?.() || window.DB.retenciones || [];
+  const retained = r => r.retencionesTotal ?? ((+r.suss||0)+(+r.iibb||0)+(+r.gan||0)+(+r.iva||0));
+  const escRet = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const totalBruto = rets.reduce((a,r)=>a+(+r.bruto||0),0);
-  const totalRet = rets.reduce((a,r)=>a+(+r.suss||0)+(+r.iibb||0)+(+r.gan||0)+(+r.iva||0),0);
+  const totalRet = rets.reduce((a,r)=>a+retained(r),0);
 
   document.getElementById('ret-kpis').innerHTML = `
     <div class="kpi"><div class="kpi-label">Total bruto</div><div class="kpi-val">${fmtM(totalBruto)}</div></div>
@@ -2136,17 +2138,17 @@ function renderRetenciones() {
   `;
 
   document.getElementById('ret-tbody').innerHTML = rets.map(r => {
-    const neto = (+r.bruto||0)-(+r.suss||0)-(+r.iibb||0)-(+r.gan||0)-(+r.iva||0);
+    const neto = (+r.bruto||0)-retained(r);
     return `<tr>
-      <td>${r.mes||'—'}</td><td class="strong">${r.cliente||''}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px">${r.nrfc||'—'}</td>
+      <td>${escRet(r.mes||'—')}</td><td class="strong">${escRet(r.cliente||'')}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${escRet(r.nrfc||'—')}</td>
       <td>${fmtM(r.bruto)}</td>
       <td style="color:${r.suss?'var(--red)':'var(--text3)'}">${r.suss?fmtM(r.suss):'—'}</td>
       <td style="color:${r.iibb?'var(--red)':'var(--text3)'}">${r.iibb?fmtM(r.iibb):'—'}</td>
       <td style="color:${r.gan?'var(--red)':'var(--text3)'}">${r.gan?fmtM(r.gan):'—'}</td>
       <td style="color:${r.iva?'var(--red)':'var(--text3)'}">${r.iva?fmtM(r.iva):'—'}</td>
       <td style="color:var(--green);font-weight:500">${fmtM(neto)}</td>
-      <td><button class="btn-icon" onclick="delRet('${r.id}')"><i class="ti ti-trash" style="font-size:12px"></i></button></td>
+      <td>${r.automatica?`<span class="badge" title="Registrada desde Cobros${r.referencia?' · '+escRet(r.referencia):''}">Cobro OT ${escRet(r.ot)}</span>`:`<button class="btn-icon" onclick="delRet('${r.id}')"><i class="ti ti-trash" style="font-size:12px"></i></button>`}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Sin retenciones.</td></tr>';
 }
