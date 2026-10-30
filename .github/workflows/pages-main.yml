@@ -69,6 +69,7 @@ jobs:
           node --test tests/comprasObrasV1.test.cjs
           node --check comprasBaseDatosV1.js
           node --test tests/comprasBaseDatosV1.test.cjs
+          node --test tests/comprasMigracionMes.test.cjs
           node --check clemenSecretariaV1.js
           node --check clemenSecretariaCoreV1.js
           node --test tests/clemenSecretariaV1.test.cjs
