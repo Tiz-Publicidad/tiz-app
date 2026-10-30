@@ -232,7 +232,7 @@ function injectUI(){
   page.innerHTML=`
     <div class="cp-head"><div><div class="cp-title">Compras, Contrataciones y Proveedores</div><div class="cp-sub">Compras por ítem, deudas, pagos, proveedores, servicios contratados, stock y ayudamemorias.</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpOpenConfigIA()">⚙ IA comprobantes</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
     <div class="cp-tabs">
-      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="obras">Obras a gestionar</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="historico">Histórico materiales</button><button class="cp-tab" data-tab="contrataciones">Contrataciones</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button><button class="cp-tab" data-tab="migracion">Migración Excel</button>
+      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="obras">Obras a gestionar</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="historico">Histórico materiales</button><button class="cp-tab" data-tab="contrataciones">Contrataciones</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="base-datos">Base de datos</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button><button class="cp-tab" data-tab="migracion">Migración Excel</button>
     </div><div id="cp-content"></div>`;
   document.querySelector('.main, main, .content')?.appendChild(page) || document.body.appendChild(page);
   page.querySelectorAll('.cp-tab').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;page.querySelectorAll('.cp-tab').forEach(x=>x.classList.toggle('active',x===b));render();});
@@ -292,7 +292,7 @@ function render(){
   if(window.currentPage!=='compras') return;
   cpRefreshMother();
   const el=document.getElementById('cp-content'); if(!el)return;
-  ({inicio:renderInicio,obras:renderObrasCompras,compras:renderCompras,historico:renderHistoricoMateriales,contrataciones:renderContrataciones,proveedores:renderProveedores,pagos:renderPagos,migracion:renderMigracion,conteo:renderConteo,articulos:renderArticulos,planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
+  ({inicio:renderInicio,obras:renderObrasCompras,compras:renderCompras,historico:renderHistoricoMateriales,contrataciones:renderContrataciones,proveedores:renderProveedores,pagos:renderPagos,migracion:renderMigracion,conteo:renderConteo,articulos:renderArticulos,'base-datos':el=>window.TIZComprasBaseDatosV1.render(el),planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
   if(currentTab==='inicio')el.insertAdjacentHTML('afterbegin',`<div class="cp-panel"><div class="cp-actions" style="justify-content:space-between"><div><b>${cpWorks().length} obras para Compras</b><p class="cp-sub">Pendiente / Cobrado pendiente de TIZ 2026 y obras nuevas, sin duplicar OT.</p></div><button class="cp-btn primary" onclick="cpTab('obras')">Ver obras a gestionar</button></div>${cpMotherState()}</div>`);
 
 }
@@ -1197,4 +1197,3 @@ window.tizComprasCatalogoV32 = function(){
     return [];
   }
 };
-
