@@ -744,7 +744,7 @@ td.strong { color: var(--text); font-weight: 500; }
         <select id="f-vendedor"><option value="G">G · Giancarlo</option><option>J</option><option>G/J</option></select>
       </div>
       <div class="form-group"><label>Estado</label>
-        <select id="f-estado"><option selected>Pendiente</option><option>Enviado</option><option>Aprobado</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option></select>
+        <select id="f-estado"><option selected>Pendiente</option><option>Enviado</option><option>Aprobado</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option><option disabled>Baja</option></select>
       </div>
       <div class="form-group"><label>Semana</label><input id="f-semana" type="number" placeholder="22"></div>
       <div class="form-group"><label>Precio de venta (neto)</label><input id="f-neto" type="number" placeholder="0"></div>
@@ -1384,6 +1384,23 @@ window.updateDoc_ = async (col_, id, data) => {
     transaction.update(ref,patch);
   });
 };
+
+// Baja operativa: todos los documentos agrupados se guardan en una transacción.
+window.cambiarBajaObraV1 = async (ids, motivo, reactivar = false) => {
+  if (!window.currentUser?.isAdmin) throw new Error('Solo administración puede dar de baja o reactivar obras.');
+  if (!Array.isArray(ids) || !ids.length || ids.length > 100 || new Set(ids).size !== ids.length || ids.some(id=>typeof id!=='string'||!id||id.includes('/'))) throw new Error('La selección de obras no es válida.');
+  const user = { ...window.currentUser };
+  return runTransaction(db, async transaction => {
+    const refs = ids.map(id => doc(db, 'obras', id));
+    const snapshots = await Promise.all(refs.map(ref => transaction.get(ref)));
+    if (snapshots.some(s => !s.exists())) throw new Error('La obra cambió. Actualizá el listado antes de continuar.');
+    const at = new Date().toISOString();
+    const patches = snapshots.map((snap, i) => ({ id: ids[i], patch: window.TIZObrasSeguimientoCoreV2.bajaPatch(snap.data(), motivo, user, reactivar, at) }));
+    patches.forEach((p, i) => transaction.update(refs[i], p.patch));
+    return patches;
+  });
+};
+
 // Gestiones de Colocaciones: validar sobre la versión actual del documento evita
 // duplicar cierres/reprogramaciones cuando dos personas gestionan la misma acción.
 window.mutateColocacionesV128 = async (id, buildPatch) => {
@@ -1621,7 +1638,7 @@ function updateBadges() {
 
 // DASHBOARD
 function renderDashboard() {
-  const obras = window.DB.obras;
+  const obras = window.DB.obras.filter(o=>!window.TIZObrasSeguimientoCoreV2?.isBaja(o));
   const sem = window.currentSem;
   const semObras = obras.filter(o => +o.semana === sem);
   const activas = obras.filter(o => o.estado==='En producción'||o.estado==='Aprobado');
@@ -3685,9 +3702,9 @@ async function syncToSheets(data) {
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901"></script>
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
-<script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A"></script>
+<script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A&baja=20261030"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261016A"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
@@ -3706,19 +3723,20 @@ async function syncToSheets(data) {
 <script src="facturadorIntegralV83.js?v=TIZ-FCE-MINIMO-OFICIAL-20261026"></script>
 <script src="facturacionEntregaUIV84.js?v=TIZ-FC-V2-EMAIL-V86-DIRECT-SAVE-20260922"></script>
 <script src="facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930"></script>
-<script src="facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030"></script>
-<script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930&r=retenciones-20261030"></script>
+<script src="facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030"></script>
+<script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930&r=retenciones-20261030&baja=20261030"></script>
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016"></script>
-<script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030"></script>
-<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-REALIZADO-20261029"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-CONTACTOS-REALIZADO-20261029"></script>
+<script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030"></script>
+<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-REALIZADO-20261029&baja=20261030"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-CONTACTOS-REALIZADO-20261029"></script>
 <script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE"></script>
 <script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023"></script>
 <script src="operacionesV1.js?v=TIZ-OPERACIONES-20261016C-OSCURO"></script>
 <script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
-<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A"></script>
-<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B"></script>
+<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030"></script>
+<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030"></script>
+<script src="obrasBajaUIV1.js?v=TIZ-BAJA-OBRAS-20261030"></script>
 </body>
 </html>
 
