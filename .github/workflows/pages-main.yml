@@ -52,6 +52,8 @@ jobs:
           node --check obrasSeguimientoV2.js
           node --check functions/obrasSeguimientoCoreV2.js
           node --check functions/obrasSeguimientoApiV2.js
+          node --check obrasBajaUIV1.js
+          node --test tests/obrasBajaV1.test.cjs
           node --test tests/obrasSeguimientoV2.test.cjs tests/obrasSeguimientoApiV2.test.cjs
           node --check obrasListadoV1.js
           node --test tests/obrasListadoV1.test.cjs
