@@ -12,7 +12,7 @@ function work(obraId){return window.TIZFacturacionCobranzasDataV2?.build?.().wor
 async function save(o,patch){if(!o)throw new Error('No se encontro la OT');if(typeof window.updateDoc_!=='function')throw new Error('Firestore no disponible');await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);window.TIZFactCobUIV2?.render?.();if(typeof window.sincronizarFacturacionBaseMadreTIZV117==='function')window.sincronizarFacturacionBaseMadreTIZV117(o,{silent:true}).catch(e=>{console.warn('[TIZ FactCob] Planilla pendiente',e);window.showToast?.('Dato guardado en TIZ; la planilla se reintentará automáticamente')});return patch}
 async function registrarCobro(obraId,payload){
  const o=obra(obraId),w=work(obraId);if(!o||!w)throw new Error('No se encontro la OT');
- const amount=(v,label)=>{const x=Number(v??0);if(!Number.isFinite(x)||x<0)throw new Error('Revisá el importe de '+label);return Math.round((x+Number.EPSILON)*100)/100};
+ const amount=(v,label)=>{const x=window.TIZFacturacionCobranzasDataV2.parseAmount(v);if(!Number.isFinite(x)||x<0)throw new Error('Revisá el importe de '+label);return Math.round((x+Number.EPSILON)*100)/100};
  const fecha=validarFechaPago(String(payload?.fecha||''));
  const detalle=payload?.retencionesDetalle;
  const retencionesDetalle=detalle?{
@@ -22,11 +22,11 @@ async function registrarCobro(obraId,payload){
    suss:amount(detalle.suss,'retención de SUSS')
  }:null;
  const retenciones=retencionesDetalle?Math.round(Object.values(retencionesDetalle).reduce((a,b)=>a+b,0)*100)/100:amount(payload?.retenciones,'retenciones');
- if(retencionesDetalle&&payload?.retenciones!=null&&Math.abs(retenciones-Number(payload.retenciones))>.01)throw new Error('El total de retenciones no coincide con el detalle');
+ if(retencionesDetalle&&payload?.retenciones!=null&&Math.abs(retenciones-window.TIZFacturacionCobranzasDataV2.parseAmount(payload.retenciones))>.01)throw new Error('El total de retenciones no coincide con el detalle');
  const base=payload?.base==='cotizacion'?'cotizacion':'facturado';
  const saldoCotizacion=Math.max(0,Math.round((w.importeAprobado-w.cobrado-w.retenciones)*100)/100);
  const saldo=base==='cotizacion'?saldoCotizacion:w.porCobrar;
- const row={id:'cob-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),invoiceKey:String(payload?.invoiceKey||''),facturaNumero:String(payload?.facturaNumero||''),fecha,...(()=>{const s=fechas().semana(fecha);return{semanaCobroInicio:s.inicio,semanaCobroFin:s.fin,semanaCobroISO:s.iso,mesCobro:s.mes};})(),importe:amount(payload?.importe,'cobro'),medio:String(payload?.medio||''),referencia:String(payload?.referencia||''),retenciones,retencionesDetalle:retencionesDetalle||{},base,modo:String(payload?.modo||'importe'),porcentaje:amount(payload?.porcentaje,'porcentaje'),observaciones:String(payload?.observaciones||''),creadoAt:now()};
+ const row={id:'cob-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),invoiceKey:String(payload?.invoiceKey||''),facturaNumero:String(payload?.facturaNumero||''),fecha,...(()=>{const s=fechas().semana(fecha);return{semanaCobroInicio:s.inicio,semanaCobroFin:s.fin,semanaCobroISO:s.iso,mesCobro:s.mes};})(),importe:amount(payload?.importe,'cobro'),medio:String(payload?.medio||''),referencia:String(payload?.referencia||''),retenciones,retencionesDetalle:retencionesDetalle||{},base,modo:String(payload?.modo||'importe'),porcentaje:amount(payload?.porcentaje,'porcentaje'),observaciones:String(payload?.observaciones||''),creadoAt:now(),creadoPor:String(window.currentUser?.email||'')};
  if(row.porcentaje>100)throw new Error('El porcentaje no puede superar el 100%');
  if(!(row.importe>0||row.retenciones>0))throw new Error('El cobro o la retención debe ser mayor a cero');
  const aplicado=Math.round((row.importe+row.retenciones)*100)/100;
