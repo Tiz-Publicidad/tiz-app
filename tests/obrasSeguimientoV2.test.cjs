@@ -22,3 +22,33 @@ test('no presume aprobación ni cumplimiento en históricos cobrados; indicadore
 test('un estado vacío en la referencia no transforma una obra existente en pendiente',()=>{const p=C.referencePlan([work('w',{estado:'Cobrado'})],[reference({estado:''})],[],at).updates[0].patch;assert.equal(p.estado,undefined);});
 test('Calidad no puede confirmar aprobación mientras existan anomalías pendientes',()=>{assert.throws(()=>C.trackingPatch(work('w',{calidadGestion:{registros:{q1:{estado:'Pendiente'}}}}),{calidadAprobada:true},quality,at,today),/observaciones pendientes/);});
 test('retrabajo conserva sólo el aviso de resolución y no repite controles ya superados',()=>{const g=C.grouped([work('w',{fprod_c:'2026-10-25',fcol_c:'2026-10-27',obraSeguimientoV2:{cierreResultado:'retrabajo',cierreFecha:'2026-10-28',retrabajoDetalle:'Fijación'}})])[0];assert.deepEqual(C.alerts(g,today).map(a=>a.kind),['retrabajo']);});
+
+test('distingue vencida sin registro de ejecución y completada con atraso; el atraso cerrado no sigue creciendo',()=>{
+ const g=C.grouped([work('w',{fprod_c:'2026-10-25',fcol_c:'2026-10-27',obraSeguimientoV2:{produccionReal:'2026-10-28'}})])[0];
+ const rows=C.deadlines([g],today);assert.deepEqual(rows.map(r=>[r.phase,r.status,r.atrasoDias]),[['produccion','atrasada',3],['colocacion','vencida',2]]);
+ assert.equal(C.deadlines([g],'2026-11-10')[0].atrasoDias,3);assert.equal(C.deadlines([g],'2026-11-10')[1].atrasoDias,14);
+});
+test('fecha de hoy no está vencida y una ejecución anticipada cuenta en fecha',()=>{
+ const g=C.grouped([work('w',{fprod_c:today,fcol_c:'2026-10-30'})])[0];assert.deepEqual(C.deadlines([g],today).map(r=>r.status),['hoy','prevista']);
+ g.seguimiento.produccionReal='2026-10-28';g.seguimiento.colocacionReal='2026-10-30';assert.ok(C.deadlines([g],today).every(r=>r.status==='en-fecha'&&r.atrasoDias===0));
+});
+test('aprobar Calidad y planificar Producción no apaga un vencimiento sin fecha real',()=>{
+ const g=C.grouped([work('w',{fprod_c:'2026-10-25',fcol_c:'2026-10-27',obraSeguimientoV2:{produccionPlanificada:true,calidadAprobada:true,planificadoPorCalidad:true}})])[0];
+ assert.ok(C.alerts(g,today).some(a=>a.kind==='produccion-vencida'));assert.ok(C.alerts(g,today).some(a=>a.kind==='colocacion-vencida'));
+ g.seguimiento.produccionReal='2026-10-29';assert.equal(C.alerts(g,today).some(a=>a.kind==='produccion-vencida'),false);assert.equal(C.deadlines([g],today)[0].status,'atrasada');
+});
+test('históricos cobrados o cerrados sin fecha real quedan sin evaluar; no se presume atraso ni cumplimiento',()=>{
+ for(const extra of [{estado:'Cobrado',obraSeguimientoV2:{version:4}},{obraSeguimientoV2:{cierreResultado:'ok'}}]){
+  const g=C.grouped([work('w',{fprod_c:'2026-01-01',fcol_c:'2026-01-02',...extra})])[0];assert.ok(C.deadlines([g],today).every(r=>r.status==='sin-fecha-real'));assert.equal(C.alerts(g,today).length,0);
+  g.seguimiento.produccionReal='2026-01-03';assert.equal(C.deadlines([g],today)[0].status,'atrasada');
+ }
+});
+test('fechas asumidas por Calidad se controlan aun si la obra está cobrada',()=>{
+ const g=C.grouped([work('w',{estado:'Cobrado',fprod_c:'2026-10-25',obraSeguimientoV2:{planificadoPorCalidad:true}})])[0];assert.equal(C.deadlines([g],today)[0].status,'vencida');assert.ok(C.alerts(g,today).some(a=>a.kind==='produccion-vencida'));
+});
+test('atraso usa días corridos al cruzar mes y año bisiesto; no inventa una previsión ausente',()=>{
+ const g={id:'x',seguimiento:{},produccionPrevista:'2024-02-28',colocacionPrevista:''};assert.equal(C.deadlines([g],'2024-03-01')[0].atrasoDias,2);assert.equal(C.deadlines([g],today).length,1);
+});
+test('una obra nueva aparece en el mismo listado agrupado sin mantener otra lista',()=>{
+ const works=[work()];assert.equal(C.grouped(works).length,1);works.push(work('new',{ot:'4800',fechaAltaObra:today,semanaVenta:44}));const g=C.grouped(works).find(g=>g.id==='new');assert.equal(g.ot,'4800');assert.equal(g.fechaAlta,today);assert.equal(g.semana,44);
+});
