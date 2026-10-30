@@ -48,7 +48,7 @@ async function ensureApprovedWorks(){
           if(id){p.obraId=id;o=localObraFromBudget(p,id);if(!window.DB.obras.some(x=>x.id===id||base(x?.ot)===base(p?.nro)))window.DB.obras.push(o);changed++;}
         }catch(e){console.error('[TIZ V106.2] No se pudo promover aprobada '+base(p?.nro),e)}
       }
-      if(!o)continue;
+      if(!o||o.bajaObra?.activa===true||norm(o.estado)==='baja')continue;
       const total=totalBudget(p)||num(o?.neto||o?.importe||o?.finanzas?.total),patch={};
       if(p?.id&&o.presupuestoId!==p.id){patch.presupuestoId=p.id;patch.cotizacionId=p.id;}
       if(total>0){patch.finanzas={...(o.finanzas||{}),total};patch.neto=total;patch.importe=total;}
