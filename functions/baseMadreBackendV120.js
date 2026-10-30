@@ -193,6 +193,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
   if (req.method === "OPTIONS") return res.status(204).send("");
   if (req.method !== "POST") return res.status(405).json({ok:false, error:"Método no permitido"});
   try {
+    if (text(req.body?.mode).toLowerCase() === 'obras-consulta-list') return await require('./obrasConsultaV1').handle(req,res);
     if (["secretary-list", "secretary-save"].includes(text(req.body?.mode).toLowerCase())) return await require("./clemenSecretariaApiV1").handle(req,res);
     if (["operations-list", "operations-save"].includes(text(req.body?.mode).toLowerCase())) return await require("./operacionesV1").handle(req,res);
     if (["quality-checklist-save", "quality-checklist-pdf", "quality-checklist-list", "quality-checklist-mother", "quality-checklist-record-save", "quality-checklist-obras-sync", "quality-checklist-obras-save"].includes(text(req.body?.mode).toLowerCase())) {
