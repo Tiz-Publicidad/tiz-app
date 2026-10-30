@@ -1080,6 +1080,7 @@ td.strong { color: var(--text); font-weight: 500; }
 <script src="clienteContactosV1.js?v=TIZ-CONTACTOS-CARGO-20261026"></script>
 
 <!-- Firebase SDK -->
+<script src="presupuestoEmisorV1.js?v=TIZ-DOMICILIO-PRESUPUESTOS-20261030"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -2875,6 +2876,7 @@ window.guardarPresupuestoCompleto = async () => {
   }
 
   const payload = {
+    emisorComercial:window.TIZPresupuestoEmisorV1.forSave(presupuestoAnterior),
     nro, revision, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
     importe: total, fecha: hoy, estado: 'Pendiente', nota, cond, items, calculosAuxiliares, totalCalculosAuxiliares:calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
     creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
@@ -3130,8 +3132,11 @@ window.generarPDF = async () => {
   const nombreBase = window.tizCotizacionNombreBaseV354(nro, cliente, descGeneral, revision);
   const entregaLogistica = window.collectEntregaLogisticaPP?.() || {tipo:'a_definir'};
 
+  const documentoExistente = !window._cotizacionEsRevisionNueva ? (window.DB.presupuestos||[]).find(p=>p.id===window.editingId.presupuesto)||(window.DB.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===String(nro).replace(/\D/g,'')&&normalizarRevisionV354(p.revision||'1.1')===revision) : null;
+  const emisorComercial = window.TIZPresupuestoEmisorV1.forSave(documentoExistente);
   let ref;
   const registro = {
+    emisorComercial,
     nro, cliente, desc: descGeneral, importe: total,
     fecha: hoy.toLocaleDateString('es-AR'), validez: validez.toLocaleDateString('es-AR'),
     estado:'Pendiente', nota, cond, items, revision,
@@ -3167,18 +3172,18 @@ window.generarPDF = async () => {
     action:'guardarCotizacionArchivos', nroCotizacion:window.tizNumeroCotizacion(nro), revision, cliente, descripcion:descGeneral,
     fecha:fmtFecha(hoy), validez:fmtFecha(validez), nota, condicion:cond, total,
     items:items.map(it=>({descripcion:String(it.desc||''), unitario:+it.precio||0, unidades:+it.cant||1, subtotal:(+it.precio||0)*(+it.cant||1)})),
-    nombreBase, firestoreId:ref?.id||'', entregaLogistica
+    nombreBase, firestoreId:ref?.id||'', entregaLogistica, emisorComercial
   });
 
   const rows = items.map(it=>`<tr><td>${esc(it.desc)}</td><td class="num">${fmtPesoPresupuesto(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPesoPresupuesto(round2Presupuesto((+it.precio||0)*(+it.cant||1)))}</td></tr>`).join('');
   const html = `<div class="ct-page">
     <div class="ct-header">
-      <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ Av Pte Perón 3779 J C Paz</div></div>
+      <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ ${esc(emisorComercial.direccion)}</div></div>
       <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${window.tizNumeroCotizacion(nro)}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
     </div>
     <div class="ct-items"><table class="ct-table"><colgroup><col style="width:59%"><col style="width:14%"><col style="width:12%"><col style="width:15%"></colgroup><thead><tr><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPesoPresupuesto(total)}</b></div></div>
-    <div class="ct-footer"><span>☎ 11-3479-9737</span><span>✉ INFO@TIZPUBLICIDAD.COM</span><span>WWW.TIZPUBLICIDAD.COM</span><span>⌖ AV PTE PERÓN 3779 J C PAZ</span></div>
+    <div class="ct-footer"><span>☎ 11-3479-9737</span><span>✉ INFO@TIZPUBLICIDAD.COM</span><span>WWW.TIZPUBLICIDAD.COM</span><span>⌖ ${esc(emisorComercial.direccion.toLocaleUpperCase('es-AR'))}</span></div>
   </div>`;
 
   const printWin = window.open('', '_blank', 'width=920,height=780');
@@ -3459,6 +3464,7 @@ async function syncDriveFolder(data, tipoCarpeta) {
       firestoreId: String(data.firestoreId || ''),
       ot: String(data.ot || nroCotizacion).trim(),
       nroCotizacion,
+      emisorComercial:window.TIZPresupuestoEmisorV1.forDocument(data),
       cliente: String(data.cliente || '').trim(),
       desc: String(data.desc || '').trim(),
       estado: String(data.estado || '').trim(),
@@ -3673,7 +3679,7 @@ async function syncToSheets(data) {
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261016A"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>

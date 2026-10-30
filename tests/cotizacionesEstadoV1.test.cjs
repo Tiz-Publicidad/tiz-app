@@ -5,7 +5,7 @@ function fixture(){
  const fields=new Map(),writes=[],syncs=[],timers=[];
  function field(id){if(!fields.has(id))fields.set(id,{value:'',style:{},classList:{add(){},remove(){}}});return fields.get(id);}
  const approved={id:'approved',nro:'4800',revision:'1.1',estado:'Aprobado',cliente:'A',desc:'Cartel A',fecha:'01/10/2026',vendedor:'J',moneda:'USD',anticipoPct:0,diasPago:30,plazoEstimado:'10 días',oc:'OC A',observacionesComerciales:'Nota A',items:[{desc:'Cartel',precio:100,cant:1}]};
- const window={DB:{presupuestos:[approved],obras:[]},editingId:{},currentUser:{email:'info@tizpublicidad.com'},normalizarRevisionV354:r=>r,siguienteRevisionV354:r=>r.split('.')[0]+'.'+(Number(r.split('.')[1])+1),tizNumeroBase:v=>String(Number(v)),tizCotizacionNombreBaseV354:()=>'',showToast(){},collectCalculosAuxPP:()=>[],sincronizarBaseMadreBackendV120:async p=>syncs.push(p),addDoc_:async(col,data)=>{const id='new-'+writes.length;writes.push({col,id,data});window.DB[col].push({id,...data});return {id}},updateDoc_:async(col,id,data)=>{writes.push({col,id,data});Object.assign(window.DB[col].find(x=>x.id===id)||{},data)}};
+ const window={TIZPresupuestoEmisorV1:require('../presupuestoEmisorV1'),DB:{presupuestos:[approved],obras:[]},editingId:{},currentUser:{email:'info@tizpublicidad.com'},normalizarRevisionV354:r=>r,siguienteRevisionV354:r=>r.split('.')[0]+'.'+(Number(r.split('.')[1])+1),tizNumeroBase:v=>String(Number(v)),tizCotizacionNombreBaseV354:()=>'',showToast(){},collectCalculosAuxPP:()=>[],sincronizarBaseMadreBackendV120:async p=>syncs.push(p),addDoc_:async(col,data)=>{const id='new-'+writes.length;writes.push({col,id,data});window.DB[col].push({id,...data});return {id}},updateDoc_:async(col,id,data)=>{writes.push({col,id,data});Object.assign(window.DB[col].find(x=>x.id===id)||{},data)}};
  let logistics={};const context={window,document:{getElementById:field},console,Date,Math,setTimeout:f=>timers.push(f),normalizarRevisionV354:r=>r,renderPPItems(){},renderCalculosAuxPP(){},actualizarIdentificacionCotizacionV354(){},showToast(){},val:id=>field(id).value,normEstado:v=>v||'Pendiente',validarLogisticaCotizacion:()=>true,cargarEntregaLogisticaPP:data=>{logistics=data.entregaLogistica||{}},entregaLogisticaActual:()=>logistics,recordarContactoEntregaCliente:async()=>{},alert(){}};
  vm.runInNewContext(html.slice(html.indexOf('window.abrirNuevoPresupuestoCompleto ='),html.indexOf('window.guardarPresupuestoCompleto ='))+html.slice(html.indexOf('window.abrirRevisionCotizacionV354 ='),html.indexOf('window.crearNuevaRevisionV354 =')),context);
  window.guardarPresupuestoCompleto=async()=>{throw Error('No debería usarse el guardado antiguo con datos válidos')};
@@ -33,4 +33,10 @@ test('elegir Aprobado explícitamente sigue creando la obra y sincronizando Base
 });
 test('editar una aprobada mantiene su estado y la opción Pendiente existe para cotizaciones anteriores',()=>{
  const f=fixture();f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,'Aprobado');assert.match(sector,/<option>Pendiente<\/option>/);
+});
+
+test('los guardados nuevos y las revisiones nuevas reciben Favaloro; editar uno anterior conserva Perón',async()=>{
+ const f=fixture();f.window.abrirNuevoPresupuestoCompleto();f.field('pp-cliente').value='Nuevo';f.window.ppItems=[{desc:'Cartel',precio:100,cant:1}];await f.window.guardarPresupuestoCompleto();assert.match(f.writes.at(-1).data.emisorComercial.direccion,/Favaloro/);
+ f.window.abrirRevisionCotizacionV354('approved');await f.window.guardarPresupuestoCompleto();assert.match(f.approved.emisorComercial.direccion,/Perón/);
+ f.window.abrirRevisionCotizacionV354('approved',true);await f.window.guardarPresupuestoCompleto();const newer=f.window.DB.presupuestos.find(p=>p.nro==='4800'&&p.revision==='1.2');assert.match(newer.emisorComercial.direccion,/Favaloro/);assert.match(f.approved.emisorComercial.direccion,/Perón/);
 });
