@@ -57,6 +57,8 @@ jobs:
           node --check functions/baseMadreLayoutV1.js
           node --test tests/baseMadreLayoutV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
+          node --check functions/obrasConsultaV1.js
+          node --test tests/obrasConsultaV1.test.cjs
           node --check obrasSeguimientoV2.js
           node --check functions/obrasSeguimientoCoreV2.js
           node --check functions/obrasSeguimientoApiV2.js
@@ -135,7 +137,7 @@ jobs:
           # Operational readers and the secretary reuse the existing Base Madre endpoint.
           if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             secretary_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
-            if [ -n "$secretary_changed" ] && ! printf '%s\n' "$secretary_changed" | grep -Ev '^functions/(clemenSecretaria(Core|Api)V1|analisisPreliminar(Core|Api)V1|operacionesV1|calidadChecklistApiV2|calidadPortalV1|obrasSeguimiento(Core|Api)V2|baseMadreLayoutV1|baseMadreBackendV120)\.js$' | grep -q .; then
+            if [ -n "$secretary_changed" ] && ! printf '%s\n' "$secretary_changed" | grep -Ev '^functions/(clemenSecretaria(Core|Api)V1|analisisPreliminar(Core|Api)V1|operacionesV1|obrasConsultaV1|calidadChecklistApiV2|calidadPortalV1|obrasSeguimiento(Core|Api)V2|baseMadreLayoutV1|baseMadreBackendV120)\.js$' | grep -q .; then
               targets=functions:sincronizarBaseMadreV120
             fi
           fi
