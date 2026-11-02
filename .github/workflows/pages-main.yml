@@ -106,6 +106,8 @@ jobs:
           node --test tests/retencionesCobrosV2.test.cjs
           node --check facturacionCobranzasSeguimientoV1.js
           node --test tests/facturacionCobranzasSeguimientoV1.test.cjs
+          node --check facturacionCobranzasMadreV1.js
+          node --test tests/facturacionCobranzasMadreV1.test.cjs
           node --check facturacionCobranzasUIV2.js
           node --check facturacionDriveRetryUIV83.js
           node --test tests/facturacionDriveAutomaticoV126.test.cjs
