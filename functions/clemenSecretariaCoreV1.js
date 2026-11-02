@@ -8,7 +8,7 @@ function isoDate(v){const s=text(v),m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
 function due(fecha,hora){const d=isoDate(fecha),h=text(hora)||'09:00';if(!d||!/^([01]\d|2[0-3]):[0-5]\d$/.test(h))throw Error('Completá una fecha y hora válidas.');const v=new Date(d+'T'+h+':00-03:00');if(!Number.isFinite(v.getTime())||day(v)!==d)throw Error('La fecha no es válida.');return v.toISOString();}
 function sectorKey(label){return Object.keys(labels).find(s=>C.norm(labels[s])===C.norm(label))||(['facturacion','cobranzas','facturacion y cobranzas'].includes(C.norm(label))?'facturacion':'');}
 // Resolve saved task ownership after Fede's email change; authentication has no legacy alias.
-function taskEmail(value){const email=text(value).toLowerCase();return email==='contrerasfedericogabriel@gmail.com'?'contrerasfedericograbriel365@gmail.com':email;}
+function taskEmail(value){const email=text(value).toLowerCase();return ['contrerasfedericogabriel@gmail.com','contrerasfedericograbriel365@gmail.com'].includes(email)?'contrerasfedericogabriel365@gmail.com':email;}
 function ownerOf(t){return taskEmail(t.asignadoA||t.responsableEmail);}
 function canAccess(t,u){if(u.isAdmin)return true;const email=ownerOf(t);if(email)return !!C.USERS[email]&&C.canWrite(u,C.USERS[email]);const sector=sectorKey(t.sector);return !!sector&&C.canWrite(u,sector);}
 function inAgenda(t,u){return t.origen==='clemen-secretaria'&&canAccess(t,u)&&(taskEmail(t.creadoPor)===u.email||ownerOf(t)===u.email);}
