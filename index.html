@@ -1322,8 +1322,20 @@ window.clemenSecretariaApiV1 = async body => {
 };
 window.leerObrasConsultaV1 = async () => {
   if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
-  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'obras-consulta-list'})});
-  const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Obras.');return result;
+  const session=auth.currentUser;
+  for(let attempt=0;attempt<2;attempt++){
+    if(auth.currentUser!==session)throw new Error('La sesión cambió. Volvé a abrir Obras.');
+    try{
+      const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await session.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'obras-consulta-list'})});
+      if(response.status>=500)throw Object.assign(new Error('El servicio de Obras no está disponible por el momento.'),{temporary:true});
+      const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Obras.');return result;
+    }catch(error){
+      const temporary=error.temporary||['TypeError','AbortError','TimeoutError'].includes(error.name);
+      if(!temporary)throw error;
+      if(attempt===1)throw new Error('No se pudo conectar para actualizar Obras. Reintentá con «Actualizar obras».');
+      await new Promise(resolve=>setTimeout(resolve,1000));
+    }
+  }
 };
 window.operacionesApiV1 = async body => {
   if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
@@ -3743,7 +3755,7 @@ async function syncToSheets(data) {
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030"></script>
 <script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102"></script>
-<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102"></script>
+<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102"></script>
 <script src="obrasBajaUIV1.js?v=TIZ-BAJA-OBRAS-20261030"></script>
 </body>
 </html>
