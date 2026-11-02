@@ -61,5 +61,5 @@ function retentionRows(){
  });
  return[...manual,...automatic];
 }
-window.TIZFacturacionCobranzasDataV2={build,parseAmount,retentionRows,baseOt:otBase,norm,approved};
+window.TIZFacturacionCobranzasDataV2={build,parseAmount,retentionRows,baseOt:otBase,norm,approved,workForObra:o=>makeWork(o,null,otBase(o?.ot),clients())};
 })();
