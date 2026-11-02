@@ -8,7 +8,7 @@ function validarFechaPago(fecha){if(!fechas()?.fechaValida(fecha))throw new Erro
 const cierresEnCurso=new Set();
 const n=v=>Number(v)||0;
 const norm=v=>String(v??'').replace(/\D/g,'');
-function work(obraId){return window.TIZFacturacionCobranzasDataV2?.build?.().workItems?.find(w=>w.obraId===obraId)||null}
+function work(obraId){return window.TIZFacturacionCobranzasDataV2?.build?.().workItems?.find(w=>w.obraId===obraId)||(obra(obraId)?window.TIZFacturacionCobranzasDataV2?.workForObra?.(obra(obraId)):null)||null}
 async function save(o,patch){if(!o)throw new Error('No se encontro la OT');if(typeof window.updateDoc_!=='function')throw new Error('Firestore no disponible');await window.updateDoc_('obras',o.id,patch);Object.assign(o,patch);window.TIZFactCobUIV2?.render?.();if(typeof window.sincronizarFacturacionBaseMadreTIZV117==='function')window.sincronizarFacturacionBaseMadreTIZV117(o,{silent:true}).catch(e=>{console.warn('[TIZ FactCob] Planilla pendiente',e);window.showToast?.('Dato guardado en TIZ; la planilla se reintentará automáticamente')});return patch}
 async function registrarCobro(obraId,payload){
  const o=obra(obraId),w=work(obraId);if(!o||!w)throw new Error('No se encontro la OT');
