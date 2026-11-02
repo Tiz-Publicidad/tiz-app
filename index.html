@@ -1110,7 +1110,7 @@ const ADMIN_EMAILS = new Set([ADMIN_EMAIL, 'giancarlo.pareja@tizpublicidad.com']
 
 // Mapa email → sector. Completar con los emails reales del equipo.
 const USER_SECTOR_MAP = {
-  'contrerasfedericograbriel365@gmail.com': 'Operaciones',
+  'contrerasfedericogabriel365@gmail.com': 'Operaciones',
   'info@tizpublicidad.com':              'Ventas',
   'giancarlo.pareja@tizpublicidad.com': 'Ventas',
   'pablo.aciar@tizpublicidad.com':       'Producción',
@@ -1142,7 +1142,7 @@ function getUserSector(email) {
 }
 // Colocaciones is visible to authenticated users; edits keep sector permissions.
 window.canViewPage = page => !!window.currentUser && (page==='obras'||page==='colocaciones');
-window.canViewOperaciones = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','contrerasfedericograbriel365@gmail.com'].includes(String(window.currentUser?.email||'').toLowerCase());
+window.canViewOperaciones = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','contrerasfedericogabriel365@gmail.com'].includes(String(window.currentUser?.email||'').toLowerCase());
 window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
 window.canViewIndicadores = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());
 window.canAnnotateSector = s => {
@@ -1207,7 +1207,7 @@ onAuthStateChanged(auth, async user => {
       sector,
       isAdmin: ADMIN_EMAILS.has(String(user.email||'').toLowerCase()),
       vendedor: user.email === 'giancarlo.pareja@tizpublicidad.com' ? 'G' : '',
-      restrictedOperaciones:user.email==='contrerasfedericograbriel365@gmail.com',
+      restrictedOperaciones:user.email==='contrerasfedericogabriel365@gmail.com',
       restrictedColocaciones:user.email==='arielbenitezpublicidad@gmail.com',
       restrictedChecklists:user.email==='cristiantizpublicidad@gmail.com',
       qualityFullAccess:user.email==='cristiantizpublicidad@gmail.com',
