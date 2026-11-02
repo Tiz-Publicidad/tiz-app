@@ -1249,6 +1249,8 @@ function updateUserUI() {
   if (!u.isAdmin) {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
   }
+  // Obras es una consulta común para todas las cuentas autorizadas.
+  document.querySelectorAll('.nav-item').forEach(el=>{if(el.getAttribute('onclick')?.includes("goTo(\'obras\')"))el.style.display='flex';});
 }
 
 // ============================================================
@@ -3740,7 +3742,8 @@ async function syncToSheets(data) {
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030"></script>
-<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030"></script>
+<script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102"></script>
+<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102"></script>
 <script src="obrasBajaUIV1.js?v=TIZ-BAJA-OBRAS-20261030"></script>
 </body>
 </html>

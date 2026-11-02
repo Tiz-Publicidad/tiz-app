@@ -4,11 +4,12 @@
 const C=window.TIZObrasSeguimientoCoreV2,E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const S={query:'',states:new Set(C.STATES.filter(s=>s!=='Baja')),qualityQuery:'',qualityAll:false,deadlineQuery:'',deadlinePhase:'',deadlineIncidents:true,syncing:false,message:'',error:'',unmatched:[],modal:null,saving:false,qualityKey:''};
 const order=v=>Number(String(v||'').match(/\d+/)?.[0])||-1;
-const consulta={email:'',works:[],busy:false,loaded:false,error:'',generation:0};
-const user=()=>window.currentUser,usesConsulta=()=>window.currentPage==='obras'&&!!(user()?.restrictedOperaciones||user()?.restrictedColocaciones);
-const groups=()=>C.grouped(usesConsulta()?consulta.works:(window.DB?.obras||[])).sort((a,b)=>order(b.ot)-order(a.ot));
-function resetConsulta(){consulta.generation++;consulta.email='';consulta.works=[];consulta.busy=false;consulta.loaded=false;consulta.error='';document.getElementById('obras2-root')?.remove();}
-async function loadConsulta(){if(!usesConsulta()||consulta.busy)return;if(consulta.email!==user().email){resetConsulta();consulta.email=user().email;setup();}const generation=consulta.generation,email=consulta.email;consulta.busy=true;consulta.error='';renderRows();try{const r=await window.leerObrasConsultaV1();if(generation!==consulta.generation||email!==user()?.email)return;consulta.works=r.obras||[];consulta.loaded=true;}catch(e){if(generation===consulta.generation)consulta.error=e.message;}finally{if(generation===consulta.generation){consulta.busy=false;if(window.currentPage==='obras')renderRows();}}}
+const consulta={email:'',works:[],busy:false,loaded:false,error:'',generation:0,local:new Map()};
+const user=()=>window.currentUser,usesConsulta=()=>window.currentPage==='obras'&&!!user();
+function consultationWorks(){const cache=window.TIZObrasConsultaCacheV1;if(consulta.loaded&&cache){const merged=cache.merge(consulta.works,consulta.local,window.DB?.obras||[],C);consulta.works=merged.works;consulta.local=merged.local;}return consulta.works;}
+const groups=()=>C.grouped(usesConsulta()?consultationWorks():(window.DB?.obras||[])).sort((a,b)=>order(b.ot)-order(a.ot));
+function resetConsulta(){consulta.generation++;consulta.email='';consulta.works=[];consulta.busy=false;consulta.loaded=false;consulta.error='';consulta.local=new Map();document.getElementById('obras2-root')?.remove();}
+async function loadConsulta(){if(!usesConsulta()||consulta.busy)return;if(consulta.email!==user().email){resetConsulta();consulta.email=user().email;setup();}const generation=consulta.generation,email=consulta.email;consulta.busy=true;consulta.error='';renderRows();try{const local=window.TIZObrasConsultaCacheV1?.snapshot(window.DB?.obras||[],C)||new Map();const r=await window.leerObrasConsultaV1();if(generation!==consulta.generation||email!==user()?.email)return;if(!Array.isArray(r.obras))throw Error('La consulta no devolvió un listado de obras válido.');consulta.works=r.obras;consulta.local=local;consulta.loaded=true;}catch(e){if(generation===consulta.generation)consulta.error=e.message;}finally{if(generation===consulta.generation){consulta.busy=false;if(window.currentPage==='obras')renderRows();}}}
 // Una fecha importada no abre avisos sobre una obra histórica ya cobrada.
 const workAlerts=g=>g.estado==='Cobrado'&&!g.seguimiento.planificadoPorCalidad&&!g.seguimiento.actualizadoEn?[]:C.alerts(g);
 const date=v=>{const d=C.iso(v);return d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'—';};
@@ -75,3 +76,4 @@ window.TIZObrasSeguimientoV2={render,renderQuality,open,sync,resetConsulta};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 setInterval(()=>{if(window.currentPage==='calidad')renderQuality();if(usesConsulta())void loadConsulta();if(user())updateBadge();},60000);
 })();
+
