@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),S=require('../functions/clemenSecretariaCoreV1'),C=require('../functions/analisisPreliminarCoreV1'),U=require('../clemenSecretariaCoreV1');
-const FEDE='contrerasfedericograbriel365@gmail.com',user=C.operator(FEDE),at='2026-10-16T13:30:00Z',input={titulo:'Pedir planos',fecha:'2026-10-19',hora:'10:00',asignadoA:FEDE,estado:'Pendiente',ot:'4777',notas:'Confirmar medidas'},work={id:'a',ot:'4777',cliente:'Cliente',driveFolderUrl:'https://drive.google.com/drive/folders/exampleFolder1234'};
+const FEDE='contrerasfedericogabriel365@gmail.com',user=C.operator(FEDE),at='2026-10-16T13:30:00Z',input={titulo:'Pedir planos',fecha:'2026-10-19',hora:'10:00',asignadoA:FEDE,estado:'Pendiente',ot:'4777',notas:'Confirmar medidas'},work={id:'a',ot:'4777',cliente:'Cliente',driveFolderUrl:'https://drive.google.com/drive/folders/exampleFolder1234'};
 test('Fede conserva su agenda al cambiar el correo y la cuenta anterior deja de autenticar',()=>{
  const old='contrerasfedericogabriel@gmail.com',task={origen:'clemen-secretaria',asignadoA:old,creadoPor:old,sector:'Operaciones',desc:'Pedir planos',revision:3,fecha:'19/10/2026',horaIni:'10:00'},before=JSON.stringify(task);
  assert.throws(()=>C.operator(old));assert.ok(S.canAccess(task,user));assert.ok(S.inAgenda(task,user));assert.equal(S.project('task',task).asignadoA,FEDE);assert.equal(JSON.stringify(task),before);
@@ -33,3 +33,5 @@ test('secretary is mounted at document level, supports restricted portals and cl
 test('legacy tasks without dates can complete without inventing a deadline or changing their sector',async()=>{const b=backend(FEDE,{failMother:true});b.records.set('tareas/undated',{desc:'Ver planos',sector:'Operaciones',cliente:'Cliente',completada:false});await b.call({mode:'secretary-save',id:'undated',revision:0,accion:'complete'});assert.equal(b.res.value.ok,true);const t=b.records.get('tareas/undated');assert.equal(t.completada,true);assert.equal(t.fecha,undefined);assert.equal(t.sector,'Operaciones');assert.ok(!b.reads.includes('obras'));});
 
 
+
+test('la agenda vinculada al correo mal escrito queda disponible para la cuenta correcta',()=>{const old='contrerasfedericograbriel365@gmail.com',task={origen:'clemen-secretaria',asignadoA:old,creadoPor:old,sector:'Operaciones',desc:'Revisar montaje',revision:2,fecha:'19/10/2026',horaIni:'10:00'};assert.throws(()=>C.operator(old));assert.ok(S.canAccess(task,user));assert.ok(S.inAgenda(task,user));assert.equal(S.project('anterior',task).asignadoA,FEDE);assert.equal(task.asignadoA,old);});
