@@ -1,11 +1,11 @@
 'use strict';
 const C=require('./analisisPreliminarCoreV1');
-const FEDE='contrerasfedericograbriel365@gmail.com';
+const FEDE='contrerasfedericogabriel365@gmail.com';
 const USERS=new Set([FEDE,'pablo.aciar@tizpublicidad.com','info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com']);
 const text=v=>String(v??'').trim();
 function authorize(email){email=text(email).toLowerCase();if(!USERS.has(email))throw Object.assign(Error('Sin permiso para Operaciones.'),{status:403});return email;}
 const key=w=>w.ot?'ot-'+C.baseOt(w.ot):w.id;
-function project(item,w={},saved={}){const p=w.sectores?.produccion||{};return {id:item.id,key:key(item),obraOperativaId:item.obraOperativaId,ot:item.ot,cliente:item.cliente,descripcion:item.descripcion,sourceRows:item.sourceRows,driveFolderUrl:item.driveFolderUrl,produccion:{estado:text(p.estado)||(w.fprod_r?'Terminada':'Pendiente'),compromiso:text(p.compromiso??w.fprod_c),real:text(p.real??w.fprod_r),responsable:text(p.responsable)||'Pablo',notas:text(p.notas)},operaciones:{revision:Number(saved.revision)||0,tareas:Array.isArray(saved.tareas)?saved.tareas.map(t=>t.responsable==='contrerasfedericogabriel@gmail.com'?{...t,responsable:FEDE}:t):[],notas:text(saved.notas),actualizadoEn:text(saved.actualizadoEn),actualizadoPor:text(saved.actualizadoPor)}};}
+function project(item,w={},saved={}){const p=w.sectores?.produccion||{};return {id:item.id,key:key(item),obraOperativaId:item.obraOperativaId,ot:item.ot,cliente:item.cliente,descripcion:item.descripcion,sourceRows:item.sourceRows,driveFolderUrl:item.driveFolderUrl,produccion:{estado:text(p.estado)||(w.fprod_r?'Terminada':'Pendiente'),compromiso:text(p.compromiso??w.fprod_c),real:text(p.real??w.fprod_r),responsable:text(p.responsable)||'Pablo',notas:text(p.notas)},operaciones:{revision:Number(saved.revision)||0,tareas:Array.isArray(saved.tareas)?saved.tareas.map(t=>['contrerasfedericogabriel@gmail.com','contrerasfedericograbriel365@gmail.com'].includes(t.responsable)?{...t,responsable:FEDE}:t):[],notas:text(saved.notas),actualizadoEn:text(saved.actualizadoEn),actualizadoPor:text(saved.actualizadoPor)}};}
 async function items(db){const [snap,source]=await Promise.all([db.collection('obras').get(),require('./analisisPreliminarApiV1').motherRows()]);const works=snap.docs.map(d=>({id:d.id,...d.data()}));return {works,queue:C.workList(source,works)};}
 async function list(db,email){authorize(email);const [{works,queue},saved]=await Promise.all([items(db),db.collection('operacionesPlaneamiento').get()]);const records=new Map(saved.docs.map(d=>[d.id,d.data()]));return {ok:true,obras:queue.map(i=>project(i,works.find(w=>w.id===i.obraOperativaId),records.get(key(i)))),leidoEn:new Date().toISOString()};}
 function clean(input,old,email,at){

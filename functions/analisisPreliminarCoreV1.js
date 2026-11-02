@@ -1,7 +1,7 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.TIZAnalisisPreliminarCoreV1=factory();})(typeof window==='object'?window:globalThis,()=>{
 'use strict';
 const SECTORS={ventas:'Ventas',diseno:'Diseño',compras:'Compras',produccion:'Producción',operaciones:'Operaciones',calidad:'Calidad',colocaciones:'Colocaciones',facturacion:'Facturación y Cobranzas'};
-const USERS={'contrerasfedericograbriel365@gmail.com':'operaciones','info@tizpublicidad.com':'ventas','giancarlo.pareja@tizpublicidad.com':'ventas','pablo.aciar@tizpublicidad.com':'produccion','julieta.aguirre@tizpublicidad.com':'diseno','carolina.flores@tizpublicidad.com':'compras','cristiantizpublicidad@gmail.com':'calidad','arielbenitezpublicidad@gmail.com':'colocaciones'};
+const USERS={'contrerasfedericogabriel365@gmail.com':'operaciones','info@tizpublicidad.com':'ventas','giancarlo.pareja@tizpublicidad.com':'ventas','pablo.aciar@tizpublicidad.com':'produccion','julieta.aguirre@tizpublicidad.com':'diseno','carolina.flores@tizpublicidad.com':'compras','cristiantizpublicidad@gmail.com':'calidad','arielbenitezpublicidad@gmail.com':'colocaciones'};
 const text=x=>String(x??'').trim();
 const norm=x=>text(x).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const LIMIT_MS=48*60*60*1000;
