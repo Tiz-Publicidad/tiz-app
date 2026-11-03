@@ -842,17 +842,21 @@ window.cpAnalizarIA=async()=>{
 
   const poll=()=>{
     if(done)return;
+    clearTimeout(pollTimer);
+    document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
     const script=document.createElement('script');
     script.dataset.tizIa=requestId;
-    script.onerror=()=>{script.remove();pollTimer=setTimeout(poll,2000);};
+    script.onerror=()=>{clearTimeout(pollTimer);script.remove();if(!done)pollTimer=setTimeout(poll,3000);};
     script.src=url+'?action=status&requestId='+encodeURIComponent(requestId)+'&callback='+encodeURIComponent(callbackName)+'&_='+Date.now();
     document.body.appendChild(script);
-    pollTimer=setTimeout(()=>{script.remove();poll();},2500);
+    pollTimer=setTimeout(()=>{script.remove();poll();},10000);
   };
 
   window[callbackName]=(payload)=>{
+    if(done)return;
+    clearTimeout(pollTimer);
     document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
-    if(payload?.pending){pollTimer=setTimeout(poll,1500);return;}
+    if(payload?.pending){pollTimer=setTimeout(poll,3000);return;}
     finish(payload);
   };
 
