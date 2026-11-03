@@ -1083,7 +1083,7 @@ td.strong { color: var(--text); font-weight: 500; }
 <script src="presupuestoEmisorV1.js?v=TIZ-DOMICILIO-PRESUPUESTOS-20261030"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -1432,6 +1432,31 @@ window.cambiarBajaObraV1 = async (ids, motivo, reactivar = false) => {
     patches.forEach((p, i) => transaction.update(refs[i], p.patch));
     return patches;
   });
+};
+
+// La baja comercial y sus obras se confirman juntas; no borra registros fiscales.
+window.darBajaCotizacionV1 = async (id, motivo) => {
+  const user={...window.currentUser},core=window.TIZObrasSeguimientoCoreV2;
+  if(!user.isAdmin)throw Error('Solo Ventas / Administración puede dar de baja la cotización.');
+  if(typeof id!=='string'||!/^[\w-]{1,150}$/.test(id))throw Error('Guardá la cotización como Borrador antes de darla de baja.');
+  motivo=String(motivo||'').trim();if(motivo.length<3||motivo.length>1000)throw Error('Indicá un motivo de entre 3 y 1000 caracteres.');
+  const all=await getDocs(collection(db,'obras'));
+  const result=await runTransaction(db,async tx=>{
+    const ref=doc(db,'presupuestos',id),snap=await tx.get(ref);
+    if(!snap.exists())throw Error('La cotización ya no está disponible.');
+    const p=snap.data(),matches=w=>w.presupuestoId===id||w.cotizacionId===id||w.id===p.obraId||core.base(w.ot)&&core.base(w.ot)===core.base(p.nro)&&core.norm(w.cliente)===core.norm(p.cliente);
+    const ids=new Set(all.docs.map(d=>({...d.data(),id:d.id})).filter(matches).map(w=>w.id));if(p.obraId)ids.add(p.obraId);
+    if(ids.size>100)throw Error('La cotización tiene demasiadas obras vinculadas. Revisá sus vínculos.');
+    const refs=[...ids].map(id=>doc(db,'obras',id)),works=await Promise.all(refs.map(ref=>tx.get(ref)));
+    if(works.some(s=>!s.exists()))throw Error('Una obra vinculada cambió. Actualizá la cotización antes de continuar.');
+    const at=new Date().toISOString(),patch={estado:'Baja',bajaCotizacion:p.estado==='Baja'&&p.bajaCotizacion?p.bajaCotizacion:{motivo,fecha:at,usuario:user.email,estadoAnterior:String(p.estado||'Borrador')}},patches=[];
+    works.forEach((s,i)=>{const w={...s.data(),id:refs[i].id};if(!matches(w))throw Error('Cambió la vinculación de una obra. Actualizá antes de continuar.');if(!core.isBaja(w))patches.push({id:w.id,patch:core.bajaPatch(w,motivo,user,false,at)});});
+    tx.update(ref,patch);for(const w of patches)tx.update(doc(db,'obras',w.id),w.patch);
+    return {presupuestoId:id,patch,patches};
+  });
+  const p=(window.DB?.presupuestos||[]).find(p=>p.id===id);if(p)Object.assign(p,result.patch);
+  window.TIZObrasSeguimientoV2?.applyWorkPatches(result.patches);
+  return result;
 };
 
 // Gestiones de Colocaciones: validar sobre la versión actual del documento evita
@@ -3741,7 +3766,7 @@ async function syncToSheets(data) {
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A&baja=20261030"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261016A"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
