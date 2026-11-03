@@ -99,12 +99,13 @@
   if(real>today||real<record.fecha)throw Error('La fecha de cierre debe estar entre la apertura y hoy.');
   return {...record,estado:'Cerrado',accion:action,verificacion:verification,fechaReal:real,cerradoEn:at,cerradoPor:user.email,historial:[...(record.historial||[]),{evento:'Corrección verificada',fecha:at,usuario:user.email}]};
  }
- function rows(db={}){return [...(db.obras||[]).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).map(r=>({...r,obraId:''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
+ const baja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
+ function rows(db={}){const cancelled=new Set((db.obras||[]).filter(baja).map(o=>o.id));return [...(db.obras||[]).filter(o=>!baja(o)).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).filter(r=>!cancelled.has(r.obraId)).map(r=>({...r,obraId:''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
  // One quality queue entry per OT; preserve every source row/description.
  function motherWorks(source=[], works=[], internalRecords=[]){
-  const base=v=>{const m=text(v).match(/\d{4,7}/);return m?String(Number(m[0])):'';},groups=new Map();
+  const base=v=>{const m=text(v).match(/\d{4,7}/);return m?String(Number(m[0])):'';},groups=new Map(),cancelled=new Set(works.filter(o=>baja(o)&&o.revisionVigente!==false&&o.revisionOperativa!==false).map(o=>base(o.ot)).filter(Boolean));
   for(const r of source){
-   if(!['pendiente','cobrado pendiente'].includes(norm(r.status).replace(/[_\s]+/g,' ')))continue;
+   if(cancelled.has(base(r.ot))||!['pendiente','cobrado pendiente'].includes(norm(r.status).replace(/[_\s]+/g,' ')))continue;
    const ot=base(r.ot),key=ot?'ot:'+ot:'fila:'+r.row;
    if(!groups.has(key))groups.set(key,{key,ot,sourceRows:[],descriptions:[],clients:[],statuses:[]});
    const g=groups.get(key);g.sourceRows.push(r.row);

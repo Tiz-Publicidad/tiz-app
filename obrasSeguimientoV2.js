@@ -16,11 +16,22 @@ const workAlerts=g=>g.estado==='Cobrado'&&!g.seguimiento.planificadoPorCalidad&&
 const date=v=>{const d=C.iso(v);return d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'—';};
 const badge=s=>'<span class="o2-badge '+(s==='Cobrado'?'o2-paid':s==='Entregado'?'o2-delivered':'')+'">'+E(s)+'</span>';
 const statusSaving=new Set();
-const statusCell=g=>C.canStatus(user())&&g.estado!=='Baja'?'<select class="o2-badge o2-status" data-o2-status="'+E(g.id)+'" aria-label="Estado de CT/OT '+E(g.ot||g.id)+'" '+(statusSaving.has(g.id)?'disabled aria-busy="true"':'')+'>'+C.EDITABLE_STATES.map(s=>'<option value="'+E(s)+'" '+(s===g.estado?'selected':'')+'>'+E(s)+'</option>').join('')+'</select>':badge(g.estado);
+const statusCell=g=>C.canStatus(user())&&g.estado!=='Baja'?'<select class="o2-badge o2-status" data-o2-status="'+E(g.id)+'" aria-label="Estado de CT/OT '+E(g.ot||g.id)+'" '+(statusSaving.has(g.id)?'disabled aria-busy="true"':'')+'>'+[...C.EDITABLE_STATES,...(user()?.isAdmin?['Baja']:[])].map(s=>'<option value="'+E(s)+'" '+(s===g.estado?'selected':'')+'>'+E(s)+'</option>').join('')+'</select>':badge(g.estado);
+function applyWorkPatches(patches){
+ // Invalida consultas que empezaron antes de guardar y conserva los datos de la baja.
+ consulta.generation++;consulta.busy=false;
+ for(const p of patches){for(const list of [window.DB?.obras||[],consulta.works]){const w=list.find(w=>w.id===p.id);if(w)Object.assign(w,p.patch);}}
+ S.qualityKey='';render();renderQuality();
+}
 async function saveStatus(select){
  const id=select.dataset.o2Status,g=groups().find(g=>g.ids.includes(id)),estado=select.value;
  if(!g||statusSaving.has(id)||!C.canStatus(user()))return;
  if(estado===g.estado)return;
+ if(estado==='Baja'){
+  select.value=g.estado;
+  if(user()?.isAdmin)window.TIZObraBajaV1?.open(id);
+  return;
+ }
  const session=user();
  statusSaving.add(id);select.disabled=true;select.setAttribute('aria-busy','true');S.error='';S.message='';
  try{
@@ -94,7 +105,7 @@ document.addEventListener('change',e=>{if(e.target.matches?.('[data-o2-status]')
 document.addEventListener('submit',e=>{if(e.target.id==='obras2-form'){e.preventDefault();save(e.target);}});
 function updateBadge(){const button=document.querySelector('.nav-item[onclick*="goTo(\'calidad\')"]');if(!button)return;let badge=button.querySelector('[data-o2-quality-badge]');if(!badge){badge=document.createElement('span');badge.dataset.o2QualityBadge='1';badge.className='nav-badge';button.appendChild(badge);}const n=groups().filter(g=>workAlerts(g).length).length;badge.textContent=String(n);badge.title=n+' obras con avisos de planificación o cierre';badge.style.display=n?'inline-flex':'none';}
 function install(){if(!window.renderObras||!window.TIZCalidadV1)return;window.renderObras=render;const quality=window.TIZCalidadV1.render;window.TIZCalidadV1.render=function(){const r=quality.apply(this,arguments);renderQuality();return r;};const refresh=window.refreshCurrent;if(refresh)window.refreshCurrent=function(){const r=refresh.apply(this,arguments);updateBadge();return r;};window.canEditFechasCompromiso=()=>C.canPlan(user());render();renderQuality();updateBadge();}
-window.TIZObrasSeguimientoV2={render,renderQuality,open,sync,resetConsulta};
+window.TIZObrasSeguimientoV2={render,renderQuality,open,sync,resetConsulta,applyWorkPatches,getGroup:id=>groups().find(g=>g.ids.includes(id))};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 setInterval(()=>{if(window.currentPage==='calidad')renderQuality();if(usesConsulta())void loadConsulta();if(user())updateBadge();},60000);
 })();

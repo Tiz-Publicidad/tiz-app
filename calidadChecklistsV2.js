@@ -3,7 +3,7 @@
  'use strict';if(typeof document==='undefined')return;
  const C=window.TIZChecklistCoreV2,E=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let stage='produccion',selected='',editing=null,working=false;
- const records=()=>window.DB?.checklists||[],group=key=>Object.fromEntries(records().filter(r=>r.key===key).map(r=>[r.etapa,r]));
+ const records=()=>{const baja=(window.DB?.obras||[]).filter(o=>o.bajaObra?.activa===true||String(o.estado||'').toLowerCase()==='baja'),base=v=>String(v||'').match(/\d{4,7}/)?.[0]?.replace(/^0+(?=\d)/,'')||'';return(window.DB?.checklists||[]).filter(r=>!baja.some(o=>r.obraId===o.id||base(r.ot)&&base(r.ot)===base(o.ot)));},group=key=>Object.fromEntries(records().filter(r=>r.key===key).map(r=>[r.etapa,r]));
  function sources(){const list=[];const seen=new Set();for(const r of records()){if(seen.has('s:'+r.key))continue;seen.add('s:'+r.key);list.push({value:'s:'+r.key,key:r.key,obraId:r.obraId,ot:r.ot,cliente:r.cliente,descripcion:r.descripcion});}
   for(const o of window.DB?.obras||[]){if(o.archivado||o.revisionVigente===false||o.revisionOperativa===false||list.some(r=>r.obraId===o.id))continue;list.push({value:'o:'+o.id,obraId:o.id,ot:String(o.ot||''),cliente:o.cliente||'',descripcion:o.desc||o.descripcion||''});}
   for(const o of window.TIZCalidadV1?.sourceWorks?.()||[]){if(o.id&&list.some(r=>r.obraId===o.id)||o.ot&&list.some(r=>r.ot===o.ot))continue;list.push({value:'m:'+o.key,obraId:o.id||'',ot:o.ot||'',cliente:o.cliente||'',descripcion:o.desc||''});}
