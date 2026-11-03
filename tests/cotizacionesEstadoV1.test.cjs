@@ -11,10 +11,10 @@ function fixture(){
  window.guardarPresupuestoCompleto=async()=>{throw Error('No debería usarse el guardado antiguo con datos válidos')};
  const start=sector.indexOf('  function patchPresupuestoFunctions(){'),end=sector.indexOf('\n  function bloquearGeneracionDuplicada()',start);
  vm.runInNewContext(sector.slice(start,end)+'\npatchPresupuestoFunctions();',context);
- return {window,fields,field,writes,syncs,timers,approved};
+ return {window,fields,field,writes,syncs,timers,approved,context};
 }
 test('abrir una cotización pendiente después de una aprobada restaura el estado y los datos comerciales antes de guardar',async()=>{
- for(const estado of ['Borrador','Pendiente','Enviado','En revisión','Rechazado','Vencido']){
+ for(const estado of ['Borrador','Enviado']){
   const f=fixture(),p={id:'pending',nro:'4801',revision:'1.1',estado,cliente:'B',desc:'Cartel B',fecha:'02/10/2026',items:[{desc:'Cartel B',precio:200,cant:1}],anticipoPct:0,diasPago:0};f.window.DB.presupuestos.push(p);
   f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,'Aprobado');
   f.window.abrirRevisionCotizacionV354('pending');assert.equal(f.field('pp-estado').value,estado);assert.equal(f.field('pp-fecha').value,p.fecha);assert.equal(f.field('pp-anticipo').value,'0');assert.equal(f.field('pp-dias-pago').value,'0');assert.equal(f.field('pp-oc').value,'');assert.equal(f.field('pp-obs-comercial').value,'');
@@ -31,8 +31,8 @@ test('una cotización nueva limpia el aprobado anterior y no programa reinicios 
 test('elegir Aprobado explícitamente sigue creando la obra y sincronizando Base Madre',async()=>{
  const f=fixture(),p={...f.approved,id:'pending',nro:'4801',estado:'Enviado'};f.window.DB.presupuestos.push(p);f.window.abrirRevisionCotizacionV354('pending');f.field('pp-estado').value='Aprobado';await f.window.guardarPresupuestoCompleto();assert.equal(p.estado,'Aprobado');assert.equal(f.window.DB.obras.length,1);assert.equal(f.window.DB.obras[0].ot,'4801');assert.equal(f.syncs.length,1);
 });
-test('editar una aprobada mantiene su estado y la opción Pendiente existe para cotizaciones anteriores',()=>{
- const f=fixture();f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,'Aprobado');assert.match(sector,/<option>Pendiente<\/option>/);
+test('Estado comercial tiene sólo Borrador, Enviado, Aprobado y Baja; Obras mantiene sus estados',()=>{
+ const f=fixture();f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,'Aprobado');const select=sector.match(/<select id="pp-estado">([\s\S]*?)<\/select>/)[1];assert.deepEqual([...select.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(m=>m[1]),['Borrador','Enviado','Aprobado','Baja']);const C=require('../functions/obrasSeguimientoCoreV2');assert.deepEqual(C.EDITABLE_STATES,['Pendiente','Entregado','Cobrado pendiente','Cobrado']);
 });
 
 test('los guardados nuevos y las revisiones nuevas reciben Favaloro; editar uno anterior conserva Perón',async()=>{
@@ -54,4 +54,29 @@ test('presupuesto anterior sin elección queda A definir y no hereda B del abier
 });
 test('guardado y pase a producción numeran renglones válidos sin cambiar los precios',async()=>{
  const f=fixture();f.window.abrirNuevoPresupuestoCompleto();f.field('pp-cliente').value='Cliente';f.field('pp-estado').value='Aprobado';const items=[{desc:'Cartel',precio:100,cant:2},{desc:'',precio:0,cant:1},{desc:'Instalación',precio:50,cant:1}];f.window.ppItems=items;await f.window.guardarPresupuestoCompleto();const p=f.window.DB.presupuestos.at(-1),o=f.window.DB.obras[0];assert.deepEqual(Array.from(p.items,i=>i.orden),[1,2]);assert.equal(p.importe,250);assert.deepEqual(Array.from(o.itemsTecnicos,i=>i.orden),[1,2]);assert.equal(items[0].orden,undefined);assert.equal(items[0].precio,100);
+});
+
+test('los estados comerciales anteriores se presentan en las cuatro opciones sin agregar estados operativos',()=>{
+ for(const [old,current] of [['Pendiente','Borrador'],['En revisión','Enviado'],['Rechazado','Baja'],['Vencido','Baja'],['Entregado','Aprobado'],['Cobrado pendiente','Aprobado'],['Cobrado','Aprobado']]){const f=fixture();f.approved.estado=old;f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,current);assert.equal(f.approved.estado,old);}
+});
+
+function cancellationFixture({user={email:'giancarlo.pareja@tizpublicidad.com',isAdmin:true},fail=false,missing=false}={}){
+ const core=require('../functions/obrasSeguimientoCoreV2'),p={id:'p',nro:'4800',cliente:'Cliente',estado:'Aprobado',obraId:missing?'missing':'a',importe:100},a={id:'a',ot:'4800',cliente:'Cliente',estado:'Pendiente',presupuestoId:'p',cobros:[{importe:50}]},b={id:'b',ot:'4800.2',cliente:'Cliente',estado:'Entregado'},other={id:'other',ot:'4800',cliente:'Otro',estado:'Pendiente'},rows=new Map([['presupuestos/p',p],...([a,b,other].map(w=>['obras/'+w.id,w]))].map(([k,v])=>[k,structuredClone(v)])),writes=[];
+ const window={currentUser:user,TIZObrasSeguimientoCoreV2:core,DB:{presupuestos:[structuredClone(p)],obras:[]}},doc=(_,col,id)=>({id,col,path:col+'/'+id}),collection=(_,col)=>({col}),getDocs=async()=>({docs:[a,b,other].map(w=>({id:w.id,data:()=>structuredClone(w)}))});
+ const runTransaction=async(_,fn)=>{const pending=[];let writing=false;const result=await fn({get:async ref=>{assert.equal(writing,false);return{exists:()=>rows.has(ref.path),data:()=>structuredClone(rows.get(ref.path))};},update:(ref,patch)=>{writing=true;pending.push({ref,patch});}});if(fail)throw Error('Sin conexión');for(const w of pending){Object.assign(rows.get(w.ref.path),w.patch);writes.push(w);}return result;};
+ const start=html.indexOf('window.darBajaCotizacionV1 ='),end=html.indexOf('// Gestiones de Colocaciones:',start);vm.runInNewContext(html.slice(start,end),{window,doc,collection,getDocs,runTransaction,db:{},Set,Promise,Date});return{window,rows,writes};
+}
+test('Baja comercial cancela la cotización y todas sus obras en una transacción y conserva cobros',async()=>{
+ const f=cancellationFixture();const r=await f.window.darBajaCotizacionV1('p','Cliente canceló el trabajo');assert.equal(f.writes.length,3);assert.equal(f.rows.get('presupuestos/p').estado,'Baja');assert.equal(f.rows.get('presupuestos/p').importe,100);assert.equal(f.rows.get('obras/a').estado,'Baja');assert.equal(f.rows.get('obras/b').archivado,true);assert.equal(f.rows.get('obras/other').estado,'Pendiente');assert.equal(f.rows.get('obras/a').cobros[0].importe,50);assert.equal(r.patches.length,2);assert.equal(f.window.DB.presupuestos[0].estado,'Baja');
+});
+test('fallo, vínculo faltante, motivo inválido o usuario sin permiso no dejan una baja parcial',async()=>{
+ for(const options of [{fail:true},{missing:true},{user:{email:'pablo.aciar@tizpublicidad.com'}}]){const f=cancellationFixture(options);await assert.rejects(f.window.darBajaCotizacionV1('p','Cancelado por el cliente'));assert.equal(f.writes.length,0);assert.equal(f.rows.get('presupuestos/p').estado,'Aprobado');assert.equal(f.rows.get('obras/a').estado,'Pendiente');}
+ const f=cancellationFixture();await assert.rejects(f.window.darBajaCotizacionV1('p','x'),/motivo/);assert.equal(f.writes.length,0);
+});
+
+test('guardar Baja pide motivo y usa la operación conjunta sin validar logística ni crear otra obra',async()=>{
+ const f=fixture();f.window.abrirRevisionCotizacionV354('approved');f.field('pp-estado').value='Baja';f.context.prompt=()=> 'Cliente canceló';f.context.validarLogisticaCotizacion=()=>{throw Error('La baja no necesita logística');};let saved;f.window.darBajaCotizacionV1=async(id,motivo)=>{saved={id,motivo};};await f.window.guardarPresupuestoCompleto();assert.equal(saved.id,'approved');assert.equal(saved.motivo,'Cliente canceló');assert.equal(f.writes.length,0);assert.equal(f.syncs.length,0);assert.equal(f.window.__tizPresupuestoGuardando,false);
+});
+test('cerrar el motivo sin confirmar no modifica la cotización ni sus obras',async()=>{
+ const f=fixture();f.window.abrirRevisionCotizacionV354('approved');f.field('pp-estado').value='Baja';f.context.prompt=()=>null;f.window.darBajaCotizacionV1=async()=>{throw Error('No debe guardar');};await f.window.guardarPresupuestoCompleto();assert.equal(f.approved.estado,'Aprobado');assert.equal(f.writes.length,0);
 });
