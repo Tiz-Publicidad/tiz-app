@@ -180,7 +180,7 @@
     wrap.innerHTML=`
       <div class="form-group"><label>Vendedor</label><select id="pp-vendedor"><option value="G">G · Giancarlo</option><option>J</option><option>G/J</option></select></div>
       <div class="form-group"><label>Fecha presupuesto</label><input id="pp-fecha" placeholder="DD/MM/AAAA"></div>
-      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Pendiente</option><option>Enviado</option><option>En revisión</option><option>Aprobado</option><option>Rechazado</option><option>Vencido</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option></select></div>
+      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Enviado</option><option>Aprobado</option><option>Baja</option></select></div>
       <div class="form-group"><label>Moneda</label><select id="pp-moneda"><option value="ARS">ARS $</option><option value="USD">USD</option></select></div>
       <div class="form-group"><label for="pp-tipo-factura">Tipo de factura para este trabajo</label><select id="pp-tipo-factura"><option value="A">Factura A</option><option value="B">Factura B</option><option value="">A definir</option></select></div>
       <div class="form-group"><label>Plazo estimado</label><input id="pp-plazo" placeholder="Ej: 15 días hábiles"></div>
@@ -452,6 +452,13 @@
   }
 
   function patchPresupuestoFunctions(){
+    function estadoComercial(v){
+      const s=String(v||'').trim();
+      if(['Borrador','Enviado','Aprobado','Baja'].includes(s))return s;
+      if(['Rechazado','Vencido','Cancelado','Anulado'].includes(s))return 'Baja';
+      if(['Entregado','Facturado','Cobrado pendiente','Cobrado','En producción'].includes(s))return 'Aprobado';
+      return s==='En revisión'?'Enviado':'Borrador';
+    }
     function datosTecnicosPresupuesto(data){
       const items=(Array.isArray(data?.items)?data.items:[]).map(item=>({
         articulo:String(item?.desc||item?.descripcion||'').trim(),
@@ -518,7 +525,7 @@
       return obraId;
     };
     function cargarComercialPP(data={},crearNueva=false){
-      const fields={'pp-fecha':data.fecha||new Date().toLocaleDateString('es-AR'),'pp-estado':crearNueva?'Borrador':data.estado||'Borrador','pp-moneda':data.moneda||'ARS','pp-tipo-factura':['A','B'].includes(data.tipoFacturaSolicitada)?data.tipoFacturaSolicitada:(crearNueva?'A':''),'pp-vendedor':data.vendedor||'G','pp-plazo':data.plazoEstimado||'','pp-anticipo':data.anticipoPct??50,'pp-dias-pago':data.diasPago??'','pp-oc':data.oc||'','pp-obs-comercial':data.observacionesComerciales||''};
+      const fields={'pp-fecha':data.fecha||new Date().toLocaleDateString('es-AR'),'pp-estado':crearNueva?'Borrador':estadoComercial(data.estado),'pp-moneda':data.moneda||'ARS','pp-tipo-factura':['A','B'].includes(data.tipoFacturaSolicitada)?data.tipoFacturaSolicitada:(crearNueva?'A':''),'pp-vendedor':data.vendedor||'G','pp-plazo':data.plazoEstimado||'','pp-anticipo':data.anticipoPct??50,'pp-dias-pago':data.diasPago??'','pp-oc':data.oc||'','pp-obs-comercial':data.observacionesComerciales||''};
       for(const [id,value]of Object.entries(fields)){const el=document.getElementById(id);if(el)el.value=String(value);}
       cargarEntregaLogisticaPP(data);
     }
@@ -529,6 +536,16 @@
     const oldSave=window.guardarPresupuestoCompleto;
     window.guardarPresupuestoCompleto=async function(){
       if(window.__tizPresupuestoGuardando){window.showToast?.('El presupuesto ya se está guardando. Esperá un momento.');return;}
+      if(val('pp-estado')==='Baja'){
+        const id=window.editingId?.presupuesto;
+        if(!id){window.showToast?.('Guardá la cotización como Borrador antes de darla de baja.');return;}
+        const motivo=prompt('Motivo de baja de la cotización y sus obras:');if(motivo===null)return;
+        window.__tizPresupuestoGuardando=true;
+        try{await window.darBajaCotizacionV1(id,motivo);document.getElementById('modal-prespdf').classList.remove('open');window.refreshCurrent?.();window.showToast?.('Cotización dada de baja. El trabajo salió de las listas activas de los sectores.');}
+        catch(e){window.showToast?.(e.message||'No se pudo dar de baja la cotización.');}
+        finally{window.__tizPresupuestoGuardando=false;}
+        return;
+      }
       if(!validarLogisticaCotizacion({permitirBorrador:true}))return;
       window.__tizPresupuestoGuardando=true;
       const nro=val('pp-nro').trim()||'0000', cliente=val('pp-cliente').trim(), desc=val('pp-desc').trim(), items=(window.ppItems||[]).filter(i=>(i.desc||'').trim()||(+i.precio||0)>0).map((item,i)=>({...item,orden:i+1})); if(!cliente||!items.length){window.__tizPresupuestoGuardando=false;return oldSave?.apply(this,arguments);}
