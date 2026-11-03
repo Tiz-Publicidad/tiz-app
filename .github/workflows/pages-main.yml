@@ -68,6 +68,9 @@ jobs:
           node --check sectorizacionV35.js
           node --test tests/cotizacionesEstadoV1.test.cjs tests/tipoFacturaCotizacionV1.test.cjs tests/cotizacionesOrdenV1.test.cjs
           node --check comprasObrasCoreV1.js
+          node --check comprasIngresoCoreV1.js
+          node --check compras.js
+          node --test tests/comprasIngresoV1.test.cjs
           node --test tests/comprasObrasV1.test.cjs
           node --check comprasBaseDatosV1.js
           node --test tests/comprasBaseDatosV1.test.cjs
