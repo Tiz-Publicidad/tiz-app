@@ -1399,6 +1399,25 @@ window.updateDoc_ = async (col_, id, data) => {
   });
 };
 
+// Estado de Obras: valida los datos actuales y guarda la OT completa con auditoría.
+window.cambiarEstadoObraV1 = async (ids, estado, anteriores) => {
+  const core=window.TIZObrasSeguimientoCoreV2,user={...window.currentUser};
+  if(!core.canStatus(user))throw Error('Tu cuenta no puede modificar el estado de Obras.');
+  if(!Array.isArray(ids)||!ids.length||ids.length>100||new Set(ids).size!==ids.length||ids.some(id=>typeof id!=='string'||!/^[\w-]{1,150}$/.test(id)))throw Error('La selección de obras no es válida.');
+  return runTransaction(db,async transaction=>{
+    const refs=ids.map(id=>doc(db,'obras',id)),snapshots=await Promise.all(refs.map(ref=>transaction.get(ref)));
+    if(snapshots.some(s=>!s.exists()))throw Error('La obra cambió. Actualizá el listado antes de continuar.');
+    const works=snapshots.map((s,i)=>({...s.data(),id:ids[i]}));
+    if(core.grouped(works).length!==1||works.some(w=>!anteriores||w.estado!==anteriores[w.id]))throw Error('Otra persona actualizó la obra. Actualizá el listado antes de cambiar su estado.');
+    const at=new Date().toISOString(),patches=works.map(w=>({id:w.id,patch:core.statusPatch(w,estado,user,at)}));
+    patches.forEach((p,i)=>{
+      transaction.update(refs[i],p.patch);
+      transaction.set(doc(collection(refs[i],'seguimientoHistorial')),{tipo:'estado',fecha:at,usuario:user.email,estadoAnterior:String(works[i].estado||''),estadoNuevo:estado});
+    });
+    return patches;
+  });
+};
+
 // Baja operativa: todos los documentos agrupados se guardan en una transacción.
 window.cambiarBajaObraV1 = async (ids, motivo, reactivar = false) => {
   if (!window.currentUser?.isAdmin) throw new Error('Solo administración puede dar de baja o reactivar obras.');
@@ -3754,9 +3773,9 @@ async function syncToSheets(data) {
 <script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
-<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030"></script>
+<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103"></script>
 <script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102"></script>
-<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102"></script>
+<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102&estado=20261103"></script>
 <script src="obrasBajaUIV1.js?v=TIZ-BAJA-OBRAS-20261030"></script>
 </body>
 </html>
