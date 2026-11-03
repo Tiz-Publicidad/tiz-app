@@ -9,15 +9,16 @@ function operator(email){email=norm(email);if(!USERS[email])throw Error('Tu cuen
 function reportFor(reports,sector){if(sector!=='facturacion')return reports?.[sector];const a=reports?.facturacion,b=reports?.cobranzas;if(!a)return b;if(!b)return a;if(b.presentadoEn&&(!a.presentadoEn||b.presentadoEn<a.presentadoEn))return {...b,revision:Math.max(Number(a.revision)||0,Number(b.revision)||0)};return {...a,revision:Math.max(Number(a.revision)||0,Number(b.revision)||0)};}
 function canWrite(user,sector){return !!SECTORS[sector]&&!!user&&(user.isAdmin||user.sector===sector||user.email==='pablo.aciar@tizpublicidad.com'&&['calidad','colocaciones','operaciones'].includes(sector)||user.sector==='compras'&&sector==='colocaciones');}
 function isApproval(before,after){return !!after&&norm(after.estado)==='aprobado'&&(!before||norm(before.estado)!=='aprobado');}
-function active(work){return !!work&&!work.archivado&&work.revisionVigente!==false&&work.revisionOperativa!==false;}
+const baja=work=>work?.bajaObra?.activa===true||norm(work?.estado)==='baja';
+function active(work){return !!work&&!baja(work)&&!work.archivado&&work.revisionVigente!==false&&work.revisionOperativa!==false;}
 function baseOt(v){const m=text(v).match(/\d+/);return m?m[0].replace(/^0+(?=\d)/,'').slice(0,4):'';}
 function refId(v){let h=2166136261;for(const c of v){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return (h>>>0).toString(36);}
 function pendingState(v){return ['pendiente','cobrado pendiente'].includes(norm(v).replace(/[_\s]+/g,' '));}
 function driveFolder(work={}){try{const u=new URL(text(work.driveFolderUrl));if(u.protocol==='https:'&&u.hostname==='drive.google.com'&&!u.username&&!u.password&&/^\/(?:drive\/(?:u\/\d+\/)?folders|folders)\/[\w-]+/.test(u.pathname))return u.href;}catch(_){}const id=text(work.driveFolderId);return /^[\w-]{10,200}$/.test(id)?'https://drive.google.com/drive/folders/'+id:'';}
 function workList(source=[],works=[]){
- const live=new Map(),groups=new Map();
- for(const w of works){if(!active(w))continue;const ot=baseOt(w.ot||w.nroCotizacion),key=ot?'ot:'+ot:'obra:'+w.id;if(!live.has(key))live.set(key,w);}
- for(const r of source){if(!pendingState(r.status)||![r.ot,r.desc,r.cliente].some(v=>text(v)))continue;const ot=baseOt(r.ot),key=ot?'ot:'+ot:'fila:'+r.row;let g=groups.get(key);if(!g){g={ot,rows:[],descs:[],clients:[]};groups.set(key,g);}g.rows.push(r.row);for(const[k,val]of [['descs',r.desc],['clients',r.cliente]])if(text(val)&&!g[k].includes(text(val)))g[k].push(text(val));}
+ const live=new Map(),groups=new Map(),cancelled=new Set(works.filter(w=>baja(w)&&w.revisionVigente!==false&&w.revisionOperativa!==false).map(w=>baseOt(w.ot||w.nroCotizacion)).filter(Boolean));
+ for(const w of works){if(!active(w)||cancelled.has(baseOt(w.ot||w.nroCotizacion)))continue;const ot=baseOt(w.ot||w.nroCotizacion),key=ot?'ot:'+ot:'obra:'+w.id;if(!live.has(key))live.set(key,w);}
+ for(const r of source){if(cancelled.has(baseOt(r.ot))||!pendingState(r.status)||![r.ot,r.desc,r.cliente].some(v=>text(v)))continue;const ot=baseOt(r.ot),key=ot?'ot:'+ot:'fila:'+r.row;let g=groups.get(key);if(!g){g={ot,rows:[],descs:[],clients:[]};groups.set(key,g);}g.rows.push(r.row);for(const[k,val]of [['descs',r.desc],['clients',r.cliente]])if(text(val)&&!g[k].includes(text(val)))g[k].push(text(val));}
  const out=[];
  function project(w={},g){const n=g?.ot||baseOt(w.ot||w.nroCotizacion);return {id:w.id||(n?'tiz2026-ot-'+n:'tiz2026-ref-'+refId(g.clients.join('|')+'|'+g.descs.join('|')+'|'+g.rows.join(','))),obraOperativaId:w.id||'',ot:n,cliente:g?.clients.join(' / ')||text(w.cliente),descripcion:g?.descs.join(' / ')||text(w.desc||w.descripcion),sourceRows:g?.rows||[],driveFolderUrl:driveFolder(w),activa:true,aprobacion:w.analisisPreliminarAprobadoEn?.toDate?.().toISOString()||''};}
  for(const[key,g]of groups){out.push(project(live.get(key),g));live.delete(key);}
@@ -30,4 +31,3 @@ function status(report,approval,now=Date.now()){if(report?.presentadoEn)return r
 return {SECTORS,USERS,LIMIT_MS,operator,canWrite,isApproval,active,cleanRows,nextReport,status,norm,baseOt,pendingState,workList,driveFolder,reportFor};
 
 });
-
