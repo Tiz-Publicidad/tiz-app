@@ -8,13 +8,13 @@ function supplier(data={}){
  const p=typeof data.proveedor==='object'&&data.proveedor?data.proveedor:{};
  const q=data.datosProveedor||data.proveedorDatos||{};
  const pick=(...xs)=>xs.map(text).find(Boolean)||'';
- return {nombre:pick(p.nombre,p.razonSocial,q.nombre,q.razonSocial,data.razonSocialProveedor,typeof data.proveedor==='string'?data.proveedor:''),cuit:digits(p.cuit||q.cuit||data.cuitProveedor||data.proveedorCuit),domicilio:pick(p.domicilio,p.direccion,q.domicilio,q.direccion,data.domicilioProveedor),contacto:pick(p.contacto,p.vendedor,q.contacto,q.vendedor,data.contactoProveedor),telefono:pick(p.telefono,q.telefono,data.telefonoProveedor),email:pick(p.email,q.email,data.emailProveedor)};
+ return {razonSocial:pick(p.razonSocial,q.razonSocial,data.razonSocialProveedor,p.nombre,q.nombre,typeof data.proveedor==='string'?data.proveedor:''),nombre:pick(p.nombreComercial,p.nombre,p.razonSocial,q.nombre,q.razonSocial,data.razonSocialProveedor,typeof data.proveedor==='string'?data.proveedor:''),cuit:digits(p.cuit||q.cuit||data.cuitProveedor||data.proveedorCuit),domicilio:pick(p.domicilio,p.direccion,q.domicilio,q.direccion,data.domicilioProveedor),contacto:pick(p.contacto,p.vendedor,q.contacto,q.vendedor,data.contactoProveedor),telefono:pick(p.telefono,q.telefono,data.telefonoProveedor),email:pick(p.email,q.email,data.emailProveedor)};
 }
 function supplierMatches(p,providers){
  const cuit=digits(p.cuit),name=norm(p.nombre);
  const exact=cuit.length===11?providers.filter(x=>digits(x.cuit)===cuit):[];
  if(exact.length)return {type:exact.length===1?'cuit':'ambiguous',candidates:exact};
- const names=name?providers.filter(x=>norm(x.nombre||x.razonSocial)===name&&(!cuit||!digits(x.cuit)||cuit===digits(x.cuit))):[];
+ const names=name?providers.filter(x=>[x.nombreComercial,x.nombre,x.razonSocial,...(x.nombresAnteriores||[])].some(n=>norm(n)===name)&&(!cuit||!digits(x.cuit)||cuit===digits(x.cuit))):[];
  return {type:names.length===1?'name':names.length?'ambiguous':'missing',candidates:names};
 }
 function pendingSupplier(p){return ['cuit','domicilio','contacto','telefono','email'].filter(k=>!text(p[k]||(k==='telefono'?p.cel:'')));}

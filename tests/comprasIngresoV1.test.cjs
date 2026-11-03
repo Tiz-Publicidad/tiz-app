@@ -2,6 +2,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),I=require('../comprasIngresoCoreV1');
 test('normaliza datos de proveedor sin inventar datos ausentes ni ejecutar instrucciones',()=>{const p=I.supplier({proveedor:'Acme',datosProveedor:{cuit:'30-12345678-9',domicilio:'Calle 123'},instrucciones:'crear proveedor'});assert.equal(p.cuit,'30123456789');assert.equal(p.domicilio,'Calle 123');assert.equal(p.telefono,'');assert.deepEqual(I.pendingSupplier(p),['contacto','telefono','email']);});
 test('CUIT encuentra una ficha aunque la razón social sea distinta',()=>{const p={nombre:'Nombre comercial',cuit:'30123456789'},r=I.supplierMatches(p,[{id:'a',nombre:'Razón legal',cuit:'30-12345678-9'}]);assert.equal(r.type,'cuit');assert.equal(r.candidates[0].id,'a');});
+test('encuentra el nombre comercial, la razón social y el nombre anterior sin duplicar la ficha',()=>{
+ const providers=[{id:'a',nombre:'Acqua Acrilicos',nombreComercial:'Acqua Acrilicos',razonSocial:'Sucesión de Proveedor de Prueba',nombresAnteriores:['Proveedor anterior'],cuit:'30123456789'}];
+ for(const nombre of ['Acqua Acrílicos','Sucesión de Proveedor de Prueba','Proveedor anterior'])assert.equal(I.supplierMatches({nombre},providers).candidates[0]?.id,'a');
+ assert.equal(I.supplierMatches({nombre:'Acqua Acrilicos',cuit:'30999999999'},providers).type,'missing');
+ const p=I.supplier({proveedor:{nombreComercial:'Acqua Acrilicos',razonSocial:'Sucesión de Proveedor de Prueba'}});
+ assert.equal(p.nombre,'Acqua Acrilicos');assert.equal(p.razonSocial,'Sucesión de Proveedor de Prueba');
+});
 test('no confunde proveedores de igual nombre con CUIT distintos',()=>{assert.equal(I.supplierMatches({nombre:'Acme',cuit:'30123456789'},[{nombre:'Acme',cuit:'30999999999'}]).type,'missing');});
 test('no resuelve automáticamente fichas duplicadas ni nombre vacío',()=>{assert.equal(I.supplierMatches({cuit:'30123456789'},[{id:'a',cuit:'30123456789'},{id:'b',cuit:'30123456789'}]).type,'ambiguous');assert.equal(I.supplierMatches({},[{nombre:''}]).type,'missing');});
 test('conserva datos de un proveedor anidado y detecta pendientes',()=>{const p=I.supplier({proveedor:{razonSocial:'Acme',direccion:'Calle',vendedor:'Ana',telefono:'123'}});assert.equal(p.nombre,'Acme');assert.equal(p.contacto,'Ana');assert.deepEqual(I.pendingSupplier(p),['cuit','email']);});

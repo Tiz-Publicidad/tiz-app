@@ -1,4 +1,4 @@
-import './comprasIngresoCoreV1.js?v=20261103';
+import './comprasIngresoCoreV1.js?v=20261103-nombres';
 import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
@@ -294,7 +294,7 @@ function startListeners(){
 function render(){
   if(window.currentPage!=='compras') return;
   cpCaptureProviderDraft();
-  if(cpIngreso?.editingProvider&&currentTab==='proveedores'&&document.getElementById('cp-prov-id'))return;
+  if(currentTab==='proveedores'&&document.getElementById('cp-prov-id')&&(cpIngreso?.editingProvider||(document.activeElement?.matches('input,textarea,select')&&document.activeElement.closest('#cp-provider-form'))))return;
   cpRefreshMother();
   const el=document.getElementById('cp-content'); if(!el)return;
   ({inicio:renderInicio,obras:renderObrasCompras,compras:renderCompras,historico:renderHistoricoMateriales,contrataciones:renderContrataciones,proveedores:renderProveedores,pagos:renderPagos,migracion:renderMigracion,conteo:renderConteo,articulos:renderArticulos,'base-datos':el=>window.TIZComprasBaseDatosV1.render(el),planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
@@ -422,27 +422,28 @@ function renderHistoricoMateriales(el){
 
 function providerByName(name){
   const n=normText(name||'');
-  return C.proveedores.find(p=>normText(p.nombre||p.razonSocial||'')===n)||null;
+  return n?C.proveedores.find(p=>[p.nombre,p.nombreComercial,p.razonSocial,...(p.nombresAnteriores||[])].some(x=>normText(x)===n))||null:null;
 }
 function providerNames(){
   return uniqueSorted([
     ...C.proveedores.map(p=>p.nombre||p.razonSocial),
-    ...C.compras.map(x=>x.proveedor),
-    ...C.pagos.map(x=>x.proveedor)
+    ...C.compras.map(x=>providerByName(x.proveedor)?.nombre||x.proveedor),
+    ...C.pagos.map(x=>providerByName(x.proveedor)?.nombre||x.proveedor)
   ]);
 }
 function renderProveedores(el){
   const names=providerNames();
   const rows=names.map(name=>{
     const p=providerByName(name)||{};
-    const compras=C.compras.filter(x=>normText(x.proveedor)===normText(name));
-    const deuda=C.pagos.filter(x=>x.estado!=='pagado'&&normText(x.proveedor)===normText(name));
+    const belongs=x=>p.id?(x.proveedorId?x.proveedorId===p.id:providerByName(x.proveedor)?.id===p.id):normText(x.proveedor)===normText(name);
+    const compras=C.compras.filter(belongs);
+    const deuda=C.pagos.filter(x=>x.estado!=='pagado'&&belongs(x));
     const total=compras.reduce((s,x)=>s+num(x.totalBruto),0);
     const saldo=deuda.reduce((s,x)=>s+num(x.importe),0);
     const last=[...compras].sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')))[0];
     const prox=[...deuda].filter(x=>x.vencimiento).sort((a,b)=>String(a.vencimiento).localeCompare(String(b.vencimiento)))[0];
     return `<tr>
-      <td><b>${esc(name)}</b><div class="cp-sub">${p.cuit?'CUIT '+esc(p.cuit):'CUIT sin cargar'}</div><div class="cp-match-warn">${ING.pendingSupplier(p).length?'Completar: '+ING.pendingSupplier(p).map(k=>k==='contacto'?'vendedor / contacto':k).join(', '):''}</div></td>
+      <td><b>${esc(name)}</b>${p.razonSocial&&p.razonSocial!==name?'<div class="cp-sub">'+esc(p.razonSocial)+'</div>':''}<div class="cp-sub">${p.cuit?'CUIT '+esc(p.cuit):'CUIT sin cargar'}</div><div class="cp-match-warn">${ING.pendingSupplier(p).length?'Completar: '+ING.pendingSupplier(p).map(k=>k==='contacto'?'vendedor / contacto':k).join(', '):''}</div></td>
       <td>${esc(p.contacto||'—')}</td><td>${esc(p.telefono||p.cel||'—')}</td><td>${esc(p.email||'—')}</td>
       <td>${esc(p.condicionPago||'—')}${p.diasPago?'<div class="cp-sub">'+esc(p.diasPago)+' días</div>':''}</td>
       <td>${compras.length}<div class="cp-sub">${money(total)}</div></td>
@@ -459,11 +460,12 @@ function renderProveedores(el){
       <div class="cp-card"><div class="cp-lbl">Con ficha completa</div><div class="cp-kpi" style="color:var(--green)">${C.proveedores.filter(p=>!ING.pendingSupplier(p).length).length}</div></div>
       <div class="cp-card"><div class="cp-lbl">A completar</div><div class="cp-kpi" style="color:var(--amber)">${names.filter(name=>ING.pendingSupplier(providerByName(name)||{}).length).length}</div></div>
     </div>
-    <div class="cp-panel">
+    <div class="cp-panel" id="cp-provider-form">
       <b>Ficha maestra de proveedor</b><div class="cp-sub">Sirve para recordar CUIT, contactos y condiciones habituales sin volver a cargar todo en cada compra.</div>
       <input type="hidden" id="cp-prov-id">
       <div class="cp-row" style="margin-top:10px">
-        <div class="cp-field"><label>Proveedor / razón social</label><input id="cp-prov-nombre"></div>
+        <div class="cp-field" style="grid-column:span 2"><label for="cp-prov-nombre">Nombre comercial / nombre del proveedor</label><textarea id="cp-prov-nombre" rows="2" placeholder="Ej.: Acqua Acrilicos"></textarea></div>
+        <div class="cp-field" style="grid-column:span 2"><label for="cp-prov-razon">Razón social del comprobante</label><textarea id="cp-prov-razon" rows="2" placeholder="Nombre legal completo que figura en la factura"></textarea></div>
         <div class="cp-field"><label>CUIT</label><input id="cp-prov-cuit"></div>
         <div class="cp-field"><label>Domicilio</label><input id="cp-prov-domicilio"></div>
         <div class="cp-field"><label>Contacto</label><input id="cp-prov-contacto"></div>
@@ -1235,25 +1237,27 @@ function cpOpenIngresoProvider(existing){
  cpCaptureProviderDraft();cpShowProviderReturn();cpMarkProviderPending();
 }
 function cpShowProviderReturn(){if(document.getElementById('cp-provider-return'))return;const banner=document.createElement('div');banner.id='cp-provider-return';banner.className='cp-panel';banner.innerHTML='<b>Compra en curso · completar proveedor</b><p>Los datos del comprobante y el archivo se conservan. Los campos sin datos quedan marcados para completarlos.</p><button class="cp-btn" onclick="cpResumeIngreso()">Volver a la compra</button>';document.getElementById('cp-content').prepend(banner);}
-function cpCaptureProviderDraft(){if(!cpIngreso?.editingProvider||!document.getElementById('cp-prov-id'))return;const v=k=>document.getElementById('cp-prov-'+k)?.value||'';cpIngreso.providerDraft={id:v('id'),nombre:v('nombre'),cuit:v('cuit'),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),condicionPago:v('cond'),diasPago:v('dias'),notas:v('notas')};}
+function cpCaptureProviderDraft(){if(!cpIngreso?.editingProvider||!document.getElementById('cp-prov-id'))return;const v=k=>document.getElementById('cp-prov-'+k)?.value||'';cpIngreso.providerDraft={id:v('id'),nombre:v('nombre'),nombreComercial:v('nombre'),razonSocial:v('razon'),cuit:v('cuit'),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),condicionPago:v('cond'),diasPago:v('dias'),notas:v('notas')};}
 window.cpResumeIngreso=()=>{if(!cpIngreso)return;cpIngreso.editingProvider=false;window.cpTab('compras');document.getElementById('cp-modal-compra').classList.add('open');cpRefreshIngreso();};
 function cpFillProvider(p={}){
- const values={'id':p.id||'','nombre':p.nombre||p.razonSocial||'','cuit':p.cuit||'','domicilio':p.domicilio||'','contacto':p.contacto||'','tel':p.telefono||p.cel||'','email':p.email||'','cond':p.condicionPago||'','dias':p.diasPago??'','notas':p.notas||''};
+ const values={'id':p.id||'','nombre':p.nombreComercial||p.nombre||p.razonSocial||'','razon':p.razonSocial||(!p.nombreComercial?p.nombre:'')||'','cuit':p.cuit||'','domicilio':p.domicilio||'','contacto':p.contacto||'','tel':p.telefono||p.cel||'','email':p.email||'','cond':p.condicionPago||'','dias':p.diasPago??'','notas':p.notas||''};
  for(const [key,value]of Object.entries(values)){const e=document.getElementById('cp-prov-'+key);if(e)e.value=value;}
 }
 function cpMarkProviderPending(){for(const key of ['cuit','domicilio','contacto','tel','email']){const e=document.getElementById('cp-prov-'+key);if(!e)continue;const update=()=>{e.style.borderColor=e.value.trim()?'':'var(--amber)';e.placeholder=e.value.trim()?'':'Pendiente de completar';};e.addEventListener('input',update);update();}}
 const cpClearProviderLegacy=window.cpClearProveedor;
-window.cpClearProveedor=()=>{cpClearProviderLegacy();const e=document.getElementById('cp-prov-domicilio');if(e)e.value='';cpMarkProviderPending();};
+window.cpClearProveedor=()=>{cpClearProviderLegacy();const e=document.getElementById('cp-prov-domicilio');if(e)e.value='';const legal=document.getElementById('cp-prov-razon');if(legal)legal.value='';cpMarkProviderPending();};
 window.cpEditProveedor=(id,name)=>{window.cpTab('proveedores');cpFillProvider((id?C.proveedores.find(p=>p.id===id):providerByName(name))||{nombre:name});cpMarkProviderPending();};
 let cpProviderSaving=false;
 window.cpSaveProveedor=async()=>{
  if(cpProviderSaving)return;const v=k=>document.getElementById('cp-prov-'+k)?.value.trim()||'';
- const data={nombre:v('nombre'),cuit:ING.digits(v('cuit')),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),condicionPago:v('cond'),diasPago:num(v('dias')),notas:v('notas'),_ts:serverTimestamp()};
+ const data={nombre:v('nombre'),nombreComercial:v('nombre'),razonSocial:v('razon'),cuit:ING.digits(v('cuit')),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),condicionPago:v('cond'),diasPago:num(v('dias')),notas:v('notas'),_ts:serverTimestamp()};
  if(!data.nombre)return toast('Ingresá el proveedor.');
  if(data.cuit&&data.cuit.length!==11)return toast('El CUIT debe tener 11 dígitos.');
  if(cpIngreso?.editingProvider&&(!data.cuit||!data.domicilio))return toast('Completá CUIT y domicilio para dar de alta al proveedor de esta compra.');
  let id=v('id');const duplicate=C.proveedores.find(p=>p.id!==id&&((data.cuit&&ING.digits(p.cuit)===data.cuit)||ING.norm(p.nombre||p.razonSocial)===ING.norm(data.nombre)));
  if(duplicate)return toast('Ese proveedor ya existe. Abrí su ficha o volvé a la compra y elegilo del listado.');
+ const previous=C.proveedores.find(p=>p.id===id);
+ data.nombresAnteriores=uniqueSorted([...(previous?.nombresAnteriores||[]),previous?.nombre,previous?.razonSocial,data.razonSocial].filter(x=>x&&ING.norm(x)!==ING.norm(data.nombre)));
  data.camposPendientes=ING.pendingSupplier(data);cpProviderSaving=true;
  try{
   // La clave por CUIT evita dos altas simultáneas del mismo proveedor.
@@ -1280,6 +1284,9 @@ function cpPrepareIngresoRow(tr){
 function cpConfirmIngresoArticle(tr,a){
  if(!cpIngreso?.confirmed)return toast('Confirmá primero el proveedor.');
  applyArticleToRow(tr,a);tr.dataset.confirmed='1';cpIngreso.reviewed='';cpRefreshIngreso();
+ const change=document.createElement('button');change.className='cp-btn';change.type='button';change.textContent='Cambiar insumo';
+ change.onclick=()=>{tr.querySelector('.i-desc').value='';for(const selector of ['.i-code','.i-family','.i-subfamily'])tr.querySelector(selector).value='';cpPrepareIngresoRow(tr);cpRefreshIngreso();tr.querySelector('.i-desc').focus();};
+ tr.querySelector('.cp-item-match').append(change);
 }
 const cpAddItemLegacy=window.cpAddItem;
 window.cpAddItem=(data={})=>{
