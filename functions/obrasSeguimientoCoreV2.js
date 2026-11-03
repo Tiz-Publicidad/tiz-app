@@ -11,6 +11,14 @@ const state=v=>STATES.includes(T(v))?T(v):'Pendiente';
 const canPlan=u=>!!u&&(u.isAdmin||u.sector==='Calidad'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
 const canProduction=u=>canPlan(u)||T(u?.email).toLowerCase()==='pablo.aciar@tizpublicidad.com';
 const canSync=u=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(T(u?.email).toLowerCase());
+const EDITABLE_STATES=['Pendiente','Entregado','Cobrado pendiente','Cobrado'];
+const canStatus=u=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','carolina.flores@tizpublicidad.com'].includes(T(u?.email).toLowerCase());
+function statusPatch(work,estado,user,at=new Date().toISOString()){
+ if(!canStatus(user))throw Error('Tu cuenta no puede modificar el estado de Obras.');
+ if(isBaja(work)||!active(work))throw Error('La obra ya no está activa. Actualizá el listado.');
+ if(!EDITABLE_STATES.includes(estado))throw Error('Elegí un estado válido para la obra.');
+ return {estado,cobr:estado,estadoGestionV1:{estado,anterior:T(work.estado),fecha:at,usuario:T(user.email)}};
+}
 const active=o=>(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
 const isBaja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
 function bajaPatch(work,motivo,user,reactivar=false,at=new Date().toISOString()){
@@ -121,5 +129,5 @@ function alerts(g,today=day()){
  return result;
 }
 function metrics(groups){groups=groups.filter(g=>!isBaja(g));const prod=groups.filter(g=>g.produccionPrevista&&g.seguimiento.produccionReal),col=groups.filter(g=>g.colocacionPrevista&&g.seguimiento.colocacionReal),closed=groups.filter(g=>g.seguimiento.cierreResultado);return {produccionesConFechaReal:prod.length,produccionesEnFecha:prod.filter(g=>g.seguimiento.produccionReal<=g.produccionPrevista).length,colocacionesConFechaReal:col.length,colocacionesEnFecha:col.filter(g=>g.seguimiento.colocacionReal<=g.colocacionPrevista).length,cerradas:closed.length,cerradasOk:closed.filter(g=>g.seguimiento.cierreResultado==='ok').length,conRetrabajo:closed.filter(g=>g.seguimiento.cierreResultado==='retrabajo').length};}
-return {STATES,T,norm,ot,base,day,iso,state,canPlan,canProduction,canSync,active,isBaja,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics};
+return {STATES,EDITABLE_STATES,T,norm,ot,base,day,iso,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics};
 });
