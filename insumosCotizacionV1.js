@@ -63,7 +63,7 @@ async function suggest(){
 function requestShared(service){
  return new Promise((resolve,reject)=>{
   if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec\/[A-Za-z0-9_-]+$/.test(service.url||''))return reject(Error('La conexión de IA no es válida.'));
-  const requestId='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2),callback='__tizMaterials_'+requestId.replace(/[^a-zA-Z0-9_]/g,'_');let done=false,timer,pollTimer,frame,form,script;
+  const requestId='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2),callback='__tizIaCb_materials_'+requestId.replace(/[^a-zA-Z0-9_]/g,'_');let done=false,timer,pollTimer,frame,form,script;
   const finish=(err,data)=>{if(done)return;done=true;clearTimeout(timer);clearTimeout(pollTimer);script?.remove();frame?.remove();form?.remove();window[callback]=()=>{};setTimeout(()=>{delete window[callback];},10000);if(err)reject(err);else resolve(data);};
   const poll=()=>{if(done)return;clearTimeout(pollTimer);script?.remove();script=document.createElement('script');script.onerror=()=>{script.remove();if(!done){clearTimeout(pollTimer);pollTimer=setTimeout(poll,3000);}};script.src=service.url+'?action=status&requestId='+encodeURIComponent(requestId)+'&callback='+encodeURIComponent(callback)+'&_='+Date.now();document.body.append(script);pollTimer=setTimeout(poll,10000);};
   window[callback]=payload=>{if(done)return;clearTimeout(pollTimer);script?.remove();if(payload?.pending){pollTimer=setTimeout(poll,3000);return;}if(!payload?.ok)return finish(Error(payload?.error||'No se pudo desglosar el trabajo.'));finish(null,payload.data||{});};
