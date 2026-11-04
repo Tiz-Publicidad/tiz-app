@@ -5,7 +5,7 @@ const user={email:'giancarlo.pareja@tizpublicidad.com'},work=(id='a',extra={})=>
 function transactionFixture(initial,actor=user,failCommit=false){
  const rows=new Map(initial.map(w=>[w.id,structuredClone(w)])),writes=[],audits=[],window={currentUser:actor,TIZObrasSeguimientoCoreV2:C};
  const runTransaction=async(_,fn)=>{const pending=[],events=[];let writing=false;const r=await fn({get:async ref=>{assert.equal(writing,false);return{exists:()=>rows.has(ref.id),data:()=>structuredClone(rows.get(ref.id))};},update:(ref,patch)=>{writing=true;pending.push({id:ref.id,patch});},set:(ref,event)=>{writing=true;events.push({ref,event});}});if(failCommit)throw Error('Sin conexión');for(const p of pending){Object.assign(rows.get(p.id),p.patch);writes.push(p);}audits.push(...events);return r;};
- vm.runInNewContext(html.slice(html.indexOf('window.cambiarEstadoObraV1 ='),html.indexOf('// Baja operativa:')),{window,db:{},doc:(...args)=>args.length===3?{id:args[2]}:{parent:args[0],id:'audit'},collection:(ref,name)=>({ref,name}),runTransaction,Date,Set,Promise});
+ vm.runInNewContext(html.slice(html.indexOf('window.cambiarEstadoObraV1 ='),html.indexOf('// Compatibilidad: la baja directa')),{window,db:{},doc:(...args)=>args.length===3?{id:args[2]}:{parent:args[0],id:'audit'},collection:(ref,name)=>({ref,name}),runTransaction,Date,Set,Promise});
  return{window,rows,writes,audits,save:(ids,state,old=Object.fromEntries(initial.map(w=>[w.id,w.estado])))=>window.cambiarEstadoObraV1(ids,state,old)};
 }
 test('Giancarlo, Pablo, Caro y la cuenta administrativa editan; los otros puestos conservan consulta',()=>{

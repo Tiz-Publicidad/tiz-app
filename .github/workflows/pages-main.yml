@@ -52,6 +52,7 @@ jobs:
           node --check obrasConsultaCacheV1.js
           node --test tests/obrasConsultaCacheV1.test.cjs
           node --check obrasSeguimientoV2.js
+          node --test tests/obrasSemaforoV1.test.cjs
           node --test tests/obrasEstadoV1.test.cjs
           node --test tests/obrasBajaVentasV1.test.cjs
           node --check functions/obrasSeguimientoCoreV2.js

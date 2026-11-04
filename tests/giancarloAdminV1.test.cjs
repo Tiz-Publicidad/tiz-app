@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.join(__dirname,'..'),NEW='giancarlo.pareja@tizpublicidad.com',INFO='info@tizpublicidad.com';
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-function fn(file,name,context={}){const s=read(file),start=s.indexOf('async function '+name+'(')>=0?s.indexOf('async function '+name+'('):s.indexOf('function '+name+'(');assert.ok(start>=0,file+' '+name);const line=s.slice(start).split('\n')[0],code=line.endsWith('}')?line:s.slice(start,s.indexOf('\n}',start)+2);return vm.runInNewContext(code+'\n'+name,context);}
+function fn(file,name,context={}){const s=read(file),start=s.indexOf('async function '+name+'(')>=0?s.indexOf('async function '+name+'('):s.indexOf('function '+name+'(');assert.ok(start>=0,file+' '+name);const line=s.slice(start).split('\n')[0].trimEnd(),code=line.endsWith('}')?line:s.slice(start,s.indexOf('\n}',start)+2);return vm.runInNewContext(code+'\n'+name,context);}
 function fiscal(file,name,emails){const secret={value:()=>emails},admin={auth:()=>({verifyIdToken:async token=>({email:token})})};return fn(file,name,{admin,allowed:secret,allowedEmails:secret});}
 test('la pantalla real reconoce a Giancarlo como administrador y vendedor sin cambiar info',()=>{
  const html=read('index.html'),permission=html.slice(html.indexOf('const ADMIN_EMAIL ='),html.indexOf('const SECTOR_COLORS ='));const config=vm.runInNewContext(permission+'\n({admins:ADMIN_EMAILS,sectors:USER_SECTOR_MAP})');

@@ -60,6 +60,7 @@ jobs:
           node --check functions/obrasConsultaV1.js
           node --test tests/obrasConsultaV1.test.cjs
           node --check obrasSeguimientoV2.js
+          node --test tests/obrasSemaforoV1.test.cjs
           node --check functions/obrasSeguimientoCoreV2.js
           node --check functions/obrasSeguimientoApiV2.js
           node --test tests/obrasSeguimientoV2.test.cjs tests/obrasSeguimientoApiV2.test.cjs

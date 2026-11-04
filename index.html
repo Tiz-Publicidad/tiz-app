@@ -1418,26 +1418,15 @@ window.cambiarEstadoObraV1 = async (ids, estado, anteriores) => {
   });
 };
 
-// Baja operativa: todos los documentos agrupados se guardan en una transacción.
-window.cambiarBajaObraV1 = async (ids, motivo, reactivar = false) => {
-  if (!window.currentUser?.isAdmin) throw new Error('Solo administración puede dar de baja o reactivar obras.');
-  if (!Array.isArray(ids) || !ids.length || ids.length > 100 || new Set(ids).size !== ids.length || ids.some(id=>typeof id!=='string'||!id||id.includes('/'))) throw new Error('La selección de obras no es válida.');
-  const user = { ...window.currentUser };
-  return runTransaction(db, async transaction => {
-    const refs = ids.map(id => doc(db, 'obras', id));
-    const snapshots = await Promise.all(refs.map(ref => transaction.get(ref)));
-    if (snapshots.some(s => !s.exists())) throw new Error('La obra cambió. Actualizá el listado antes de continuar.');
-    const at = new Date().toISOString();
-    const patches = snapshots.map((snap, i) => ({ id: ids[i], patch: window.TIZObrasSeguimientoCoreV2.bajaPatch(snap.data(), motivo, user, reactivar, at) }));
-    patches.forEach((p, i) => transaction.update(refs[i], p.patch));
-    return patches;
-  });
+// Compatibilidad: la baja directa se retiró; sólo se inicia desde Presupuestos.
+window.cambiarBajaObraV1 = async () => {
+  throw new Error('La baja se realiza únicamente desde Presupuestos por Ventas.');
 };
 
 // La baja comercial y sus obras se confirman juntas; no borra registros fiscales.
 window.darBajaCotizacionV1 = async (id, motivo) => {
   const user={...window.currentUser},core=window.TIZObrasSeguimientoCoreV2;
-  if(!user.isAdmin)throw Error('Solo Ventas / Administración puede dar de baja la cotización.');
+  if(!core.canBaja(user))throw Error('Solo Ventas puede dar de baja la cotización.');
   if(typeof id!=='string'||!/^[\w-]{1,150}$/.test(id))throw Error('Guardá la cotización como Borrador antes de darla de baja.');
   motivo=String(motivo||'').trim();if(motivo.length<3||motivo.length>1000)throw Error('Indicá un motivo de entre 3 y 1000 caracteres.');
   const all=await getDocs(collection(db,'obras'));
@@ -3766,7 +3755,7 @@ async function syncToSheets(data) {
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A&baja=20261030"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261016A"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103&obras-semaforo=20261104"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
@@ -3795,12 +3784,11 @@ async function syncToSheets(data) {
 <script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE&baja-ventas=20261103"></script>
 <script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023"></script>
 <script src="operacionesV1.js?v=TIZ-OPERACIONES-20261016C-OSCURO"></script>
-<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023"></script>
+<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023&obras-semaforo=20261104"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
-<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103"></script>
-<script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102&baja-ventas=20261103"></script>
-<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102&estado=20261103&baja-ventas=20261103"></script>
-<script src="obrasBajaUIV1.js?v=TIZ-BAJA-OBRAS-20261030&baja-ventas=20261103"></script>
+<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104"></script>
+<script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102&baja-ventas=20261103&obras-semaforo=20261104"></script>
+<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102&estado=20261103&baja-ventas=20261103&obras-semaforo=20261104"></script>
 </body>
 </html>

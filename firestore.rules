@@ -13,7 +13,24 @@ service cloud.firestore {
         "carolina.flores@tizpublicidad.com"
       ];
     }
-    match /{document=**} { allow read, write: if isTizUser(); }
+    function isSales() {
+      return signedIn() && request.auth.token.email in ["info@tizpublicidad.com", "giancarlo.pareja@tizpublicidad.com"];
+    }
+    function bajaCreateAllowed() {
+      return isSales() || (request.resource.data.get('estado', '') != 'Baja'
+        && !request.resource.data.keys().hasAny(['bajaObra', 'bajaCotizacion', 'historialBajaObra']));
+    }
+    function bajaUpdateAllowed() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return isSales() || (!changed.hasAny(['bajaObra', 'bajaCotizacion', 'historialBajaObra'])
+        && !(changed.hasAny(['estado']) && (resource.data.get('estado', '') == 'Baja' || request.resource.data.get('estado', '') == 'Baja')));
+    }
+    match /{collection}/{document=**} {
+      allow read: if isTizUser();
+      allow create: if isTizUser() && (!(collection in ['obras', 'presupuestos']) || bajaCreateAllowed());
+      allow update: if isTizUser() && (!(collection in ['obras', 'presupuestos']) || bajaUpdateAllowed());
+      allow delete: if isTizUser() && (!(collection in ['obras', 'presupuestos']) || isSales());
+    }
   }
 }
 

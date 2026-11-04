@@ -180,7 +180,7 @@
     wrap.innerHTML=`
       <div class="form-group"><label>Vendedor</label><select id="pp-vendedor"><option value="G">G · Giancarlo</option><option>J</option><option>G/J</option></select></div>
       <div class="form-group"><label>Fecha presupuesto</label><input id="pp-fecha" placeholder="DD/MM/AAAA"></div>
-      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Enviado</option><option>Aprobado</option><option>Baja</option></select></div>
+      <div class="form-group"><label>Estado comercial</label><select id="pp-estado"><option selected>Borrador</option><option>Enviado</option><option>Aprobado</option>${window.TIZObrasSeguimientoCoreV2?.canBaja(window.currentUser)?'<option>Baja</option>':''}</select></div>
       <div class="form-group"><label>Moneda</label><select id="pp-moneda"><option value="ARS">ARS $</option><option value="USD">USD</option></select></div>
       <div class="form-group"><label for="pp-tipo-factura">Tipo de factura para este trabajo</label><select id="pp-tipo-factura"><option value="A">Factura A</option><option value="B">Factura B</option><option value="">A definir</option></select></div>
       <div class="form-group"><label>Plazo estimado</label><input id="pp-plazo" placeholder="Ej: 15 días hábiles"></div>
