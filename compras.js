@@ -244,7 +244,7 @@ function injectUI(){
   modal.innerHTML=`<div class="cp-modal"><div style="display:flex;justify-content:space-between"><h2>Nueva compra detallada</h2><button class="cp-btn" onclick="cpCloseCompra()">✕</button></div>
     <div class="cp-panel"><div class="cp-row">
       <div class="cp-field"><label>Foto/PDF del comprobante</label><input id="cp-file" type="file" accept="image/*,application/pdf" capture="environment"></div>
-      <div class="cp-field"><label>Lectura IA</label><button class="cp-btn primary" style="width:100%;margin-top:16px" onclick="cpAnalizarIA()">✨ Analizar comprobante</button></div>
+      <div class="cp-field"><label>Lectura IA</label><button class="cp-btn primary" style="width:100%;margin-top:16px" onclick="cpAnalizarIA()">✨ Analizar comprobante</button><p id="cp-ia-status" role="status" aria-live="polite" style="font-size:12px;line-height:1.4" hidden></p></div>
       <div class="cp-field"><label>Fecha</label><input id="cp-fecha" type="date"></div>
       <div class="cp-field"><label>Proveedor</label><input id="cp-proveedor" placeholder="Ej. Indartubo"></div>
       <div class="cp-field"><label>¿FC?</label><select id="cp-fc"><option value="si">Sí</option><option value="no">No</option></select></div>
@@ -266,7 +266,7 @@ function injectUI(){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div id="cp-totales" style="font:700 13px 'DM Mono',monospace"></div><div class="cp-actions"><button class="cp-btn" onclick="cpCloseCompra()">Cancelar</button><button class="cp-btn primary" onclick="cpGuardarCompra()">Guardar compra</button></div></div>
   </div>`;
   document.body.appendChild(modal);
-  modal.querySelector('#cp-file').addEventListener('change',e=>{if(aiCleanupActive)aiCleanupActive('file-change');selectedFile=e.target.files?.[0]||null;if(selectedFile){document.getElementById('cp-proveedor').value='';document.getElementById('cp-numero').value='';document.getElementById('cp-fecha').value='';document.getElementById('cp-items-body').replaceChildren();cpStartIngreso({});window.cpAddItem();}else cpResetIngreso();});
+  modal.querySelector('#cp-file').addEventListener('change',e=>{if(aiCleanupActive)aiCleanupActive('file-change');cpSetIaStatus('');selectedFile=e.target.files?.[0]||null;if(selectedFile){document.getElementById('cp-proveedor').value='';document.getElementById('cp-numero').value='';document.getElementById('cp-fecha').value='';document.getElementById('cp-items-body').replaceChildren();cpStartIngreso({});window.cpAddItem();}else cpResetIngreso();});
   modal.querySelector('#cp-fc').addEventListener('change',syncFC);
 
   const pay=document.createElement('div'); pay.id='cp-modal-pago'; pay.className='cp-modal-bg';
@@ -834,6 +834,7 @@ window.cpSaveConfigIA=async()=>{
  catch{toast('No se pudo guardar la conexión compartida. Revisá la conexión y los permisos de tu usuario.');}
  finally{cpIaSaving=false;}
 };
+function cpSetIaStatus(message,error=false){const el=document.getElementById('cp-ia-status');if(!el)return;el.hidden=!message;el.textContent=message;el.setAttribute('role',error?'alert':'status');el.style.color=error?'var(--amber)':'var(--text2)';}
 window.cpAnalizarIA=async()=>{
   if(!selectedFile)return toast('Seleccioná una foto o PDF.');
   let waiting;await Promise.race([cpIaConfigReady,new Promise(resolve=>{waiting=setTimeout(resolve,5000);})]).finally(()=>clearTimeout(waiting));
@@ -846,8 +847,10 @@ window.cpAnalizarIA=async()=>{
   const button=document.querySelector('[onclick="cpAnalizarIA()"]');
   const originalText='✨ Analizar comprobante';
   if(button){button.disabled=true;button.textContent='⏳ Analizando…';}
+  cpSetIaStatus('Preparando el archivo para enviarlo al lector…');
 
   let iframe,form,timer,pollTimer,done=false;
+  const startedAt=Date.now();
   const requestId='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   const callbackName='__tizIaCb_'+requestId.replace(/[^a-zA-Z0-9_]/g,'_');
 
@@ -860,6 +863,7 @@ window.cpAnalizarIA=async()=>{
     document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
     setTimeout(()=>{iframe?.remove();form?.remove();},200);
     if(button){button.disabled=false;button.textContent=originalText;}
+    if(!['response','exception','timeout'].includes(reason))cpSetIaStatus('Lectura cancelada. Podés volver a analizar el archivo.');
     if(aiCleanupActive===cleanup)aiCleanupActive=null;
     console.info('[TIZ IA] limpieza',reason,requestId);
   };
@@ -867,15 +871,16 @@ window.cpAnalizarIA=async()=>{
 
   const finish=(payload)=>{
     if(done)return;
-    console.log('[TIZ IA] respuesta',payload);
+    console.info('[TIZ IA] resultado',requestId,!!payload?.ok);
     cleanup('response');
     if(!payload||!payload.ok){
       console.error('[TIZ IA] Error del servicio:',payload);
       toast('Error IA: '+(payload?.error||'No se pudo analizar'));
+      cpSetIaStatus('No se pudo leer el comprobante: '+(payload?.error||'No se recibió una respuesta válida.')+' Podés volver a intentarlo.',true);
       return;
     }
-    applyAI(payload.data||{});
-    toast('Lectura IA completa. Revisá y confirmá.');
+    try{applyAI(payload.data||{});cpSetIaStatus('Lectura terminada: '+(payload.data?.items?.length||0)+' renglones. Confirmá el proveedor y revisá los insumos.');toast('Lectura IA completa. Revisá y confirmá.');}
+    catch(e){cpSetIaStatus('El lector respondió, pero no se pudieron mostrar los datos. Volvé a intentarlo; si persiste, informá este mensaje.',true);console.error('[TIZ IA] mostrar resultado',e);}
   };
 
   const poll=()=>{
@@ -894,13 +899,16 @@ window.cpAnalizarIA=async()=>{
     if(done)return;
     clearTimeout(pollTimer);
     document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
-    if(payload?.pending){pollTimer=setTimeout(poll,3000);return;}
+    if(payload?.pending){cpSetIaStatus('Esperando el resultado del lector ('+Math.round((Date.now()-startedAt)/1000)+' s). La lectura puede demorar más de medio minuto.');pollTimer=setTimeout(poll,3000);return;}
     finish(payload);
   };
 
   try{
     toast('Analizando comprobante…');
+    // La espera máxima incluye la lectura local del archivo, no sólo el servidor.
+    timer=setTimeout(()=>{cleanup('timeout');cpSetIaStatus('No se recibió el resultado en 2 minutos. El archivo sigue seleccionado. Volvé a analizarlo; no necesitás cargar otra clave API.',true);toast('No se recibió el resultado del lector. Revisá el mensaje junto al botón Analizar.');},120000);
     const base64=await fileToBase64(selectedFile);
+    if(done)return;
     iframe=document.createElement('iframe');
     iframe.name='cp-ia-frame-'+requestId;
     iframe.style.display='none';
@@ -915,11 +923,12 @@ window.cpAnalizarIA=async()=>{
     Object.entries(fields).forEach(([name,value])=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);});
     document.body.appendChild(form);
 
-    timer=setTimeout(()=>{cleanup('timeout');toast('La IA tardó demasiado. Probá con una foto JPG o un PDF más liviano.');},120000);
+    cpSetIaStatus('Archivo enviado al lector. Esperando el resultado…');
     form.submit();
     pollTimer=setTimeout(poll,1500);
   }catch(e){
     cleanup('exception');
+    cpSetIaStatus('No se pudo enviar el comprobante: '+(e?.message||e)+'. El archivo sigue seleccionado.',true);
     console.error('[TIZ IA]',e);
     toast('Error IA: '+(e?.message||e));
   }
@@ -1272,7 +1281,7 @@ function cpOpenIngresoProvider(existing){
  document.getElementById('cp-modal-compra').classList.remove('open');
  cpCaptureProviderDraft();cpShowProviderReturn();cpMarkProviderPending();
 }
-function cpShowProviderReturn(){if(document.getElementById('cp-provider-return'))return;const banner=document.createElement('div');banner.id='cp-provider-return';banner.className='cp-panel';banner.innerHTML='<b>Compra en curso · completar proveedor</b><p>Los datos del comprobante y el archivo se conservan. Los campos sin datos quedan marcados para completarlos.</p><button class="cp-btn" onclick="cpResumeIngreso()">Volver a la compra</button>';document.getElementById('cp-content').prepend(banner);}
+function cpShowProviderReturn(){if(document.getElementById('cp-provider-return'))return;const banner=document.createElement('div');banner.id='cp-provider-return';banner.className='cp-panel';banner.innerHTML='<b></b><p></p><button class="cp-btn" onclick="cpResumeIngreso()">Volver a la compra</button>';banner.querySelector('b').textContent=cpIngreso?.aiRead?'Lectura IA terminada · completar proveedor':'Compra en curso · completar proveedor';banner.querySelector('p').textContent=(cpIngreso?.aiRead?'Se reconocieron '+cpIngresoRows().length+' renglones. Completá y guardá la ficha del proveedor para continuar con los insumos. ':'')+'Los datos del comprobante y el archivo se conservan. Los campos sin datos quedan marcados para completarlos.';document.getElementById('cp-content').prepend(banner);}
 function cpCaptureProviderDraft(){if(!cpIngreso?.editingProvider||!document.getElementById('cp-prov-id'))return;const v=k=>document.getElementById('cp-prov-'+k)?.value||'';cpIngreso.providerDraft={id:v('id'),nombre:v('nombre'),nombreComercial:v('nombre'),razonSocial:v('razon'),cuit:v('cuit'),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),condicionPago:v('cond'),diasPago:v('dias'),notas:v('notas')};}
 window.cpResumeIngreso=()=>{if(!cpIngreso)return;cpIngreso.editingProvider=false;window.cpTab('compras');document.getElementById('cp-modal-compra').classList.add('open');cpRefreshIngreso();};
 function cpFillProvider(p={}){
@@ -1405,7 +1414,7 @@ function cpReviewIngreso(){
  cpIngreso.reviewed=cpIngresoSignature();cpRefreshIngreso();
 }
 const cpNuevaCompraLegacy=window.cpNuevaCompra;
-window.cpNuevaCompra=()=>{cpResetIngreso();cpNuevaCompraLegacy();};
+window.cpNuevaCompra=()=>{cpResetIngreso();cpSetIaStatus('');cpNuevaCompraLegacy();};
 const cpCalcTotalsLegacy=calcTotals;
 calcTotals=function(){cpCalcTotalsLegacy();cpRefreshIngreso();};
 const cpRowToItemLegacy=rowToItem;
@@ -1413,7 +1422,7 @@ rowToItem=function(tr){const i=cpRowToItemLegacy(tr);return cpIngreso?{...i,codi
 const cpApplyAILegacy=applyAI;
 applyAI=function(data){
  // Sólo campos de datos: el contenido del comprobante nunca indica acciones a ejecutar.
- const safe={...data,items:Array.isArray(data.items)?data.items:[],proveedor:ING.supplier(data).nombre};cpStartIngreso(data);cpApplyAILegacy(safe);if(!data.fecha)document.getElementById('cp-fecha').value='';cpRefreshIngreso();
+ const safe={...data,items:Array.isArray(data.items)?data.items:[],proveedor:ING.supplier(data).nombre};cpStartIngreso(data);cpIngreso.aiRead=true;cpApplyAILegacy(safe);if(!data.fecha)document.getElementById('cp-fecha').value='';cpRefreshIngreso();
  if(ING.supplierMatches(cpIngreso.supplier,C.proveedores).type==='missing')cpOpenIngresoProvider();
 };
 const cpGuardarCompraLegacy=window.cpGuardarCompra;
