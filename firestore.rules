@@ -25,11 +25,40 @@ service cloud.firestore {
       return isSales() || (!changed.hasAny(['bajaObra', 'bajaCotizacion', 'historialBajaObra'])
         && !(changed.hasAny(['estado']) && (resource.data.get('estado', '') == 'Baja' || request.resource.data.get('estado', '') == 'Baja')));
     }
+    // A quotation can become approved only after the server validates materials and prices.
+    function materialApproval(id) {
+      return get(/databases/$(database)/documents/aprobacionesInsumosCotizacion/$(id)).data;
+    }
+    function materialQuoteAllowed(id) {
+      return request.resource.data.get('estado', '') != 'Aprobado'
+        || (exists(/databases/$(database)/documents/aprobacionesInsumosCotizacion/$(id))
+          && request.resource.data.get('insumosVentasAprobados', {}) == materialApproval(id).resumen
+          && request.resource.data.get('insumosVentas', []) == materialApproval(id).insumos);
+    }
+    function materialWorkAllowed() {
+      let id = request.resource.data.get('presupuestoId', '');
+      return request.resource.data.get('estado', '') != 'Aprobado'
+        || (id != '' && exists(/databases/$(database)/documents/aprobacionesInsumosCotizacion/$(id))
+          && request.resource.data.get('insumosVentasAprobados', {}) == materialApproval(id).resumen);
+    }
+    function materialUpdateAllowed(collection, id) {
+      let changes = request.resource.data.diff(resource.data).affectedKeys();
+      let unchanged = !changes.hasAny(['insumosVentas', 'insumosVentasAprobados']);
+      let preserved = !resource.data.keys().hasAny(['insumosVentasAprobados'])
+        || (request.resource.data.get('insumosVentasAprobados', {}) == resource.data.insumosVentasAprobados
+          && request.resource.data.get('insumosVentas', []) == resource.data.get('insumosVentas', []));
+      // Existing approved records can still receive operational updates without retroactive migration.
+      return preserved && ((unchanged && !changes.hasAny(['estado']))
+        || (collection == 'presupuestos' ? materialQuoteAllowed(id) : materialWorkAllowed()));
+    }
     match /{collection}/{document=**} {
       allow read: if isTizUser();
-      allow create: if isTizUser() && (!(collection in ['obras', 'presupuestos']) || bajaCreateAllowed());
-      allow update: if isTizUser() && (!(collection in ['obras', 'presupuestos']) || bajaUpdateAllowed());
-      allow delete: if isTizUser() && (!(collection in ['obras', 'presupuestos']) || isSales());
+      allow create: if isTizUser() && collection != 'aprobacionesInsumosCotizacion'
+        && (!(collection in ['obras', 'presupuestos']) || (bajaCreateAllowed()
+          && (collection == 'presupuestos' ? materialQuoteAllowed(document) : materialWorkAllowed())));
+      allow update: if isTizUser() && collection != 'aprobacionesInsumosCotizacion'
+        && (!(collection in ['obras', 'presupuestos']) || (bajaUpdateAllowed() && materialUpdateAllowed(collection, document)));
+      allow delete: if isTizUser() && collection != 'aprobacionesInsumosCotizacion' && (!(collection in ['obras', 'presupuestos']) || isSales());
     }
   }
 }

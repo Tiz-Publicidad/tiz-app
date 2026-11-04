@@ -68,6 +68,10 @@ jobs:
           node --test tests/baseMadreLayoutV1.test.cjs
           node --check clienteContactosV1.js
           node --test tests/clienteContactosV1.test.cjs
+          node --check insumosCotizacionV1.js
+          node --check functions/insumosCotizacionCoreV1.js
+          node --check functions/insumosCotizacionApiV1.js
+          node --test tests/insumosCotizacionV1.test.cjs
           node --check sectorizacionV35.js
           node --test tests/cotizacionesEstadoV1.test.cjs tests/tipoFacturaCotizacionV1.test.cjs tests/cotizacionesOrdenV1.test.cjs
           node --check comprasObrasCoreV1.js
@@ -210,3 +214,4 @@ jobs:
           if [ "$JOB_STATUS" = success ]; then state=success; fi
           printf '{"state":"%s","context":"tiz-pages-pv0003","description":"Pages %s","target_url":"https://github.com/%s/actions/runs/%s"}' "$state" "$JOB_STATUS" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > /tmp/pages-status.json
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/pages-status.json "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" >/dev/null
+
