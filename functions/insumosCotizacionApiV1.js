@@ -36,6 +36,18 @@ async function equivalence(db,body,user,at=new Date().toISOString()){
  const id=C.text(body.articuloId),target=C.unit(body.unidad),factor=C.number(body.factor);if(!/^[\w-]{1,150}$/.test(id)||!C.units.includes(target)||!Number.isFinite(factor)||factor<=0)throw fail('Equivalencia inválida.');
  return db.runTransaction(async tx=>{const ref=db.collection('articulosCompra').doc(id),snap=await tx.get(ref);if(!snap.exists)throw fail('El insumo ya no existe.');const a=snap.data();if(C.unit(a.unidad)!==C.unit(body.unidadStock))throw fail('Cambió la unidad de stock. Actualizá el catálogo.');if(target===C.unit(a.unidad))throw fail('La unidad de uso ya coincide con stock.');const values={...(a.equivalenciasStock||{}),[target]:factor};tx.update(ref,{equivalenciasStock:values,equivalenciasActualizadasEn:at,equivalenciasActualizadasPor:user.email});return {ok:true,equivalenciasStock:values};});
 }
+function unitVersion(a){return require('node:crypto').createHash('sha256').update(JSON.stringify({unidad:a.unidad||'',unidadControl:a.unidadControl||'',unidadCompra:a.unidadCompraPreferida||'',equivalencias:Object.entries(a.equivalenciasStock||{}).sort(([a],[b])=>a.localeCompare(b)),medidas:a.medidasPresentacion||{}})).digest('hex');}
+function mayUnits(user){if(!SALES.has(user.email)&&user.email!=='carolina.flores@tizpublicidad.com')throw fail('Ventas o Compras deben definir las unidades de stock.',403);}
+async function stockUnits(db,body,user,at=new Date().toISOString()){
+ mayUnits(user);const id=C.text(body.articuloId);if(!/^[\w-]{1,150}$/.test(id))throw fail('Insumo inválido.');const ref=db.collection('articulosCompra').doc(id);
+ if(body.mode==='quote-materials-units-read'){const snap=await ref.get();if(!snap.exists)throw fail('El insumo ya no existe.',404);return {ok:true,articulo:{...snap.data(),id},version:unitVersion(snap.data())};}
+ if(body.mode==='quote-materials-units-preview'){
+  const [snap,purchases,counts,plans]=await Promise.all([ref.get(),...['compras','conteosStock','planesMateriales'].map(name=>db.collection(name).get())]);if(!snap.exists)throw fail('El insumo ya no existe.',404);const a=snap.data();if(C.unit(body.unidadOrigen)!==C.unit(a.unidad))throw fail('Cambió la unidad original. Reabrí el formulario.',409);
+  const setting=C.unitSetting(a,body),proposed={...a,...setting,id},meta=C.catalog([proposed],list(purchases),list(counts),list(plans))[0];return {ok:true,version:unitVersion(a),articulo:proposed,resumen:meta,configuracion:setting};
+ }
+ if(body.mode!=='quote-materials-units-save')throw fail('Operación de unidades inválida.');
+ return db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)throw fail('El insumo ya no existe.',404);const a=snap.data();if(body.version!==unitVersion(a)||C.unit(body.unidadOrigen)!==C.unit(a.unidad))throw fail('Otra persona cambió el criterio de unidades. Volvé a revisar el cálculo.',409);const setting=C.unitSetting(a,body);tx.update(ref,{...setting,unidadesActualizadasEn:at,unidadesActualizadasPor:user.email});tx.set(ref.collection('historialUnidades').doc(),{anterior:{unidad:a.unidad||'',unidadControl:a.unidadControl||'',equivalenciasStock:a.equivalenciasStock||{},medidasPresentacion:a.medidasPresentacion||{}},nuevo:setting,fecha:at,usuario:user.email});return {ok:true,articulo:{...a,...setting,id}};});
+}
 function aiRows(payload,catalog){if(!Array.isArray(payload?.materiales)||!payload.materiales.length)throw fail('La IA no devolvió materiales. Ampliá la descripción o cargalos manualmente.');return payload.materiales.slice(0,80).map(r=>{const a=catalog.find(a=>a.id===C.text(r.articuloId));return {articuloId:a?.id||'',descripcion:C.text(a?.descripcion||r.descripcion).slice(0,300),cantidad:'',unidad:a?.unidad||C.unit(r.unidad),revisado:false,compraPendiente:false,origen:'ia',nota:C.text(r.motivo).slice(0,500)};});}
 async function sharedIA(db,input){
  const snap=await db.collection('configuracionCompras').doc('iaComprobantes').get(),url=snap.exists?C.text(snap.data().url):'';
@@ -55,7 +67,8 @@ async function handle(req,res){
   if(mode==='catalog')return res.json({ok:true,articulos:await readCatalog(db)});
   if(mode==='approve')return res.json(await approve(db,body,user));
   if(mode==='equivalence')return res.json(await equivalence(db,body,user));
+  if(['units-read','units-preview','units-save'].includes(mode))return res.json(await stockUnits(db,body,user));
   if(mode==='suggest'){if(!SALES.has(user.email))throw fail('Sólo Ventas puede generar el desglose de una cotización.',403);return res.json(await suggest(db,body));}throw fail('Operación inválida.');
  }catch(e){return res.status(e.status||400).json({ok:false,error:e.message||'No se pudo procesar el detalle de materiales.'});}
 }
-module.exports={readCatalog,approve,equivalence,aiRows,sharedIA,suggest,handle};
+module.exports={readCatalog,approve,equivalence,stockUnits,unitVersion,aiRows,sharedIA,suggest,handle};
