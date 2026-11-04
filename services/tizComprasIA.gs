@@ -50,11 +50,7 @@ function doGet(e) {
 function doPost(e) {
   if (!tizAutorizado_(e)) return tizRespuesta_({ ok: false, error: 'Enlace de conexión inválido.' });
   const p = e && e.parameter || {};
-  if (p.action === 'analyzeMaterials') {
-    try { return tizRespuesta_({ ok: true, data: tizLeerMaterialesCotizacion_(p) }); }
-    catch (error) { return tizRespuesta_({ ok: false, error: error.message || 'No se pudo desglosar el trabajo.' }); }
-  }
-  if (p.action !== 'analyzeExpense' || !/^cpia-[A-Za-z0-9-]{8,100}$/.test(p.requestId || '')) return tizRespuesta_({ ok: false, error: 'Solicitud inválida.' });
+  if (!['analyzeExpense', 'analyzeMaterials'].includes(p.action) || !/^cpia-[A-Za-z0-9-]{8,100}$/.test(p.requestId || '')) return tizRespuesta_({ ok: false, error: 'Solicitud inválida.' });
   const cache = CacheService.getScriptCache(), cacheKey = 'tiz-ia:' + p.requestId;
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -63,7 +59,7 @@ function doPost(e) {
     cache.put(cacheKey, JSON.stringify({ pending: true }), 600);
   } finally { lock.releaseLock(); }
   let result;
-  try { result = { ok: true, data: tizLeerComprobante_(p) }; }
+  try { result = { ok: true, data: p.action === 'analyzeMaterials' ? tizLeerMaterialesCotizacion_(p) : tizLeerComprobante_(p) }; }
   catch (error) { result = { ok: false, error: error.message || 'No se pudo leer el comprobante.' }; }
   let json = JSON.stringify(result);
   if (Utilities.newBlob(json).getBytes().length > 90000) json = JSON.stringify({ ok: false, error: 'La respuesta es demasiado extensa. Dividí el comprobante en archivos más pequeños.' });

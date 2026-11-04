@@ -37,18 +37,18 @@ async function equivalence(db,body,user,at=new Date().toISOString()){
  return db.runTransaction(async tx=>{const ref=db.collection('articulosCompra').doc(id),snap=await tx.get(ref);if(!snap.exists)throw fail('El insumo ya no existe.');const a=snap.data();if(C.unit(a.unidad)!==C.unit(body.unidadStock))throw fail('Cambió la unidad de stock. Actualizá el catálogo.');if(target===C.unit(a.unidad))throw fail('La unidad de uso ya coincide con stock.');const values={...(a.equivalenciasStock||{}),[target]:factor};tx.update(ref,{equivalenciasStock:values,equivalenciasActualizadasEn:at,equivalenciasActualizadasPor:user.email});return {ok:true,equivalenciasStock:values};});
 }
 function aiRows(payload,catalog){if(!Array.isArray(payload?.materiales)||!payload.materiales.length)throw fail('La IA no devolvió materiales. Ampliá la descripción o cargalos manualmente.');return payload.materiales.slice(0,80).map(r=>{const a=catalog.find(a=>a.id===C.text(r.articuloId));return {articuloId:a?.id||'',descripcion:C.text(a?.descripcion||r.descripcion).slice(0,300),cantidad:'',unidad:a?.unidad||C.unit(r.unidad),revisado:false,compraPendiente:false,origen:'ia',nota:C.text(r.motivo).slice(0,500)};});}
-async function sharedIA(db,input,request=fetch){
+async function sharedIA(db,input){
  const snap=await db.collection('configuracionCompras').doc('iaComprobantes').get(),url=snap.exists?C.text(snap.data().url):'';
  if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec\/[A-Za-z0-9_-]+$/.test(url))throw fail('Guardá la conexión compartida en Compras → IA comprobantes antes de usar el desglose.',503);
- try{const response=await request(url,{method:'POST',signal:AbortSignal.timeout(35000),headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'analyzeMaterials',datos:JSON.stringify(input)})});if(!response.ok)throw Error('El servicio de IA no respondió.');const payload=await response.json();if(!payload?.ok)throw Error(C.text(payload?.error)||'El servicio no devolvió un desglose válido.');return payload.data;}
- catch(e){if(e.name==='TimeoutError'||e.name==='AbortError')throw fail('La IA tardó demasiado. El borrador se conserva; podés volver a intentar.',503);throw fail('No se pudo desglosar el trabajo: '+e.message,503);}
+ // Use the same browser POST + authenticated JSONP polling transport as Compras.
+ return {url,datos:input};
 }
 async function suggest(db,body){
  const quote=body.cotizacion||{},description=C.text(quote.desc).slice(0,10000),items=(Array.isArray(quote.items)?quote.items:[]).slice(0,100).map(i=>({descripcion:C.text(i.desc||i.descripcion).slice(0,1500),cantidad:C.number(i.cant||i.cantidad)||1}));
  if(!description&&!items.some(i=>i.descripcion))throw fail('Describí el trabajo en Cotizaciones antes de pedir el desglose.');
  const catalog=await readCatalog(db);if(!catalog.length)throw fail('Primero cargá el catálogo de insumos en Compras.');
- const value=await sharedIA(db,{descripcion:description,items,catalogo:catalog.map(a=>({articuloId:a.id,codigo:a.codigo,descripcion:a.descripcion,unidad:a.unidad}))});
- return {ok:true,materiales:aiRows(value,catalog)};
+ const servicioIA=await sharedIA(db,{descripcion:description,items,catalogo:catalog.map(a=>({articuloId:a.id,codigo:a.codigo,descripcion:a.descripcion,unidad:a.unidad}))});
+ return {ok:true,servicioIA};
 }
 async function handle(req,res){
  res.set('Cache-Control','no-store');try{const header=req.get('authorization')||'';if(!header.startsWith('Bearer '))throw fail('Iniciá sesión en TIZ.',401);const admin=require('firebase-admin'),token=await admin.auth().verifyIdToken(header.slice(7)),user={email:C.norm(token.email)};if(!USERS.has(user.email))throw fail('Tu cuenta no tiene acceso a los materiales de cotizaciones.',403);const db=admin.firestore(),body=req.body||{},mode=C.text(body.mode).replace(/^quote-materials-/,'');

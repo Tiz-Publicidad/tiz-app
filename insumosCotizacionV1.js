@@ -38,6 +38,7 @@ function status(){
   const source=locked()?line:a;price.innerHTML=Number.isFinite(line.costoUnitarioStock)?`${money(line.costoUnitarioStock)} / ${esc(line.unidadStock)}<small>Total: ${money(line.costoTotal)}</small>`:'Sin precio válido';if(source)price.innerHTML+=`<small class="iv-muted">${esc(date(source.fechaCosto)||'Sin fecha')} · ${esc(source.proveedor||'Sin proveedor')}</small>`;
  });
  document.getElementById('iv-status').textContent=error||(loading?'Consultando stock y precios de Compras…':locked()?'Detalle aprobado el '+new Date(baseline.aprobadoEn).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'})+'. Para cambiar materiales, creá una nueva revisión.':result.ok?'Materiales revisados. Se comprobarán nuevamente con los precios de Compras al aprobar.':'No se puede aprobar: '+result.errores.length+' pendiente(s). Podés guardar como Borrador o Enviado.');
+ if(aiBusy)document.getElementById('iv-status').textContent='La IA está desglosando el trabajo. Esperando el resultado del servicio compartido…';
  document.getElementById('iv-summary').innerHTML=`<b>${result.ok?'Costo de insumos previsto':'Costo parcial de insumos'}: ${money(result.total)}</b><div class="iv-muted">${locked()?'Precios conservados desde la aprobación.':'Último precio neto registrado por Compras. El importe se guarda al aprobar.'} Otros costos del trabajo se compararán por separado.</div>`;
 }
 async function load(force=false){
@@ -55,9 +56,20 @@ function change(e){const tr=e.target.closest('[data-iv-row]'),key=e.target.datas
 }
 async function suggest(){
  if(locked()||aiBusy)return;const current=generation,source=sourceKey();aiBusy=true;error='';render();
- try{const result=await api({mode:'suggest',cotizacion:quote()});if(current!==generation)return;if(source!==sourceKey())throw Error('Cambió la descripción del trabajo durante el desglose. Volvé a pedirlo para usar los datos actuales.');const existing=new Set(rows.map(r=>r.articuloId||C.norm(r.descripcion)));const added=(result.materiales||[]).filter(r=>!existing.has(r.articuloId||C.norm(r.descripcion)));if(rows.length+added.length>200)throw Error('El detalle admite hasta 200 materiales.');rows.push(...C.draft(added));}
+ try{const prepared=await api({mode:'suggest',cotizacion:quote()}),result=prepared.servicioIA?await requestShared(prepared.servicioIA):prepared;if(current!==generation)return;if(source!==sourceKey())throw Error('Cambió la descripción del trabajo durante el desglose. Volvé a pedirlo para usar los datos actuales.');const existing=new Set(rows.map(r=>r.articuloId||C.norm(r.descripcion)));const proposed=(result.materiales||[]).map(r=>{const a=catalog.find(a=>a.id===r.articuloId);return {articuloId:a?.id||'',descripcion:a?.descripcion||String(r.descripcion||''),cantidad:'',unidad:C.unit(a?.unidad||r.unidad),revisado:false,compraPendiente:false,origen:'ia',nota:String(r.motivo||r.nota||'')};});const added=proposed.filter(r=>!existing.has(r.articuloId||C.norm(r.descripcion)));if(!proposed.length)throw Error('La IA no devolvió materiales. Ampliá la descripción o cargalos manualmente.');if(rows.length+added.length>200)throw Error('El detalle admite hasta 200 materiales.');rows.push(...C.draft(added));}
  catch(e){if(current===generation)error=e.message;}
  finally{aiBusy=false;render();}
+}
+function requestShared(service){
+ return new Promise((resolve,reject)=>{
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec\/[A-Za-z0-9_-]+$/.test(service.url||''))return reject(Error('La conexión de IA no es válida.'));
+  const requestId='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2),callback='__tizMaterials_'+requestId.replace(/[^a-zA-Z0-9_]/g,'_');let done=false,timer,pollTimer,frame,form,script;
+  const finish=(err,data)=>{if(done)return;done=true;clearTimeout(timer);clearTimeout(pollTimer);script?.remove();frame?.remove();form?.remove();window[callback]=()=>{};setTimeout(()=>{delete window[callback];},10000);if(err)reject(err);else resolve(data);};
+  const poll=()=>{if(done)return;clearTimeout(pollTimer);script?.remove();script=document.createElement('script');script.onerror=()=>{script.remove();if(!done){clearTimeout(pollTimer);pollTimer=setTimeout(poll,3000);}};script.src=service.url+'?action=status&requestId='+encodeURIComponent(requestId)+'&callback='+encodeURIComponent(callback)+'&_='+Date.now();document.body.append(script);pollTimer=setTimeout(poll,10000);};
+  window[callback]=payload=>{if(done)return;clearTimeout(pollTimer);script?.remove();if(payload?.pending){pollTimer=setTimeout(poll,3000);return;}if(!payload?.ok)return finish(Error(payload?.error||'No se pudo desglosar el trabajo.'));finish(null,payload.data||{});};
+  timer=setTimeout(()=>finish(Error('La IA tardó más de dos minutos. El borrador se conserva; podés reintentar.')),120000);
+  try{frame=document.createElement('iframe');frame.name='tiz-materials-'+requestId;frame.style.display='none';document.body.append(frame);form=document.createElement('form');form.method='POST';form.action=service.url;form.target=frame.name;form.style.display='none';for(const [name,value] of Object.entries({action:'analyzeMaterials',requestId,datos:JSON.stringify(service.datos)})){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.append(input);}document.body.append(form);form.submit();pollTimer=setTimeout(poll,1500);}catch(e){finish(e);}
+ });
 }
 function equivalence(index){
  const r=rows[index],a=catalog.find(a=>a.id===r.articuloId);if(!a||!r.unidad){error='Elegí primero el insumo del catálogo y la unidad de uso.';status();return;}if(C.unit(r.unidad)===C.unit(a.unidad)){error='La unidad de uso ya coincide con stock.';status();return;}
