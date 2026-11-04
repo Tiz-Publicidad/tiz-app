@@ -78,7 +78,7 @@ function equivalence(index){
 function click(e){const action=e.target.closest('[data-iv]')?.dataset.iv;if(action==='reload')load(true);if(action==='ai')suggest();if(action==='add'&&!locked()){rows.push({articuloId:'',descripcion:'',cantidad:'',unidad:'',revisado:false,compraPendiente:false,origen:'manual',nota:''});render();}
  const remove=e.target.closest('[data-remove]');if(remove&&!locked()){rows.splice(Number(remove.dataset.remove),1);render();}const convert=e.target.closest('[data-equivalence]');if(convert&&!locked())equivalence(Number(convert.dataset.equivalence));
 }
-function canApprove(){if(locked())return true;const result=C.validate(rows,catalog);if(loading||error||!loaded||!result.ok){ensure();status();host()?.scrollIntoView({behavior:'smooth',block:'center'});window.showToast?.(error||'Completá y revisá los insumos de la cotización antes de aprobar.');return false;}return true;}
+function canApprove(){if(locked())return true;const result=C.validate(rows,catalog);if(loading||aiBusy||error||!loaded||!result.ok){ensure();status();host()?.scrollIntoView({behavior:'smooth',block:'center'});window.showToast?.(error||(aiBusy?'Esperá que termine el desglose y revisá los materiales antes de aprobar.':'Completá y revisá los insumos de la cotización antes de aprobar.'));return false;}return true;}
 window.TIZInsumosCotizacionV1={open,canApprove,saveFields:()=>({insumosVentas:C.draft(rows),insumosCotizacionId:newQuoteId}),getDraft:()=>C.draft(rows)};
 function init(){ensure();render();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
