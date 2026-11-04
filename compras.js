@@ -1376,8 +1376,9 @@ window.cpRenderCatalogoIngreso=()=>{
  if(!cpCatalogSelection)return;
  const matches=cpCatalogMatches(C.articulos,document.getElementById('cp-catalog-query').value,document.getElementById('cp-catalog-family').value),visible=matches.slice(0,80),body=document.getElementById('cp-catalog-results');
  document.getElementById('cp-catalog-count').textContent=matches.length?(matches.length+' insumos encontrados'+(matches.length>80?' · Se muestran los primeros 80. Refiná la búsqueda para ver los demás.':'.')):'No hay coincidencias. Probá otras palabras o creá un nuevo insumo.';
- body.innerHTML=visible.map(a=>`<tr><td>${esc(a.codigo||'—')}</td><td><b>${esc(a.descripcion||'Sin descripción')}</b></td><td>${esc([a.familia||a.rubro,a.subfamilia].filter(Boolean).join(' / '))}</td><td>${esc(a.unidad||'—')}</td><td><button type="button" class="cp-btn primary" data-catalog-article="${esc(a.id)}" aria-label="Vincular ${esc(a.codigo||'')} ${esc(a.descripcion||'')}">Vincular</button></td></tr>`).join('')||'<tr><td colspan="5">Sin resultados para esta búsqueda.</td></tr>';
+ body.innerHTML=visible.map(a=>`<tr><td>${esc(a.codigo||'—')}</td><td><b>${esc(a.descripcion||'Sin descripción')}</b></td><td>${esc([a.familia||a.rubro,a.subfamilia].filter(Boolean).join(' / '))}</td><td>${esc(a.unidad||'—')}</td><td><button type="button" class="cp-btn primary" data-catalog-article="${esc(a.id)}" aria-label="Vincular ${esc(a.codigo||'')} ${esc(a.descripcion||'')}">Vincular</button> <button type="button" class="cp-btn" data-catalog-edit="${esc(a.id)}" aria-label="Editar insumo ${esc(a.codigo||'')} ${esc(a.descripcion||'')}">Editar insumo</button></td></tr>`).join('')||'<tr><td colspan="5">Sin resultados para esta búsqueda.</td></tr>';
  body.querySelectorAll('[data-catalog-article]').forEach(button=>button.onclick=()=>window.cpLinkCatalogoIngreso(button.dataset.catalogArticle));
+ body.querySelectorAll('[data-catalog-edit]').forEach(button=>button.onclick=()=>window.cpEditArticulo(button.dataset.catalogEdit));
 };
 window.cpLinkCatalogoIngreso=id=>{
  const selection=cpCatalogSelection,article=C.articulos.find(a=>a.id===id);
@@ -1391,7 +1392,7 @@ window.cpEditArticulo=(id,row=null)=>{
  if(cpArticleSaving)return;
  const a=C.articulos.find(x=>x.id===id);if(!a)return toast('El insumo ya no está disponible.');
  cpArticleEditor={id,row};let modal=document.getElementById('cp-modal-edit-insumo');
- if(!modal){modal=document.createElement('div');modal.id='cp-modal-edit-insumo';modal.className='cp-modal-bg';modal.style.zIndex='12003';document.body.append(modal);}
+ if(!modal){modal=document.createElement('div');modal.id='cp-modal-edit-insumo';modal.className='cp-modal-bg';modal.style.zIndex='12005';document.body.append(modal);}
  const current=(selector,fallback)=>row?.querySelector(selector)?.value??fallback??'';
  const fields=[['desc','Descripción',a.descripcion],['unit','Unidad',current('.i-unit',a.unidad)],['family','Familia',current('.i-family',a.familia||a.rubro)],['subfamily','Subfamilia',current('.i-subfamily',a.subfamilia)]];
  modal.innerHTML=`<div class="cp-modal" style="max-width:720px" role="dialog" aria-label="Editar insumo"><h2>Editar insumo ${esc(a.codigo||'')}</h2><p class="cp-sub">Estos datos se actualizan en el catálogo y en la compra en curso. Las compras anteriores conservan sus datos.</p><div class="cp-row" style="grid-template-columns:repeat(2,minmax(0,1fr))">${fields.map(([key,label,value])=>`<div class="cp-field"><label for="cp-edit-${key}">${label}</label><input id="cp-edit-${key}" value="${esc(value)}" ${key==='family'?'list="cp-edit-families"':key==='subfamily'?'list="cp-edit-subfamilies"':''}></div>`).join('')}<div class="cp-field"><label for="cp-edit-control">Control de stock</label><select id="cp-edit-control"><option value="estrategico">Estratégico</option><option value="consumible">Consumible</option><option value="sin_stock">Sin stock</option></select></div><div class="cp-field"><label for="cp-edit-min">Stock mínimo</label><input id="cp-edit-min" type="number" min="0" step="0.01" value="${esc(a.stockMinimo??0)}"></div></div><datalist id="cp-edit-families">${familyOptions().map(f=>`<option value="${esc(f)}">`).join('')}</datalist><datalist id="cp-edit-subfamilies"></datalist><p id="cp-edit-error" role="alert" class="cp-match-warn"></p><div class="cp-actions" style="margin-top:14px"><button class="cp-btn" id="cp-edit-cancel" onclick="cpCloseEditArticulo()">Volver sin guardar</button><button class="cp-btn primary" id="cp-edit-save" onclick="cpSaveEditArticulo()">Guardar cambios del insumo</button></div></div>`;
@@ -1412,7 +1413,7 @@ window.cpSaveEditArticulo=async()=>{
   await updateDoc(doc(db,'articulosCompra',id),{...data,actualizado:serverTimestamp()});
   const updated={...existing,...data,id};C.articulos=C.articulos.map(a=>a.id===id?updated:a);
   document.querySelectorAll('#cp-items-body tr').forEach(tr=>{if(tr.dataset.articleId===id){if(cpIngreso?.confirmed&&tr.dataset.confirmed==='1')cpConfirmIngresoArticle(tr,updated);else applyArticleToRow(tr,updated);}});
-  refreshCatalogDatalist();cpRenderArticleRows();calcTotals();cpArticleSaving=false;window.cpCloseEditArticulo();toast('Insumo actualizado. Se conservaron la cantidad y el precio de la compra.');
+  refreshCatalogDatalist();cpRenderArticleRows();window.cpRenderCatalogoIngreso?.();calcTotals();cpArticleSaving=false;window.cpCloseEditArticulo();toast('Insumo actualizado. Se conservaron la cantidad y el precio de la compra.');
  }catch(e){error.textContent='No se pudo guardar el insumo: '+e.message;}
  finally{cpArticleSaving=false;document.getElementById('cp-edit-save').disabled=false;document.getElementById('cp-edit-cancel').disabled=false;}
 };

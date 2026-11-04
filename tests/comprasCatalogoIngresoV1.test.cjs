@@ -39,4 +39,22 @@ test('no vincula si cambió el proveedor o desapareció el artículo mientras se
  const f=fixture();f.context.window.cpOpenCatalogoIngreso(f.row);f.context.C.articulos=[];f.context.window.cpLinkCatalogoIngreso('perfil-j');assert.equal(f.row.dataset.articleId,undefined);assert.match(f.messages.at(-1),/ya no está disponible/);
  f.context.C.articulos=[f.article];f.context.cpIngreso.providerId='otro';f.context.window.cpLinkCatalogoIngreso('perfil-j');assert.equal(f.row.dataset.articleId,undefined);assert.match(f.messages.at(-1),/compra cambió/);
 });
+test('editar desde el catálogo corrige el mismo insumo, vuelve al listado actualizado y permite vincular después',async()=>{
+ const f=fixture(),writes=[],editButton=node(),linkButton=node();editButton.dataset.catalogEdit='perfil-j';linkButton.dataset.catalogArticle='perfil-j';
+ f.article.descripcion='Perfil L de aluminio blanco';
+ f.elements['cp-catalog-results'].querySelectorAll=selector=>selector==='[data-catalog-edit]'?[editButton]:selector==='[data-catalog-article]'?[linkButton]:[];
+ Object.assign(f.context,{familyOptions:()=>['Hierros'],setSubfamilyList(){},db:{},doc:(_db,collection,id)=>({collection,id}),serverTimestamp:()=>null,updateDoc:async(ref,data)=>writes.push({ref,data}),refreshCatalogDatalist(){},cpRenderArticleRows(){},calcTotals(){}});
+ f.context.document.querySelectorAll=()=>[f.row];
+ for(const key of ['desc','unit','family','subfamily','control','min','error','save','cancel'])f.elements['cp-edit-'+key]=node();
+ vm.runInContext(source.slice(source.indexOf('let cpArticleEditor='),source.indexOf('const cpAddItemLegacy=')),f.context);
+ f.context.window.cpOpenCatalogoIngreso(f.row);assert.match(f.elements['cp-catalog-results'].innerHTML,/Editar insumo/);editButton.onclick();
+ assert.match(f.elements['cp-modal-edit-insumo'].innerHTML,/Perfil L de aluminio blanco/);
+ assert.ok(Number(f.elements['cp-modal-edit-insumo'].style.zIndex)>Number(f.elements['cp-modal-catalogo-ingreso'].style.zIndex));
+ f.context.window.cpCloseEditArticulo();assert.equal(writes.length,0);assert.equal(f.row.dataset.articleId,undefined);assert.equal(f.elements['cp-modal-catalogo-ingreso'].classList.open,true);
+ editButton.onclick();for(const [key,value] of Object.entries({desc:'Perfil J de aluminio blanco',unit:'UNID',family:'Hierros',subfamily:'Aluminio',control:'estrategico',min:'0'}))f.elements['cp-edit-'+key].value=value;
+ await f.context.window.cpSaveEditArticulo();
+ assert.equal(writes.length,1);assert.equal(writes[0].ref.id,'perfil-j');assert.equal(writes[0].ref.collection,'articulosCompra');assert.equal(f.context.C.articulos.length,1);
+ assert.match(f.elements['cp-catalog-results'].innerHTML,/Perfil J de aluminio blanco/);assert.doesNotMatch(f.elements['cp-catalog-results'].innerHTML,/Perfil L de aluminio blanco/);assert.equal(f.row.dataset.articleId,undefined);
+ linkButton.onclick();assert.equal(f.row.dataset.articleId,'perfil-j');assert.equal(f.fields['.i-desc'].value,'Perfil J de aluminio blanco');assert.equal(f.fields['.i-original'].value,'Perfil nro 80 Blanco - 10 t x 6 mts');assert.equal(f.fields['.i-qty'].value,'10');assert.equal(f.fields['.i-price'].value,'123.45');
+});
 
