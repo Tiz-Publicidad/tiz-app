@@ -445,7 +445,7 @@ function renderProveedores(el){
     const prox=[...deuda].filter(x=>x.vencimiento).sort((a,b)=>String(a.vencimiento).localeCompare(String(b.vencimiento)))[0];
     return `<tr>
       <td><b>${esc(name)}</b>${p.razonSocial&&p.razonSocial!==name?'<div class="cp-sub">'+esc(p.razonSocial)+'</div>':''}<div class="cp-sub">${p.cuit?'CUIT '+esc(p.cuit):'CUIT sin cargar'}</div><div class="cp-match-warn">${ING.pendingSupplier(p).length?'Completar: '+ING.pendingSupplier(p).map(k=>k==='contacto'?'vendedor / contacto':k).join(', '):''}</div></td>
-      <td>${esc(p.contacto||'—')}</td><td>${esc(p.telefono||p.cel||'—')}</td><td>${esc(p.email||'—')}</td>
+      <td>${cpProviderContacts(p).map(c=>'<div>'+esc(c.nombre||'—')+'</div>').join('')||'—'}</td><td>${cpProviderContacts(p).map(c=>'<div>'+esc(c.telefono||'—')+'</div>').join('')||'—'}</td><td>${cpProviderContacts(p).map(c=>'<div>'+esc(c.email||'—')+'</div>').join('')||'—'}</td>
       <td>${esc(p.condicionPago||'—')}${p.diasPago?'<div class="cp-sub">'+esc(p.diasPago)+' días</div>':''}</td>
       <td>${compras.length}<div class="cp-sub">${money(total)}</div></td>
       <td><b style="color:${saldo?'var(--amber)':'var(--green)'}">${money(saldo)}</b><div class="cp-sub">${deuda.length} compromisos</div></td>
@@ -469,13 +469,14 @@ function renderProveedores(el){
         <div class="cp-field" style="grid-column:span 2"><label for="cp-prov-razon">Razón social del comprobante</label><textarea id="cp-prov-razon" rows="2" placeholder="Nombre legal completo que figura en la factura"></textarea></div>
         <div class="cp-field"><label>CUIT</label><input id="cp-prov-cuit"></div>
         <div class="cp-field"><label>Domicilio</label><input id="cp-prov-domicilio"></div>
-        <div class="cp-field"><label>Contacto</label><input id="cp-prov-contacto"></div>
+        <div class="cp-field"><label>Contacto principal</label><input id="cp-prov-contacto"></div>
         <div class="cp-field"><label>Teléfono</label><input id="cp-prov-tel"></div>
         <div class="cp-field"><label>Email</label><input id="cp-prov-email"></div>
         <div class="cp-field"><label>Condición habitual</label><select id="cp-prov-cond"><option value="">A definir</option><option>Contado</option><option>Cuenta corriente</option><option>Cheque</option><option>Transferencia</option><option>Tarjeta</option><option>Cuotas</option></select></div>
         <div class="cp-field"><label>Días de pago</label><input id="cp-prov-dias" type="number" min="0"></div>
         <div class="cp-field"><label>Notas</label><input id="cp-prov-notas" placeholder="Ej.: entrega martes y jueves"></div>
       </div>
+      <div style="margin-top:14px"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Más contactos del proveedor</b><button type="button" class="cp-btn" onclick="cpAddProviderContact()">＋ Agregar contacto</button></div><div id="cp-prov-contactos"></div></div>
       <div style="margin-top:10px;display:flex;gap:8px"><button class="cp-btn primary" onclick="cpSaveProveedor()">Guardar proveedor</button><button class="cp-btn" onclick="cpClearProveedor()">Limpiar</button></div>
     </div>
     <div class="cp-table-wrap"><table class="cp-table" style="min-width:1200px"><thead><tr><th>Proveedor</th><th>Contacto</th><th>Teléfono</th><th>Email</th><th>Condición</th><th>Compras</th><th>Saldo pendiente</th><th>Última compra</th><th>Próx. venc.</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="10">Todavía no hay proveedores.</td></tr>'}</tbody></table></div>
@@ -1238,7 +1239,7 @@ function cpRefreshIngreso(){
  const ready=cpIngreso.confirmed&&rows.length>0&&resolved===rows.length;
  const reviewed=ready&&cpIngreso.reviewed===cpIngresoSignature();
  const save=document.querySelector('[onclick="cpGuardarCompra()"]');if(save)save.disabled=!reviewed||cpIngresoSaving;
- const uiKey=JSON.stringify([cpIngreso.confirmed,cpIngreso.providerId,cpIngreso.supplier.nombre,cpIngreso.supplier.cuit,resolved,rows.length,reviewed,C.proveedores.map(p=>[p.id,p.nombre,p.cuit,p.domicilio,p.contacto,p.telefono,p.email])]);
+ const uiKey=JSON.stringify([cpIngreso.confirmed,cpIngreso.providerId,cpIngreso.supplier.nombre,cpIngreso.supplier.cuit,resolved,rows.length,reviewed,C.proveedores.map(p=>[p.id,p.nombre,p.cuit,p.domicilio,p.contacto,p.telefono,p.email,p.contactos])]);
  if(cpIngreso.uiKey===uiKey)return;cpIngreso.uiKey=uiKey;
  box.replaceChildren();const heading=document.createElement('b');heading.textContent='1. Proveedor → 2. Insumos → 3. Revisar y guardar';box.append(heading);
  const status=document.createElement('p');status.className='cp-sub';box.append(status);
@@ -1256,6 +1257,7 @@ function cpRefreshIngreso(){
   status.textContent='Proveedor confirmado: '+(provider.nombre||provider.razonSocial)+'. Insumos resueltos: '+resolved+' de '+rows.length+'.';
   const pending=ING.pendingSupplier(provider);if(pending.length){const p=document.createElement('p');p.className='cp-match-warn';p.textContent='Datos pendientes del proveedor: '+pending.map(k=>({contacto:'vendedor / contacto',telefono:'teléfono'}[k]||k)).join(', ')+'. Podés completarlos en su ficha.';box.append(p);}
   button('Completar ficha del proveedor',()=>cpOpenIngresoProvider(provider));
+  button('＋ Agregar contacto',()=>cpOpenIngresoProvider(provider,true));
   button('Cambiar proveedor',()=>{cpIngreso.confirmed=false;cpIngreso.reviewed='';cpIngresoRows().forEach(tr=>cpPrepareIngresoRow(tr));cpRefreshIngreso();});
   if(ready)button('Revisar compra',()=>cpReviewIngreso()).classList.add('primary');
   if(reviewed){const summary=document.createElement('div');summary.style.marginTop='12px';summary.textContent='Revisión lista · '+document.getElementById('cp-totales').textContent+'. Ya podés guardar la compra.';box.append(summary);}
@@ -1264,30 +1266,58 @@ function cpRefreshIngreso(){
 function cpConfirmIngresoProvider(p){
  const expected=ING.digits(cpIngreso.supplier.cuit),actual=ING.digits(p.cuit);
  if(expected.length===11&&actual&&expected!==actual)return toast('El CUIT del proveedor elegido difiere del comprobante. Revisá la ficha antes de continuar.');
+ const sameProvider=cpIngreso.confirmed&&cpIngreso.providerId===p.id;
  cpIngreso.providerId=p.id;cpIngreso.confirmed=true;cpIngreso.reviewed='';document.getElementById('cp-proveedor').value=p.nombre||p.razonSocial||'';
- cpIngresoRows().forEach(tr=>cpPrepareIngresoRow(tr));cpRefreshIngreso();
+ if(!sameProvider)cpIngresoRows().forEach(tr=>cpPrepareIngresoRow(tr));cpRefreshIngreso();
 }
-function cpOpenIngresoProvider(existing){
+function cpOpenIngresoProvider(existing,addContact=false){
  if(!cpIngreso)return;cpIngreso.editingProvider=false;window.cpTab('proveedores');
  const p=existing||cpIngreso.supplier;cpFillProvider(p);cpIngreso.editingProvider=true;
  document.getElementById('cp-modal-compra').classList.remove('open');
- cpCaptureProviderDraft();cpShowProviderReturn();cpMarkProviderPending();
+ cpCaptureProviderDraft();cpShowProviderReturn();cpMarkProviderPending();if(addContact)window.cpAddProviderContact();
 }
 function cpShowProviderReturn(){if(document.getElementById('cp-provider-return'))return;const banner=document.createElement('div');banner.id='cp-provider-return';banner.className='cp-panel';banner.innerHTML='<b></b><p></p><button class="cp-btn" onclick="cpResumeIngreso()">Volver a la compra</button>';banner.querySelector('b').textContent=cpIngreso?.aiRead?'Lectura IA terminada · completar proveedor':'Compra en curso · completar proveedor';banner.querySelector('p').textContent=(cpIngreso?.aiRead?'Se reconocieron '+cpIngresoRows().length+' renglones. Completá y guardá la ficha del proveedor para continuar con los insumos. ':'')+'Los datos del comprobante y el archivo se conservan. Los campos sin datos quedan marcados para completarlos.';document.getElementById('cp-content').prepend(banner);}
-function cpCaptureProviderDraft(){if(!cpIngreso?.editingProvider||!document.getElementById('cp-prov-id'))return;const v=k=>document.getElementById('cp-prov-'+k)?.value||'';cpIngreso.providerDraft={id:v('id'),nombre:v('nombre'),nombreComercial:v('nombre'),razonSocial:v('razon'),cuit:v('cuit'),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),condicionPago:v('cond'),diasPago:v('dias'),notas:v('notas')};}
+function cpProviderContacts(p={}){
+ const contacts=[],seen=new Set(),clean=v=>typeof v==='string'?v.trim():'';
+ const add=c=>{if(!c||typeof c!=='object')return;const contact={nombre:clean(c.nombre||c.contacto),telefono:clean(c.telefono||c.cel),email:clean(c.email)};if(!Object.values(contact).some(Boolean))return;const key=JSON.stringify([contact.nombre.toLowerCase(),contact.telefono,contact.email.toLowerCase()]);if(!seen.has(key)){seen.add(key);contacts.push(contact);}};
+ add({nombre:p.contacto,telefono:p.telefono||p.cel,email:p.email});
+ if(Array.isArray(p.contactos))p.contactos.forEach(add);
+ return contacts;
+}
+function cpReadProviderContacts(){
+ const v=k=>document.getElementById('cp-prov-'+k)?.value||'';
+ const additional=[...document.querySelectorAll('#cp-prov-contactos .cp-provider-contact')].map(row=>({nombre:row.querySelector('.cp-contact-name').value,telefono:row.querySelector('.cp-contact-phone').value,email:row.querySelector('.cp-contact-email').value}));
+ return cpProviderContacts({contacto:v('contacto'),telefono:v('tel'),email:v('email'),contactos:additional});
+}
+window.cpAddProviderContact=(contact={},focus=true)=>{
+ const list=document.getElementById('cp-prov-contactos');if(!list)return;
+ const row=document.createElement('div');row.className='cp-row cp-provider-contact';row.style.cssText='margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:8px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))';
+ row.innerHTML='<div class="cp-field"><label>Nombre / contacto<input class="cp-contact-name" placeholder="Ej.: vendedor o administración"></label></div><div class="cp-field"><label>Teléfono<input class="cp-contact-phone" type="tel"></label></div><div class="cp-field"><label>Email<input class="cp-contact-email" type="email"></label></div><div style="align-self:end"><button type="button" class="cp-btn" data-remove-contact>Quitar contacto</button></div>';
+ row.querySelector('.cp-contact-name').value=contact.nombre||contact.contacto||'';
+ row.querySelector('.cp-contact-phone').value=contact.telefono||contact.cel||'';
+ row.querySelector('.cp-contact-email').value=contact.email||'';
+ row.querySelector('[data-remove-contact]').onclick=()=>{row.remove();cpCaptureProviderDraft();};
+ row.addEventListener('input',()=>cpCaptureProviderDraft());list.append(row);
+ if(focus){row.querySelector('.cp-contact-name').focus();cpCaptureProviderDraft();}
+};
+
+function cpCaptureProviderDraft(){if(!cpIngreso?.editingProvider||!document.getElementById('cp-prov-id'))return;const v=k=>document.getElementById('cp-prov-'+k)?.value||'';cpIngreso.providerDraft={id:v('id'),nombre:v('nombre'),nombreComercial:v('nombre'),razonSocial:v('razon'),cuit:v('cuit'),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),contactos:cpReadProviderContacts(),condicionPago:v('cond'),diasPago:v('dias'),notas:v('notas')};}
 window.cpResumeIngreso=()=>{if(!cpIngreso)return;cpIngreso.editingProvider=false;window.cpTab('compras');document.getElementById('cp-modal-compra').classList.add('open');cpRefreshIngreso();};
 function cpFillProvider(p={}){
- const values={'id':p.id||'','nombre':p.nombreComercial||p.nombre||p.razonSocial||'','razon':p.razonSocial||(!p.nombreComercial?p.nombre:'')||'','cuit':p.cuit||'','domicilio':p.domicilio||'','contacto':p.contacto||'','tel':p.telefono||p.cel||'','email':p.email||'','cond':p.condicionPago||'','dias':p.diasPago??'','notas':p.notas||''};
+ const contacts=cpProviderContacts(p),primary=contacts[0]||{};
+ const values={'id':p.id||'','nombre':p.nombreComercial||p.nombre||p.razonSocial||'','razon':p.razonSocial||(!p.nombreComercial?p.nombre:'')||'','cuit':p.cuit||'','domicilio':p.domicilio||'','contacto':primary.nombre||'','tel':primary.telefono||'','email':primary.email||'','cond':p.condicionPago||'','dias':p.diasPago??'','notas':p.notas||''};
  for(const [key,value]of Object.entries(values)){const e=document.getElementById('cp-prov-'+key);if(e)e.value=value;}
+ const list=document.getElementById('cp-prov-contactos');if(list){list.replaceChildren();contacts.slice(1).forEach(c=>window.cpAddProviderContact(c,false));}
 }
 function cpMarkProviderPending(){for(const key of ['cuit','domicilio','contacto','tel','email']){const e=document.getElementById('cp-prov-'+key);if(!e)continue;const update=()=>{e.style.borderColor=e.value.trim()?'':'var(--amber)';e.placeholder=e.value.trim()?'':'Pendiente de completar';};e.addEventListener('input',update);update();}}
 const cpClearProviderLegacy=window.cpClearProveedor;
-window.cpClearProveedor=()=>{cpClearProviderLegacy();const e=document.getElementById('cp-prov-domicilio');if(e)e.value='';const legal=document.getElementById('cp-prov-razon');if(legal)legal.value='';cpMarkProviderPending();};
+window.cpClearProveedor=()=>{cpClearProviderLegacy();const e=document.getElementById('cp-prov-domicilio');if(e)e.value='';const legal=document.getElementById('cp-prov-razon');if(legal)legal.value='';document.getElementById('cp-prov-contactos')?.replaceChildren();cpMarkProviderPending();};
 window.cpEditProveedor=(id,name)=>{window.cpTab('proveedores');cpFillProvider((id?C.proveedores.find(p=>p.id===id):providerByName(name))||{nombre:name});cpMarkProviderPending();};
 let cpProviderSaving=false;
 window.cpSaveProveedor=async()=>{
  if(cpProviderSaving)return;const v=k=>document.getElementById('cp-prov-'+k)?.value.trim()||'';
  const data={nombre:v('nombre'),nombreComercial:v('nombre'),razonSocial:v('razon'),cuit:ING.digits(v('cuit')),domicilio:v('domicilio'),contacto:v('contacto'),telefono:v('tel'),email:v('email'),condicionPago:v('cond'),diasPago:num(v('dias')),notas:v('notas'),_ts:serverTimestamp()};
+ data.contactos=cpReadProviderContacts();const primary=data.contactos[0]||{};data.contacto=primary.nombre||'';data.telefono=primary.telefono||'';data.email=primary.email||'';
  if(!data.nombre)return toast('Ingresá el proveedor.');
  if(data.cuit&&data.cuit.length!==11)return toast('El CUIT debe tener 11 dígitos.');
  if(cpIngreso?.editingProvider&&(!data.cuit||!data.domicilio))return toast('Completá CUIT y domicilio para dar de alta al proveedor de esta compra.');
