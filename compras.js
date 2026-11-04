@@ -841,98 +841,90 @@ window.cpAnalizarIA=async()=>{
   const local=cpLocalIaUrl(),url=cpIaUrlShared||(cpValidIaUrl(local)?local:'');
   if(!url&&(cpIaLoading||cpIaConfigError))return toast(cpIaConfigError||'Todavía se está consultando la conexión compartida. Intentá nuevamente en unos segundos.');
   if(!url){cpOpenConfigIA();return toast('Primero configurá la URL del Apps Script IA.');}
-
-  if(aiCleanupActive) aiCleanupActive('restart');
-
-  const button=document.querySelector('[onclick="cpAnalizarIA()"]');
-  const originalText='✨ Analizar comprobante';
+  if(aiCleanupActive)aiCleanupActive('restart');
+  const file=selectedFile,button=document.querySelector('[onclick="cpAnalizarIA()"]'),startedAt=Date.now(),maxAttempts=3;
   if(button){button.disabled=true;button.textContent='⏳ Analizando…';}
   cpSetIaStatus('Preparando el archivo para enviarlo al lector…');
-
-  let iframe,form,timer,pollTimer,done=false;
-  const startedAt=Date.now();
-  const requestId='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-  const callbackName='__tizIaCb_'+requestId.replace(/[^a-zA-Z0-9_]/g,'_');
-
-  const cleanup=(reason='done')=>{
-    if(done)return;
-    done=true;
-    clearTimeout(timer);
+  let iframe,form,timer,pollTimer,retryTimer,done=false,attempt=0,base64='',requestId='',callbackName='';
+  const releaseAttempt=()=>{
     clearTimeout(pollTimer);
-    window[callbackName]=()=>{};setTimeout(()=>{try{delete window[callbackName];}catch{window[callbackName]=undefined;}},10000)
-    document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
-    setTimeout(()=>{iframe?.remove();form?.remove();},200);
-    if(button){button.disabled=false;button.textContent=originalText;}
+    const retiredId=requestId,retiredCallback=callbackName;
+    requestId='';callbackName='';
+    if(retiredCallback){window[retiredCallback]=()=>{};setTimeout(()=>{try{delete window[retiredCallback];}catch{window[retiredCallback]=undefined;}},10000);}
+    if(retiredId)document.querySelectorAll('script[data-tiz-ia="'+retiredId+'"]').forEach(x=>x.remove());
+    iframe?.remove();form?.remove();iframe=null;form=null;
+  };
+  const cleanup=(reason='done')=>{
+    if(done)return;done=true;clearTimeout(timer);clearTimeout(retryTimer);releaseAttempt();
+    if(button){button.disabled=false;button.textContent='✨ Analizar comprobante';}
     if(!['response','exception','timeout'].includes(reason))cpSetIaStatus('Lectura cancelada. Podés volver a analizar el archivo.');
     if(aiCleanupActive===cleanup)aiCleanupActive=null;
-    console.info('[TIZ IA] limpieza',reason,requestId);
+    console.info('[TIZ IA] limpieza',reason);
   };
   aiCleanupActive=cleanup;
-
-  const finish=(payload)=>{
+  const sendError=e=>{
+    if(done)return;cleanup('exception');
+    cpSetIaStatus('No se pudo enviar el comprobante: '+(e?.message||e)+'. El archivo sigue seleccionado.',true);
+    console.error('[TIZ IA] envío',e);toast('No se pudo enviar el comprobante.');
+  };
+  const finish=payload=>{
     if(done)return;
-    console.info('[TIZ IA] resultado',requestId,!!payload?.ok);
-    cleanup('response');
-    if(!payload||!payload.ok){
-      console.error('[TIZ IA] Error del servicio:',payload);
-      toast('Error IA: '+(payload?.error||'No se pudo analizar'));
-      cpSetIaStatus('No se pudo leer el comprobante: '+(payload?.error||'No se recibió una respuesta válida.')+' Podés volver a intentarlo.',true);
+    const transient=!payload?.ok&&/^Gemini no est[aá] disponible temporalmente\b/i.test(String(payload?.error||''));
+    if(transient&&attempt<maxAttempts&&Date.now()-startedAt<90000){
+      const delay=4000*Math.pow(2,attempt-1)+Math.floor(Math.random()*1000);
+      releaseAttempt();
+      cpSetIaStatus('El lector está temporalmente ocupado. Reintentando en '+Math.ceil(delay/1000)+' s (intento '+(attempt+1)+' de '+maxAttempts+')…');
+      retryTimer=setTimeout(()=>{if(!done)sendAttempt();},delay);
       return;
+    }
+    cleanup('response');
+    if(!payload?.ok){
+      const message=transient?'Gemini sigue sin responder después de '+attempt+' intento(s). El archivo sigue seleccionado. Probá nuevamente en unos minutos.':'No se pudo leer el comprobante: '+(payload?.error||'No se recibió una respuesta válida.')+' Podés volver a intentarlo.';
+      cpSetIaStatus(message,true);toast(transient?'El servicio de lectura sigue temporalmente no disponible.':'Error IA: '+(payload?.error||'No se pudo analizar'));return;
     }
     try{applyAI(payload.data||{});cpSetIaStatus('Lectura terminada: '+(payload.data?.items?.length||0)+' renglones. Confirmá el proveedor y revisá los insumos.');toast('Lectura IA completa. Revisá y confirmá.');}
     catch(e){cpSetIaStatus('El lector respondió, pero no se pudieron mostrar los datos. Volvé a intentarlo; si persiste, informá este mensaje.',true);console.error('[TIZ IA] mostrar resultado',e);}
   };
-
-  const poll=()=>{
-    if(done)return;
+  const poll=id=>{
+    if(done||requestId!==id)return;
     clearTimeout(pollTimer);
-    document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
-    const script=document.createElement('script');
-    script.dataset.tizIa=requestId;
-    script.onerror=()=>{clearTimeout(pollTimer);script.remove();if(!done)pollTimer=setTimeout(poll,3000);};
-    script.src=url+'?action=status&requestId='+encodeURIComponent(requestId)+'&callback='+encodeURIComponent(callbackName)+'&_='+Date.now();
+    document.querySelectorAll('script[data-tiz-ia="'+id+'"]').forEach(x=>x.remove());
+    const script=document.createElement('script');script.dataset.tizIa=id;
+    script.onerror=()=>{script.remove();if(!done&&requestId===id){clearTimeout(pollTimer);pollTimer=setTimeout(()=>poll(id),3000);}};
+    script.src=url+'?action=status&requestId='+encodeURIComponent(id)+'&callback='+encodeURIComponent(callbackName)+'&_='+Date.now();
     document.body.appendChild(script);
-    pollTimer=setTimeout(()=>{script.remove();poll();},10000);
+    pollTimer=setTimeout(()=>{script.remove();poll(id);},10000);
   };
-
-  window[callbackName]=(payload)=>{
+  const sendAttempt=()=>{
     if(done)return;
-    clearTimeout(pollTimer);
-    document.querySelectorAll(`script[data-tiz-ia="${requestId}"]`).forEach(x=>x.remove());
-    if(payload?.pending){cpSetIaStatus('Esperando el resultado del lector ('+Math.round((Date.now()-startedAt)/1000)+' s). La lectura puede demorar más de medio minuto.');pollTimer=setTimeout(poll,3000);return;}
-    finish(payload);
+    try{
+      attempt++;
+      // Cada intento necesita una identidad nueva: el servidor conserva los errores anteriores en caché.
+      const id='cpia-'+Date.now()+'-'+Math.random().toString(36).slice(2)+'-'+attempt;
+      requestId=id;callbackName='__tizIaCb_'+id.replace(/[^a-zA-Z0-9_]/g,'_');
+      window[callbackName]=payload=>{
+        if(done||requestId!==id)return;
+        clearTimeout(pollTimer);document.querySelectorAll('script[data-tiz-ia="'+id+'"]').forEach(x=>x.remove());
+        if(payload?.pending){cpSetIaStatus('Esperando el resultado del lector ('+Math.round((Date.now()-startedAt)/1000)+' s)'+(attempt>1?' · intento '+attempt+' de '+maxAttempts:'')+'. La lectura puede demorar más de medio minuto.');pollTimer=setTimeout(()=>poll(id),3000);return;}
+        finish(payload);
+      };
+      iframe=document.createElement('iframe');iframe.name='cp-ia-frame-'+id;iframe.style.display='none';document.body.appendChild(iframe);
+      form=document.createElement('form');form.method='POST';form.action=url;form.target=iframe.name;form.style.display='none';
+      const fields={action:'analyzeExpense',requestId:id,filename:file.name,mimeType:file.type||'application/octet-stream',dataBase64:base64};
+      Object.entries(fields).forEach(([name,value])=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);});
+      document.body.appendChild(form);
+      cpSetIaStatus('Archivo enviado al lector'+(attempt>1?' · intento '+attempt+' de '+maxAttempts:'')+'. Esperando el resultado…');
+      form.submit();pollTimer=setTimeout(()=>poll(id),1500);
+    }catch(e){sendError(e);}
   };
-
   try{
     toast('Analizando comprobante…');
-    // La espera máxima incluye la lectura local del archivo, no sólo el servidor.
-    timer=setTimeout(()=>{cleanup('timeout');cpSetIaStatus('No se recibió el resultado en 2 minutos. El archivo sigue seleccionado. Volvé a analizarlo; no necesitás cargar otra clave API.',true);toast('No se recibió el resultado del lector. Revisá el mensaje junto al botón Analizar.');},120000);
-    const base64=await fileToBase64(selectedFile);
-    if(done)return;
-    iframe=document.createElement('iframe');
-    iframe.name='cp-ia-frame-'+requestId;
-    iframe.style.display='none';
-    document.body.appendChild(iframe);
-
-    form=document.createElement('form');
-    form.method='POST';
-    form.action=url;
-    form.target=iframe.name;
-    form.style.display='none';
-    const fields={action:'analyzeExpense',requestId,filename:selectedFile.name,mimeType:selectedFile.type||'application/octet-stream',dataBase64:base64};
-    Object.entries(fields).forEach(([name,value])=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);});
-    document.body.appendChild(form);
-
-    cpSetIaStatus('Archivo enviado al lector. Esperando el resultado…');
-    form.submit();
-    pollTimer=setTimeout(poll,1500);
-  }catch(e){
-    cleanup('exception');
-    cpSetIaStatus('No se pudo enviar el comprobante: '+(e?.message||e)+'. El archivo sigue seleccionado.',true);
-    console.error('[TIZ IA]',e);
-    toast('Error IA: '+(e?.message||e));
-  }
+    // El límite total incluye la lectura local, las pausas y todos los intentos.
+    timer=setTimeout(()=>{if(done)return;cleanup('timeout');cpSetIaStatus('No se recibió el resultado en 2 minutos. El archivo sigue seleccionado. Volvé a analizarlo; no necesitás cargar otra clave API.',true);toast('No se recibió el resultado del lector. Revisá el mensaje junto al botón Analizar.');},120000);
+    base64=await fileToBase64(file);if(!done)sendAttempt();
+  }catch(e){sendError(e);}
 };
+
 function fileToBase64(f){return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(f);});}
 function applyAI(d){document.getElementById('cp-proveedor').value=d.proveedor||'';document.getElementById('cp-fecha').value=d.fecha||todayISO();document.getElementById('cp-fc').value=d.fc===false?'no':'si';document.getElementById('cp-tipo').value=d.tipoComprobante||'Factura A';document.getElementById('cp-numero').value=d.numeroComprobante||'';document.getElementById('cp-items-body').innerHTML='';(d.items||[]).forEach(item=>cpAddItem({...item,descripcionOriginal:item.descripcionOriginal||item.descripcion}));if(!(d.items||[]).length)cpAddItem();syncFC();calcTotals();}
 window.cpExportCSV=(filtered=false)=>{const h=['Fecha','Semana','Proveedor','FC','Tipo FC','Nro FC','Código','Descripción factura','Artículo TIZ','Familia','Subfamilia','Cantidad','Unidad','P.Unit.Neto','Total Neto','IVA','Total Bruto','Medio Pago','Vencimiento','Destino','OT'];const base=filtered?getFilteredPurchaseItems():purchaseItems();const rows=base.map(i=>{const c=i.compra||{};return[c.fecha,c.semana,c.proveedor,c.fc,c.tipoComprobante,c.numeroComprobante,i.codigo,i.descripcionOriginal,i.descripcion,i.familia||i.rubro,i.subfamilia,i.cantidad,i.unidad,i.precioUnitarioNeto,i.totalNeto,i.ivaImporte,i.totalBruto,c.medioPago,c.vencimiento,c.destino,c.ot]});const csv=[h,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download=filtered?'compras_filtradas.csv':'compras_detalladas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
