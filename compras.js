@@ -304,6 +304,32 @@ function render(){
   cpRefreshIngreso();
 }
 
+// One canonical stock view, while invoice quantities and their units stay unchanged.
+let cpStockRefs=[],cpStockCache=[];
+function cpStockArticle(a){return window.TIZInsumosCotizacionCoreV1?.baseArticle(a)||a;}
+function cpStockSnapshot(){const refs=[C.articulos,C.compras,C.conteos,C.planes];if(refs.some((r,i)=>r!==cpStockRefs[i])){cpStockCache=window.TIZInsumosCotizacionCoreV1?.catalog(...refs)||[];cpStockRefs=refs;}return cpStockCache;}
+function cpStockMeta(a){return cpStockSnapshot().find(x=>x.id===a?.id);}
+function cpStockAmount(row,a,value){
+ const core=window.TIZInsumosCotizacionCoreV1;if(!core)return num(value??row.cantidad);
+ if(value!==undefined&&Number(value)<0)throw Error('La reserva de material no puede ser negativa.');const item=value===undefined?row:{...row,cantidad:value,cantidadStock:undefined};return core.movementQuantity(item,a);
+}
+function cpStockUnitData(tr){
+ const a=C.articulos.find(a=>a.id===tr.dataset.articleId),q=num(tr.querySelector('.i-qty')?.value),p=num(tr.querySelector('.i-price')?.value),unit=tr.querySelector('.i-unit')?.value||'';
+ if(!a)return {error:'Vinculá el insumo del catálogo para convertir la unidad de la compra.'};
+ const core=window.TIZInsumosCotizacionCoreV1,original=tr.dataset.unidadComprobanteOriginal||'';
+ if(core&&original&&core.unit(original)!==core.unit(unit)&&tr.dataset.unitCorrectionConfirmed!=='1')return {error:'La unidad seleccionada ('+unit+') difiere de la leída en el comprobante ('+original+'). Confirmá la corrección.',needsUnitConfirmation:true};
+ if(tr.dataset.stockMovementOriginal){try{const previous=JSON.parse(tr.dataset.stockMovementOriginal);if(previous.articuloId===a.id&&previous.cantidad===q&&previous.precio===p&&core?.unit(previous.unidad)===core?.unit(unit)&&Number.isFinite(previous.cantidadStock)&&previous.cantidadStock>0&&q>0&&previous.unidadStock){const factor=Number.isFinite(previous.factorStock)?previous.factorStock:previous.cantidadStock/q;return {cantidadStock:previous.cantidadStock,unidadStock:previous.unidadStock,factorStock:factor,precioUnitarioStock:Number.isFinite(previous.precioUnitarioStock)?previous.precioUnitarioStock:p/factor};}}catch{}}
+
+ if(a.control==='sin_stock')return {cantidadStock:null,unidadStock:'',sinStock:true};
+ try{const view=cpStockArticle(a),quantity=window.TIZInsumosCotizacionCoreV1?window.TIZInsumosCotizacionCoreV1.stockQuantity(q,unit,view):q;return {cantidadStock:quantity,unidadStock:view.unidad,factorStock:quantity/q,precioUnitarioStock:p/(quantity/q)};}catch(e){return {error:e.message};}
+}
+function cpRefreshUnitNotices(){
+ if(!window.TIZInsumosCotizacionCoreV1)return;
+ document.querySelectorAll('#cp-items-body tr').forEach(tr=>{const note=tr.querySelector('.cp-item-match');if(!note)return;let box=note.querySelector?.('.cp-stock-unit-notice');if(!box){box=document.createElement('div');box.className='cp-stock-unit-notice';note.append(box);}const data=cpStockUnitData(tr),a=C.articulos.find(a=>a.id===tr.dataset.articleId);box.replaceChildren();box.style.color=data.error?'var(--red)':'var(--text2)';const label=document.createElement('div');label.textContent=data.error|| (data.sinStock?'Servicio / sin movimiento físico de stock.':'Ingreso de stock: '+Number(data.cantidadStock).toLocaleString('es-AR')+' '+data.unidadStock+'. Se conserva la cantidad y el precio del comprobante.');box.append(label);if(data.needsUnitConfirmation){const confirm=document.createElement('button');confirm.type='button';confirm.className='cp-btn';confirm.textContent='Confirmar corrección de unidad del comprobante';confirm.onclick=()=>{tr.dataset.unitCorrectionConfirmed='1';if(cpIngreso)cpIngreso.reviewed='';calcTotals();cpRefreshIngreso();};box.append(confirm);}if(a){const button=document.createElement('button');button.type='button';button.className='cp-btn';button.textContent='Unidades y equivalencias';button.onclick=()=>window.TIZUnidadesStockV1?.open(a.id,{unidadCompra:tr.querySelector('.i-unit').value});box.append(button);}});
+}
+function cpPurchaseUnitOptions(value){const core=window.TIZInsumosCotizacionCoreV1,selected=core?.unit(value||'UNID')||value||'UNID',units=[...new Set([selected,...(core?.units||['UNID','ROLLO','PLACA','M²','MTS LINEALES','KG','LITRO','SERVICIO'])])];return units.map(u=>'<option value="'+esc(u)+'" '+(u===selected?'selected':'')+'>'+esc(u)+'</option>').join('');}
+window.cpAfterStockUnitsChanged=article=>{C.articulos=C.articulos.map(a=>a.id===article.id?{...a,...article}:a);cpStockRefs=[];cpRefreshUnitNotices();if(window.currentPage==='compras'){cpRenderArticleRows();if(['conteo','planes','alertas'].includes(currentTab))render();}calcTotals();};
+
 function purchaseItems(){ return C.compras.flatMap(c=>(c.items||[]).map(i=>({...i,compra:c}))); }
 function latestCounts(){
   const map={}; [...C.conteos].sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||''))).forEach(c=>{(c.items||[]).forEach(i=>{if(!map[i.articuloId||i.descripcion])map[i.articuloId||i.descripcion]={...i,conteo:c};});}); return map;
@@ -314,7 +340,7 @@ function alerts(){
     if(c.fc==='no') out.push({level:'amber',title:`Compra sin factura: ${c.proveedor||'Sin proveedor'}`,text:`${fmtDate(c.fecha)} · ${money(c.totalBruto)} · solicitar comprobante.`});
     if(c.vencimiento){const dd=Math.ceil((new Date(c.vencimiento+'T12:00:00')-now)/86400000);if(dd<0)out.push({level:'red',title:`Pago vencido: ${c.proveedor}`,text:`Venció hace ${Math.abs(dd)} días · ${money(c.totalBruto)}`});else if(dd<=7)out.push({level:'amber',title:`Pago próximo: ${c.proveedor}`,text:`Vence en ${dd} días · ${money(c.totalBruto)}`});}
   });
-  const counts=latestCounts(); C.articulos.forEach(a=>{const ct=counts[a.id]||counts[a.descripcion];const stock=num(ct?.cantidad);if(a.stockMinimo!=null&&stock<num(a.stockMinimo))out.push({level:'red',title:`Stock bajo: ${a.descripcion}`,text:`Quedan ${stock} ${a.unidad||''}; mínimo ${a.stockMinimo}.`});});
+  C.articulos.filter(a=>a.control!=='sin_stock').forEach(a=>{const m=cpStockMeta(a);if(!m)return;if(m.stockDisponible===null)out.push({level:'amber',title:'Stock a verificar: '+a.descripcion,text:m.errorStock||'Falta un conteo en '+m.unidad+'.'});else if(m.stockMinimo!=null&&m.stockDisponible<m.stockMinimo)out.push({level:'red',title:'Stock bajo: '+a.descripcion,text:'Quedan '+m.stockDisponible+' '+m.unidad+'; mínimo '+m.stockMinimo+'.'});});
   C.pagos.filter(p=>p.estado!=='pagado'&&p.vencimiento).forEach(p=>{const dd=Math.ceil((new Date(p.vencimiento+'T12:00:00')-now)/86400000);if(dd<0)out.push({level:'red',title:`Deuda vencida: ${p.proveedor||'Proveedor'}`,text:`${p.concepto||'Compromiso'} · ${money(p.importe)} · venció hace ${Math.abs(dd)} días.`});else if(dd<=7)out.push({level:'amber',title:`Pago a preparar: ${p.proveedor||'Proveedor'}`,text:`${p.concepto||'Compromiso'} · ${money(p.importe)} · vence en ${dd} días.`});});
   priceAlerts().forEach(x=>out.push({level:'amber',title:`Cambio de precio: ${x.descripcion}`,text:`Último ${money(x.actual)} vs anterior ${money(x.anterior)} (${x.pct>0?'+':''}${x.pct.toFixed(1)}%).`}));
   const below=cpBelowMinimumItems();if(below.length>35)out.push({level:'red',title:'Stock mínimo fuera de objetivo',text:`${below.length} ítems están debajo del mínimo. El objetivo es no superar 35.`});
@@ -708,10 +734,12 @@ function renderConteo(el){
   <div class="cp-table-wrap"><table class="cp-table" style="min-width:720px"><thead><tr><th>Artículo</th><th>Tipo</th><th>Último conteo</th><th>Compras desde conteo</th><th>Planificado OT</th><th>Conteo actual</th><th>Consumo calculado</th></tr></thead><tbody>${arts.map(a=>countRow(a,last[a.id]||last[a.descripcion])).join('')||'<tr><td colspan="7">Primero cargá artículos controlados.</td></tr>'}</tbody></table></div><div style="margin-top:12px;text-align:right"><button class="cp-btn primary" onclick="cpSaveConteo()">Confirmar conteo semanal</button></div>`;
 }
 function countRow(a,prev){
-  const ini=num(prev?.cantidad); const since=prev?.conteo?.fecha||'0000-00-00'; const compras=purchaseItems().filter(x=>(x.articuloId===a.id||x.descripcion===a.descripcion)&&String(x.compra.fecha||'')>since).reduce((s,x)=>s+num(x.cantidad),0); const plan=C.planes.filter(p=>p.estado!=='cerrado').flatMap(p=>p.items||[]).filter(i=>i.articuloId===a.id||i.descripcion===a.descripcion).reduce((s,i)=>s+num(i.cantidadPlanificada??i.cantidadSugerida),0);
-  return `<tr data-count-row data-id="${a.id}" data-desc="${esc(a.descripcion)}" data-inicial="${ini}" data-compras="${compras}" data-plan="${plan}"><td><b>${esc(a.descripcion)}</b><div class="cp-sub">${esc(a.unidad||'')}</div></td><td>${esc(a.control||'estratégico')}</td><td>${ini}</td><td>+${compras}</td><td>${plan}</td><td><input class="cp-count-input" type="number" step="0.01" style="width:95px" oninput="cpCalcCountRow(this)"></td><td class="cp-consumo">—</td></tr>`;
+ const view=cpStockArticle(a),since=prev?.conteo?.fecha||'0000-00-00';let ini=0,bought=0,plan=0,issue='';
+ try{if(prev)ini=cpStockAmount(prev,a);for(const i of purchaseItems().filter(i=>i.articuloId===a.id&&String(i.compra.fecha||'')>since&&normText(i.compra.destino)==='stock'))bought+=cpStockAmount(i,a);for(const i of C.planes.filter(p=>p.estado!=='cerrado').flatMap(p=>p.items||[]).filter(i=>i.articuloId===a.id))plan+=cpStockAmount(i,a,i.cantidadPlanificada??i.cantidadSugerida);}catch(e){issue=e.message;}
+ return `<tr data-count-row data-id="${a.id}" data-desc="${esc(a.descripcion)}" data-unit="${esc(view.unidad)}" data-inicial="${ini}" data-compras="${bought}" data-plan="${plan}" data-unit-error="${esc(issue)}" data-primer-conteo="${prev?'0':'1'}"><td><b>${esc(a.descripcion)}</b><div class="cp-sub">${esc(view.unidad)} · compra: ${esc(a.unidad)}${issue?' · '+esc(issue):''}</div></td><td>${esc(a.control||'')}</td><td>${prev?ini:'Sin conteo'}</td><td>+${bought}</td><td>${plan}</td><td><input class="cp-count-input" type="number" min="0" step="0.01" style="width:95px" oninput="cpCalcCountRow(this)"></td><td class="cp-consumo">—</td></tr>`;
 }
-function renderArticulos(el){const families=familyOptions();el.innerHTML=`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><b>Catálogo maestro de artículos</b><p class="cp-sub">Código + descripción normalizada + familia + subfamilia. Escribí para buscar o elegí una sugerencia.</p></div><button class="cp-btn" onclick="cpImportCatalogoBase()">Importar base TIZ (${CATALOGO_TIZ_BASE.length})</button></div><div class="cp-row" style="margin-top:10px"><div class="cp-field"><label>Código</label><input id="cp-a-code" placeholder="000332"></div><div class="cp-field"><label>Descripción normalizada</label><input id="cp-a-desc"></div><div class="cp-field"><label>Unidad</label><input id="cp-a-unit" list="cp-unit-list"><datalist id="cp-unit-list"><option value="UNID"><option value="MTS"><option value="M2"><option value="LTS"><option value="KG"><option value="PLACA"><option value="ROLLO"><option value="SERVICIO"></datalist></div><div class="cp-field"><label>Familia</label><input id="cp-a-family" list="cp-family-list" oninput="cpArticleFamilyChanged()" onchange="cpArticleFamilyChanged()" placeholder="Ej.: Hierros"></div><div class="cp-field"><label>Subfamilia</label><input id="cp-a-subfamily" list="cp-subfamily-list" placeholder="Elegí primero la familia"></div><div class="cp-field"><label>Control</label><select id="cp-a-control"><option value="estrategico">Estratégico por OT</option><option value="consumible">Consumible por conteo</option><option value="sin_stock">Servicio / sin stock</option></select></div><div class="cp-field"><label>Stock mínimo</label><input id="cp-a-min" type="number" step="0.01"></div></div><datalist id="cp-family-list">${families.map(v=>`<option value="${esc(v)}"></option>`).join('')}</datalist><datalist id="cp-subfamily-list"></datalist><div style="margin-top:9px"><button class="cp-btn primary" onclick="cpAddArticulo()">Agregar artículo</button></div></div><div class="cp-panel"><div class="cp-row"><div class="cp-field"><label>Buscar catálogo</label><input id="cp-art-search" placeholder="Código o descripción" oninput="cpRenderArticleRows()"></div><div class="cp-field"><label>Familia</label><select id="cp-art-family" onchange="cpRenderArticleRows()"><option value="">Todas</option>${families.map(v=>`<option>${esc(v)}</option>`).join('')}</select></div></div></div><div class="cp-table-wrap"><table class="cp-table" style="min-width:1050px"><thead><tr><th>Código</th><th>Artículo</th><th>Familia</th><th>Subfamilia</th><th>Unidad</th><th>Control</th><th>Mínimo</th><th>Último precio</th><th>Último stock</th><th></th></tr></thead><tbody id="cp-art-rows"></tbody></table></div>`;cpArticleFamilyChanged();cpRenderArticleRows();}
+
+function renderArticulos(el){const families=familyOptions();el.innerHTML=`<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><b>Catálogo maestro de artículos</b><p class="cp-sub">Código + descripción normalizada + familia + subfamilia. Escribí para buscar o elegí una sugerencia.</p></div><button class="cp-btn" onclick="cpImportCatalogoBase()">Importar base TIZ (${CATALOGO_TIZ_BASE.length})</button></div><div class="cp-row" style="margin-top:10px"><div class="cp-field"><label>Código</label><input id="cp-a-code" placeholder="000332"></div><div class="cp-field"><label>Descripción normalizada</label><input id="cp-a-desc"></div><div class="cp-field"><label>Unidad</label><input id="cp-a-unit" list="cp-unit-list"><datalist id="cp-unit-list"><option value="UNID"><option value="MTS"><option value="M2"><option value="LTS"><option value="KG"><option value="PLACA"><option value="ROLLO"><option value="SERVICIO"></datalist></div><div class="cp-field"><label>Familia</label><input id="cp-a-family" list="cp-family-list" oninput="cpArticleFamilyChanged()" onchange="cpArticleFamilyChanged()" placeholder="Ej.: Hierros"></div><div class="cp-field"><label>Subfamilia</label><input id="cp-a-subfamily" list="cp-subfamily-list" placeholder="Elegí primero la familia"></div><div class="cp-field"><label>Control</label><select id="cp-a-control"><option value="estrategico">Estratégico por OT</option><option value="consumible">Consumible por conteo</option><option value="sin_stock">Servicio / sin stock</option></select></div><div class="cp-field"><label>Stock mínimo</label><input id="cp-a-min" type="number" step="0.01"></div></div><datalist id="cp-family-list">${families.map(v=>`<option value="${esc(v)}"></option>`).join('')}</datalist><datalist id="cp-subfamily-list"></datalist><div style="margin-top:9px"><button class="cp-btn primary" onclick="cpAddArticulo()">Agregar artículo</button></div></div><div class="cp-panel"><div class="cp-row"><div class="cp-field"><label>Buscar catálogo</label><input id="cp-art-search" placeholder="Código o descripción" oninput="cpRenderArticleRows()"></div><div class="cp-field"><label>Familia</label><select id="cp-art-family" onchange="cpRenderArticleRows()"><option value="">Todas</option>${families.map(v=>`<option>${esc(v)}</option>`).join('')}</select></div></div></div><div class="cp-table-wrap"><table class="cp-table" style="min-width:1050px"><thead><tr><th>Código</th><th>Artículo</th><th>Familia</th><th>Subfamilia</th><th>Unidad de control</th><th>Control</th><th>Mínimo</th><th>Costo / unidad de control</th><th>Stock disponible</th><th></th></tr></thead><tbody id="cp-art-rows"></tbody></table></div>`;cpArticleFamilyChanged();cpRenderArticleRows();}
 function cpQuoteItemsForWork(o){
   const raw=Array.isArray(o?.itemsTecnicos)&&o.itemsTecnicos.length?o.itemsTecnicos:(Array.isArray(o?.itemsCotizados)?o.itemsCotizados:[]);
   return raw.map(i=>String(i?.articulo||i?.descripcion||i?.desc||'').trim()).filter(Boolean);
@@ -730,17 +758,18 @@ function renderPlanes(el){
   <div class="cp-panel"><b>Obras nuevas para Compras</b><div class="cp-sub">La OT no se duplica: sólo se crea su plan de materiales.</div><div class="cp-table-wrap" style="margin-top:10px"><table class="cp-table" style="min-width:900px"><thead><tr><th>OT</th><th>Trabajo</th><th>Ítems vendidos</th><th>Estado</th><th></th></tr></thead><tbody>${pendingRows||'<tr><td colspan="5">Todas las obras activas ya tienen plan.</td></tr>'}</tbody></table></div></div>
   ${C.planes.map(planCard).join('')||'<div class="cp-panel">Todavía no hay planes de materiales.</div>'}`;
 }
-function cpPhysicalStock(a){const last=latestCounts(),ct=last[a?.id]||last[a?.descripcion];return ct?num(ct.cantidad):0;}
-function cpReservedStock(articleId,desc,excludePlanId=''){return C.planes.filter(p=>p.estado!=='cerrado'&&p.id!==excludePlanId).flatMap(p=>p.items||[]).filter(i=>i.modoStock!=='generico'&&((articleId&&i.articuloId===articleId)||(!articleId&&normText(i.descripcion)===normText(desc)))).reduce((s,i)=>s+num(i.cantidadPlanificada??i.cantidadSugerida),0);}
+function cpPhysicalStock(a){const meta=cpStockMeta(a);return meta?.stockFisico??0;}
+function cpReservedStock(articleId,desc,excludePlanId=''){const a=C.articulos.find(a=>a.id===articleId)||C.articulos.find(a=>normText(a.descripcion)===normText(desc));if(!a)return 0;return C.planes.filter(p=>p.estado!=='cerrado'&&p.id!==excludePlanId).flatMap(p=>p.items||[]).filter(i=>i.modoStock!=='generico'&&i.articuloId===a.id).reduce((sum,i)=>{try{return sum+cpStockAmount(i,a,i.cantidadPlanificada??i.cantidadSugerida);}catch{return NaN;}},0);}
+
 function planCard(p){
   const o=cpWorks().find(x=>x.id===p.obraId||window.TIZComprasObrasCoreV1.same(x.ot,p.ot));
   const sold=(p.componentesVenta&&p.componentesVenta.length?p.componentesVenta:cpQuoteItemsForWork(o||{}));
   const rows=(p.items||[]).map((i,ix)=>{
     const art=C.articulos.find(a=>a.id===i.articuloId)||C.articulos.find(a=>normText(a.descripcion)===normText(i.descripcion));
-    const q=num(i.cantidadPlanificada??i.cantidadSugerida),physical=cpPhysicalStock(art),reserved=cpReservedStock(i.articuloId,i.descripcion,p.id),generic=i.modoStock==='generico'||art?.control==='consumible';
+    const view=art?cpStockArticle(art):{unidad:i.unidad};let q;try{q=art?cpStockAmount(i,art,i.cantidadPlanificada??i.cantidadSugerida):num(i.cantidadPlanificada??i.cantidadSugerida);}catch{q=NaN;}const physical=cpPhysicalStock(art),reserved=cpReservedStock(i.articuloId,i.descripcion,p.id),generic=i.modoStock==='generico'||art?.control==='consumible';
     const free=Math.max(0,physical-reserved),need=generic?0:Math.max(0,q-free),after=generic?null:Math.max(0,free-q);
     const dim=[i.medidas?.largo&&('L '+i.medidas.largo),i.medidas?.ancho&&('A '+i.medidas.ancho),i.medidas?.espesor&&('E '+i.medidas.espesor)].filter(Boolean).join(' · ');
-    return `<tr><td><b>${esc(i.codigo||art?.codigo||'')}</b> ${esc(i.descripcion||art?.descripcion||'')}<div class="cp-sub">${esc(art?.familia||'')}${dim?' · '+esc(dim):''}</div></td><td><span class="cp-pill ${generic?'warn':'yes'}">${generic?'Genérico / mínimo':'Específico OT'}</span></td><td><input type="number" step="0.01" value="${q}" style="width:80px" onchange="cpUpdatePlanQty('${p.id}',${ix},this.value)"> ${esc(i.unidad||art?.unidad||'')}</td><td>${physical}</td><td>${generic?'—':reserved}</td><td><b style="color:${need?'var(--red)':'var(--green)'}">${generic?'mínimo':after}</b></td><td><b style="color:${need?'var(--red)':'var(--text2)'}">${generic?'—':need}</b></td><td>${esc(i.observacion||'')}</td><td><button class="cp-btn danger" onclick="cpRemovePlanItem('${p.id}',${ix})">✕</button></td></tr>`;
+    return `<tr><td><b>${esc(i.codigo||art?.codigo||'')}</b> ${esc(i.descripcion||art?.descripcion||'')}<div class="cp-sub">${esc(art?.familia||'')}${dim?' · '+esc(dim):''}</div></td><td><span class="cp-pill ${generic?'warn':'yes'}">${generic?'Genérico / mínimo':'Específico OT'}</span></td><td><input type="number" step="0.01" value="${q}" style="width:80px" onchange="cpUpdatePlanQty('${p.id}',${ix},this.value)"> ${esc(view.unidad||'')}</td><td>${physical}</td><td>${generic?'—':reserved}</td><td><b style="color:${need?'var(--red)':'var(--green)'}">${generic?'mínimo':after}</b></td><td><b style="color:${need?'var(--red)':'var(--text2)'}">${generic?'—':need}</b></td><td>${esc(i.observacion||'')}</td><td><button class="cp-btn danger" onclick="cpRemovePlanItem('${p.id}',${ix})">✕</button></td></tr>`;
   }).join('');
   const done=p.explosionCompleta||p.estado==='explosion completa';
   return `<div class="cp-panel"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><b>OT ${esc(p.ot)} · ${esc(p.cliente||o?.cliente||'')} · ${esc(p.descripcion||o?.desc||'')}</b><div class="cp-sub">${esc(p.estado||'')} · origen ${esc(p.origen||'manual')}</div></div><div class="cp-actions"><button class="cp-btn" onclick="cpAddPlanItem('${p.id}')">＋ Material</button><button class="cp-btn ${done?'':'primary'}" onclick="cpCompleteExplosion('${p.id}')">${done?'✓ Explosión completa':'Marcar explosión completa'}</button></div></div>${sold.length?`<div class="cp-alert green" style="margin-top:10px"><div>◫</div><div><b>Ítems vendidos</b><div class="cp-sub">${sold.map(esc).join(' · ')}</div></div></div>`:''}<div class="cp-table-wrap" style="margin-top:10px"><table class="cp-table" style="min-width:1200px"><thead><tr><th>Material / medida</th><th>Control</th><th>Cant. OT</th><th>Stock físico</th><th>Reservado otras OT</th><th>Disponible luego OT</th><th>A comprar</th><th>Observación</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="9">Sin materiales. Agregá los materiales específicos de esta OT.</td></tr>'}</tbody></table></div></div>`;
@@ -753,7 +782,7 @@ window.cpTab=t=>{currentTab=t;document.querySelectorAll('.cp-tab').forEach(b=>b.
 window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');const file=document.getElementById('cp-file');if(file)file.value='';['cp-proveedor','cp-numero','cp-ot','cp-obs','cp-vencimiento','cp-primer-venc','cp-ref-pago'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-condicion').value='contado';document.getElementById('cp-cuotas').value=1;document.getElementById('cp-dias-cuota').value=30;document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
 window.cpCloseCompra=()=>{ if(aiCleanupActive) aiCleanupActive('cancelled'); document.getElementById('cp-modal-compra').classList.remove('open'); };
 function refreshCatalogDatalist(){const dl=document.getElementById('cp-catalog-list');if(!dl)return;dl.innerHTML=C.articulos.map(a=>`<option value="${esc(a.descripcion)}">${esc(a.codigo||'')} · ${esc(a.familia||'')}${a.subfamilia?' / '+esc(a.subfamilia):''}</option>`).join('');}
-function applyArticleToRow(tr,a,score=1){if(!tr||!a)return;tr.dataset.articleId=a.id||'';tr.querySelector('.i-desc').value=a.descripcion||'';tr.querySelector('.i-code').value=a.codigo||'';tr.querySelector('.i-family').value=a.familia||a.rubro||'';tr.querySelector('.i-subfamily').value=a.subfamilia||'';if(a.unidad)tr.querySelector('.i-unit').value=a.unidad;const note=tr.querySelector('.cp-item-match');note.textContent=`Vinculado: ${a.codigo||'s/c'} · ${Math.round(score*100)}%`;note.className='cp-item-match cp-match-ok';}
+function applyArticleToRow(tr,a,score=1){if(!tr||!a)return;tr.dataset.articleId=a.id||'';tr.querySelector('.i-desc').value=a.descripcion||'';tr.querySelector('.i-code').value=a.codigo||'';tr.querySelector('.i-family').value=a.familia||a.rubro||'';tr.querySelector('.i-subfamily').value=a.subfamilia||'';if(!tr.querySelector('.i-unit').value&&a.unidad)tr.querySelector('.i-unit').value=a.unidadCompraPreferida||a.unidad;const note=tr.querySelector('.cp-item-match');note.textContent=`Vinculado: ${a.codigo||'s/c'} · ${Math.round(score*100)}%`;note.className='cp-item-match cp-match-ok';}
 function matchRowArticle(tr,force=false){if(cpIngreso){cpPrepareIngresoRow(tr);return;}const typed=tr.querySelector('.i-desc').value||tr.querySelector('.i-original').value,exact=articleByDescription(typed);if(exact)return applyArticleToRow(tr,exact,1);const found=findBestArticle(typed);if(found&&(force||found.score>=.68))return applyArticleToRow(tr,found.article,found.score);tr.dataset.articleId='';const note=tr.querySelector('.cp-item-match');note.textContent='Sin vincular al catálogo';note.className='cp-item-match cp-match-warn';}
 
 function previousItemPrice(desc,articleId,currentDate='9999-12-31'){
@@ -764,11 +793,13 @@ function checkRowPrice(tr){
   let box=tr.querySelector('.cp-price-alert');if(!box){box=document.createElement('div');box.className='cp-price-alert';tr.querySelector('.i-price')?.parentElement.appendChild(box);}
   const desc=tr.querySelector('.i-desc')?.value||'',price=num(tr.querySelector('.i-price')?.value),date=document.getElementById('cp-fecha')?.value||'9999-12-31';
   const prev=previousItemPrice(desc,tr.dataset.articleId,date);box.className='cp-price-alert';box.textContent='';
-  if(!prev||!price)return;const pct=(price/num(prev.precioUnitarioNeto)-1)*100;if(pct>=10){box.classList.add('show',pct>=20?'danger':'warn');box.textContent=`▲ ${pct.toFixed(1)}% vs última compra (${money(prev.precioUnitarioNeto)})`;}
+  if(!prev||!price)return;let currentCost=price,previousCost=num(prev.precioUnitarioNeto),label=prev.unidad||'';const a=C.articulos.find(a=>a.id===tr.dataset.articleId),core=window.TIZInsumosCotizacionCoreV1;
+  if(a&&core&&a.control!=='sin_stock'){try{const view=core.baseArticle(a),data=cpStockUnitData(tr);if(data.error)throw Error(data.error);currentCost=data.precioUnitarioStock/core.stockQuantity(1,data.unidadStock,view);const previousQuantity=Number(prev.cantidad);previousCost=previousQuantity>0?previousCost*previousQuantity/core.movementQuantity(prev,a):previousCost/core.stockQuantity(1,prev.unidad,view);label=view.unidad;}catch{box.classList.add('show','warn');box.textContent='Revisá las unidades antes de comparar los precios.';return;}}
+  const pct=(currentCost/previousCost-1)*100;if(pct>=10){box.classList.add('show',pct>=20?'danger':'warn');box.textContent='▲ '+pct.toFixed(1)+'% vs última compra ('+money(previousCost)+' / '+label+')';}
 }
-window.cpAddItem=(data={})=>{refreshCatalogDatalist();const original=data.descripcionOriginal||data.descripcion||'';const tr=document.createElement('tr');tr.dataset.articleId=data.articuloId||'';tr.innerHTML=`<td><textarea class="i-original cp-original" title="Descripción exacta leída de la factura">${esc(original)}</textarea></td><td><input class="i-desc" list="cp-catalog-list" value="${esc(data.descripcion||original)}" placeholder="Elegir artículo TIZ"><div class="cp-item-match">Sin vincular al catálogo</div></td><td><input class="i-code" value="${esc(data.codigo||'')}"></td><td><input class="i-family" value="${esc(data.familia||data.rubro||'')}"></td><td><input class="i-subfamily" value="${esc(data.subfamilia||'')}"></td><td><input class="i-qty" type="number" step="0.01" value="${data.cantidad??1}"></td><td><input class="i-unit" value="${esc(data.unidad||'unidad')}"></td><td><input class="i-price" type="number" step="0.01" value="${data.precioUnitarioNeto??0}"></td><td><input class="i-iva" type="number" step="0.01" value="${data.ivaPorcentaje??21}"></td><td class="i-total">${money(0)}</td><td><button class="cp-btn danger" onclick="this.closest('tr').remove();cpCalcTotals()">✕</button></td>`;attachFamilySuggestions(tr);tr.querySelectorAll('input,textarea').forEach(i=>i.addEventListener('input',calcTotals));tr.querySelector('.i-desc').addEventListener('change',()=>matchRowArticle(tr,true));tr.querySelector('.i-price').addEventListener('blur',()=>checkRowPrice(tr));tr.querySelector('.i-desc').addEventListener('change',()=>setTimeout(()=>checkRowPrice(tr),0));document.getElementById('cp-items-body').appendChild(tr);const linked=data.articuloId&&C.articulos.find(a=>a.id===data.articuloId);if(linked)applyArticleToRow(tr,linked,1);else matchRowArticle(tr,false);calcTotals();};
+window.cpAddItem=(data={})=>{refreshCatalogDatalist();const original=data.descripcionOriginal||data.descripcion||'';const tr=document.createElement('tr');tr.dataset.articleId=data.articuloId||'';tr.innerHTML=`<td><textarea class="i-original cp-original" title="Descripción exacta leída de la factura">${esc(original)}</textarea></td><td><input class="i-desc" list="cp-catalog-list" value="${esc(data.descripcion||original)}" placeholder="Elegir artículo TIZ"><div class="cp-item-match">Sin vincular al catálogo</div></td><td><input class="i-code" value="${esc(data.codigo||'')}"></td><td><input class="i-family" value="${esc(data.familia||data.rubro||'')}"></td><td><input class="i-subfamily" value="${esc(data.subfamilia||'')}"></td><td><input class="i-qty" type="number" step="0.01" value="${data.cantidad??1}"></td><td><select class="i-unit" aria-label="Unidad del comprobante">${cpPurchaseUnitOptions(data.unidad)}</select></td><td><input class="i-price" type="number" step="0.01" value="${data.precioUnitarioNeto??0}"></td><td><input class="i-iva" type="number" step="0.01" value="${data.ivaPorcentaje??21}"></td><td class="i-total">${money(0)}</td><td><button class="cp-btn danger" onclick="this.closest('tr').remove();cpCalcTotals()">✕</button></td>`;attachFamilySuggestions(tr);tr.querySelectorAll('input,textarea,select').forEach(i=>i.addEventListener('input',calcTotals));tr.querySelector('.i-desc').addEventListener('change',()=>matchRowArticle(tr,true));tr.querySelector('.i-price').addEventListener('blur',()=>checkRowPrice(tr));tr.querySelector('.i-desc').addEventListener('change',()=>setTimeout(()=>checkRowPrice(tr),0));document.getElementById('cp-items-body').appendChild(tr);const linked=data.articuloId&&C.articulos.find(a=>a.id===data.articuloId);if(linked)applyArticleToRow(tr,linked,1);else matchRowArticle(tr,false);calcTotals();};
 window.cpCalcTotals=()=>calcTotals();
-function rowToItem(tr){const q=num(tr.querySelector('.i-qty').value),p=num(tr.querySelector('.i-price').value),iva=num(tr.querySelector('.i-iva').value),net=q*p;return {articuloId:tr.dataset.articleId||'',descripcionOriginal:tr.querySelector('.i-original').value.trim(),descripcion:tr.querySelector('.i-desc').value.trim(),codigo:tr.querySelector('.i-code').value.trim(),familia:tr.querySelector('.i-family').value.trim(),subfamilia:tr.querySelector('.i-subfamily').value.trim(),rubro:tr.querySelector('.i-family').value.trim(),cantidad:q,unidad:tr.querySelector('.i-unit').value.trim(),precioUnitarioNeto:p,ivaPorcentaje:iva,totalNeto:net,ivaImporte:net*iva/100,totalBruto:net*(1+iva/100)};}
+function rowToItem(tr){const q=num(tr.querySelector('.i-qty').value),p=num(tr.querySelector('.i-price').value),iva=num(tr.querySelector('.i-iva').value),net=q*p;const item={articuloId:tr.dataset.articleId||'',descripcionOriginal:tr.querySelector('.i-original').value.trim(),descripcion:tr.querySelector('.i-desc').value.trim(),codigo:tr.querySelector('.i-code').value.trim(),familia:tr.querySelector('.i-family').value.trim(),subfamilia:tr.querySelector('.i-subfamily').value.trim(),rubro:tr.querySelector('.i-family').value.trim(),cantidad:q,unidad:tr.querySelector('.i-unit').value.trim(),unidadComprobanteOriginal:tr.dataset.unidadComprobanteOriginal||tr.querySelector('.i-unit').value.trim(),precioUnitarioNeto:p,ivaPorcentaje:iva,totalNeto:net,ivaImporte:net*iva/100,totalBruto:net*(1+iva/100)};const stock=typeof cpStockUnitData==='function'?cpStockUnitData(tr):null;return stock?{...item,...(stock.error?{errorUnidadStock:stock.error}:stock)}:item;}
 function getItems(){return [...document.querySelectorAll('#cp-items-body tr')].map(rowToItem).filter(i=>i.descripcion);}
 function calcTotals(){
   const rows=[...document.querySelectorAll('#cp-items-body tr')];
@@ -787,8 +818,8 @@ window.cpEditCompra=id=>{const c=C.compras.find(x=>x.id===id);if(!c)return;cpNue
 window.cpDeleteCompra=async id=>{if(confirm('¿Borrar esta compra y sus pagos pendientes?')){for(const p of C.pagos.filter(x=>x.compraId===id&&x.estado!=='pagado'))await deleteDoc(doc(db,'pagosCompra',p.id));await deleteDoc(doc(db,'compras',id));}};
 window.cpAddArticulo=async()=>{const descripcion=document.getElementById('cp-a-desc').value.trim();if(!descripcion)return toast('Ingresá una descripción.');const codigo=document.getElementById('cp-a-code').value.trim();if(codigo&&C.articulos.some(a=>a.codigo===codigo))return toast('Ese código ya existe.');const familia=document.getElementById('cp-a-family').value.trim();const subfamilia=document.getElementById('cp-a-subfamily').value.trim();if(!familia)return toast('Elegí o escribí una familia.');await addDoc(collection(db,'articulosCompra'),{codigo,descripcion,unidad:document.getElementById('cp-a-unit').value.trim(),familia,subfamilia,control:document.getElementById('cp-a-control').value,stockMinimo:num(document.getElementById('cp-a-min').value),_ts:serverTimestamp()});toast('Artículo agregado.');};
 window.cpDeleteArticulo=async id=>{if(confirm('¿Borrar artículo?'))await deleteDoc(doc(db,'articulosCompra',id));};
-window.cpCalcCountRow=input=>{const tr=input.closest('tr'),final=num(input.value),cons=num(tr.dataset.inicial)+num(tr.dataset.compras)-final;tr.querySelector('.cp-consumo').textContent=isNaN(cons)?'—':cons;};
-window.cpSaveConteo=async()=>{const items=[...document.querySelectorAll('[data-count-row]')].map(tr=>{const raw=tr.querySelector('.cp-count-input').value;if(raw==='')return null;const cantidad=num(raw);return {articuloId:tr.dataset.id,descripcion:tr.dataset.desc,cantidad,stockInicial:num(tr.dataset.inicial),comprasPeriodo:num(tr.dataset.compras),planificadoOT:num(tr.dataset.plan),consumoReal:num(tr.dataset.inicial)+num(tr.dataset.compras)-cantidad};}).filter(Boolean);if(!items.length)return toast('Ingresá al menos un conteo.');await addDoc(collection(db,'conteosStock'),{semana:document.getElementById('cp-count-week').value,fecha:document.getElementById('cp-count-date').value,items,usuario:window.currentUser?.email||'',_ts:serverTimestamp()});toast('Conteo guardado. Consumos calculados automáticamente.');};
+window.cpCalcCountRow=input=>{const tr=input.closest('tr'),final=num(input.value),cons=num(tr.dataset.inicial)+num(tr.dataset.compras)-final;tr.querySelector('.cp-consumo').textContent=tr.dataset.unitError?'Revisar unidades':tr.dataset.primerConteo==='1'?'Primer saldo':isNaN(cons)?'—':cons;};
+window.cpSaveConteo=async()=>{const items=[...document.querySelectorAll('[data-count-row]')].map(tr=>{const raw=tr.querySelector('.cp-count-input').value;if(raw==='')return null;const cantidad=num(raw);return {articuloId:tr.dataset.id,descripcion:tr.dataset.desc,cantidad,unidad:tr.dataset.unit,stockInicial:num(tr.dataset.inicial),comprasPeriodo:num(tr.dataset.compras),planificadoOT:num(tr.dataset.plan),consumoReal:tr.dataset.unitError||tr.dataset.primerConteo==='1'?null:num(tr.dataset.inicial)+num(tr.dataset.compras)-cantidad,errorUnidadStock:tr.dataset.unitError||''};}).filter(Boolean);if(!items.length)return toast('Ingresá al menos un conteo.');if(items.some(i=>!Number.isFinite(i.cantidad)||i.cantidad<0))return toast('El conteo debe ser una cantidad válida, cero o mayor.');await addDoc(collection(db,'conteosStock'),{semana:document.getElementById('cp-count-week').value,fecha:document.getElementById('cp-count-date').value,items,usuario:window.currentUser?.email||'',_ts:serverTimestamp()});toast('Conteo guardado. Consumos calculados automáticamente.');};
 window.cpExplodeObra=async obraId=>{
   const o=cpFindWork(obraId);if(!o)return toast('No se encontró la obra.');
   if(cpPlanForWork(o))return toast('La OT ya tiene un plan de materiales.');
@@ -796,8 +827,8 @@ window.cpExplodeObra=async obraId=>{
   toast('OT sincronizada con Compras. Ya podés hacer la explosión.');
 };
 window.cpCreatePlan=async()=>{const ot=document.getElementById('cp-plan-ot').value;if(!ot)return toast('Seleccioná una OT.');await addDoc(collection(db,'planesMateriales'),{ot,descripcion:document.getElementById('cp-plan-desc').value.trim(),estado:document.getElementById('cp-plan-status').value,origen:document.getElementById('cp-plan-source').value,items:[],_ts:serverTimestamp()});toast('Plan creado.');};
-window.cpAddPlanItem=async id=>{const p=C.planes.find(x=>x.id===id);if(!p)return;const raw=prompt('Material (escribí descripción exacta del catálogo):');if(!raw)return;const art=C.articulos.find(a=>normText(a.descripcion)===normText(raw))||findBestArticle(raw)?.article;if(!art)return toast('No encontré ese material en el catálogo.');const q=num(prompt('Cantidad para esta OT:',1));if(q<=0)return;const tipo=(prompt('Tipo de control: 1 = específico de esta OT / 2 = genérico por stock mínimo','1')==='2')?'generico':'especifico';const largo=prompt('Largo / desarrollo (opcional):','')||'';const ancho=prompt('Ancho (opcional):','')||'';const espesor=prompt('Espesor / calibre (opcional):','')||'';const obs=prompt('Observación (opcional):','')||'';const items=[...(p.items||[]),{articuloId:art.id||'',codigo:art.codigo||'',descripcion:art.descripcion,unidad:art.unidad||'',familia:art.familia||'',subfamilia:art.subfamilia||'',cantidadSugerida:q,cantidadPlanificada:q,modoStock:tipo,medidas:{largo,ancho,espesor},observacion:obs,confianza:100}];await updateDoc(doc(db,'planesMateriales',id),{items,estado:'explosion en curso',explosionCompleta:false,_ts:serverTimestamp()});toast('Material agregado a la explosión.');};
-window.cpUpdatePlanQty=async(id,ix,val)=>{const p=C.planes.find(x=>x.id===id),items=[...(p.items||[])];items[ix]={...items[ix],cantidadPlanificada:num(val),modificadoManualmente:true};await updateDoc(doc(db,'planesMateriales',id),{items});};
+window.cpAddPlanItem=async id=>{const p=C.planes.find(x=>x.id===id);if(!p)return;const raw=prompt('Material (escribí descripción exacta del catálogo):');if(!raw)return;const art=C.articulos.find(a=>normText(a.descripcion)===normText(raw))||findBestArticle(raw)?.article;if(!art)return toast('No encontré ese material en el catálogo.');const q=num(prompt('Cantidad para esta OT en '+cpStockArticle(art).unidad+':',1));if(q<=0)return;const tipo=(prompt('Tipo de control: 1 = específico de esta OT / 2 = genérico por stock mínimo','1')==='2')?'generico':'especifico';const largo=prompt('Largo / desarrollo (opcional):','')||'';const ancho=prompt('Ancho (opcional):','')||'';const espesor=prompt('Espesor / calibre (opcional):','')||'';const obs=prompt('Observación (opcional):','')||'';const items=[...(p.items||[]),{articuloId:art.id||'',codigo:art.codigo||'',descripcion:art.descripcion,unidad:cpStockArticle(art).unidad||'',familia:art.familia||'',subfamilia:art.subfamilia||'',cantidadSugerida:q,cantidadPlanificada:q,modoStock:tipo,medidas:{largo,ancho,espesor},observacion:obs,confianza:100}];await updateDoc(doc(db,'planesMateriales',id),{items,estado:'explosion en curso',explosionCompleta:false,_ts:serverTimestamp()});toast('Material agregado a la explosión.');};
+window.cpUpdatePlanQty=async(id,ix,val)=>{if(!Number.isFinite(Number(val))||Number(val)<0)return toast('La reserva debe ser cero o mayor.');const p=C.planes.find(x=>x.id===id),items=[...(p.items||[])];const art=C.articulos.find(a=>a.id===items[ix].articuloId);items[ix]={...items[ix],cantidadPlanificada:num(val),unidad:art?cpStockArticle(art).unidad:items[ix].unidad,modificadoManualmente:true};await updateDoc(doc(db,'planesMateriales',id),{items});};
 window.cpRemovePlanItem=async(id,ix)=>{const p=C.planes.find(x=>x.id===id),items=(p.items||[]).filter((_,i)=>i!==ix);await updateDoc(doc(db,'planesMateriales',id),{items});};
 // El enlace privado se comparte sólo mediante Firestore autenticado; la API key permanece en Apps Script.
 let cpIaUrlShared='',cpIaUser='',cpIaLoading=false,cpIaConfigError='',cpIaStop=null,cpIaResolve=null,cpIaConfigReady=Promise.resolve();
@@ -932,7 +963,12 @@ window.cpExportCSV=(filtered=false)=>{const h=['Fecha','Semana','Proveedor','FC'
 
 let cpFilterTimer=null;
 window.cpFilterPeriod=value=>{purchaseFilters.period=value;render();};window.cpFilterDebounced=value=>{clearTimeout(cpFilterTimer);purchaseFilters.search=value;cpFilterTimer=setTimeout(render,250);};window.cpFilterChanged=familyChanged=>{const val=id=>document.getElementById(id)?.value||'';purchaseFilters.week=val('cp-f-week')||purchaseFilters.week;purchaseFilters.month=val('cp-f-month')||purchaseFilters.month;purchaseFilters.from=val('cp-f-from');purchaseFilters.to=val('cp-f-to');purchaseFilters.proveedor=val('cp-f-provider');purchaseFilters.familia=val('cp-f-family');purchaseFilters.subfamilia=familyChanged?'':val('cp-f-subfamily');purchaseFilters.fc=val('cp-f-fc');render();};window.cpClearFilters=()=>{purchaseFilters={period:'month',week:weekKey(),month:todayISO().slice(0,7),from:'',to:'',search:'',proveedor:'',familia:'',subfamilia:'',fc:''};render();};
-window.cpRenderArticleRows=()=>{const tbody=document.getElementById('cp-art-rows');if(!tbody)return;const search=normText(document.getElementById('cp-art-search')?.value||''),family=document.getElementById('cp-art-family')?.value||'';const list=C.articulos.filter(a=>(!family||a.familia===family)&&(!search||normText([a.codigo,a.descripcion,a.familia,a.subfamilia].join(' ')).includes(search)));tbody.innerHTML=list.map(a=>{const its=purchaseItems().filter(x=>x.articuloId===a.id||normText(x.descripcion)===normText(a.descripcion)).sort((x,y)=>String(y.compra.fecha).localeCompare(String(x.compra.fecha))),ct=latestCounts()[a.id]||latestCounts()[a.descripcion];return `<tr><td><b>${esc(a.codigo||'—')}</b></td><td title="${esc(a.descripcion)}"><b>${esc(a.descripcion)}</b></td><td>${esc(a.familia||'')}</td><td>${esc(a.subfamilia||'')}</td><td>${esc(a.unidad||'')}</td><td>${esc(a.control||'')}</td><td>${a.stockMinimo??0}</td><td>${its[0]?money(its[0].precioUnitarioNeto):'—'}</td><td>${ct?num(ct.cantidad):'—'}</td><td><button class="cp-btn" data-edit-insumo="${esc(a.id)}">Editar</button> <button class="cp-btn danger" onclick="cpDeleteArticulo('${a.id}')">Borrar</button></td></tr>`;}).join('')||'<tr><td colspan="10">No hay artículos para este filtro.</td></tr>';tbody.querySelectorAll('[data-edit-insumo]').forEach(b=>b.onclick=()=>window.cpEditArticulo(b.dataset.editInsumo));};
+window.cpRenderArticleRows=()=>{
+ const tbody=document.getElementById('cp-art-rows');if(!tbody)return;const search=normText(document.getElementById('cp-art-search')?.value||''),family=document.getElementById('cp-art-family')?.value||'',list=C.articulos.filter(a=>(!family||a.familia===family)&&(!search||normText([a.codigo,a.descripcion,a.familia,a.subfamilia].join(' ')).includes(search)));
+ tbody.innerHTML=list.map(a=>{const m=cpStockMeta(a)||{},u=m.unidad||a.unidad;return `<tr><td><b>${esc(a.codigo||'—')}</b></td><td><b>${esc(a.descripcion)}</b></td><td>${esc(a.familia||'')}</td><td>${esc(a.subfamilia||'')}</td><td><b>${esc(u)}</b><div class="cp-sub">Compra: ${esc(a.unidadCompraPreferida||a.unidad)}</div></td><td>${esc(a.control||'')}</td><td>${m.stockMinimo??'—'}</td><td>${Number.isFinite(m.ultimoCosto)?money(m.ultimoCosto)+' / '+esc(u):'Precio pendiente'}</td><td>${m.stockDisponible===null||m.stockDisponible===undefined?'Sin conteo':m.stockDisponible+' '+esc(u)}</td><td><button class="cp-btn" data-edit-insumo="${esc(a.id)}">Editar</button> <button class="cp-btn" data-unit-insumo="${esc(a.id)}">Unidades</button> <button class="cp-btn danger" onclick="cpDeleteArticulo('${a.id}')">Borrar</button></td></tr>`;}).join('')||'<tr><td colspan="10">No hay artículos para este filtro.</td></tr>';
+ tbody.querySelectorAll('[data-edit-insumo]').forEach(b=>b.onclick=()=>window.cpEditArticulo(b.dataset.editInsumo));tbody.querySelectorAll('[data-unit-insumo]').forEach(b=>b.onclick=()=>window.TIZUnidadesStockV1?.open(b.dataset.unitInsumo));
+};
+
 window.cpImportCatalogoBase=async()=>{const existing=new Set(C.articulos.map(a=>String(a.codigo||'').trim()).filter(Boolean)),pending=CATALOGO_TIZ_BASE.filter(a=>!existing.has(a.codigo));if(!pending.length)return toast('La base TIZ ya está importada.');if(!confirm(`Se importarán ${pending.length} artículos. ¿Continuar?`))return;for(let start=0;start<pending.length;start+=450){const batch=writeBatch(db);pending.slice(start,start+450).forEach(a=>{const ref=doc(collection(db,'articulosCompra'));batch.set(ref,{...a,control:['Hierros','Chapas','Acrilicos','Lonas y Vinilos','Iluminacion','Maderas y otros','Pai PVC y polyfan'].includes(a.familia)?'estrategico':['Servicios','Sueldos','Publicidad','Alquiler','Comisiones','Colocaciones Externas','Cortes / Impresiones Externas'].includes(a.familia)?'sin_stock':'consumible',stockMinimo:0,_ts:serverTimestamp()});});await batch.commit();}toast(`${pending.length} artículos importados.`);};
 
 
@@ -1229,6 +1265,7 @@ function cpStartIngreso(data){
 function cpIngresoRows(){return [...document.querySelectorAll('#cp-items-body tr')];}
 function cpIngresoSignature(){return JSON.stringify({fields:[...document.querySelectorAll('#cp-modal-compra input:not([type=file]),#cp-modal-compra select,#cp-modal-compra textarea')].map(e=>[e.id||e.className,e.value]),providerId:cpIngreso?.providerId,items:cpIngresoRows().map(tr=>[tr.dataset.articleId,tr.dataset.confirmed])});}
 function cpRefreshIngreso(){
+ if(typeof cpRefreshUnitNotices==='function')cpRefreshUnitNotices();
  const resume=document.getElementById('cp-resume-ingreso');if(resume)resume.hidden=!cpIngreso;
  if(!cpIngreso)return;
  const box=document.getElementById('cp-ingreso');if(!box)return;box.hidden=false;
@@ -1322,215 +1359,3067 @@ window.cpSaveProveedor=async()=>{
  if(data.cuit&&data.cuit.length!==11)return toast('El CUIT debe tener 11 dígitos.');
  if(cpIngreso?.editingProvider&&(!data.cuit||!data.domicilio))return toast('Completá CUIT y domicilio para dar de alta al proveedor de esta compra.');
  let id=v('id');const duplicate=C.proveedores.find(p=>p.id!==id&&((data.cuit&&ING.digits(p.cuit)===data.cuit)||ING.norm(p.nombre||p.razonSocial)===ING.norm(data.nombre)));
- if(duplicate)return toast('Ese proveedor ya existe. Abrí su ficha o volvé a la compra y elegilo del listado.');
- const previous=C.proveedores.find(p=>p.id===id);
- data.nombresAnteriores=uniqueSorted([...(previous?.nombresAnteriores||[]),previous?.nombre,previous?.razonSocial,data.razonSocial].filter(x=>x&&ING.norm(x)!==ING.norm(data.nombre)));
- data.camposPendientes=ING.pendingSupplier(data);cpProviderSaving=true;
- try{
-  // La clave por CUIT evita dos altas simultáneas del mismo proveedor.
-  if(id)await updateDoc(doc(db,'proveedoresCompra',id),data);
-  else if(data.cuit){id='cuit-'+data.cuit;await runTransaction(db,async tx=>{const ref=doc(db,'proveedoresCompra',id),snap=await tx.get(ref);if(snap.exists())throw Error('El proveedor ya fue dado de alta. Volvé y seleccioná la ficha existente.');tx.set(ref,data);});}
-  else{id=(await addDoc(collection(db,'proveedoresCompra'),data)).id;}
-  const record={...C.proveedores.find(p=>p.id===id),...data,id};C.proveedores=[...C.proveedores.filter(p=>p.id!==id),record];
-  if(cpIngreso?.editingProvider){cpIngreso.editingProvider=false;cpConfirmIngresoProvider(record);window.cpResumeIngreso();}
-  else{window.cpClearProveedor();render();}
-  toast(data.camposPendientes.length?'Proveedor guardado. Quedan datos de contacto para completar.':'Proveedor guardado.');
- }catch(e){toast('No se pudo guardar el proveedor: '+e.message);}finally{cpProviderSaving=false;}
-};
-function cpPrepareIngresoRow(tr){
- if(!cpIngreso)return;tr.dataset.confirmed='';tr.dataset.articleId='';cpIngreso.reviewed='';
- if(!tr.dataset.ingresoWired){
-  tr.dataset.ingresoWired='1';
-  for(const selector of ['.i-desc','.i-code'])tr.querySelector(selector).addEventListener('input',()=>{cpPrepareIngresoRow(tr);cpRefreshIngreso();});
-  for(const selector of ['.i-original','.i-unit','.i-family','.i-subfamily'])tr.querySelector(selector).addEventListener('input',()=>{
-   cpIngreso.reviewed='';
-   if(selector!=='.i-original'&&tr.dataset.confirmed==='1'){
-    const edit=tr.querySelector('[data-edit-linked-article]');if(edit)edit.textContent='Guardar datos del insumo';
-   }
-   cpRefreshIngreso();
-  });
-  tr.querySelector('.i-desc').addEventListener('change',()=>{const exact=articleByDescription(tr.querySelector('.i-desc').value);cpPrepareIngresoRow(tr);if(exact)cpConfirmIngresoArticle(tr,exact);else cpRefreshIngreso();});
- }
- const note=tr.querySelector('.cp-item-match');note.className='cp-item-match cp-match-warn';note.replaceChildren();
- const label=document.createElement('div');label.textContent='Elegí el insumo del catálogo o dalo de alta.';note.append(label);
- const source={descripcionOriginal:tr.querySelector('.i-desc').value||tr.querySelector('.i-original').value,codigoProveedor:tr.dataset.providerCode||''};
- for(const candidate of ING.articleSuggestions(source,C.articulos,C.compras,cpIngreso.providerId)){
-  const b=document.createElement('button');b.className='cp-btn';b.style.cssText='display:block;white-space:normal;text-align:left;margin:4px 0';b.textContent='Usar '+(candidate.article.codigo||'s/n')+' · '+candidate.article.descripcion+' ('+Math.round(candidate.score*100)+'%)';b.title=candidate.reason;b.onclick=()=>cpConfirmIngresoArticle(tr,candidate.article);note.append(b);
- }
- const browse=document.createElement('button');browse.className='cp-btn primary';browse.type='button';browse.textContent='Buscar en catálogo y vincular';browse.onclick=()=>window.cpOpenCatalogoIngreso(tr);note.append(browse);
- const create=document.createElement('button');create.className='cp-btn';create.type='button';create.textContent='+ Crear nuevo insumo';create.onclick=()=>cpOpenNewIngresoArticle(tr);note.append(create);
-}
-function cpConfirmIngresoArticle(tr,a){
- if(!cpIngreso?.confirmed)return toast('Confirmá primero el proveedor.');
- applyArticleToRow(tr,a);tr.dataset.confirmed='1';cpIngreso.reviewed='';cpRefreshIngreso();
- const change=document.createElement('button');change.className='cp-btn';change.type='button';change.textContent='Cambiar insumo';
- change.onclick=()=>window.cpOpenCatalogoIngreso(tr);
- tr.querySelector('.cp-item-match').append(change);
- const edit=document.createElement('button');edit.className='cp-btn';edit.type='button';edit.dataset.editLinkedArticle='1';edit.textContent='Editar insumo';edit.onclick=()=>window.cpEditArticulo(a.id,tr);
- tr.querySelector('.cp-item-match').append(edit);
-}
+ if(duplicate)…23333 tokens truncated… </div>
+      <div class="form-group"><label>Semana</label><input id="f-semana" type="number" placeholder="22"></div>
+      <div class="form-group"><label>Precio de venta (neto)</label><input id="f-neto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Precio de venta (bruto)</label><input id="f-bruto" type="number" placeholder="0"></div>
+      <div class="form-group"><label>Gastos</label><input id="f-gastos" type="number" placeholder="0"></div>
+      <div class="form-section">Ítems cotizados</div>
+      <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column"><p style="font-size:11px;color:var(--text3);margin:0">Una obra puede tener varios renglones con importes distintos.</p><div id="obra-items-list"></div><button type="button" class="btn btn-ghost btn-sm" onclick="addObraItem()" style="align-self:flex-start"><i class="ti ti-plus"></i> Agregar ítem</button><div style="text-align:right;font-size:13px;color:var(--accent);font-weight:600">Total ítems: <span id="obra-items-total">$0</span></div></div>
+      <div class="form-section">Cálculos auxiliares / respaldo interno</div>
+      <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column"><p style="font-size:11px;color:var(--text3);margin:0">Guardá materiales, horas, colocación, tercerizados o cualquier cuenta usada para formar el precio.</p><div id="obra-calculos-list"></div><button type="button" class="btn btn-ghost btn-sm" onclick="addCalculoAux()" style="align-self:flex-start"><i class="ti ti-plus"></i> Agregar cálculo</button><div style="text-align:right;font-size:13px;color:var(--text2);font-weight:600">Total auxiliar: <span id="obra-calculos-total">$0</span></div></div>
+      <div class="form-section">Producción</div>
+      <div class="form-group"><label>F. compromiso prod.</label><input id="f-fprod-c" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>F. real prod.</label><input id="f-fprod-r" placeholder="DD/MM/AAAA"></div>
+      <div class="form-section">Colocación</div>
+      <div class="form-group"><label>F. compromiso col.</label><input id="f-fcol-c" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>F. real col.</label><input id="f-fcol-r" placeholder="DD/MM/AAAA"></div>
+      <div class="form-section">Facturación</div>
+      <div class="form-group"><label>OC / OP</label><input id="f-oc" placeholder="Nro orden de compra"></div>
+      <div class="form-group"><label>Nro factura</label><input id="f-nrfc" placeholder="Nro factura"></div>
+      <div class="form-group"><label>F. factura</label><input id="f-ffc" placeholder="DD/MM/AAAA" oninput="calcFechaVencimiento()"></div>
+      <div class="form-group"><label>Estado cobranza</label>
+        <select id="f-cobr"><option>Pendiente</option><option>Entregado</option><option>Facturado</option><option>Cobrado</option></select>
+      </div>
+      <div class="form-group"><label>Días de pago acordados</label>
+        <input id="f-dias-pago" type="number" placeholder="Ej: 30" oninput="calcFechaVencimiento()">
+      </div>
+      <div class="form-group" style="justify-content:flex-end">
+        <label>Fecha de vencimiento</label>
+        <span id="f-venc-calculada" style="font-size:12px;font-weight:500;padding-top:4px"></span>
+      </div>
+      <div class="form-group full"><label>Comentarios generales</label><textarea id="f-comentarios"></textarea></div>
+      <div class="form-section">Checklist de liberación / control</div>
+      <div class="form-group full">
+        <div class="checklist-grid" id="checklist-v58">
+          <label class="check-item"><input type="checkbox" data-check="clienteConfirmado"> Cliente confirmado</label>
+          <label class="check-item"><input type="checkbox" data-check="ocCargada"> OC / OP cargada</label>
+          <label class="check-item"><input type="checkbox" data-check="senaRecibida"> Seña recibida</label>
+          <label class="check-item"><input type="checkbox" data-check="disenoAprobado"> Diseño aprobado</label>
+          <label class="check-item"><input type="checkbox" data-check="materialesCompletos"> Materiales completos</label>
+          <label class="check-item"><input type="checkbox" data-check="produccionTerminada"> Producción terminada</label>
+          <label class="check-item"><input type="checkbox" data-check="colocacionCoordinada"> Colocación coordinada</label>
+          <label class="check-item"><input type="checkbox" data-check="fotosFinales"> Fotos finales cargadas</label>
+          <label class="check-item"><input type="checkbox" data-check="facturado"> Facturado</label>
+          <label class="check-item"><input type="checkbox" data-check="cobrado"> Cobrado</label>
+        </div>
+      </div>
+      <div class="form-section">Anotaciones por sector</div>
+      <div class="form-group full" style="background:var(--surface2);border-radius:8px;padding:12px;gap:10px;display:flex;flex-direction:column">
+        <p style="font-size:11px;color:var(--text3);margin:0">Cada sector puede escribir sus propias notas. Se guarda con fecha y hora automáticamente.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--blue);margin:0">📦 Producción <span id="nota-ts-produccion" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Producción')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-produccion" placeholder="Notas del sector Producción..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--teal);margin:0">🚛 Colocaciones <span id="nota-ts-colocaciones" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Colocaciones')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-colocaciones" placeholder="Notas del sector Colocaciones..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--purple);margin:0">✏️ Diseño <span id="nota-ts-diseno" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Diseño')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-diseno" placeholder="Notas del sector Diseño..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--amber);margin:0">💰 Ventas <span id="nota-ts-ventas" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Ventas')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-ventas" placeholder="Notas del sector Ventas..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label style="color:var(--accent);margin:0">🛒 Compras <span id="nota-ts-compras" style="font-size:10px;color:var(--text3);font-weight:400"></span></label>
+              <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="crearTareaDesdeNota('Compras')">📅 Tarea</button>
+            </div>
+            <textarea id="nota-compras" placeholder="Notas del sector Compras..." style="min-height:60px"></textarea>
+          </div>
+          <div class="form-group"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><label style="color:var(--green);margin:0">✅ Calidad <span id="nota-ts-calidad" style="font-size:10px"></span></label><button type="button" class="btn btn-ghost btn-sm" onclick="crearTareaDesdeNota('Calidad')">📅 Tarea</button></div><textarea id="nota-calidad" placeholder="Notas del sector Calidad..." style="min-height:60px"></textarea></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('obra')">Cancelar</button>
+      <button class="btn btn-ghost" onclick="abrirPresupuestoPDF()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-file-invoice"></i> Generar presupuesto</button>
+      <button class="btn btn-ghost" onclick="exportarDatosFacturaActual()" title="Descarga datos listos para facturación"><i class="ti ti-receipt"></i> Datos factura</button>
+      <button class="btn btn-primary" onclick="saveObra()">Guardar</button>
+    </div>
+  </div>
+</div>
 
-let cpCatalogSelection=null;
-function cpCatalogMatches(articles,query='',family=''){
- const normalize=value=>ING.norm(value).replace(/\bjota\b/g,'j');
- const terms=normalize(query).split(' ').filter(Boolean);
- return articles.filter(a=>a.id&&(!family||ING.norm(a.familia||a.rubro)===ING.norm(family))&&terms.every(term=>normalize([a.codigo,a.descripcion,a.familia,a.rubro,a.subfamilia,a.unidad].join(' ')).includes(term))).sort((a,b)=>String(a.codigo||'').localeCompare(String(b.codigo||''),undefined,{numeric:true})||String(a.descripcion||'').localeCompare(String(b.descripcion||''),'es'));
-}
-window.cpCloseCatalogoIngreso=()=>{
- const row=cpCatalogSelection?.row;cpCatalogSelection=null;
- document.getElementById('cp-modal-catalogo-ingreso')?.classList.remove('open');
- row?.querySelector('.i-desc')?.focus();
-};
-window.cpOpenCatalogoIngreso=tr=>{
- if(!cpIngreso?.confirmed)return toast('Confirmá primero el proveedor.');
- if(!cpIngresoRows().includes(tr))return;
- cpCatalogSelection={row:tr,providerId:cpIngreso.providerId};
- let modal=document.getElementById('cp-modal-catalogo-ingreso');
- if(!modal){modal=document.createElement('div');modal.id='cp-modal-catalogo-ingreso';modal.className='cp-modal-bg';modal.style.zIndex='12004';document.body.append(modal);}
- const original=tr.querySelector('.i-original').value;
- const families=[...new Set(C.articulos.map(a=>a.familia||a.rubro).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
- modal.innerHTML=`<div class="cp-modal" style="max-width:960px;width:100%" role="dialog" aria-modal="true" aria-labelledby="cp-catalog-title"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 id="cp-catalog-title">Vincular con un insumo del catálogo</h2><button type="button" class="cp-btn" onclick="cpCloseCatalogoIngreso()" aria-label="Cerrar catálogo">✕</button></div><p class="cp-sub">Descripción de factura: <b>${esc(original)}</b></p><p class="cp-sub">Elegí el insumo existente que corresponde. Se conservan la descripción original, la cantidad y el precio de la factura.</p><div class="cp-row" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"><div class="cp-field"><label for="cp-catalog-query">Buscar en todo el catálogo</label><input id="cp-catalog-query" placeholder="Perfil J, jota, aluminio o código" oninput="cpRenderCatalogoIngreso()"></div><div class="cp-field"><label for="cp-catalog-family">Familia</label><select id="cp-catalog-family" onchange="cpRenderCatalogoIngreso()"><option value="">Todas las familias</option>${families.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select></div></div><p id="cp-catalog-count" class="cp-sub" role="status" aria-live="polite"></p><div style="overflow:auto;max-height:50vh"><table class="cp-table" style="min-width:650px"><thead><tr><th>Código</th><th>Insumo</th><th>Familia / subfamilia</th><th>Unidad</th><th></th></tr></thead><tbody id="cp-catalog-results"></tbody></table></div><div class="cp-actions" style="margin-top:14px"><button type="button" class="cp-btn" onclick="cpCloseCatalogoIngreso()">Volver sin vincular</button><button type="button" class="cp-btn" id="cp-catalog-create">No existe: crear nuevo insumo</button></div></div>`;
- document.getElementById('cp-catalog-create').onclick=()=>{const row=cpCatalogSelection?.row;window.cpCloseCatalogoIngreso();if(row&&cpIngresoRows().includes(row))cpOpenNewIngresoArticle(row);};
- modal.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();window.cpCloseCatalogoIngreso();}};
- modal.classList.add('open');window.cpRenderCatalogoIngreso();document.getElementById('cp-catalog-query').focus();
-};
-window.cpRenderCatalogoIngreso=()=>{
- if(!cpCatalogSelection)return;
- const matches=cpCatalogMatches(C.articulos,document.getElementById('cp-catalog-query').value,document.getElementById('cp-catalog-family').value),visible=matches.slice(0,80),body=document.getElementById('cp-catalog-results');
- document.getElementById('cp-catalog-count').textContent=matches.length?(matches.length+' insumos encontrados'+(matches.length>80?' · Se muestran los primeros 80. Refiná la búsqueda para ver los demás.':'.')):'No hay coincidencias. Probá otras palabras o creá un nuevo insumo.';
- body.innerHTML=visible.map(a=>`<tr><td>${esc(a.codigo||'—')}</td><td><b>${esc(a.descripcion||'Sin descripción')}</b></td><td>${esc([a.familia||a.rubro,a.subfamilia].filter(Boolean).join(' / '))}</td><td>${esc(a.unidad||'—')}</td><td><button type="button" class="cp-btn primary" data-catalog-article="${esc(a.id)}" aria-label="Vincular ${esc(a.codigo||'')} ${esc(a.descripcion||'')}">Vincular</button> <button type="button" class="cp-btn" data-catalog-edit="${esc(a.id)}" aria-label="Editar insumo ${esc(a.codigo||'')} ${esc(a.descripcion||'')}">Editar insumo</button></td></tr>`).join('')||'<tr><td colspan="5">Sin resultados para esta búsqueda.</td></tr>';
- body.querySelectorAll('[data-catalog-article]').forEach(button=>button.onclick=()=>window.cpLinkCatalogoIngreso(button.dataset.catalogArticle));
- body.querySelectorAll('[data-catalog-edit]').forEach(button=>button.onclick=()=>window.cpEditArticulo(button.dataset.catalogEdit));
-};
-window.cpLinkCatalogoIngreso=id=>{
- const selection=cpCatalogSelection,article=C.articulos.find(a=>a.id===id);
- if(!selection||!cpIngreso?.confirmed||cpIngreso.providerId!==selection.providerId||!cpIngresoRows().includes(selection.row)){window.cpCloseCatalogoIngreso();return toast('La compra cambió. Volvé a abrir el catálogo desde el ítem.');}
- if(!article)return toast('Este insumo ya no está disponible. Elegí otro del catálogo.');
- cpConfirmIngresoArticle(selection.row,article);window.cpCloseCatalogoIngreso();
+<div class="modal-overlay" id="modal-prespdf" style="padding:20px">
+  <div class="modal" style="max-width:1120px;width:calc(100vw - 80px);max-height:90vh;overflow-y:auto">
+    <div class="modal-title">Generar presupuesto</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Nro presupuesto</label><input id="pp-nro" oninput="actualizarIdentificacionCotizacionV354()" placeholder="0001"></div>
+      <div class="form-group"><label>Validez (días)</label><input id="pp-validez" type="number" value="7"></div>
+      <div class="form-group full" style="position:relative">
+        <label>Cliente</label>
+        <input id="pp-cliente" placeholder="Escribí para buscar..." autocomplete="off" oninput="sugerirClientesPP(this.value,false)" onfocus="sugerirClientesPP(this.value,true)" onblur="setTimeout(()=>cerrarSugerenciasPP(),200)">
+        <div id="pp-clientes-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--border-radius-md);z-index:300;max-height:160px;overflow-y:auto;margin-top:2px"></div>
+      </div>
+      <div class="form-group full"><label>Descripción general del presupuesto</label>
+        <input id="pp-desc" placeholder="Ej: Cartelería interna y externa sucursal Florida 441">
+      </div>
+      <div class="form-group full" id="pp-ayudamemoria-wrap">
+        <label>Ayudamemoria de cotización</label>
+        <div id="pp-ayudamemoria" style="background:rgba(232,184,75,.07);border:1px solid var(--border2);border-radius:10px;padding:12px;font-size:11px;color:var(--text2)"></div>
+      </div>
+      <div class="form-group"><label>Revisión</label>
+        <input id="pp-revision" value="1.1" readonly style="font-family:'DM Mono',monospace;font-weight:700">
+      </div>
+      <div class="form-group"><label>Identificación</label>
+        <input id="pp-identificacion" value="CT 0000000 1.1" readonly style="font-family:'DM Mono',monospace;color:var(--accent)">
+      </div>
+      <div class="form-group full"><label>Nota al pie</label>
+        <input id="pp-nota" value="Los precios cotizados se encuentran a valores netos">
+      </div>
+      <div class="form-group full"><label>Condición de compra</label>
+        <input id="pp-condicion" value="Anticipo 50% Saldo a contraentrega">
+      </div>
+    </div>
+    <div style="margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Ítems a cotizar</div>
+    <div id="pp-items-wrap">
+      <div style="display:flex;gap:6px;margin-bottom:6px;padding:0 2px">
+        <span style="width:28px;flex-shrink:0;font-size:10px;color:var(--text3);text-align:center">N°</span><span style="flex:1;font-size:10px;color:var(--text3);text-transform:uppercase">Descripción del ítem</span>
+        <span style="width:120px;font-size:10px;color:var(--text3);text-transform:uppercase">$ Unitario</span>
+        <span style="width:65px;font-size:10px;color:var(--text3);text-transform:uppercase">Cant</span>
+        <span style="width:120px;font-size:10px;color:var(--text3);text-transform:uppercase;text-align:right">Subtotal</span>
+        <span style="width:32px"></span>
+      </div>
+      <div id="pp-items" style="max-height:280px;overflow-y:auto;padding-right:2px"></div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="addItemPP()" style="margin-top:8px"><i class="ti ti-plus"></i> Agregar ítem</button>
+    <details id="pp-entrega-wrap" style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:0 12px">
+      <summary style="cursor:pointer;padding:12px 0;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);font-weight:600">🚚 Entrega / logística <span id="pp-entrega-resumen" style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">— A definir</span></summary>
+      <div style="padding:2px 0 12px"><div class="form-grid">
+        <div class="form-group full"><label>Modalidad</label><select id="pp-entrega-tipo" onchange="actualizarEntregaLogisticaPP()"><option value="a_definir">A definir</option><option value="retiro_fabrica">Retira en fábrica</option><option value="envio">Envío a domicilio</option><option value="colocacion">Con colocación</option></select></div>
+        <div class="form-group pp-entrega-domicilio" style="display:none"><label>Domicilio</label><input id="pp-entrega-domicilio" placeholder="Calle, número, localidad y referencia"></div>
+        <div class="form-group pp-entrega-fecha" style="display:none"><label id="pp-entrega-fecha-label">Fecha prevista</label><input id="pp-entrega-fecha" type="date"></div>
+        <div class="form-group full pp-entrega-contacto" style="display:none"><label for="pp-entrega-contacto-select">Contacto guardado del cliente</label><select id="pp-entrega-contacto-select" onchange="elegirContactoClientePP('contacto')"><option value="">Seleccionar contacto…</option><option value="__nuevo">+ Agregar contacto nuevo</option></select></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label for="pp-entrega-contacto">Contacto en destino</label><input id="pp-entrega-contacto" list="pp-entrega-contactos-list" placeholder="Nombre del contacto" oninput="sugerirContactoClientePP()"><datalist id="pp-entrega-contactos-list"></datalist><small style="color:var(--text3)">Al guardar el presupuesto, los contactos nuevos se agregan a este cliente.</small></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label>Teléfono contacto</label><input id="pp-entrega-contacto-tel" placeholder="Teléfono / WhatsApp"></div>
+        <div class="form-group pp-entrega-contacto" style="display:none"><label for="pp-entrega-contacto-cargo">Cargo</label><input id="pp-entrega-contacto-cargo" placeholder="Compras, administración, recepción…"></div>
+        <div class="form-group pp-entrega-contacto full" style="display:none"><label>Email contacto</label><input id="pp-entrega-contacto-email" type="email" placeholder="correo@cliente.com"></div>
+        <div class="form-group full pp-entrega-retira" style="display:none"><label for="pp-entrega-retira-select">Persona guardada del cliente</label><select id="pp-entrega-retira-select" onchange="elegirContactoClientePP('retira')"><option value="">Seleccionar contacto…</option><option value="__nuevo">+ Agregar contacto nuevo</option></select></div>
+        <div class="form-group pp-entrega-retira" style="display:none"><label>Persona que retira</label><input id="pp-entrega-retira" list="pp-entrega-retira-list" placeholder="Nombre del contacto" oninput="sugerirRetiraClientePP()"><datalist id="pp-entrega-retira-list"></datalist></div>
+        <div class="form-group pp-entrega-retira" style="display:none"><label>Teléfono</label><input id="pp-entrega-retira-tel" placeholder="Teléfono / WhatsApp"></div>
+        <div class="form-group pp-entrega-retira" style="display:none"><label for="pp-entrega-retira-cargo">Cargo</label><input id="pp-entrega-retira-cargo" placeholder="Compras, administración, recepción…"></div>
+        <div class="form-group pp-entrega-retira full" style="display:none"><label>Email</label><input id="pp-entrega-retira-email" type="email" placeholder="correo@cliente.com"></div>
+        <div class="form-group full pp-entrega-detalle" style="display:none"><label id="pp-entrega-detalle-label">Indicaciones adicionales</label><textarea id="pp-entrega-detalle" placeholder="Horarios, acceso, permisos, equipos necesarios u otras indicaciones"></textarea></div>
+      </div><div style="font-size:11px;color:var(--text3);margin-top:4px">Esta información se comparte en la OT con Producción, Colocaciones y los demás sectores que la necesiten.</div></div>
+    </details>
+    <div style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px">
+        <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Cálculos auxiliares internos</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Materiales, horas, colocación, tercerizados o cualquier cálculo usado para formar el precio. No aparece en el PDF del cliente.</div></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addCalculoAuxPP()"><i class="ti ti-plus"></i> Agregar cálculo</button>
+      </div>
+      <div id="pp-calculos-list"></div>
+      <div style="text-align:right;font-size:13px;color:var(--text2);font-weight:600;margin-top:8px">Total auxiliar: <span id="pp-calculos-total">$0</span></div>
+    </div>
+    <div style="text-align:right;margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:15px;font-weight:700;color:var(--accent)">
+      Total cotizado: <span id="pp-total">$0</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-prespdf').classList.remove('open')">Cancelar</button>
+      <button id="pp-btn-nueva-revision" class="btn btn-ghost" onclick="crearNuevaRevisionDesdeCotizador()" style="display:none"><i class="ti ti-copy-plus"></i> Nueva revisión</button>
+      <button class="btn btn-ghost" onclick="guardarPresupuestoCompleto()" style="color:var(--accent);border-color:var(--accent)"><i class="ti ti-device-floppy"></i> Guardar presupuesto</button>
+      <button class="btn btn-primary" onclick="generarPDF()"><i class="ti ti-printer"></i> Generar PDF + Excel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-title">Nuevo cliente</div>
+    <input type="hidden" id="cli-id">
+    <div class="form-grid">
+      <div class="form-group"><label>N° cliente</label><input id="fc-numero" placeholder="Automático" readonly></div>
+      <div class="form-group"><label>Nombre / Razón social</label><input id="fc-nombre"></div>
+      <div class="form-group"><label>CUIT</label><input id="fc-cuit"></div>
+      <div class="form-group"><label>Contacto</label><input id="fc-contacto" list="fc-contactos-list" oninput="sugerirContactoFichaClienteV1()"><datalist id="fc-contactos-list"></datalist></div>
+      <div class="form-group"><label>Celular</label><input id="fc-cel"></div>
+      <div class="form-group"><label>Cargo del contacto</label><input id="fc-cargo"></div>
+      <div class="form-group full"><label>Email</label><input id="fc-email"></div>
+      <div class="form-group full"><label>Otros contactos del cliente</label><textarea id="fc-contactos" rows="4" placeholder="Un contacto por línea: Nombre | teléfono | email | cargo"></textarea><small style="color:var(--text3)">Se sugieren al crear nuevos presupuestos y obras de este cliente.</small></div>
+      <div class="form-group full"><label>Notas</label><textarea id="fc-notas"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cliente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-presupuesto">
+  <div class="modal">
+    <div class="modal-title">Nuevo presupuesto</div>
+    <input type="hidden" id="pre-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Nro presupuesto</label><input id="fp-nro"></div>
+      <div class="form-group"><label>Vendedor</label><select id="fp-vend"><option value="G">G · Giancarlo</option><option>J</option><option>G/J</option></select></div>
+      <div class="form-group full"><label>Cliente</label><input id="fp-cliente"></div>
+      <div class="form-group full"><label>Descripción</label><input id="fp-desc"></div>
+      <div class="form-group"><label>Importe</label><input id="fp-importe" type="number"></div>
+      <div class="form-group"><label>Fecha</label><input id="fp-fecha" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>Estado</label>
+        <select id="fp-estado"><option selected>Pendiente</option><option>Enviado</option><option>Aprobado</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option></select>
+      </div>
+      <div class="form-group full"><label>Comentarios</label><textarea id="fp-comentarios"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('presupuesto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePresupuesto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-retencion">
+  <div class="modal">
+    <div class="modal-title">Nueva retención</div>
+    <input type="hidden" id="ret-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Mes</label><input id="fr-mes" placeholder="Enero"></div>
+      <div class="form-group"><label>Cliente</label><input id="fr-cliente"></div>
+      <div class="form-group"><label>Nro factura</label><input id="fr-nrfc"></div>
+      <div class="form-group"><label>Importe bruto</label><input id="fr-bruto" type="number"></div>
+      <div class="form-group"><label>R. SUSS</label><input id="fr-suss" type="number" placeholder="0"></div>
+      <div class="form-group"><label>R. IIBB</label><input id="fr-iibb" type="number" placeholder="0"></div>
+      <div class="form-group"><label>R. Ganancias</label><input id="fr-gan" type="number" placeholder="0"></div>
+      <div class="form-group"><label>R. IVA</label><input id="fr-iva" type="number" placeholder="0"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('retencion')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRetencion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cobranza">
+  <div class="modal">
+    <div class="modal-title">Registrar cobro</div>
+    <input type="hidden" id="cob-id">
+    <div class="form-grid">
+      <div class="form-group"><label>OT</label><input id="fcob-ot"></div>
+      <div class="form-group"><label>Cliente</label><input id="fcob-cliente"></div>
+      <div class="form-group full"><label>Descripción</label><input id="fcob-desc"></div>
+      <div class="form-group"><label>Nro factura</label><input id="fcob-nrfc"></div>
+      <div class="form-group"><label>Importe</label><input id="fcob-importe" type="number"></div>
+      <div class="form-group"><label>F. vencimiento</label><input id="fcob-venc" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>F. cobro real</label><input id="fcob-real" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>Estado</label>
+        <select id="fcob-estado"><option>Pendiente</option><option>Cobrado</option><option>Vencido</option></select>
+      </div>
+      <div class="form-group full"><label>Comentarios</label><textarea id="fcob-comentarios"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('cobranza')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCobranza()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#0f0f0f;z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:20px">
+  <div style="text-align:center;max-width:340px">
+    <div style="font-size:32px;font-weight:700;color:#e8b84b;letter-spacing:-1px;margin-bottom:4px">TIZ</div>
+    <div style="font-size:12px;color:#5a5856;text-transform:uppercase;letter-spacing:.1em;margin-bottom:40px">Gestión operativa</div>
+    <button onclick="doLogin()" style="display:flex;align-items:center;gap:12px;padding:14px 24px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;width:100%;justify-content:center">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Entrar con Google
+    </button>
+    <p id="login-err" style="color:#e05c5c;font-size:12px;margin-top:12px"></p>
+    <p style="font-size:11px;color:#5a5856;margin-top:16px">Solo cuentas autorizadas de TIZ</p>
+  </div>
+</div>
+
+<!-- MODAL TAREA -->
+<div class="modal-overlay" id="modal-tarea">
+  <div class="modal">
+    <div class="modal-title">Nueva tarea</div>
+    <input type="hidden" id="tarea-id">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Buscar obra</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input id="ft-buscar-ot" placeholder="Buscar por OT, descripción o cliente..." oninput="filtrarObrasModal()" style="flex:1">
+          <select id="ft-filtro-estado" onchange="filtrarObrasModal()" style="width:160px">
+            <option value="">Todos los estados</option>
+            <option>Aprobado</option>
+            <option>En producción</option>
+            <option>Entregado</option>
+            <option>Facturado</option>
+            <option>Cobrado</option>
+          </select>
+        </div>
+        <select id="ft-obra-id" onchange="fillTareaObra(this.value)" size="5" style="width:100%;min-height:110px;border-radius:8px;padding:4px">
+          <option value="">— Seleccionar obra —</option>
+        </select>
+        <div id="ft-obras-count" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+      </div>
+      <div class="form-group full"><label>Descripción de la tarea</label>
+        <input id="ft-desc" placeholder="Ej: Imprimir lonas para Farmacity Florida 441">
+      </div>
+      <div class="form-group"><label>Fecha</label><input id="ft-fecha" placeholder="DD/MM/AAAA"></div>
+      <div class="form-group"><label>Hora inicio</label><input id="ft-hora-ini" placeholder="09:00" type="time"></div>
+      <div class="form-group"><label>Hora fin</label><input id="ft-hora-fin" placeholder="11:00" type="time"></div>
+      <div class="form-group"><label>Sector responsable</label>
+        <select id="ft-sector">
+          <option>Producción</option><option>Colocaciones</option><option>Diseño</option><option>Ventas</option><option>Compras</option><option>Calidad</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Notas adicionales</label><textarea id="ft-notas"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('tarea')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTarea()"><i class="ti ti-calendar-plus"></i> Guardar y enviar a Calendar</button>
+    </div>
+  </div>
+</div>
+
+<!-- AREA DE IMPRESIÓN PDF -->
+<div id="print-area" style="display:none"></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="clienteContactosV1.js?v=TIZ-CONTACTOS-CARGO-20261026"></script>
+
+<!-- Firebase SDK -->
+<script src="presupuestoEmisorV1.js?v=TIZ-DOMICILIO-PRESUPUESTOS-20261030"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBkTVxyE0Qd6SBTw5jf-hdn1aCP5Y9g42E",
+  authDomain: "tiz---app.firebaseapp.com",
+  projectId: "tiz---app",
+  storageBucket: "tiz---app.firebasestorage.app",
+  messagingSenderId: "52620104053",
+  appId: "1:52620104053:web:d62bf8b7ca296581f1833c",
+  measurementId: "G-EXPT46ZFJT"
 };
 
-let cpArticleEditor=null,cpArticleSaving=false;
-window.cpEditArticulo=(id,row=null)=>{
- if(cpArticleSaving)return;
- const a=C.articulos.find(x=>x.id===id);if(!a)return toast('El insumo ya no está disponible.');
- cpArticleEditor={id,row};let modal=document.getElementById('cp-modal-edit-insumo');
- if(!modal){modal=document.createElement('div');modal.id='cp-modal-edit-insumo';modal.className='cp-modal-bg';modal.style.zIndex='12005';document.body.append(modal);}
- const current=(selector,fallback)=>row?.querySelector(selector)?.value??fallback??'';
- const fields=[['desc','Descripción',a.descripcion],['unit','Unidad',current('.i-unit',a.unidad)],['family','Familia',current('.i-family',a.familia||a.rubro)],['subfamily','Subfamilia',current('.i-subfamily',a.subfamilia)]];
- modal.innerHTML=`<div class="cp-modal" style="max-width:720px" role="dialog" aria-label="Editar insumo"><h2>Editar insumo ${esc(a.codigo||'')}</h2><p class="cp-sub">Estos datos se actualizan en el catálogo y en la compra en curso. Las compras anteriores conservan sus datos.</p><div class="cp-row" style="grid-template-columns:repeat(2,minmax(0,1fr))">${fields.map(([key,label,value])=>`<div class="cp-field"><label for="cp-edit-${key}">${label}</label><input id="cp-edit-${key}" value="${esc(value)}" ${key==='family'?'list="cp-edit-families"':key==='subfamily'?'list="cp-edit-subfamilies"':''}></div>`).join('')}<div class="cp-field"><label for="cp-edit-control">Control de stock</label><select id="cp-edit-control"><option value="estrategico">Estratégico</option><option value="consumible">Consumible</option><option value="sin_stock">Sin stock</option></select></div><div class="cp-field"><label for="cp-edit-min">Stock mínimo</label><input id="cp-edit-min" type="number" min="0" step="0.01" value="${esc(a.stockMinimo??0)}"></div></div><datalist id="cp-edit-families">${familyOptions().map(f=>`<option value="${esc(f)}">`).join('')}</datalist><datalist id="cp-edit-subfamilies"></datalist><p id="cp-edit-error" role="alert" class="cp-match-warn"></p><div class="cp-actions" style="margin-top:14px"><button class="cp-btn" id="cp-edit-cancel" onclick="cpCloseEditArticulo()">Volver sin guardar</button><button class="cp-btn primary" id="cp-edit-save" onclick="cpSaveEditArticulo()">Guardar cambios del insumo</button></div></div>`;
- document.getElementById('cp-edit-control').value=a.control||'consumible';
- const refresh=()=>setSubfamilyList('cp-edit-subfamilies',document.getElementById('cp-edit-family').value);document.getElementById('cp-edit-family').oninput=refresh;refresh();modal.classList.add('open');
-};
-window.cpCloseEditArticulo=()=>{if(cpArticleSaving)return;document.getElementById('cp-modal-edit-insumo')?.classList.remove('open');cpArticleEditor=null;};
-window.cpSaveEditArticulo=async()=>{
- if(cpArticleSaving||!cpArticleEditor)return;
- const {id}=cpArticleEditor,existing=C.articulos.find(a=>a.id===id),v=k=>document.getElementById('cp-edit-'+k).value.trim(),error=document.getElementById('cp-edit-error');
- if(!existing){error.textContent='El insumo ya no está disponible.';return;}
- const data={descripcion:v('desc'),unidad:v('unit'),familia:v('family'),subfamilia:v('subfamily'),control:v('control'),stockMinimo:Number(v('min'))};
- if(!data.descripcion||!data.unidad){error.textContent='Completá descripción y unidad.';return;}
- if(!Number.isFinite(data.stockMinimo)||data.stockMinimo<0){error.textContent='El stock mínimo debe ser cero o mayor.';return;}
- if(C.articulos.some(a=>a.id!==id&&ING.norm(a.descripcion)===ING.norm(data.descripcion))){error.textContent='Ya existe otro insumo con esa descripción. Revisá el catálogo.';return;}
- cpArticleSaving=true;document.getElementById('cp-edit-save').disabled=true;document.getElementById('cp-edit-cancel').disabled=true;error.textContent='';
- try{
-  await updateDoc(doc(db,'articulosCompra',id),{...data,actualizado:serverTimestamp()});
-  const updated={...existing,...data,id};C.articulos=C.articulos.map(a=>a.id===id?updated:a);
-  document.querySelectorAll('#cp-items-body tr').forEach(tr=>{if(tr.dataset.articleId===id){if(cpIngreso?.confirmed&&tr.dataset.confirmed==='1')cpConfirmIngresoArticle(tr,updated);else applyArticleToRow(tr,updated);}});
-  refreshCatalogDatalist();cpRenderArticleRows();window.cpRenderCatalogoIngreso?.();calcTotals();cpArticleSaving=false;window.cpCloseEditArticulo();toast('Insumo actualizado. Se conservaron la cantidad y el precio de la compra.');
- }catch(e){error.textContent='No se pudo guardar el insumo: '+e.message;}
- finally{cpArticleSaving=false;document.getElementById('cp-edit-save').disabled=false;document.getElementById('cp-edit-cancel').disabled=false;}
-};
-const cpAddItemLegacy=window.cpAddItem;
-window.cpAddItem=(data={})=>{
- cpAddItemLegacy(data);const tr=document.getElementById('cp-items-body').lastElementChild;
- tr.dataset.providerCode=ING.text(data.codigoProveedor||data.codigo||'');
- if(cpIngreso)cpPrepareIngresoRow(tr);
- cpRefreshIngreso();
-};
-function cpOpenNewIngresoArticle(tr){
- if(!cpIngreso?.confirmed)return;cpNewArticleRow=tr;let modal=document.getElementById('cp-modal-new-insumo');
- if(!modal){modal=document.createElement('div');modal.id='cp-modal-new-insumo';modal.className='cp-modal-bg';modal.style.zIndex='12002';document.body.append(modal);}
- modal.innerHTML=`<div class="cp-modal" style="max-width:720px"><h2>Alta de insumo</h2><p class="cp-sub">Revisá las sugerencias antes de crear un insumo. Se asignará un número único al guardar.</p><p><b>N.º sugerido: ${esc(ING.nextCode(C.articulos,cpIngresoNumberBase()))}</b></p><div class="cp-row"><div class="cp-field"><label>Descripción</label><input id="cp-new-desc" value="${esc(tr.querySelector('.i-original').value||tr.querySelector('.i-desc').value)}"></div><div class="cp-field"><label>Unidad de stock</label><input id="cp-new-unit" value="${esc(tr.querySelector('.i-unit').value)}"></div><div class="cp-field"><label>Familia</label><input id="cp-new-family" list="cp-new-families"><datalist id="cp-new-families">${familyOptions().map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div><div class="cp-field"><label>Subfamilia</label><input id="cp-new-subfamily" list="cp-new-subfamilies"><datalist id="cp-new-subfamilies"></datalist></div><div class="cp-field"><label>Control de stock</label><select id="cp-new-control"><option value="consumible">Consumible</option><option value="estrategico">Estratégico</option><option value="sin_stock">Sin stock</option></select></div></div><p id="cp-new-error" role="alert" class="cp-match-warn"></p><div class="cp-actions" style="margin-top:14px"><button class="cp-btn" onclick="cpCloseNewIngresoArticle()">Volver sin crear</button><button class="cp-btn primary" id="cp-new-save" onclick="cpSaveNewIngresoArticle()">Crear insumo y vincular</button></div></div>`;
- document.getElementById('cp-new-family').oninput=e=>setSubfamilyList('cp-new-subfamilies',e.target.value);modal.classList.add('open');
-}
-window.cpCloseNewIngresoArticle=()=>{document.getElementById('cp-modal-new-insumo')?.classList.remove('open');cpNewArticleRow=null;};
-async function cpCreateNumberedArticle(data){
- // Lee el catálogo completo antes de reservar; el contador serializa las altas concurrentes.
- const snap=await getDocs(collection(db,'articulosCompra'));const catalog=snap.docs.map(d=>({id:d.id,...d.data()}));
- if(catalog.some(a=>ING.norm(a.descripcion)===ING.norm(data.descripcion)))throw Error('Ya existe un insumo con esa descripción. Buscalo en el catálogo.');
- const sequence=doc(db,'comprasSecuencias','insumos');
- return runTransaction(db,async tx=>{const seq=await tx.get(sequence),codigo=ING.nextCode(catalog,cpIngresoNumberBase(),seq.exists()?seq.data().ultimo:0),ref=doc(db,'articulosCompra','insumo-'+codigo),existing=await tx.get(ref);if(existing.exists())throw Error('El número ya existe. Volvé a intentar.');const article={...data,codigo,_ts:serverTimestamp()};tx.set(sequence,{ultimo:Number(codigo)});tx.set(ref,article);return {...article,id:ref.id};});
-}
-window.cpSaveNewIngresoArticle=async()=>{
- const tr=cpNewArticleRow;if(!tr||!tr.isConnected)return;const v=k=>document.getElementById('cp-new-'+k).value.trim();
- const data={descripcion:v('desc'),unidad:v('unit'),familia:v('family'),subfamilia:v('subfamily'),control:v('control'),stockMinimo:0};const error=document.getElementById('cp-new-error');
- if(!data.descripcion||!data.unidad||!data.familia||!data.subfamilia){error.textContent='Completá descripción, unidad, familia y subfamilia.';return;}
- const b=document.getElementById('cp-new-save');if(b.disabled)return;b.disabled=true;
- try{const a=await cpCreateNumberedArticle(data);C.articulos=[...C.articulos.filter(x=>x.id!==a.id),a];cpConfirmIngresoArticle(tr,a);window.cpCloseNewIngresoArticle();toast('Insumo '+a.codigo+' creado y vinculado.');}catch(e){error.textContent=e.message;}finally{b.disabled=false;}
-};
-function cpReviewIngreso(){
- if(!cpIngreso?.confirmed)return toast('Confirmá el proveedor.');
- const rows=cpIngresoRows();if(!rows.length||rows.some(tr=>tr.dataset.confirmed!=='1'||!C.articulos.some(a=>a.id===tr.dataset.articleId)))return toast('Resolvé todos los insumos antes de revisar.');
- if(rows.some(tr=>!tr.querySelector('.i-original').value.trim()||num(tr.querySelector('.i-qty').value)<=0||num(tr.querySelector('.i-price').value)<0))return toast('Revisá la descripción, cantidad y precio de cada renglón.');
- if(!document.getElementById('cp-fecha').value)return toast('Completá la fecha.');
- const number=document.getElementById('cp-numero').value.trim();
- if(number&&C.compras.some(c=>c.id!==compraEditId&&(c.proveedorId===cpIngreso.providerId||ING.norm(c.proveedor)===ING.norm(document.getElementById('cp-proveedor').value))&&ING.digits(c.numeroComprobante)===ING.digits(number)&&c.tipoComprobante===document.getElementById('cp-tipo').value))return toast('Este comprobante ya está cargado para ese proveedor.');
- cpIngreso.reviewed=cpIngresoSignature();cpRefreshIngreso();
-}
-const cpNuevaCompraLegacy=window.cpNuevaCompra;
-window.cpNuevaCompra=()=>{cpResetIngreso();cpSetIaStatus('');cpNuevaCompraLegacy();};
-const cpCalcTotalsLegacy=calcTotals;
-calcTotals=function(){cpCalcTotalsLegacy();cpRefreshIngreso();};
-const cpRowToItemLegacy=rowToItem;
-rowToItem=function(tr){const i=cpRowToItemLegacy(tr);return cpIngreso?{...i,codigoProveedor:tr.dataset.providerCode||'',vinculacionConfirmada:tr.dataset.confirmed==='1'}:i;};
-const cpApplyAILegacy=applyAI;
-applyAI=function(data){
- // Sólo campos de datos: el contenido del comprobante nunca indica acciones a ejecutar.
- const safe={...data,items:Array.isArray(data.items)?data.items:[],proveedor:ING.supplier(data).nombre};cpStartIngreso(data);cpIngreso.aiRead=true;cpApplyAILegacy(safe);if(!data.fecha)document.getElementById('cp-fecha').value='';cpRefreshIngreso();
- if(ING.supplierMatches(cpIngreso.supplier,C.proveedores).type==='missing')cpOpenIngresoProvider();
-};
-const cpGuardarCompraLegacy=window.cpGuardarCompra;
-window.cpGuardarCompra=async()=>{
- if(cpIngresoSaving)return;
- if(cpIngreso&&(!cpIngreso.confirmed||cpIngreso.reviewed!==cpIngresoSignature()))return toast('Confirmá el proveedor, resolvé los insumos y revisá la compra antes de guardar.');
- cpIngresoSaving=true;cpRefreshIngreso();try{await cpGuardarCompraLegacy();if(!document.getElementById('cp-modal-compra').classList.contains('open'))cpResetIngreso();}catch(e){toast('No se pudo completar el guardado: '+e.message);}finally{cpIngresoSaving=false;cpRefreshIngreso();}
-};
-// Cambiar un dato del comprobante invalida la revisión final, sin borrar el trabajo.
-document.addEventListener('input',e=>{if(cpIngreso&&e.target.closest('#cp-modal-compra')){if(e.target.id==='cp-proveedor'){cpIngreso.supplier.nombre=e.target.value.trim();cpIngreso.supplier.cuit='';cpIngreso.confirmed=false;cpIngreso.providerId='';}cpRefreshIngreso();}});
-document.addEventListener('change',e=>{if(cpIngreso&&e.target.closest('#cp-modal-compra'))cpRefreshIngreso();});
-
-
-injectStyles();injectUI();startListeners();
-onAuthStateChanged(getAuth(getApp()),cpStartSharedIA);
-setInterval(()=>{if(window.currentPage==='compras'&&!document.hidden)cpRefreshMother();},60000);
-console.info('[TIZ V28.2] Hotfix Dashboard de Colocaciones cargado');
-
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ hd: 'tizpublicidad.com' });
 
 // ============================================================
-// TIZ V32 — API de catálogo y último costo para Cotizador
+// PERMISOS
 // ============================================================
-window.tizComprasCatalogoV32 = function(){
+const ADMIN_EMAIL = 'info@tizpublicidad.com';
+const ADMIN_EMAILS = new Set([ADMIN_EMAIL, 'giancarlo.pareja@tizpublicidad.com']);
+
+// Mapa email → sector. Completar con los emails reales del equipo.
+const USER_SECTOR_MAP = {
+  'contrerasfedericogabriel365@gmail.com': 'Operaciones',
+  'info@tizpublicidad.com':              'Ventas',
+  'giancarlo.pareja@tizpublicidad.com': 'Ventas',
+  'pablo.aciar@tizpublicidad.com':       'Producción',
+  'julieta.aguirre@tizpublicidad.com':   'Diseño',
+  'carolina.flores@tizpublicidad.com':   'Compras',
+  'cristiantizpublicidad@gmail.com':     'Calidad',
+  'arielbenitezpublicidad@gmail.com':    'Colocaciones',
+};
+
+const SECTOR_COLORS = {
+  'Ventas':'var(--amber)','Producción':'var(--blue)',
+  'Colocaciones':'var(--teal)','Diseño':'var(--purple)','Compras':'var(--accent)','Calidad':'var(--green)'
+};
+const SECTOR_EMOJI = {
+  'Ventas':'💰','Producción':'📦','Colocaciones':'🚛','Diseño':'✏️','Compras':'🛒','Calidad':'✅'
+};
+
+window.currentUser = null;
+
+function getUserSector(email) {
+  if (USER_SECTOR_MAP[email]) return USER_SECTOR_MAP[email];
+  const local = (email||'').split('@')[0].toLowerCase();
+  if (local.includes('calidad'))return 'Calidad';
+  if (local.includes('prod'))   return 'Producción';
+  if (local.includes('col'))    return 'Colocaciones';
+  if (local.includes('dis') || local.includes('design')) return 'Diseño';
+  if (local.includes('comp'))   return 'Compras';
+  return 'Ventas';
+}
+// Colocaciones is visible to authenticated users; edits keep sector permissions.
+window.canViewPage = page => !!window.currentUser && (page==='obras'||page==='colocaciones');
+window.canViewOperaciones = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','contrerasfedericogabriel365@gmail.com'].includes(String(window.currentUser?.email||'').toLowerCase());
+window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
+window.canViewIndicadores = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());
+window.canAnnotateSector = s => {
+  if (!window.currentUser) return false;
+  if (window.currentUser.isAdmin) return true;
+  if (window.currentUser.sector === s) return true;
+  if (s === 'Operaciones' && window.canViewOperaciones()) return true;
+  if (s === 'Calidad' && window.currentUser.email === 'pablo.aciar@tizpublicidad.com') return true;
+  // Compras y Pablo pueden gestionar tareas de Colocaciones.
+  if (s === 'Colocaciones' && (window.currentUser.sector === 'Compras' || window.currentUser.email === 'pablo.aciar@tizpublicidad.com')) return true;
+  return false;
+};
+window.canEditObra        = () => window.currentUser?.isAdmin;
+window.isAdmin            = () => window.currentUser?.isAdmin;
+
+// ============================================================
+// AUTH SCREEN
+// ============================================================
+function showLoginScreen() {
+  document.querySelector('.app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+function hideLoginScreen() {
+  document.querySelector('.app').style.display = 'flex';
+  document.getElementById('login-screen').style.display = 'none';
+}
+
+window.doLogin = async () => {
   try {
-    const allItems = typeof purchaseItems === 'function' ? purchaseItems() : [];
-    return (C.articulos || []).map(a => {
-      const matches = allItems
-        .filter(x => x.articuloId === a.id || normText(x.descripcion) === normText(a.descripcion))
-        .sort((x,y) => String(y.compra?.fecha || '').localeCompare(String(x.compra?.fecha || '')));
-      const last = matches[0] || null;
-      return {
-        id: a.id || '',
-        codigo: a.codigo || '',
-        descripcion: a.descripcion || '',
-        unidad: a.unidad || 'UNID',
-        familia: a.familia || '',
-        subfamilia: a.subfamilia || '',
-        ultimoCosto: last ? Number(last.precioUnitarioNeto || 0) : 0,
-        proveedor: last?.compra?.proveedor || '',
-        fechaCosto: last?.compra?.fecha || '',
-        compraId: last?.compra?.id || ''
-      };
-    }).sort((a,b) => String(a.descripcion).localeCompare(String(b.descripcion),'es'));
-  } catch (err) {
-    console.warn('[V32 catálogo cotizador]', err);
-    return [];
+    // La sesión de Firebase sirve para toda la app. Sheets y Drive se ejecutan
+    // desde el backend y no deben volver a pedir consentimiento en cada operación.
+    const providerFlex = new GoogleAuthProvider();
+    providerFlex.setCustomParameters({prompt:'select_account'});
+    await signInWithPopup(auth, providerFlex);
+  } catch(e) {
+    document.getElementById('login-err').textContent = 'Error al iniciar sesión: ' + e.message;
   }
 };
+window.doLogout = async () => { await signOut(auth); };
+
+const dataSubscriptions=[];let dataGeneration=0,portalTimer=null,lastSessionEmail='';
+function stopDataSubscriptions(){dataGeneration++;dataSubscriptions.splice(0).forEach(fn=>fn());if(portalTimer)clearInterval(portalTimer);portalTimer=null;}
+onAuthStateChanged(auth, async user => {
+  stopDataSubscriptions();
+  if(user&&lastSessionEmail&&lastSessionEmail!==user.email){location.reload();return;}
+  if(user)lastSessionEmail=user.email;
+  if (user) {
+    // Validar que el email esté en la lista autorizada
+    const allowed = Object.keys(USER_SECTOR_MAP);
+    if (!allowed.includes(user.email)) {
+      await signOut(auth);
+      document.getElementById('login-err').textContent =
+        `La cuenta ${user.email} no tiene acceso a esta app. Contactá a info@tizpublicidad.com`;
+      showLoginScreen();
+      return;
+    }
+    const sector = getUserSector(user.email);
+    window.currentUser = {
+      email: user.email,
+      name: user.email === 'giancarlo.pareja@tizpublicidad.com' ? 'Giancarlo Pareja' : user.displayName,
+      photo: user.photoURL,
+      sector,
+      isAdmin: ADMIN_EMAILS.has(String(user.email||'').toLowerCase()),
+      vendedor: user.email === 'giancarlo.pareja@tizpublicidad.com' ? 'G' : '',
+      restrictedOperaciones:user.email==='contrerasfedericogabriel365@gmail.com',
+      restrictedColocaciones:user.email==='arielbenitezpublicidad@gmail.com',
+      restrictedChecklists:user.email==='cristiantizpublicidad@gmail.com',
+      qualityFullAccess:user.email==='cristiantizpublicidad@gmail.com',
+    };
+    hideLoginScreen();
+    updateUserUI();
+    initListeners();
+  } else {
+    window.currentUser = null;
+    window.TIZClemenSecretariaV1?.reset();
+    window.TIZOperacionesV1?.reset();
+    window.TIZObrasSeguimientoV2?.resetConsulta();
+    window.TIZEstadisticaSourceV1?.reset();
+    document.getElementById('est-kpis')?.replaceChildren();
+    document.getElementById('est-content')?.replaceChildren();
+    for(const key of Object.keys(window.DB||{}))window.DB[key]=[];
+    showLoginScreen();
+  }
+});
+
+function updateUserUI() {
+  const u = window.currentUser;
+  if (!u) return;
+  const color = SECTOR_COLORS[u.sector] || 'var(--accent)';
+  document.getElementById('user-name').textContent   = u.name || u.email;
+  document.getElementById('user-sector').textContent = u.sector;
+  document.getElementById('user-sector').style.color = color;
+  if (u.photo) {
+    document.getElementById('user-avatar').src   = u.photo;
+    document.getElementById('user-avatar').style.display = 'block';
+  }
+  if(u.restrictedOperaciones){document.querySelectorAll('.nav-item').forEach(el=>el.style.display=["goTo('operaciones')","goTo('obras')"].some(p=>el.getAttribute('onclick')?.includes(p))?'flex':'none');document.querySelectorAll('.nav-section').forEach(el=>el.style.display='none');window.currentPage='operaciones';window.goTo?.('operaciones');}
+  document.querySelectorAll('.operations-only').forEach(el=>el.style.display=window.canViewOperaciones()?'flex':'none');
+  if(u.restrictedColocaciones){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=["goTo('colocaciones')","goTo('obras')"].some(p=>el.getAttribute('onclick')?.includes(p))?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='colocaciones';window.goTo?.('colocaciones');}
+  if(u.restrictedChecklists){document.querySelectorAll('.nav-item').forEach(el=>{el.style.display=["goTo('calidad')","goTo('obras')"].some(p=>el.getAttribute('onclick')?.includes(p))?'flex':'none';});document.querySelectorAll('.sidebar-section').forEach(el=>el.style.display='none');window.currentPage='calidad';window.goTo?.('calidad');}
+  document.querySelectorAll('.stats-managers-only').forEach(el=>el.style.display=window.canViewIndicadores()?'flex':'none');
+  if(!window.canViewIndicadores()){window.TIZEstadisticaSourceV1?.reset();document.getElementById('est-content')?.replaceChildren();if(window.currentPage==='estadistica')window.goTo?.('dashboard');}
+  // Ocultar secciones admin-only en sidebar
+  if (!u.isAdmin) {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+  }
+  // Obras es una consulta común para todas las cuentas autorizadas.
+  document.querySelectorAll('.nav-item').forEach(el=>{if(el.getAttribute('onclick')?.includes("goTo(\'obras\')"))el.style.display='flex';});
+}
+
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+function getSemanaActual() {
+  const now = new Date();
+  const date = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const dayNum = date.getUTCDay() || 7; // lunes=1, domingo=7
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+window.DB = { obras:[], clientes:[], presupuestos:[], retenciones:[], cobranzas:[], tareas:[], calidad:[], checklists:[] };
+window.tizNumeroBase = value => {
+  const match=String(value??'').match(/\d+/); if(!match)return '';
+  const sinCeros=match[0].replace(/^0+(?=\d)/,'');
+  return sinCeros.slice(0,4);
+};
+// Formato visible de cotizaciones; conserva la clave interna sin ceros.
+window.tizNumeroCotizacion = value => {
+  const match = String(value ?? '').match(/\d+/);
+  return match ? match[0].replace(/^0+(?=\d)/, '').padStart(7, '0') : '';
+};
+window.currentSem = getSemanaActual();
+['dash-sem','sem-label','prod-sem','col-sem'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = 'Sem ' + window.currentSem;
+});
+window.currentPage = 'dashboard';
+window.obrasSemana = new Set();
+window.cobTab = 'pendientes';
+window.obrasSectorFilter = 'Todos';
+window.editingId = { obra:null, cliente:null, presupuesto:null, retencion:null, cobranza:null, tarea:null };
+
+function initListeners() {
+  stopDataSubscriptions();const generation=dataGeneration;
+  if(window.currentUser?.restrictedOperaciones){for(const key of Object.keys(window.DB))window.DB[key]=[];window.TIZOperacionesV1?.render();portalTimer=setInterval(()=>window.TIZOperacionesV1?.reload(true),30000);return;}
+  if(window.currentUser?.restrictedColocaciones){for(const key of Object.keys(window.DB))window.DB[key]=[];window.loadColocacionesPortalV153();portalTimer=setInterval(()=>window.loadColocacionesPortalV153(),30000);return;}
+  if(window.currentUser?.restrictedChecklists){for(const key of Object.keys(window.DB))window.DB[key]=[];window.loadChecklistsPortalV2();portalTimer=setInterval(()=>window.loadChecklistsPortalV2(),30000);return;}
+  const numeroDesc = (a,b) => (Number(window.tizNumeroBase(b.ot??b.nro))||-1) - (Number(window.tizNumeroBase(a.ot??a.nro))||-1);
+  const clienteAZ = (a,b) => String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'});
+  function listen(col, key) {
+    dataSubscriptions.push(onSnapshot(collection(db, col), snap => {
+      if(generation!==dataGeneration)return;
+      window.DB[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if(key==='clientes') window.DB[key].sort(clienteAZ);
+      if(key==='obras'||key==='presupuestos'||key==='cobranzas') window.DB[key].sort(numeroDesc);
+      refreshCurrent();
+    }));
+  }
+  listen('obras', 'obras');
+  listen('clientes', 'clientes');
+  listen('presupuestos', 'presupuestos');
+  listen('retenciones', 'retenciones');
+  listen('cobranzas', 'cobranzas');
+  listen('tareas', 'tareas');
+  listen('calidadRegistros', 'calidad');
+  listen('calidadChecklists', 'checklists');
+  document.getElementById('sync-text').textContent = 'En línea';
+}
+
+// Análisis preliminar: endpoint autenticado para todos los puestos, incluidos portales restringidos.
+window.clemenSecretariaApiV1 = async body => {
+  if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({...body,mode:'secretary-'+body.mode})});
+  const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Clemen.');return result;
+};
+window.leerObrasConsultaV1 = async () => {
+  if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
+  const session=auth.currentUser;
+  for(let attempt=0;attempt<2;attempt++){
+    if(auth.currentUser!==session)throw new Error('La sesión cambió. Volvé a abrir Obras.');
+    try{
+      const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await session.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'obras-consulta-list'})});
+      if(response.status>=500)throw Object.assign(new Error('El servicio de Obras no está disponible por el momento.'),{temporary:true});
+      const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Obras.');return result;
+    }catch(error){
+      const temporary=error.temporary||['TypeError','AbortError','TimeoutError'].includes(error.name);
+      if(!temporary)throw error;
+      if(attempt===1)throw new Error('No se pudo conectar para actualizar Obras. Reintentá con «Actualizar obras».');
+      await new Promise(resolve=>setTimeout(resolve,1000));
+    }
+  }
+};
+window.operacionesApiV1 = async body => {
+  if(!auth.currentUser)throw new Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({...body,mode:'operations-'+body.mode})});
+  const result=await response.json();if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudo consultar Operaciones.');return result;
+};
+window.estadisticaSourceApiV1 = async () => {
+  if (!auth.currentUser) throw new Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{
+    signal:AbortSignal.timeout(30000),method:'POST',headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({mode:'read-statistics'})
+  });
+  const result=await response.json();
+  if(!response.ok||result.ok!==true)throw new Error(result.error||'No se pudieron leer los resultados de TIZ 2026.');
+  return result;
+};
+window.analisisPreliminarApiV1 = async body => {
+  if (!auth.currentUser) throw new Error('Iniciá sesión en TIZ.');
+  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
+    signal:AbortSignal.timeout(30000),
+    method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
+    body:JSON.stringify({...body,mode:"preliminary-"+body.mode})
+  });
+  const result = await response.json();
+  if (!response.ok || result.ok !== true) throw new Error(result.error || 'No se pudo consultar el análisis preliminar.');
+  return result;
+};
+
+// Una transacción fusiona contra la ficha actual, sin perder contactos de otros usuarios.
+window.recordarContactosClienteV1 = async (reference,contacts) => {
+  const core=window.TIZClienteContactosV1,client=core.client(window.DB,reference);
+  if(!contacts?.length)return false;
+  if(!client?.id)throw Error('Seleccioná un cliente existente para recordar sus contactos.');
+  const merged=await runTransaction(db,async tx=>{
+    const ref=doc(db,'clientes',client.id),snap=await tx.get(ref);
+    if(!snap.exists())throw Error('El cliente ya no está disponible.');
+    const current=snap.data(),contactos=core.merge(current.contactos,contacts);
+    tx.update(ref,{contactos});return contactos;
+  });
+  Object.assign(client,{contactos:merged});
+  window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
+  return true;
+};
+
+// CRUD helpers
+window.insumosCotizacionApiV1 = async body => {
+  const session=auth.currentUser;if(!session)throw Error('Iniciá sesión en TIZ.');
+  const response=await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120',{signal:AbortSignal.timeout(45000),method:'POST',headers:{Authorization:'Bearer '+await session.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({...body,mode:'quote-materials-'+body.mode})});
+  const result=await response.json();if(!response.ok||!result.ok)throw Error(result.error||'No se pudo consultar el detalle de insumos.');return result;
+};
+window.addDoc_ = async (col_, data) => {
+  if(col_==='presupuestos'&&data.estado==='Aprobado'){
+    const result=await window.insumosCotizacionApiV1({mode:'approve',crear:true,id:data.insumosCotizacionId||'',cotizacion:data,insumosAnteriores:data.insumosVentas||[]});Object.assign(data,{insumosVentas:result.insumosVentas,insumosVentasAprobados:result.insumosVentasAprobados});return {id:result.id};
+  }
+  const patch={...data};
+  if(col_==='obras') {
+    delete patch.analisisPreliminarAprobadoEn;
+    if(window.TIZAnalisisPreliminarCoreV1.isApproval(null,patch)) patch.analisisPreliminarAprobadoEn=serverTimestamp();
+  }
+  return addDoc(collection(db,col_),{...patch,_ts:serverTimestamp()});
+};
+window.updateDoc_ = async (col_, id, data) => {
+  if(col_==='presupuestos'&&data.estado==='Aprobado'){
+    const prior=window.DB?.presupuestos?.find(p=>p.id===id)||{};
+    const result=await window.insumosCotizacionApiV1({mode:'approve',id,cotizacion:{...prior,...data},insumosAnteriores:prior.insumosVentas||[]});Object.assign(data,{insumosVentas:result.insumosVentas,insumosVentasAprobados:result.insumosVentasAprobados});return;
+  }
+  if(col_!=='obras'||String(data?.estado||'').trim().toLowerCase()!=='aprobado') return updateDoc(doc(db,col_,id),data);
+  return runTransaction(db,async transaction=>{
+    const ref=doc(db,col_,id),snap=await transaction.get(ref);
+    if(!snap.exists())throw Error('La obra ya no está disponible.');
+    const current=snap.data(),patch={...data};delete patch.analisisPreliminarAprobadoEn;
+    if(!current.analisisPreliminarAprobadoEn&&window.TIZAnalisisPreliminarCoreV1.isApproval(current,patch))patch.analisisPreliminarAprobadoEn=serverTimestamp();
+    transaction.update(ref,patch);
+  });
+};
+
+// Estado de Obras: valida los datos actuales y guarda la OT completa con auditoría.
+window.cambiarEstadoObraV1 = async (ids, estado, anteriores) => {
+  const core=window.TIZObrasSeguimientoCoreV2,user={...window.currentUser};
+  if(!core.canStatus(user))throw Error('Tu cuenta no puede modificar el estado de Obras.');
+  if(!Array.isArray(ids)||!ids.length||ids.length>100||new Set(ids).size!==ids.length||ids.some(id=>typeof id!=='string'||!/^[\w-]{1,150}$/.test(id)))throw Error('La selección de obras no es válida.');
+  return runTransaction(db,async transaction=>{
+    const refs=ids.map(id=>doc(db,'obras',id)),snapshots=await Promise.all(refs.map(ref=>transaction.get(ref)));
+    if(snapshots.some(s=>!s.exists()))throw Error('La obra cambió. Actualizá el listado antes de continuar.');
+    const works=snapshots.map((s,i)=>({...s.data(),id:ids[i]}));
+    if(core.grouped(works).length!==1||works.some(w=>!anteriores||w.estado!==anteriores[w.id]))throw Error('Otra persona actualizó la obra. Actualizá el listado antes de cambiar su estado.');
+    const at=new Date().toISOString(),patches=works.map(w=>({id:w.id,patch:core.statusPatch(w,estado,user,at)}));
+    patches.forEach((p,i)=>{
+      transaction.update(refs[i],p.patch);
+      transaction.set(doc(collection(refs[i],'seguimientoHistorial')),{tipo:'estado',fecha:at,usuario:user.email,estadoAnterior:String(works[i].estado||''),estadoNuevo:estado});
+    });
+    return patches;
+  });
+};
+
+// Compatibilidad: la baja directa se retiró; sólo se inicia desde Presupuestos.
+window.cambiarBajaObraV1 = async () => {
+  throw new Error('La baja se realiza únicamente desde Presupuestos por Ventas.');
+};
+
+// La baja comercial y sus obras se confirman juntas; no borra registros fiscales.
+window.darBajaCotizacionV1 = async (id, motivo) => {
+  const user={...window.currentUser},core=window.TIZObrasSeguimientoCoreV2;
+  if(!core.canBaja(user))throw Error('Solo Ventas puede dar de baja la cotización.');
+  if(typeof id!=='string'||!/^[\w-]{1,150}$/.test(id))throw Error('Guardá la cotización como Borrador antes de darla de baja.');
+  motivo=String(motivo||'').trim();if(motivo.length<3||motivo.length>1000)throw Error('Indicá un motivo de entre 3 y 1000 caracteres.');
+  const all=await getDocs(collection(db,'obras'));
+  const result=await runTransaction(db,async tx=>{
+    const ref=doc(db,'presupuestos',id),snap=await tx.get(ref);
+    if(!snap.exists())throw Error('La cotización ya no está disponible.');
+    const p=snap.data(),matches=w=>w.presupuestoId===id||w.cotizacionId===id||w.id===p.obraId||core.base(w.ot)&&core.base(w.ot)===core.base(p.nro)&&core.norm(w.cliente)===core.norm(p.cliente);
+    const ids=new Set(all.docs.map(d=>({...d.data(),id:d.id})).filter(matches).map(w=>w.id));if(p.obraId)ids.add(p.obraId);
+    if(ids.size>100)throw Error('La cotización tiene demasiadas obras vinculadas. Revisá sus vínculos.');
+    const refs=[...ids].map(id=>doc(db,'obras',id)),works=await Promise.all(refs.map(ref=>tx.get(ref)));
+    if(works.some(s=>!s.exists()))throw Error('Una obra vinculada cambió. Actualizá la cotización antes de continuar.');
+    const at=new Date().toISOString(),patch={estado:'Baja',bajaCotizacion:p.estado==='Baja'&&p.bajaCotizacion?p.bajaCotizacion:{motivo,fecha:at,usuario:user.email,estadoAnterior:String(p.estado||'Borrador')}},patches=[];
+    works.forEach((s,i)=>{const w={...s.data(),id:refs[i].id};if(!matches(w))throw Error('Cambió la vinculación de una obra. Actualizá antes de continuar.');if(!core.isBaja(w))patches.push({id:w.id,patch:core.bajaPatch(w,motivo,user,false,at)});});
+    tx.update(ref,patch);for(const w of patches)tx.update(doc(db,'obras',w.id),w.patch);
+    return {presupuestoId:id,patch,patches};
+  });
+  const p=(window.DB?.presupuestos||[]).find(p=>p.id===id);if(p)Object.assign(p,result.patch);
+  window.TIZObrasSeguimientoV2?.applyWorkPatches(result.patches);
+  return result;
+};
+
+// Gestiones de Colocaciones: validar sobre la versión actual del documento evita
+// duplicar cierres/reprogramaciones cuando dos personas gestionan la misma acción.
+window.mutateColocacionesV128 = async (id, buildPatch) => {
+  if (!window.canViewPage('colocaciones') || !window.canAnnotateSector('Colocaciones')) {
+    throw new Error('Tu puesto no tiene permiso para editar Colocaciones.');
+  }
+  if(window.currentUser?.restrictedColocaciones){const current=await window.colocacionesApiV129({mode:'portal-work',obraId:id}),patch=buildPatch(current.obra);if(!patch||!Object.keys(patch).length)return {};const result=await window.colocacionesApiV129({mode:'portal-mutate',obraId:id,patch,version:current.obra.colocacionesGestion?.actualizadoEn||''});return result.patch;}
+  return runTransaction(db, async transaction => {
+    const ref = doc(db, 'obras', id), snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) throw new Error('La obra ya no está disponible.');
+    const patch = buildPatch({ ...snapshot.data(), id });
+    if (!patch || !Object.keys(patch).length) return {};
+    const allowed = key => key.startsWith('colocacionesGestion.') ||
+      /^sectores\.colocaciones\.(estado|real|instalada|fotosFinales)$/.test(key);
+    if (!Object.keys(patch).every(allowed)) throw new Error('La gestión sólo puede actualizar Colocaciones.');
+    transaction.update(ref, patch);
+    return patch;
+  });
+};
+// Calidad conserva registros por OT y evita pisar gestiones de otros sectores.
+window.leerCalidadBaseMadreV1 = async () => {
+  if(window.currentUser?.restrictedChecklists)return window.calidadChecklistApiV2({mode:'mother'});
+  if (!auth.currentUser || !window.TIZCalidadCore?.canRecord(window.currentUser)) throw new Error('Tu cuenta no puede consultar Calidad.');
+  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
+    method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
+    body:JSON.stringify({mode:'read-quality'})
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo consultar TIZ 2026');
+  return result;
+};
+window.calidadChecklistApiV2 = async (payload, pdf = false) => {
+  if (!auth.currentUser || !window.TIZChecklistCoreV2?.canWrite(window.currentUser)) throw new Error('Tu cuenta no puede completar estos formularios.');
+  if(!['save','pdf','list','mother','record-save','obras-sync','obras-save'].includes(payload.mode))throw new Error('Operación de checklist inválida.');
+  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/sincronizarBaseMadreV120', {
+    method:'POST', headers:{Authorization:'Bearer '+await auth.currentUser.getIdToken(),'Content-Type':'application/json'},
+    body:JSON.stringify({...payload,mode:'quality-checklist-'+payload.mode})
+  });
+  if(pdf && response.ok)return response.blob();
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||!result.ok)throw new Error(result.error||'No se pudo guardar el checklist.');
+  return result;
+};
+let checklistPortalBusy=false;
+window.loadChecklistsPortalV2=async()=>{
+  if(checklistPortalBusy||!window.currentUser?.restrictedChecklists)return;
+  checklistPortalBusy=true;const generation=dataGeneration;
+  try{const result=await window.calidadChecklistApiV2({mode:'list'});if(generation!==dataGeneration||!window.currentUser?.restrictedChecklists)return;window.DB.obras=result.obras||[];window.DB.checklists=result.checklists||[];window.DB.calidad=result.calidad||[];document.getElementById('sync-text').textContent='Calidad · en línea';window.refreshCurrent();}
+  catch(e){if(generation===dataGeneration)document.getElementById('sync-text').textContent='Calidad · '+e.message;}
+  finally{checklistPortalBusy=false;}
+};
+window.saveCalidadV1 = async payload => {
+  if(window.currentUser?.restrictedChecklists){const result=await window.calidadChecklistApiV2({...payload,mode:'record-save'});await window.loadChecklistsPortalV2();return result;}
+  const C=window.TIZCalidadCore,u=window.currentUser;
+  if(!C?.canRecord(u))throw new Error('Tu cuenta no puede registrar Calidad.');
+  const at=new Date().toISOString(),record=payload.record?C.clean(payload.record,u,at):null;
+  const obraId=record?.obraId||payload.obraId||'',id=record?.id||payload.id;
+  if(!/^[\w-]{1,150}$/.test(id||'')||obraId&&!/^[\w-]{1,150}$/.test(obraId))throw new Error('Identificador inválido.');
+  return runTransaction(db,async tx=>{
+    const ref=doc(db,obraId?'obras':'calidadRegistros',obraId||id),snap=await tx.get(ref);
+    if(obraId){
+      if(!snap.exists())throw new Error('La OT ya no está disponible.');
+      const work={...snap.data(),id:obraId};
+      if(work.archivado||work.revisionVigente===false||work.revisionOperativa===false)throw new Error('La OT no está disponible para edición.');
+      let patch;
+      if(record)patch=C.registerPatch(work,record);
+      else {const old=work.calidadGestion?.registros?.[id];if(!old)throw new Error('El registro ya no está disponible.');patch={[`calidadGestion.registros.${id}`]:C.closeRecord(old,payload.fields,u,at)};}
+      tx.update(ref,patch);
+    }else{
+      if(record){if(snap.exists())throw new Error('Ese registro ya existe.');tx.set(ref,record);}
+      else{if(!snap.exists())throw new Error('El registro ya no está disponible.');tx.set(ref,C.closeRecord(snap.data(),payload.fields,u,at));}
+    }
+  });
+};
+// Pendientes sin OT and printable archive are protected by Firebase ID tokens.
+window.colocacionesApiV129 = async payload => {
+  if (!auth.currentUser || !window.canViewPage('colocaciones') || !window.canAnnotateSector('Colocaciones')) {
+    throw new Error('Tu puesto no tiene permiso para editar Colocaciones.');
+  }
+  const response = await fetch('https://us-central1-tiz---app.cloudfunctions.net/facturacionIntegralEmitirV83', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + await auth.currentUser.getIdToken(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, sector: 'colocaciones' })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.error || 'No se pudo conectar con la base de Colocaciones.');
+  return result;
+};
+
+let portalBusy=false;
+window.loadColocacionesPortalV153=async()=>{if(portalBusy||!window.currentUser?.restrictedColocaciones)return;portalBusy=true;const generation=dataGeneration;try{const result=await window.colocacionesApiV129({mode:'portal-list'});if(generation!==dataGeneration||!window.currentUser?.restrictedColocaciones)return;window.DB.obras=result.obras||[];window.colocacionesFormsURL=result.formsUrl;document.getElementById('sync-text').textContent='Colocaciones · en línea';if(!document.activeElement?.matches('input,select,textarea')&&!document.querySelector('#c128-overlay.show,.g129-overlay'))window.refreshCurrent();}catch(e){if(generation===dataGeneration){document.getElementById('sync-text').textContent='Colocaciones · '+e.message;window.showToast?.(e.message);}}finally{portalBusy=false;}};
+window.deleteDoc_ = async (col_, id)   => { await deleteDoc(doc(db, col_, id)); };
+window.sincronizarCotizacionActualBaseMadreV114=async function(){
+  const nro=String(document.getElementById('pp-nro')?.value||'').trim();
+  const revision=String(document.getElementById('pp-revision')?.value||'1.1').trim();
+  const digits=v=>String(v||'').replace(/\D/g,'');
+  const p=(window.DB?.presupuestos||[]).find(x=>digits(x.nro)===digits(nro)&&String(x.revision||'1.1')===revision)
+    ||(window.DB?.presupuestos||[]).find(x=>digits(x.nro)===digits(nro));
+  if(!p){alert('No encontré la cotización guardada. Guardala primero y volvé a intentar.');return;}
+  if(typeof window.repararBaseMadreAprobadaV111!=='function'){alert('El módulo de Base Madre no está cargado en esta versión de TIZ. Hacé Ctrl+F5 y volvé a intentar.');return;}
+  try{
+    const r=await window.repararBaseMadreAprobadaV111(p.id||p.nro);
+    alert('Base Madre sincronizada correctamente. Fila '+(r?.row||'actualizada')+'.');
+  }catch(e){
+    console.error('[TIZ V114 Base Madre]',e);
+    alert('No se pudo sincronizar TIZ 2026 Base de Datos.\n\n'+(e?.message||e));
+  }
+};
+
+// Helpers
+function parseDate(s) { if (!s) return null; const [d,m,y] = s.split('/'); return new Date(+y,+m-1,+d); }
+function parseFecha(s) { return parseDate(s); }
+function diasEntre(a, b) { const da=parseDate(a), db_=parseDate(b); if(!da||!db_) return null; return Math.round((db_-da)/(864e5)); }
+function diasDesdeHoy(s) { const d=parseDate(s); if(!d) return null; return Math.round((new Date()-d)/(864e5)); }
+function semaforo(fc, fr) {
+  if (fr) { const d=diasEntre(fc,fr); return d===null?'n':d<=0?'g':'r'; }
+  const d=diasDesdeHoy(fc); if(d===null) return 'n';
+  return d<-3?'g':d<0?'a':'r';
+}
+function fmtM(n) { if(!n&&n!==0) return '-'; n=+n; if(n>=1e6) return '$'+Math.round(n/1e5)/10+'M'; if(n>=1000) return '$'+Math.round(n/1000)+'K'; return '$'+Math.round(n); }
+function alertaVencimiento(o) {
+  if (!o.ffc || !o.diasPago) return null;
+  const [d,m,y] = o.ffc.split('/');
+  if (!d||!m||!y) return null;
+  const fechaVenc = new Date(+y,+m-1,+d);
+  fechaVenc.setDate(fechaVenc.getDate() + (+o.diasPago||0));
+  const hoy = new Date();
+  const diff = Math.round((fechaVenc - hoy) / 86400000);
+  if (diff < 0) return `VENCIDA hace ${Math.abs(diff)} días (${fechaVenc.toLocaleDateString('es-AR')})`;
+  if (diff <= 5) return `Vence en ${diff} días (${fechaVenc.toLocaleDateString('es-AR')})`;
+  return null;
+}
+
+window.calcFechaVencimiento = () => {
+  const ffc = document.getElementById('f-ffc').value;
+  const dias = +document.getElementById('f-dias-pago').value||0;
+  const el = document.getElementById('f-venc-calculada');
+  if (!ffc || !dias || !el) { if(el) el.textContent=''; return; }
+  const [d,m,y] = ffc.split('/');
+  if(!d||!m||!y) { el.textContent=''; return; }
+  const fecha = new Date(+y,+m-1,+d);
+  fecha.setDate(fecha.getDate()+dias);
+  el.textContent = 'Vence: ' + fecha.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  const hoy = new Date();
+  const diff = Math.round((fecha-hoy)/86400000);
+  el.style.color = diff<0?'var(--red)':diff<=5?'var(--amber)':'var(--green)';
+};
+
+function hasNotas(o) {
+  const n = o.notas_sector || {};
+  return ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'].some(s => n[s] && n[s].trim());
+}
+function notasPreview(o) {
+  const n = o.notas_sector || {};
+  return ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad']
+    .filter(s => n[s] && n[s].trim())
+    .map(s => `<div style="margin-bottom:4px"><span style="font-size:10px;font-weight:500;color:${SECTOR_COLORS[s]}">${SECTOR_EMOJI[s]} ${s}:</span> <span style="font-size:11px;color:var(--text2)">${n[s]}</span> <span style="font-size:10px;color:var(--text3)">${n[s+'_ts']||''}</span></div>`)
+    .join('');
+}
+function semBadge(fc, fr) {
+  const s=semaforo(fc,fr);
+  const map={g:'green',a:'amber',r:'red',n:'gray'};
+  const lbl={g:'En fecha',a:'Riesgo',r:'Vencido',n:'Sin fecha'};
+  return `<span class="badge badge-${map[s]}">${lbl[s]}</span>`;
+}
+function estadoBadge(e) {
+  const map={'Pendiente':'gray','Enviado':'blue','Aprobado':'teal','Entregado':'purple','Cobrado pendiente':'amber','Cobrado':'green'};
+  return `<span class="badge badge-${map[e]||'gray'}">${e}</span>`;
+}
+function pct(works, tipo) {
+  const cf = works.filter(w => tipo==='prod'?w.fprod_c:w.fcol_c);
+  if (!cf.length) return null;
+  const ok = cf.filter(w => semaforo(tipo==='prod'?w.fprod_c:w.fcol_c, tipo==='prod'?w.fprod_r:w.fcol_r)==='g');
+  return Math.round(ok.length/cf.length*100);
+}
+
+// Navigation
+window.goTo = function(page) {
+  if((page==='ia'||page==='tareas')&&window.TIZClemenSecretariaV1){window.TIZClemenSecretariaV1.show(page==='tareas'?'agenda':'dia');return;}
+  if(window.currentUser?.restrictedOperaciones&&page!=='operaciones'&&page!=='obras')return window.showToast?.('Tu perfil está habilitado para Operaciones y la consulta de Obras.');
+  if(page==='operaciones'&&!window.canViewOperaciones())return window.showToast?.('Sin acceso a Operaciones.');
+  if(page==='estadistica'&&!window.canViewIndicadores())return window.showToast?.('Estadística está habilitada para Administración y Pablo.');
+  if(page==='estadistica'&&!window.currentUser?.isAdmin)window.estTab='indicadores';
+  if(window.currentUser?.restrictedChecklists&&page!=='calidad'&&page!=='obras')return window.showToast?.('Tu perfil está habilitado para Calidad y Obras.');
+  if(window.currentUser?.restrictedColocaciones&&page!=='colocaciones'&&page!=='obras')return window.showToast?.('Tu perfil está habilitado para Colocaciones y la consulta de Obras.');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelector(`[onclick="goTo('${page}')"]`).classList.add('active');
+  window.currentPage = page;
+  refreshCurrent();
+};
+
+window.refreshCurrent = function() {
+  const p = window.currentPage;
+  if (p==='dashboard') renderDashboard();
+  else if (p==='obras') renderObras();
+  else if (p==='semana') renderSemana();
+  else if (p==='operaciones') window.TIZOperacionesV1?.render();
+  else if (p==='produccion') renderProduccion();
+  else if (p==='colocaciones') renderColocaciones();
+  else if (p==='diseno') renderDiseno();
+  else if (p==='calidad') window.TIZCalidadV1?.render();
+  else if (p==='estadistica') renderEstadistica();
+  else if (p==='alertas') renderAlertasV58();
+  else if (p==='cobranzas') (window.TIZFactCobUIV2?.render || renderCobranzas)();
+  else if (p==='presupuestos') renderPresupuestos();
+  else if (p==='clientes') renderClientes();
+  else if (p==='retenciones') renderRetenciones();
+  else if (p==='vendedores') renderVendedores();
+  updateBadges();
+};
+
+window.moveSem = function(d) {
+  window.currentSem = Math.max(1, Math.min(52, window.currentSem + d));
+  ['dash-sem','sem-label','prod-sem','col-sem'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='Sem '+window.currentSem; });
+  refreshCurrent();
+};
+
+// Inicializar labels de semana con la semana actual
+setTimeout(() => {
+  ['dash-sem','sem-label','prod-sem','col-sem'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = 'Sem ' + window.currentSem;
+  });
+}, 100);
+
+function updateBadges() {
+  const venc = window.DB.cobranzas.filter(c => c.estado==='Pendiente' && diasDesdeHoy(c.vencimiento) >= 0).length;
+  document.getElementById('badge-cobr').textContent = venc || '';
+  document.getElementById('badge-cobr').style.display = venc ? '' : 'none';
+  const alertCount = (window.DB.obras||[]).filter(o => !window.TIZObrasSeguimientoCoreV2?.isBaja(o) && window.analizaObraV58 && window.analizaObraV58(o).nivel !== 'ok').length;
+  const ba = document.getElementById('badge-alertas');
+  if (ba) { ba.textContent = alertCount || ''; ba.style.display = alertCount ? '' : 'none'; }
+}
+
+// DASHBOARD
+function renderDashboard() {
+  const obras = window.DB.obras.filter(o=>!window.TIZObrasSeguimientoCoreV2?.isBaja(o));
+  const sem = window.currentSem;
+  const semObras = obras.filter(o => +o.semana === sem);
+  const activas = obras.filter(o => o.estado==='En producción'||o.estado==='Aprobado');
+  const termSem = semObras.filter(o => o.fprod_r || o.estado==='Entregado'||o.estado==='Facturado'||o.estado==='Cobrado');
+  const pctP = pct(obras.filter(o=>o.fprod_c), 'prod');
+  const pctC = pct(obras.filter(o=>o.fcol_c), 'col');
+  const venc = obras.filter(o => semaforo(o.fprod_c,o.fprod_r)==='r').length;
+  const vencFacturas = obras.filter(o => alertaVencimiento(o)).length;
+  const totalVentaSem = semObras.reduce((a,o)=>a+(+o.neto||0),0);
+
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('dash-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Ventas sem. ${sem}</div><div class="kpi-val">${fmtM(totalVentaSem)}</div><div class="kpi-sub">${semObras.length} obras</div></div>
+    <div class="kpi"><div class="kpi-label">Activas total</div><div class="kpi-val">${activas.length}</div><div class="kpi-sub">en producción o aprobadas</div></div>
+    <div class="kpi"><div class="kpi-label">Cumpl. producción</div><div class="kpi-val ${pctP===null?'':pctP>=80?'green':pctP>=60?'amber':'red'}">${pctP===null?'—':pctP+'%'}</div><div class="kpi-sub">acumulado global</div></div>
+    <div class="kpi"><div class="kpi-label">Cumpl. colocación</div><div class="kpi-val ${pctC===null?'':pctC>=80?'green':pctC>=60?'amber':'red'}">${pctC===null?'—':pctC+'%'}</div><div class="kpi-sub">acumulado global</div></div>
+    <div class="kpi"><div class="kpi-label">Alertas prod.</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div><div class="kpi-sub">vencidas o en riesgo</div></div>
+    <div class="kpi"><div class="kpi-label">Facturas por vencer</div><div class="kpi-val ${vencFacturas>0?'red':''}">${vencFacturas}</div><div class="kpi-sub">próximas o vencidas</div></div>
+  `;
+
+  const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'];
+  const COLORS = {'Producción':'var(--blue)','Colocaciones':'var(--teal)','Diseño':'var(--purple)','Ventas':'var(--amber)','Compras':'var(--accent)','Calidad':'var(--green)'};
+  document.getElementById('dash-sectors').innerHTML = SECTORS.map(sec => {
+    const sw = semObras.filter(o=>o.sector===sec);
+    const term = sw.filter(o=>o.fprod_r||['Entregado','Facturado','Cobrado'].includes(o.estado));
+    const neto = term.reduce((a,o)=>a+(+o.neto||0),0);
+    const p = sw.length ? Math.round(term.length/sw.length*100) : 0;
+    return `<div class="sector-card">
+      <div class="sector-card-name" style="color:${COLORS[sec]}">${sec}</div>
+      <div class="sector-card-num" style="color:${COLORS[sec]}">${term.length}<span style="font-size:15px;color:var(--text3)">/${sw.length}</span></div>
+      <div class="sector-card-money">${fmtM(neto)}</div>
+      <div class="progress" style="margin-top:8px"><div class="progress-fill" style="width:${p}%;background:${COLORS[sec]}"></div></div>
+    </div>`;
+  }).join('');
+
+  const alertas = obras.filter(o => {
+    const sp=semaforo(o.fprod_c,o.fprod_r); const sc=semaforo(o.fcol_c,o.fcol_r);
+    return sp==='r'||sp==='a'||sc==='r'||sc==='a';
+  }).slice(0,10);
+  document.getElementById('dash-alertas').innerHTML = alertas.length ? alertas.map(o => {
+    const sp=semaforo(o.fprod_c,o.fprod_r); const sc=semaforo(o.fcol_c,o.fcol_r);
+    const dias = diasEntre(o.fprod_c, o.fprod_r||new Date().toLocaleDateString('es-AR'));
+    return `<tr>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+      <td><span style="color:var(--blue)">${o.sector||''}</span></td>
+      <td>${sp!=='g'&&sp!=='n'?`<span>Prod: ${semBadge(o.fprod_c,o.fprod_r)}</span>`:''}${sc!=='g'&&sc!=='n'?`<span>Col: ${semBadge(o.fcol_c,o.fcol_r)}</span>`:''}</td>
+      <td>${dias!==null?Math.abs(dias)+'d':'—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Sin alertas activas</td></tr>';
+}
+
+
+// DRIVE / OT — integración desactivada temporalmente
+// Estas funciones quedan como compatibilidad para que el resto del ERP siga funcionando.
+function isObraAprobadaParaDrive(o){ return false; }
+function driveStatusV9(o){
+  if (o?.driveFolderUrl || o?.driveFolderId) return 'ready';
+  return o?.id && o?.ot ? 'pending' : 'none';
+}
+
+window.openDriveFolderV201 = function(url, event){
+  if (event) event.stopPropagation();
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+window.renderDriveButtonsV9 = function(o){
+  const status = driveStatusV9(o);
+  if (status === 'ready') {
+    const safeUrl = String(o.driveFolderUrl || ('https://drive.google.com/drive/folders/' + encodeURIComponent(o.driveFolderId))).replace(/'/g, '&#39;');
+    return `<button class="btn-icon drive-folder-ready"
+      title="Abrir carpeta OT en Google Drive"
+      onclick="openDriveFolderV201('${safeUrl}', event)"
+      style="margin-right:4px;color:var(--green);border-color:rgba(76,175,125,.45);background:rgba(76,175,125,.08)">
+      <i class="ti ti-brand-google-drive" style="font-size:15px"></i>
+    </button>`;
+  }
+  if (status === 'pending') {
+    return `<button class="btn-icon drive-folder-pending"
+      title="Crear o recuperar carpeta OT"
+      onclick="requestDriveSyncForObra('${o.id}', event)"
+      style="margin-right:4px;color:var(--amber);border-color:rgba(232,160,32,.4);background:rgba(232,160,32,.06)">
+      <i class="ti ti-brand-google-drive" style="font-size:15px"></i>
+    </button>`;
+  }
+  return '';
+};
+
+async function queueDriveSyncV9(o){
+  if (!o?.id) return null;
+  return window.requestDriveSyncForObra(o.id);
+}
+window.queueDriveSyncV9 = queueDriveSyncV9;
+
+window.requestDriveSyncForObra = async function(id, event){
+  if (event) event.stopPropagation();
+  const obra = (window.DB.obras || []).find(x => x.id === id);
+  if (!obra) {
+    showToast('No se encontró la obra');
+    return null;
+  }
+  if (!obra.ot) {
+    showToast('La obra no tiene número de OT');
+    return null;
+  }
+  try {
+    showToast('Creando o recuperando carpeta OT...');
+    const result = await syncToSheets({...obra, estado:'Aprobado', firestoreId:id});
+    if (!result?.driveFolderUrl) throw new Error(result?.error || 'Apps Script no devolvió el enlace');
+    const links = {
+      driveFolderId: result.folderId || result.driveFolderId || '',
+      driveFolderUrl: result.driveFolderUrl,
+      driveSyncedAt: new Date().toISOString()
+    };
+    await updateDoc_('obras', id, links);
+    const local = (window.DB.obras || []).find(x => x.id === id);
+    if (local) Object.assign(local, links);
+    renderObras();
+    showToast(result.created ? 'Carpeta OT creada ✓' : 'Carpeta OT recuperada ✓');
+    return result;
+  } catch (e) {
+    console.error('[Drive OT]', e);
+    showToast('Error al vincular Drive: ' + (e?.message || e));
+    return null;
+  }
+};
+
+// OBRAS
+window.renderObras = function() {
+  const SECTORS = ['Todos','Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'];
+  document.getElementById('obras-sectors').innerHTML = SECTORS.map(s =>
+    `<button class="sector-tab ${window.obrasSectorFilter===s?'active':''}" onclick="setObrasSector('${s}')">${s}</button>`
+  ).join('');
+
+  let obras = window.DB.obras;
+  if (window.obrasSectorFilter!=='Todos') obras = obras.filter(o=>o.sector===window.obrasSectorFilter);
+  const estado = document.getElementById('filter-estado')?.value;
+  const cli = document.getElementById('filter-cliente')?.value.toLowerCase();
+  const otQ = document.getElementById('filter-ot')?.value.toLowerCase();
+  const semDesde = +document.getElementById('filter-semana-desde')?.value||0;
+  const semHasta = +document.getElementById('filter-semana-hasta')?.value||0;
+  if (estado) obras = obras.filter(o=>o.estado===estado);
+  if (cli) obras = obras.filter(o=>(o.cliente||'').toLowerCase().includes(cli));
+  if (otQ) obras = obras.filter(o=>(o.ot||'').toLowerCase().includes(otQ)||(o.desc||'').toLowerCase().includes(otQ));
+  if (semDesde) obras = obras.filter(o=>(+o.semana||0)>=semDesde);
+  if (semHasta) obras = obras.filter(o=>(+o.semana||0)<=semHasta);
+  obras = [...obras].sort((a,b)=>{ const bo=Number(window.tizNumeroBase(b.ot))||-1; const ao=Number(window.tizNumeroBase(a.ot))||-1; return bo-ao || ((+b.semana||0)-(+a.semana||0)); });
+
+  document.getElementById('obras-count').textContent = obras.length + ' obras';
+  document.getElementById('obras-tbody').innerHTML = obras.length ? obras.map(o => {
+    const tieneNotas = hasNotas(o);
+    const riesgoV58 = window.analizaObraV58 ? window.analizaObraV58(o) : {nivel:'ok', problemas:[]};
+    return `<tr onclick="toggleNotasRow('${o.id}')" style="cursor:pointer">
+      <td>${o.semana||'—'}</td>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td>
+      <td class="strong" style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="${o.desc||''}">${o.desc||''}<div style="margin-top:5px">${riesgoV58.nivel==='ok'?'':`<span class="risk-pill ${riesgoV58.nivel==='danger'?'risk-danger':'risk-warn'}">${riesgoV58.nivel==='danger'?'🔴':'🟡'} ${riesgoV58.problemas.length}</span>`}</div></td>
+      <td>${o.cliente||''}</td>
+      <td><span style="font-size:11px;font-weight:500;color:var(--blue)">${o.sector||''}</span></td>
+      <td onclick="event.stopPropagation()">
+        <select class="quick-estado" onchange="quickChangeEstado('${o.id}',this.value)">
+          ${['Pendiente','Enviado','Aprobado','Entregado','Cobrado pendiente','Cobrado'].map(s=>`<option value="${s}" ${o.estado===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td style="white-space:nowrap" onclick="event.stopPropagation()">
+        ${o.nrfc ? `<span title="Facturado: FC ${o.nrfc}" style="color:var(--amber);margin-right:4px;font-size:13px">●</span>` : ''}
+        ${alertaVencimiento(o) ? `<span title="${alertaVencimiento(o)}" style="color:var(--red);margin-right:4px;font-size:13px">⚠</span>` : ''}
+        ${tieneNotas?`<span title="Tiene anotaciones" style="color:var(--accent);margin-right:4px"><i class="ti ti-message-dots" style="font-size:13px;vertical-align:middle"></i></span>`:''}
+        ${renderDriveButtonsV9(o)}
+        <button class="btn-icon" onclick="editObra('${o.id}')" style="margin-left:4px"><i class="ti ti-edit" style="font-size:13px"></i></button>
+        <button class="btn-icon" onclick="delObra('${o.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
+      </td>
+    </tr>
+    <tr id="notas-row-${o.id}" style="display:none">
+      <td colspan="7" style="background:var(--surface2);padding:10px 14px;border-bottom:0.5px solid var(--border)">
+        ${tieneNotas ? notasPreview(o) : '<span style="font-size:12px;color:var(--text3)">Sin anotaciones. Hacé clic en el lápiz para agregar.</span>'}
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:11px"></i> Editar / Agregar nota</button>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras. Hacé clic en "Nueva obra" para agregar.</td></tr>';
+};
+
+window.setObrasSector = s => { window.obrasSectorFilter=s; renderObras(); };
+window.toggleNotasRow = id => {
+  const row = document.getElementById('notas-row-'+id);
+  if(row) row.style.display = row.style.display==='none' ? '' : 'none';
+};
+
+// SEMANA
+window.renderSemana = function() {
+  const activas = window.DB.obras.filter(o => o.estado==='Aprobado'||o.estado==='En producción');
+  const sel = activas.filter(o => window.obrasSemana.has(o.id));
+
+  document.getElementById('semana-body').innerHTML = sel.length ? `
+    <table style="width:100%;font-size:12px"><thead><tr><th>OT</th><th>Descripción</th><th>Cliente</th><th>Sector</th><th>F.Prod</th><th>F.Col</th></tr></thead>
+    <tbody>${sel.map(o=>`<tr><td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td>${o.desc||''}</td><td>${o.cliente||''}</td><td>${o.sector||''}</td><td>${o.fprod_c||'—'}</td><td>${o.fcol_c||'—'}</td></tr>`).join('')}</tbody>
+    </table>` : '<p style="color:var(--text3);font-size:13px">Ninguna obra seleccionada todavía. Tildá las obras abajo.</p>';
+
+  document.getElementById('semana-picker').innerHTML = activas.length ? activas.map(o => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" ${window.obrasSemana.has(o.id)?'checked':''} onchange="toggleSemana('${o.id}',this.checked)" style="accent-color:var(--accent);width:16px;height:16px">
+      <div>
+        <span style="font-weight:500;color:var(--text)">${String(o.ot||'—').replace(/^0+(?=\d)/,'')} — ${o.desc||''}</span>
+        <span style="color:var(--text3);font-size:11px;margin-left:8px">${o.cliente||''} · ${o.sector||''}</span>
+      </div>
+      <span style="margin-left:auto;color:var(--text3);font-size:11px">${estadoBadge(o.estado)}</span>
+    </label>
+  `).join('') : '<p style="color:var(--text3);font-size:13px">No hay obras activas.</p>';
+};
+
+window.toggleSemana = (id, on) => { on ? window.obrasSemana.add(id) : window.obrasSemana.delete(id); renderSemana(); };
+
+window.exportCalendar = function() {
+  const sel = window.DB.obras.filter(o => window.obrasSemana.has(o.id));
+  if (!sel.length) { showToast('Seleccioná al menos una obra'); return; }
+  sel.forEach(o => {
+    const title = encodeURIComponent(`[TIZ] ${o.ot||''} - ${o.desc||''}`);
+    const details = encodeURIComponent(`Cliente: ${o.cliente||''}\nSector: ${o.sector||''}\nEstado: ${o.estado||''}`);
+    const date = (o.fprod_c||'').split('/').reverse().join('');
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}${date?`&dates=${date}/${date}`:''}`;
+    window.open(url, '_blank');
+  });
+  showToast(`${sel.length} obra(s) enviadas a Google Calendar`);
+};
+
+// PRODUCCION
+function renderProduccion() {
+  const obras = window.DB.obras;
+  const sem = window.currentSem;
+  const semObras = obras.filter(o=>+o.semana===sem);
+  const pctP = pct(obras.filter(o=>o.fprod_c),'prod');
+  const term = obras.filter(o=>o.fprod_r);
+  const venc = obras.filter(o=>semaforo(o.fprod_c,o.fprod_r)==='r').length;
+
+  document.getElementById('prod-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Cumpl. producción</div><div class="kpi-val ${pctP===null?'':pctP>=80?'green':pctP>=60?'amber':'red'}">${pctP===null?'—':pctP+'%'}</div><div class="kpi-sub">global</div></div>
+    <div class="kpi"><div class="kpi-label">Terminadas total</div><div class="kpi-val green">${term.length}</div><div class="kpi-sub">con fecha real</div></div>
+    <div class="kpi"><div class="kpi-label">En producción</div><div class="kpi-val">${obras.filter(o=>o.estado==='En producción').length}</div></div>
+    <div class="kpi"><div class="kpi-label">Vencidas</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div></div>
+  `;
+
+  const show = obras.filter(o=>o.fprod_c||o.estado==='En producción').sort((a,b)=>(+b.semana||0)-(+a.semana||0));
+  document.getElementById('prod-tbody').innerHTML = show.map(o => {
+    const dias = diasEntre(o.fprod_r||o.fprod_c, o.fcol_r||o.fcol_c);
+    return `<tr>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}<span data-ap-drive-ot="${String(o.ot||'')}" data-ap-drive-id="${o.id}"></span></td>
+      <td class="strong">${o.desc||''}</td>
+      <td>${o.cliente||''}</td>
+      <td><span class="dot dot-${semaforo(o.fprod_c,o.fprod_r)==='g'?'green':semaforo(o.fprod_c,o.fprod_r)==='a'?'amber':'red'}"></span>${o.fprod_c||'—'}</td>
+      <td style="color:${o.fprod_r?'var(--green)':'var(--text3)'}">${o.fprod_r||'Pendiente'}</td>
+      <td>${semBadge(o.fprod_c,o.fprod_r)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${dias!==null?dias+'d':'—'}</td>
+      <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">No hay obras con fechas de producción cargadas.</td></tr>';
+}
+
+// COLOCACIONES
+function renderColocaciones() {
+  const obras = window.DB.obras;
+  const pctC = pct(obras.filter(o=>o.fcol_c),'col');
+  const term = obras.filter(o=>o.fcol_r).length;
+  const venc = obras.filter(o=>semaforo(o.fcol_c,o.fcol_r)==='r').length;
+
+  document.getElementById('col-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Cumpl. colocación</div><div class="kpi-val ${pctC===null?'':pctC>=80?'green':pctC>=60?'amber':'red'}">${pctC===null?'—':pctC+'%'}</div></div>
+    <div class="kpi"><div class="kpi-label">Colocadas</div><div class="kpi-val green">${term}</div></div>
+    <div class="kpi"><div class="kpi-label">Vencidas</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div></div>
+  `;
+
+  const show = obras.filter(o=>o.fcol_c).sort((a,b)=>(+b.semana||0)-(+a.semana||0));
+  document.getElementById('col-tbody').innerHTML = show.map(o => {
+    const dias = diasEntre(o.fcol_c, o.fcol_r||new Date().toLocaleDateString('es-AR'));
+    return `<tr>
+      <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}</td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+      <td><span class="dot dot-${semaforo(o.fcol_c,o.fcol_r)==='g'?'green':semaforo(o.fcol_c,o.fcol_r)==='a'?'amber':'red'}"></span>${o.fcol_c||'—'}</td>
+      <td style="color:${o.fcol_r?'var(--green)':'var(--text3)'}">${o.fcol_r||'Pendiente'}</td>
+      <td>${semBadge(o.fcol_c,o.fcol_r)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${o.fcol_r?diasEntre(o.fcol_c,o.fcol_r)+'d':'—'}</td>
+      <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">No hay obras con fechas de colocación.</td></tr>';
+}
+
+// DISEÑO
+function renderDiseno() {
+  const obras = window.DB.obras.filter(o=>o.sector==='Diseño'&&!window.TIZObrasSeguimientoCoreV2?.isBaja(o));
+  const total = obras.length;
+  const term = obras.filter(o=>['Entregado','Facturado','Cobrado'].includes(o.estado)).length;
+  const totalNeto = obras.reduce((a,o)=>a+(+o.neto||0),0);
+
+  document.getElementById('dis-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Obras diseño</div><div class="kpi-val">${total}</div></div>
+    <div class="kpi"><div class="kpi-label">Terminadas</div><div class="kpi-val green">${term}</div></div>
+    <div class="kpi"><div class="kpi-label">Total en cartera</div><div class="kpi-val">${fmtM(totalNeto)}</div></div>
+  `;
+
+  document.getElementById('dis-tbody').innerHTML = obras.map(o => `<tr>
+    <td class="strong">${String(o.ot||'—').replace(/^0+(?=\d)/,'')}<span data-ap-drive-ot="${String(o.ot||'')}" data-ap-drive-id="${o.id}"></span></td><td class="strong">${o.desc||''}</td><td>${o.cliente||''}</td>
+    <td>${o.vendedor||'—'}</td><td>${estadoBadge(o.estado)}</td><td>${fmtM(o.neto)}</td>
+    <td><button class="btn-icon" onclick="editObra('${o.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button></td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">No hay obras de diseño.</td></tr>';
+}
+
+// COBRANZAS
+window.renderCobranzas = function() {
+  const cobr = window.DB.cobranzas;
+  const pend = cobr.filter(c=>c.estado==='Pendiente');
+  const cobradas = cobr.filter(c=>c.estado==='Cobrado');
+  const totalPend = pend.reduce((a,c)=>a+(+c.importe||0),0);
+  const totalCobr = cobradas.reduce((a,c)=>a+(+c.importe||0),0);
+  const venc = pend.filter(c=>diasDesdeHoy(c.vencimiento)>=0).length;
+
+  document.getElementById('cobr-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Pendiente de cobro</div><div class="kpi-val amber">${fmtM(totalPend)}</div><div class="kpi-sub">${pend.length} facturas</div></div>
+    <div class="kpi"><div class="kpi-label">Cobrado total</div><div class="kpi-val green">${fmtM(totalCobr)}</div></div>
+    <div class="kpi"><div class="kpi-label">Vencidas</div><div class="kpi-val ${venc>0?'red':''}">${venc}</div></div>
+  `;
+
+  let show = cobr;
+  if (window.cobTab==='pendientes') show = pend;
+  else if (window.cobTab==='cobradas') show = cobradas;
+  const cobrQ = document.getElementById('cobr-filter-cliente')?.value.toLowerCase();
+  const cobrE = document.getElementById('cobr-filter-estado')?.value;
+  if (cobrQ) show = show.filter(c=>(c.cliente||'').toLowerCase().includes(cobrQ)||(c.ot||'').toLowerCase().includes(cobrQ));
+  if (cobrE) show = show.filter(c=>c.estado===cobrE);
+  const cntEl = document.getElementById('cobr-count');
+  if (cntEl) cntEl.textContent = show.length + ' registros';
+
+  document.getElementById('cobr-tbody').innerHTML = show.map(c => {
+    const dias = diasDesdeHoy(c.vencimiento);
+    const isAlert = c.estado==='Pendiente' && dias >= 0;
+    return `<tr class="${isAlert?'alerta-row':''}">
+      <td class="strong">${c.ot||'—'}</td><td>${c.cliente||''}</td><td>${c.desc||''}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${c.nrfc||'—'}</td>
+      <td style="font-weight:500">${fmtM(c.importe)}</td>
+      <td style="color:${isAlert?'var(--red)':'var(--text2)'}">${c.vencimiento||'—'}</td>
+      <td>${c.estado==='Cobrado'?'<span class="badge badge-green">Cobrado</span>':isAlert?'<span class="badge badge-red">Vencida</span>':'<span class="badge badge-amber">Pendiente</span>'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:${isAlert?'var(--red)':''}">${dias!==null?Math.abs(dias)+'d':'—'}</td>
+      <td>
+        ${c.estado!=='Cobrado'?`<button class="btn btn-ghost btn-sm" onclick="marcarCobrado('${c.id}')">Cobrar</button>`:''}
+        <button class="btn-icon" onclick="delCobranza('${c.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:12px"></i></button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text3)">Sin registros.</td></tr>';
+};
+
+window.setCobTab = (tab, el) => {
+  window.cobTab = tab;
+  document.querySelectorAll('.page-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderCobranzas();
+};
+
+window.marcarCobrado = async id => { await updateDoc_('cobranzas', id, { estado: 'Cobrado' }); showToast('Marcada como cobrada'); };
+window.delCobranza = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('cobranzas', id); };
+
+// PRESUPUESTOS
+window.renderCotizacionDriveShortcut = function(p) {
+  const valid = value => {
+    try {
+      const url = new URL(String(value || '').trim());
+      return url.protocol === 'https:' && ['drive.google.com', 'docs.google.com'].includes(url.hostname) ? url.href : '';
+    } catch (_) { return ''; }
+  };
+  const pdf = valid(p?.cotizacionPdfUrl);
+  const folder = valid(p?.cotizacionFolderUrl);
+  const icon = '<i class="ti ti-brand-google-drive" style="font-size:15px"></i>';
+  if (!pdf && !folder) return `<button class="btn-icon" type="button" disabled title="Todavía no hay PDF ni carpeta de Drive vinculados" aria-label="Drive pendiente" style="margin-left:4px;opacity:.45;cursor:not-allowed">${icon}</button>`;
+  const title = pdf ? 'Abrir PDF de esta cotización en Google Drive' : 'Abrir carpeta de análisis de esta cotización en Google Drive';
+  const href = (pdf || folder).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return `<a class="btn-icon" href="${href}" target="_blank" rel="noopener noreferrer" title="${title}" aria-label="${title}" style="display:inline-flex;vertical-align:middle;margin-left:4px;color:var(--green)">${icon}</a>`;
+};
+
+function renderPresupuestos() {
+  const grupos=new Map();
+  (window.DB.presupuestos||[]).forEach(p=>{const k=String(p.nro||'').replace(/\D/g,'')+'|'+normalizarRevisionV354(p.revision||'1.1'),actual=grupos.get(k);if(!actual||p.estado==='Aprobado'&&actual.estado!=='Aprobado')grupos.set(k,p);});
+  const pres = [...grupos.values()];
+  const aprobados = pres.filter(p=>p.estado==='Aprobado').reduce((a,p)=>a+(+p.importe||0),0);
+  const enviados = pres.filter(p=>p.estado==='Enviado').length;
+
+  document.getElementById('pres-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total presupuestos</div><div class="kpi-val">${pres.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Aprobados</div><div class="kpi-val green">${fmtM(aprobados)}</div></div>
+    <div class="kpi"><div class="kpi-label">En revisión</div><div class="kpi-val amber">${enviados}</div></div>
+  `;
+
+  const map={'Pendiente':'gray','Enviado':'blue','Aprobado':'teal','Entregado':'purple','Cobrado pendiente':'amber','Cobrado':'green'};
+  const ordenados=[...pres].sort((a,b)=>{ const na=parseInt(a.nro)||0, nb=parseInt(b.nro)||0; if(nb!==na)return nb-na; const ra=normalizarRevisionV354(a.revision||'1.1').split('.').map(Number), rb=normalizarRevisionV354(b.revision||'1.1').split('.').map(Number); return (rb[0]-ra[0])||(rb[1]-ra[1]); });
+  document.getElementById('pres-tbody').innerHTML = ordenados.map(p => `<tr data-presupuesto-id="${p.id}">
+    <td class="strong" style="white-space:nowrap">CT ${window.tizNumeroCotizacion(p.nro)} <span class="badge badge-blue">${normalizarRevisionV354(p.revision||'1.1')}</span></td><td>${p.cliente||''}</td><td>${p.desc||''}</td>
+    <td>${p.vendedor||''}</td><td style="font-weight:500">${fmtM(p.importe)}</td>
+    <td>${p.fecha||'—'}</td><td><span class="badge badge-${map[p.estado]||'gray'}">${p.estado||''}</span></td>
+    <td style="white-space:nowrap">
+      <button class="btn-icon" onclick="abrirRevisionCotizacionV354('${p.id}',false)" title="Abrir esta revisión"><i class="ti ti-eye" style="font-size:13px"></i></button>
+      ${window.renderCotizacionDriveShortcut(p)}
+      <button class="btn-icon" onclick="regenerarArchivosCotizacionV65('${p.id}',this)" title="Actualizar PDF y Excel de esta revisión" style="margin-left:4px"><i class="ti ti-refresh" style="font-size:13px"></i></button>
+      <button class="btn-icon" onclick="crearNuevaRevisionV354('${p.id}')" title="Crear nueva revisión sin borrar esta" style="margin-left:4px;color:var(--accent)"><i class="ti ti-copy-plus" style="font-size:13px"></i></button>
+      <button class="btn-icon" onclick="delPres('${p.id}')" title="Eliminar revisión" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">Sin presupuestos.</td></tr>';
+}
+
+window.delPres = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('presupuestos', id); };
+window.editPres = id => {
+  const p = window.DB.presupuestos.find(x=>x.id===id);
+  if (!p) return;
+  window.editingId.presupuesto = id;
+  document.getElementById('fp-nro').value=p.nro||'';
+  document.getElementById('fp-vend').value=p.vendedor||'G';
+  document.getElementById('fp-cliente').value=p.cliente||'';
+  document.getElementById('fp-desc').value=p.desc||'';
+  document.getElementById('fp-importe').value=p.importe||'';
+  document.getElementById('fp-fecha').value=p.fecha||'';
+  document.getElementById('fp-estado').value=p.estado||'Enviado';
+  document.getElementById('fp-comentarios').value=p.comentarios||'';
+  openModal('presupuesto');
+};
+
+// CLIENTES
+window.renderClientes = function() {
+  let clis = [...window.DB.clientes].sort((a,b)=>String(a.razonSocial||a.razon_social||a.nombreFiscal||a.nombre||'').localeCompare(String(b.razonSocial||b.razon_social||b.nombreFiscal||b.nombre||''),'es',{sensitivity:'base'}));
+  const q = document.getElementById('filter-cliente2')?.value.toLowerCase();
+  if (q) clis = clis.filter(c=>(c.nombre||'').toLowerCase().includes(q)||(c.cuit||'').includes(q));
+  document.getElementById('clientes-count').textContent = clis.length + ' clientes';
+  document.getElementById('clientes-tbody').innerHTML = clis.map(c => {
+    const nombre=c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'';
+    const obras = window.DB.obras.filter(o=>(o.cliente||'').toLowerCase()===nombre.toLowerCase()).length;
+    return `<tr>
+      <td class="strong">${nombre}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${c.cuit||'—'}</td>
+      <td>${c.contacto||'—'}</td><td>${c.cel||'—'}</td>
+      <td style="color:var(--blue)">${c.email||'—'}</td>
+      <td><span class="badge badge-blue">${obras}</span></td>
+      <td>
+        <button class="btn-icon" onclick="asignarClienteAOTV56('${c.id}')" title="Asignar este cliente a una OT"><i class="ti ti-link" style="font-size:13px"></i></button>
+        <button class="btn-icon" onclick="editCliente('${c.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button>
+        <button class="btn-icon" onclick="delCliente('${c.id}')" style="margin-left:4px"><i class="ti ti-trash" style="font-size:13px"></i></button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin clientes.</td></tr>';
+};
+
+window.editCliente = id => {
+  const c = window.DB.clientes.find(x=>x.id===id);
+  if(!c) return;
+  window.editingId.cliente = id;
+  document.getElementById('fc-numero').value=c.numeroCliente||c.numero||'';
+  document.getElementById('fc-nombre').value=c.nombre||'';
+  document.getElementById('fc-cuit').value=c.cuit||'';
+  document.getElementById('fc-contacto').value=c.contacto||'';
+  document.getElementById('fc-cel').value=c.cel||'';
+  document.getElementById('fc-email').value=c.email||'';
+  document.getElementById('fc-cargo').value=c.contactoCargo||'';
+  const otros=window.TIZClienteContactosV1.list(window.DB,{clienteId:c.id}).filter(x=>window.TIZClienteContactosV1.norm(x.nombre)!==window.TIZClienteContactosV1.norm(c.contacto));
+  document.getElementById('fc-contactos').value=otros.map(x=>[x.nombre,x.telefono,x.email,x.cargo].join(' | ')).join('\n');
+  window.sugerirContactoFichaClienteV1();
+  document.getElementById('fc-notas').value=c.notas||'';
+  openModal('cliente');
+};
+window.delCliente = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('clientes',id); };
+window.asignarClienteAOTV56 = async clienteId => {
+  const cliente=(window.DB.clientes||[]).find(c=>c.id===clienteId);if(!cliente)return showToast('No se encontró el cliente');
+  const nombre=String(cliente.razonSocial||cliente.razon_social||cliente.nombreFiscal||cliente.nombre||'').trim(),cuit=String(cliente.cuit||'').trim();
+  if(!cuit)return showToast('Este cliente no tiene CUIT cargado');
+  const solicitado=prompt(`Asignar ${nombre} · CUIT ${cuit}\n\nIngresá el número de OT:`, '4680');if(solicitado===null)return;
+  const base=window.tizNumeroBase(solicitado),obra=(window.DB.obras||[]).find(o=>window.tizNumeroBase(o.ot)===base);if(!obra)return showToast('No se encontró la OT '+base);
+  if(!confirm(`Confirmar cambio de cliente\n\nOT: ${base}\nCliente actual: ${obra.cliente||'—'}\nCliente nuevo: ${nombre}\nCUIT: ${cuit}\n\nNo se modificarán importes ni estados.`))return;
+  try{
+    await updateDoc_('obras',obra.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});
+    const ids=new Set([obra.presupuestoId,obra.cotizacionId].filter(Boolean));
+    const vinculadas=(window.DB.presupuestos||[]).filter(p=>p.obraId===obra.id||ids.has(p.id)||window.tizNumeroBase(p.nro)===base);
+    for(const p of vinculadas){await updateDoc_('presupuestos',p.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});p.cliente=nombre;p.clienteId=cliente.id;p.clienteCuit=cuit}
+    obra.cliente=nombre;obra.clienteId=cliente.id;obra.clienteCuit=cuit;showToast(`OT ${base} vinculada a ${nombre} ✓`);window.renderClientes();
+  }catch(e){console.error(e);showToast('No se pudo vincular el cliente a la OT')}
+};
+
+window.saveCliente = async () => {
+  const nombre = document.getElementById('fc-nombre').value.trim();
+  if (!nombre) { showToast('Ingresá el nombre del cliente'); return; }
+  const data = {
+    nombre,
+    cuit: document.getElementById('fc-cuit').value.trim(),
+    contacto: document.getElementById('fc-contacto').value.trim(),
+    cel: document.getElementById('fc-cel').value.trim(),
+    email: document.getElementById('fc-email').value.trim(),
+    notas: document.getElementById('fc-notas')?.value.trim() || '',
+  };
+  const id = window.editingId.cliente;
+  if (id) await updateDoc_('clientes', id, data);
+  else await addDoc_('clientes', data);
+  // Si vino desde presupuesto, actualizar campo cliente del presupuesto
+  const fCliente = document.getElementById('f-cliente');
+  if (fCliente && !id) fCliente.value = nombre;
+  if (window._volvioDePresupuesto && !id) {
+    document.getElementById('pp-cliente').value = nombre;
+    window._volvioDePresupuesto = false;
+  }
+  closeModal('cliente');
+  showToast(id ? 'Cliente actualizado' : 'Cliente guardado ✓');
+};
+
+// RETENCIONES
+function renderRetenciones() {
+  const rets = window.TIZFacturacionCobranzasDataV2?.retentionRows?.() || window.DB.retenciones || [];
+  const retained = r => r.retencionesTotal ?? ((+r.suss||0)+(+r.iibb||0)+(+r.gan||0)+(+r.iva||0));
+  const escRet = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const totalBruto = rets.reduce((a,r)=>a+(+r.bruto||0),0);
+  const totalRet = rets.reduce((a,r)=>a+retained(r),0);
+
+  document.getElementById('ret-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total bruto</div><div class="kpi-val">${fmtM(totalBruto)}</div></div>
+    <div class="kpi"><div class="kpi-label">Total retenido</div><div class="kpi-val red">${fmtM(totalRet)}</div></div>
+    <div class="kpi"><div class="kpi-label">Neto recibido</div><div class="kpi-val green">${fmtM(totalBruto-totalRet)}</div></div>
+  `;
+
+  document.getElementById('ret-tbody').innerHTML = rets.map(r => {
+    const neto = (+r.bruto||0)-retained(r);
+    return `<tr>
+      <td>${escRet(r.mes||'—')}</td><td class="strong">${escRet(r.cliente||'')}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${escRet(r.nrfc||'—')}</td>
+      <td>${fmtM(r.bruto)}</td>
+      <td style="color:${r.suss?'var(--red)':'var(--text3)'}">${r.suss?fmtM(r.suss):'—'}</td>
+      <td style="color:${r.iibb?'var(--red)':'var(--text3)'}">${r.iibb?fmtM(r.iibb):'—'}</td>
+      <td style="color:${r.gan?'var(--red)':'var(--text3)'}">${r.gan?fmtM(r.gan):'—'}</td>
+      <td style="color:${r.iva?'var(--red)':'var(--text3)'}">${r.iva?fmtM(r.iva):'—'}</td>
+      <td style="color:var(--green);font-weight:500">${fmtM(neto)}</td>
+      <td>${r.automatica?`<span class="badge" title="Registrada desde Cobros${r.referencia?' · '+escRet(r.referencia):''}">Cobro OT ${escRet(r.ot)}</span>`:`<button class="btn-icon" onclick="delRet('${r.id}')"><i class="ti ti-trash" style="font-size:12px"></i></button>`}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Sin retenciones.</td></tr>';
+}
+window.delRet = async id => { if(confirm('¿Eliminar?')) await deleteDoc_('retenciones',id); };
+
+// VENDEDORES
+function renderVendedores() {
+  const obras = window.DB.obras;
+  const vends = [...new Set(obras.map(o=>o.vendedor).filter(Boolean))];
+
+  document.getElementById('vend-cards').innerHTML = vends.map(v => {
+    const wo = obras.filter(o=>o.vendedor===v||o.vendedor===v);
+    const neto = wo.reduce((a,o)=>a+(+o.neto||0),0);
+    const cobr = wo.filter(o=>o.estado==='Cobrado').reduce((a,o)=>a+(+o.neto||0),0);
+    return `<div class="sector-card">
+      <div class="sector-card-name" style="color:var(--accent)">${v}</div>
+      <div class="sector-card-num">${wo.length}</div>
+      <div class="sector-card-money">${fmtM(neto)}</div>
+      <div class="sector-card-sub">Cobrado: ${fmtM(cobr)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('vend-tbody').innerHTML = vends.map(v => {
+    const wo = obras.filter(o=>o.vendedor===v);
+    const neto = wo.reduce((a,o)=>a+(+o.neto||0),0);
+    const cobr = wo.filter(o=>o.estado==='Cobrado').reduce((a,o)=>a+(+o.neto||0),0);
+    const pctCobr = neto ? Math.round(cobr/neto*100) : 0;
+    const pp = pct(wo.filter(o=>o.fprod_c),'prod');
+    const pc = pct(wo.filter(o=>o.fcol_c),'col');
+    return `<tr>
+      <td class="strong" style="color:var(--accent)">${v}</td>
+      <td>${wo.length}</td><td>${fmtM(neto)}</td><td>${fmtM(cobr)}</td>
+      <td><span class="badge badge-${pctCobr>=80?'green':pctCobr>=50?'amber':'red'}">${pctCobr}%</span></td>
+      <td>${pp!==null?`<span class="badge badge-${pp>=80?'green':pp>=60?'amber':'red'}">${pp}%</span>`:'—'}</td>
+      <td>${pc!==null?`<span class="badge badge-${pc>=80?'green':pc>=60?'amber':'red'}">${pc}%</span>`:'—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin datos de vendedores.</td></tr>';
+}
+
+// MODALES
+window.openModal = (type) => {
+  if (type==='cliente' && !window.editingId.cliente) {
+    const n = document.getElementById('fc-numero'); if(n) n.value = nextClienteNumero();
+    ['fc-nombre','fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+  }
+  if (type==='obra') {
+    if (!window.editingId.obra) {
+      ['f-desc','f-cliente','f-neto','f-bruto','f-gastos','f-fprod-c','f-fprod-r','f-fcol-c','f-fcol-r','f-oc','f-nrfc','f-ffc','f-comentarios','f-dias-pago'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+      // Sugerir siguiente número de OT
+      const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
+      const maxOT = otNros.length ? Math.max(...otNros) : 4400;
+      document.getElementById('f-ot').value = maxOT + 1;
+      document.getElementById('f-semana').value = getSemanaActual();
+      document.getElementById('f-sector').value = 'Producción';
+      document.getElementById('f-vendedor').value = 'G';
+      document.getElementById('f-estado').value = 'Pendiente';
+      document.getElementById('modal-obra-title').textContent = 'Nueva obra';
+      window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
+      window.calculosAuxiliares = [];
+      renderObraItems(); renderCalculosAux();
+      ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'].forEach(s => {
+        const el = document.getElementById('nota-'+s.toLowerCase().replace(/ó/g,'o').replace(/é/g,'e'));
+        if(el) el.value = '';
+      });
+    }
+  }
+  document.getElementById('modal-'+type).classList.add('open');
+};
+
+window.closeModal = type => {
+  document.getElementById('modal-'+type).classList.remove('open');
+  if(type==='obra') window.editingId.obra = null;
+};
+
+window.editObra = id => {
+  const o = window.DB.obras.find(x=>x.id===id); if(!o) return;
+  window.editingId.obra = id;
+  document.getElementById('obra-id').value = id;
+  document.getElementById('f-ot').value = o.ot||'';
+  document.getElementById('f-sector').value = o.sector||'Producción';
+  document.getElementById('f-desc').value = o.desc||'';
+  document.getElementById('f-cliente').value = o.cliente||'';
+  { const input=document.getElementById('f-cliente'),norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'',cli=(window.DB.clientes||[]).find(c=>c.id===o.clienteId||norm(fiscal(c))===norm(o.cliente)||norm(c.nombre)===norm(o.cliente)); if(input){input.dataset.clienteId=cli?.id||o.clienteId||'';input.dataset.clienteCuit=cli?.cuit||o.clienteCuit||''} const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=(cli?.cuit||o.clienteCuit)?'CUIT '+(cli?.cuit||o.clienteCuit):'Seleccioná un cliente de la lista para vincular su CUIT'; }
+  document.getElementById('f-vendedor').value = o.vendedor||'G';
+  document.getElementById('f-estado').value = o.estado||'Pendiente';
+  document.getElementById('f-semana').value = o.semana||'';
+  document.getElementById('f-neto').value = o.neto||'';
+  document.getElementById('f-bruto').value = o.bruto||'';
+  document.getElementById('f-gastos').value = o.gastos||'';
+  document.getElementById('f-fprod-c').value = o.fprod_c||'';
+  document.getElementById('f-fprod-r').value = o.fprod_r||'';
+  document.getElementById('f-fcol-c').value = o.fcol_c||'';
+  document.getElementById('f-fcol-r').value = o.fcol_r||'';
+  document.getElementById('f-oc').value = o.oc||'';
+  document.getElementById('f-nrfc').value = o.nrfc||'';
+  document.getElementById('f-ffc').value = o.ffc||'';
+  document.getElementById('f-cobr').value = o.cobr||'Pendiente';
+  document.getElementById('f-dias-pago').value = o.diasPago||'';
+  document.getElementById('f-comentarios').value = o.comentarios||'';
+  document.getElementById('modal-obra-title').textContent = 'Editar obra — ' + (o.ot||o.desc||'');
+  window.obraItems = Array.isArray(o.itemsCotizados) && o.itemsCotizados.length ? o.itemsCotizados : [{descripcion:o.desc||'', cantidad:1, unitario:+o.neto||0, subtotal:+o.neto||0, observaciones:''}];
+  window.calculosAuxiliares = Array.isArray(o.calculosAuxiliares) ? o.calculosAuxiliares : [];
+  renderObraItems(); renderCalculosAux();
+
+  // Cargar anotaciones por sector
+  const notas = o.notas_sector || {};
+  const sectorKeys = {
+    'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras','Calidad':'calidad'
+  };
+  Object.entries(sectorKeys).forEach(([sec, key]) => {
+    const el = document.getElementById('nota-'+key);
+    if(el) {
+      el.value = notas[sec] || '';
+      // Mostrar timestamp si existe
+      const ts = document.getElementById('nota-ts-'+key);
+      if(ts) ts.textContent = notas[sec+'_ts'] ? '— ' + notas[sec+'_ts'] : '';
+    }
+  });
+
+  document.getElementById('modal-obra').classList.add('open');
+};
+
+window.delObra = async id => { if(confirm('¿Eliminar esta obra?')) await deleteDoc_('obras',id); };
+window.quickChangeEstado = async (id, val) => {
+  const obra = window.DB.obras.find(o => o.id === id);
+  const data = { ...(obra || {}), estado: val, cobr: val, firestoreId: id };
+  await updateDoc_('obras', id, { estado: val, cobr: val, historial: window.buildHistorialV58 ? window.buildHistorialV58(obra, val) : (obra?.historial || []) });
+  if (String(val || '').toLowerCase() === 'aprobado') {
+    if (!obra?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) { await window.crearTareasAutomaticasV58({...obra, estado:val, id}); await updateDoc_('obras', id, { autoTasksCreatedAt: new Date().toISOString() }); } 
+    showToast('Actualizando estado...');
+    const syncResult = await syncToSheets(data);
+    if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
+      await updateDoc_('obras', id, {
+        driveFolderId: syncResult.folderId || syncResult.driveFolderId || '',
+        driveFolderUrl: syncResult.driveFolderUrl || '',
+        otSheetUrl: syncResult.otSheetUrl || '',
+        driveSyncedAt: new Date().toISOString()
+      });
+      showToast('Carpeta de OT creada ✓');
+    } else {
+      showToast('Estado actualizado: Aprobado');
+    }
+  } else {
+    showToast('Estado actualizado: ' + val);
+  }
+};
+
+window.limpiarFiltros = () => {
+  ['filter-ot','filter-cliente','filter-semana-desde','filter-semana-hasta'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  const fe = document.getElementById('filter-estado'); if(fe) fe.value = '';
+  window.obrasSectorFilter = 'Todos';
+  renderObras();
+};
+
+// EXPORTAR EXCEL
+window.exportarExcel = () => {
+  const obras = [...window.DB.obras].sort((a,b)=>(+b.semana||0)-(+a.semana||0));
+  if (!obras.length) { showToast('No hay obras para exportar'); return; }
+  const headers = ['Fecha','Semana','OT','Descripción','Arquitecto','Cliente','Sector','Vendedor',
+    'Estado','Neto','Bruto','Gastos','F.Prod.Comp','F.Prod.Real','F.Col.Comp','F.Col.Real',
+    'OC/OP','Nro Factura','F.Factura','Estado Cobranza','Comentarios',
+    'Nota Producción','Nota Colocaciones','Nota Diseño','Nota Ventas','Nota Compras','Nota Calidad'];
+  const rows = obras.map(o => {
+    const n = o.notas_sector||{};
+    return [o.fecha||'',o.semana||'',o.ot||'',o.desc||'',o.arquitecto||'',o.cliente||'',
+      o.sector||'',o.vendedor||'',o.estado||'',+o.neto||0,+o.bruto||0,+o.gastos||0,
+      o.fprod_c||'',o.fprod_r||'',o.fcol_c||'',o.fcol_r||'',o.oc||'',o.nrfc||'',o.ffc||'',
+      o.cobr||'',o.comentarios||'',n['Producción']||'',n['Colocaciones']||'',n['Diseño']||'',n['Ventas']||'',n['Compras']||'',n['Calidad']||''];
+  });
+  const doExport = () => {
+    const ws = window.XLSX.utils.aoa_to_sheet([headers,...rows]);
+    ws['!cols'] = headers.map((_,i)=>({wch:i<=2?8:i<=4?30:i<=7?15:25}));
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb,ws,'Obras 2026');
+    const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+    window.XLSX.writeFile(wb,`TIZ_Obras_${fecha}.xlsx`);
+    showToast(`${obras.length} obras exportadas a Excel`);
+  };
+  if (!window.XLSX) {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = doExport;
+    document.head.appendChild(s);
+  } else { doExport(); }
+};
+
+// CARGAR COBRANZAS DESDE OTs
+window.cargarDesdeOTs = async () => {
+  const obrasOK = window.DB.obras.filter(o=>['Entregado','Facturado'].includes(o.estado)&&+o.neto>0);
+  if (!obrasOK.length) { showToast('No hay obras entregadas/facturadas'); return; }
+  const otsCargadas = new Set(window.DB.cobranzas.map(c=>c.ot).filter(Boolean));
+  const nuevas = obrasOK.filter(o=>!o.ot||!otsCargadas.has(o.ot));
+  if (!nuevas.length) { showToast('Todas las OTs ya están en cobranzas'); return; }
+  if (!confirm(`¿Agregar ${nuevas.length} obra(s) a cobranzas?`)) return;
+  for (const o of nuevas) {
+    await addDoc_('cobranzas',{ot:o.ot||'',cliente:o.cliente||'',desc:o.desc||'',
+      nrfc:o.nrfc||'',importe:+o.neto||0,vencimiento:'',fechaCobro:'',estado:'Pendiente',comentarios:''});
+  }
+  showToast(`${nuevas.length} obras cargadas en cobranzas`);
+};
+
+// NÚMERO AUTOMÁTICO DE PRESUPUESTO
+window.abrirPresupuestoPDF = () => {
+  window._presupuestoOrigen = 'obra';
+  const obraId = window.editingId.obra;
+  const obra = obraId ? window.DB.obras.find(x=>x.id===obraId) : null;
+  const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0);
+  const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0);
+  const maxNro = Math.max(4695,...presNros,...otNros);
+  document.getElementById('pp-nro').value = (maxNro+1).toString().padStart(4,'0');
+  document.getElementById('pp-cliente').value = obra?.cliente||'';
+  document.getElementById('pp-desc').value = obra?.desc||'';
+  document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
+  document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
+  document.getElementById('pp-validez').value = '7';
+  window.ppItems = obra?[{desc:obra.desc||'',precio:+obra.neto||0,cant:1}]:[{desc:'',precio:0,cant:1}];
+  window.ppCalculosAux = obra?.calculosAuxiliares?.length ? obra.calculosAuxiliares.map(it=>({...it})) : [{concepto:'Materiales',detalle:'',cantidad:1,unidad:'u',precioUnitario:0,total:0,observaciones:''}];
+  renderPPItems(); renderCalculosAuxPP();
+  document.getElementById('modal-prespdf').classList.add('open');
+};
+
+// Autocomplete cliente para presupuesto — V35.6
+// Fuente unificada: Clientes + Obras + Presupuestos + Base Madre histórica.
+// Así no dependemos de que el cliente haya sido cargado manualmente en la colección Clientes.
+window.sugerirClientesPP = (q='', mostrarAunqueVacio=false) => {
+  const dd = document.getElementById('pp-clientes-dropdown');
+  if (!dd) return;
+
+  const texto = String(q||'').trim();
+  const norm = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const mapa = new Map();
+
+  const agregar = (nombre, cuit='', fuente='', peso=1) => {
+    nombre = String(nombre||'').trim();
+    if (!nombre) return;
+    const k = norm(nombre);
+    if (!k) return;
+    const actual = mapa.get(k);
+    if (!actual) mapa.set(k,{nombre,cuit:cuit||'',fuentes:new Set(fuente?[fuente]:[]),peso});
+    else {
+      if (!actual.cuit && cuit) actual.cuit=cuit;
+      if (fuente) actual.fuentes.add(fuente);
+      actual.peso += peso;
+    }
+  };
+
+  // 1) Maestro de clientes de Firebase
+  (window.DB?.clientes||[]).forEach(c=>agregar(c.nombre,c.cuit,'Clientes',20));
+  // 2) Obras ya cargadas en Firebase
+  (window.DB?.obras||[]).forEach(o=>agregar(o.cliente,'','Obras',4));
+  // 3) Presupuestos/cotizaciones históricas de Firebase
+  (window.DB?.presupuestos||[]).forEach(p=>agregar(p.cliente,'','Cotizaciones',6));
+  // 4) Base Madre incluida en la app (contiene el histórico, ej. Farmacity)
+  (window.OBRAS_MADRE_V291||[]).forEach(o=>agregar(o.cliente,'','Base Madre',2));
+
+  let todos=[...mapa.values()];
+  const nq=norm(texto);
+  if (nq) todos=todos.filter(c=>norm(c.nombre).includes(nq));
+  else if (!mostrarAunqueVacio) { dd.style.display='none'; return; }
+
+  // Primero coincidencias que comienzan con lo escrito; luego frecuencia/relevancia.
+  todos.sort((a,b)=>{
+    if(nq){
+      const ai=norm(a.nombre).startsWith(nq)?0:1, bi=norm(b.nombre).startsWith(nq)?0:1;
+      if(ai!==bi) return ai-bi;
+    }
+    return b.peso-a.peso || a.nombre.localeCompare(b.nombre,'es');
+  });
+  const matches=todos.slice(0,12);
+
+  let html = matches.map(c=>{
+    const fuente=[...c.fuentes].join(' · ');
+    const sub=c.cuit?`CUIT: ${c.cuit}${fuente?' · '+fuente:''}`:(fuente||'Histórico');
+    return `<div class="cli-option" onmousedown="elegirClientePP('${c.nombre.replace(/'/g,"\\'")}')">
+      <span>${texto?resaltar(c.nombre,texto):c.nombre}</span>
+      <span class="cli-option-sub">${sub}</span>
+    </div>`;
+  }).join('');
+
+  if (!matches.length && texto) {
+    html = `<div class="cli-option" style="cursor:default;color:var(--text3)"><span>Sin coincidencias guardadas</span></div>`;
+  }
+  if (texto) html += `<div class="cli-option" onmousedown="nuevoClienteDesdePresupuesto('${texto.replace(/'/g,"\\'")}')" style="border-top:1px solid var(--border);color:var(--accent)">
+    <span>➕ Crear cliente "<strong>${texto}</strong>"</span>
+    <span class="cli-option-sub" style="color:var(--accent)">Abre el formulario de nuevo cliente</span>
+  </div>`;
+
+  dd.innerHTML = html || '<div class="cli-option" style="cursor:default;color:var(--text3)">Todavía no hay clientes disponibles</div>';
+  dd.style.display = 'block';
+};
+window.elegirClientePP = nombre => {
+  document.getElementById('pp-cliente').value = nombre;
+  document.getElementById('pp-clientes-dropdown').style.display = 'none';
+  window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
+};
+window.cerrarSugerenciasPP = () => {
+  const dd = document.getElementById('pp-clientes-dropdown');
+  if(dd) dd.style.display = 'none';
+};
+window.nuevoClienteDesdePresupuesto = nombre => {
+  cerrarSugerenciasPP();
+  document.getElementById('pp-cliente').value = nombre;
+  window.editingId.cliente = null;
+  document.getElementById('fc-numero').value = nextClienteNumero();
+  document.getElementById('fc-nombre').value = nombre;
+  ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  window._volvioDePresupuesto = true;
+  document.getElementById('modal-cliente').classList.add('open');
+};
+
+// Selector y guardado directo de cliente desde Obras — V55.
+// La versión integrada de index no tenía estas funciones, aunque el campo las invocaba.
+window.sugerirClientes = q => {
+  const dd=document.getElementById('clientes-dropdown');if(!dd)return;
+  const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const fiscal=c=>String(c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'').trim();
+  const texto=String(q||'').trim(),nq=norm(texto);if(!nq){dd.style.display='none';return}
+  const clientes=(window.DB.clientes||[]).map(c=>({id:c.id,nombre:fiscal(c),alias:String(c.nombre||'').trim(),cuit:String(c.cuit||'').trim()})).filter(c=>c.nombre&&(norm(c.nombre).includes(nq)||norm(c.alias).includes(nq)||c.cuit.includes(texto))).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'})).slice(0,12);
+  dd.innerHTML=clientes.map((c,i)=>`<div class="cli-option" data-obra-cliente="${i}"><span>${resaltar(c.nombre,texto)}</span><span class="cli-option-sub">${c.cuit?'CUIT: '+c.cuit:'Sin CUIT'}${c.alias&&c.alias!==c.nombre?' · '+c.alias:''}</span></div>`).join('')+`<div class="cli-option" data-nuevo-obra="1" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente nuevo: <strong>${texto}</strong></span></div>`;
+  dd.querySelectorAll('[data-obra-cliente]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();const c=clientes[+el.dataset.obraCliente];if(c)window.elegirCliente(c.nombre,c.id,c.cuit)}));
+  dd.querySelector('[data-nuevo-obra]')?.addEventListener('mousedown',e=>{e.preventDefault();window.nuevoClienteDesdeObra(texto)});dd.style.display='block';
+};
+window.elegirCliente=(nombre,id='',cuit='')=>{const input=document.getElementById('f-cliente');if(input){input.value=nombre;input.dataset.clienteId=id;input.dataset.clienteCuit=cuit}const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=cuit?'Razón social seleccionada · CUIT '+cuit:'Cliente sin CUIT vinculado';const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
+window.cerrarSugerencias=()=>{const dd=document.getElementById('clientes-dropdown');if(dd)dd.style.display='none'};
+window.nuevoClienteDesdeObra=nombre=>{window.cerrarSugerencias();window.editingId.cliente=null;document.getElementById('fc-numero').value=nextClienteNumero();document.getElementById('fc-nombre').value=nombre||'';['fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('modal-cliente').classList.add('open')};
+window.guardarClienteObraV55=async()=>{
+  const obraId=window.editingId?.obra,input=document.getElementById('f-cliente');if(!obraId||!input)return showToast('No hay una obra abierta');
+  const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>String(c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'').trim();
+  const cliente=(window.DB.clientes||[]).find(c=>c.id===input.dataset.clienteId||norm(fiscal(c))===norm(input.value)||norm(c.nombre)===norm(input.value));
+  if(!cliente)return showToast('Seleccioná un cliente existente de la lista');const nombre=fiscal(cliente),cuit=String(cliente.cuit||'').trim();if(!cuit)return showToast('El cliente seleccionado no tiene CUIT cargado');
+  const obra=(window.DB.obras||[]).find(o=>o.id===obraId);input.disabled=true;
+  try{await updateDoc_('obras',obraId,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});const ids=new Set([obra?.presupuestoId,obra?.cotizacionId].filter(Boolean));const vinculadas=(window.DB.presupuestos||[]).filter(p=>p.obraId===obraId||ids.has(p.id));for(const p of vinculadas){await updateDoc_('presupuestos',p.id,{cliente:nombre,clienteId:cliente.id,clienteCuit:cuit});p.cliente=nombre;p.clienteId=cliente.id;p.clienteCuit=cuit}if(obra){obra.cliente=nombre;obra.clienteId=cliente.id;obra.clienteCuit=cuit}const info=document.getElementById('f-cliente-cuit');if(info)info.textContent='Guardado · CUIT '+cuit;showToast('Cliente y CUIT actualizados en Obra y Presupuesto ✓')}catch(e){console.error(e);showToast('No se pudo guardar el cliente')}finally{input.disabled=false}
+};
+
+// ============================================================
+// ÍTEMS DE OBRA + CÁLCULOS AUXILIARES
+// ============================================================
+window.obraItems = window.obraItems || [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
+window.calculosAuxiliares = window.calculosAuxiliares || [];
+
+function moneyInput(v){ return Number.isFinite(+v) ? +v : 0; }
+function fmtPesoObra(n){ return '$' + Math.round(+n || 0).toLocaleString('es-AR'); }
+
+window.addObraItem = () => {
+  window.obraItems = collectObraItems();
+  window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
+  renderObraItems();
+};
+window.removeObraItem = idx => {
+  window.obraItems = collectObraItems();
+  window.obraItems.splice(idx,1);
+  if (!window.obraItems.length) window.obraItems.push({descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''});
+  renderObraItems();
+};
+window.renderObraItems = () => {
+  const wrap = document.getElementById('obra-items-list');
+  if (!wrap) return;
+  const items = window.obraItems || [];
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
+      <span>Descripción</span><span>Cant.</span><span>$ Unit.</span><span>Subtotal</span><span></span>
+    </div>
+    ${items.map((it,i)=>`
+      <div class="obra-item-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 80px 115px 115px 34px;gap:6px;margin-bottom:6px;align-items:center">
+        <input class="oi-desc" value="${(it.descripcion||'').replace(/"/g,'&quot;')}" placeholder="Ej: letras, lona, vinilo, estructura..." oninput="updateObraTotals()">
+        <input class="oi-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateObraTotals()">
+        <input class="oi-unit" type="number" step="0.01" value="${it.unitario ?? 0}" oninput="updateObraTotals()">
+        <input class="oi-sub" type="number" step="0.01" value="${it.subtotal ?? ((+it.cantidad||0)*(+it.unitario||0))}" oninput="updateObraTotals(true)">
+        <button type="button" class="btn-icon" onclick="removeObraItem(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
+        <input class="oi-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas del ítem" style="grid-column:1 / -1">
+      </div>`).join('')}`;
+  updateObraTotals();
+};
+window.collectObraItems = () => {
+  return [...document.querySelectorAll('.obra-item-row')].map(row => {
+    const cantidad = moneyInput(row.querySelector('.oi-cant')?.value);
+    const unitario = moneyInput(row.querySelector('.oi-unit')?.value);
+    const subtotalManual = moneyInput(row.querySelector('.oi-sub')?.value);
+    const subtotal = subtotalManual || cantidad * unitario;
+    return { descripcion: row.querySelector('.oi-desc')?.value.trim() || '', cantidad, unitario, subtotal, observaciones: row.querySelector('.oi-obs')?.value.trim() || '' };
+  }).filter(it => it.descripcion || it.subtotal || it.unitario);
+};
+window.updateObraTotals = (manual=false) => {
+  document.querySelectorAll('.obra-item-row').forEach(row => {
+    const cant = moneyInput(row.querySelector('.oi-cant')?.value);
+    const unit = moneyInput(row.querySelector('.oi-unit')?.value);
+    const sub = row.querySelector('.oi-sub');
+    if (sub && !manual && document.activeElement !== sub) sub.value = Math.round(cant * unit * 100) / 100;
+  });
+  const total = collectObraItems().reduce((a,it)=>a+(+it.subtotal||0),0);
+  const totalEl = document.getElementById('obra-items-total');
+  if (totalEl) totalEl.textContent = fmtPesoObra(total);
+  const neto = document.getElementById('f-neto');
+  if (neto && total > 0 && (!neto.value || +neto.value===0)) neto.value = Math.round(total);
+};
+
+window.addCalculoAux = () => {
+  window.calculosAuxiliares = collectCalculosAux();
+  window.calculosAuxiliares.push({concepto:'', detalle:'', cantidad:1, unidad:'', precioUnitario:0, total:0, observaciones:''});
+  renderCalculosAux();
+};
+window.removeCalculoAux = idx => {
+  window.calculosAuxiliares = collectCalculosAux();
+  window.calculosAuxiliares.splice(idx,1);
+  renderCalculosAux();
+};
+window.renderCalculosAux = () => {
+  const wrap = document.getElementById('obra-calculos-list');
+  if (!wrap) return;
+  const items = window.calculosAuxiliares || [];
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase">
+      <span>Concepto</span><span>Detalle</span><span>Cant.</span><span>Unidad</span><span>$ Unit.</span><span>Total</span><span></span>
+    </div>
+    ${items.map((it,i)=>`
+      <div class="calc-aux-row" data-idx="${i}" style="display:grid;grid-template-columns:150px 1fr 70px 75px 105px 105px 34px;gap:6px;margin-bottom:6px;align-items:center">
+        <input class="ca-concepto" value="${(it.concepto||'').replace(/"/g,'&quot;')}" placeholder="Material/horas/etc" oninput="updateCalculosTotals()">
+        <input class="ca-detalle" value="${(it.detalle||'').replace(/"/g,'&quot;')}" placeholder="Detalle del cálculo" oninput="updateCalculosTotals()">
+        <input class="ca-cant" type="number" step="0.01" value="${it.cantidad ?? 1}" oninput="updateCalculosTotals()">
+        <input class="ca-unidad" value="${(it.unidad||'').replace(/"/g,'&quot;')}" placeholder="m2/hs/u">
+        <input class="ca-unit" type="number" step="0.01" value="${it.precioUnitario ?? 0}" oninput="updateCalculosTotals()">
+        <input class="ca-total" type="number" step="0.01" value="${it.total ?? ((+it.cantidad||0)*(+it.precioUnitario||0))}" oninput="updateCalculosTotals(true)">
+        <button type="button" class="btn-icon" onclick="removeCalculoAux(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button>
+        <input class="ca-obs" value="${(it.observaciones||'').replace(/"/g,'&quot;')}" placeholder="Observaciones internas" style="grid-column:1 / -1">
+      </div>`).join('') || `<div style="font-size:12px;color:var(--text3);padding:8px 0">Sin cálculos auxiliares cargados todavía.</div>`}`;
+  updateCalculosTotals();
+};
+window.collectCalculosAux = () => {
+  return [...document.querySelectorAll('.calc-aux-row')].map(row => {
+    const cantidad = moneyInput(row.querySelector('.ca-cant')?.value);
+    const precioUnitario = moneyInput(row.querySelector('.ca-unit')?.value);
+    const totalManual = moneyInput(row.querySelector('.ca-total')?.value);
+    const total = totalManual || cantidad * precioUnitario;
+    return { concepto: row.querySelector('.ca-concepto')?.value.trim() || '', detalle: row.querySelector('.ca-detalle')?.value.trim() || '', cantidad, unidad: row.querySelector('.ca-unidad')?.value.trim() || '', precioUnitario, total, observaciones: row.querySelector('.ca-obs')?.value.trim() || '' };
+  }).filter(it => it.concepto || it.detalle || it.total || it.precioUnitario);
+};
+window.updateCalculosTotals = (manual=false) => {
+  document.querySelectorAll('.calc-aux-row').forEach(row => {
+    const cant = moneyInput(row.querySelector('.ca-cant')?.value);
+    const unit = moneyInput(row.querySelector('.ca-unit')?.value);
+    const total = row.querySelector('.ca-total');
+    if (total && !manual && document.activeElement !== total) total.value = Math.round(cant * unit * 100) / 100;
+  });
+  const total = collectCalculosAux().reduce((a,it)=>a+(+it.total||0),0);
+  const el = document.getElementById('obra-calculos-total');
+  if (el) el.textContent = fmtPesoObra(total);
+};
+
+function nextClienteNumero() {
+  const nums = window.DB.clientes.map(c => parseInt(String(c.numeroCliente || c.numero || '').replace(/\D/g,''),10)).filter(n => n>0);
+  return 'CLI-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4,'0');
+}
+
+window.saveObra = async () => {
+  const sectorKeys = { 'Producción':'produccion','Colocaciones':'colocaciones','Diseño':'diseno','Ventas':'ventas','Compras':'compras','Calidad':'calidad' };
+  const notas_sector = {};
+  const existingId = window.editingId.obra;
+  const existing = existingId ? window.DB.obras.find(x=>x.id===existingId) : null;
+  const existingNotas = existing?.notas_sector || {};
+  Object.entries(sectorKeys).forEach(([sec, key]) => {
+    const el = document.getElementById('nota-'+key);
+    const newVal = el ? el.value.trim() : '';
+    const oldVal = existingNotas[sec] || '';
+    notas_sector[sec] = newVal;
+    notas_sector[sec+'_ts'] = (newVal !== oldVal && newVal) ? new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : (existingNotas[sec+'_ts'] || '');
+  });
+  const itemsCotizados = collectObraItems();
+  const calculosAuxiliares = collectCalculosAux();
+  const totalItems = itemsCotizados.reduce((a,it)=>a+(+it.subtotal||0),0);
+  const data = {
+    ot: document.getElementById('f-ot').value.trim(), sector: document.getElementById('f-sector').value,
+    desc: document.getElementById('f-desc').value.trim(), cliente: document.getElementById('f-cliente').value.trim(),
+    vendedor: document.getElementById('f-vendedor').value, estado: document.getElementById('f-estado').value,
+    semana: +document.getElementById('f-semana').value||0, neto: +document.getElementById('f-neto').value||totalItems||0,
+    bruto: +document.getElementById('f-bruto').value||0, gastos: +document.getElementById('f-gastos').value||0,
+    fprod_c: document.getElementById('f-fprod-c').value.trim(), fprod_r: document.getElementById('f-fprod-r').value.trim(),
+    fcol_c: document.getElementById('f-fcol-c').value.trim(), fcol_r: document.getElementById('f-fcol-r').value.trim(),
+    oc: document.getElementById('f-oc').value.trim(), nrfc: document.getElementById('f-nrfc').value.trim(), ffc: document.getElementById('f-ffc').value.trim(),
+    cobr: document.getElementById('f-cobr').value, diasPago: +document.getElementById('f-dias-pago').value||0,
+    comentarios: document.getElementById('f-comentarios').value.trim(), notas_sector,
+    itemsCotizados, calculosAuxiliares, totalItems,
+    validacionCotizacion: window.analizaCotizacionMinimaTIZ ? window.analizaCotizacionMinimaTIZ({cliente:getValue('f-cliente'), desc:getValue('f-desc'), comentarios:getValue('f-comentarios'), sector:getValue('f-sector'), estado:getValue('f-estado'), neto:+getValue('f-neto')||totalItems||0, itemsCotizados, calculosAuxiliares}) : null,
+    totalCalculosAuxiliares: calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
+    checklist: window.collectChecklistV58 ? window.collectChecklistV58() : (existing?.checklist || {}),
+      historial: window.buildHistorialV58 ? window.buildHistorialV58(existing, estado) : (existing?.historial || []),
+      alertasDetectadas: window.analizaObraV58 ? window.analizaObraV58({ estado, cliente:getValue('f-cliente'), desc:getValue('f-desc'), ot:getValue('f-ot'), itemsCotizados, neto:+getValue('f-neto')||totalItems||0, fprod_c:getValue('f-fprod-c'), fcol_c:getValue('f-fcol-c'), oc:getValue('f-oc'), driveFolderUrl: existing?.driveFolderUrl || '', checklist: window.collectChecklistV58 ? window.collectChecklistV58() : {} }).problemas : [],
+      driveFolderUrl: existing?.driveFolderUrl || '', otSheetUrl: existing?.otSheetUrl || '', otExcelUrl: existing?.otExcelUrl || '',
+  };
+  if (!data.desc) { showToast('Ingresá una descripción'); return; }
+  let docRefId = existingId;
+  if (existingId) await updateDoc_('obras', existingId, data);
+  else { const ref = await addDoc_('obras', data); docRefId = ref?.id || null; }
+  if (existingId && existing && existing.cliente !== data.cliente) {
+    const ids=new Set([existing.presupuestoId,existing.cotizacionId].filter(Boolean));
+    const vinculadas=(window.DB.presupuestos||[]).filter(p=>p.obraId===existingId||ids.has(p.id));
+    for (const p of vinculadas) {
+      await updateDoc_('presupuestos',p.id,{cliente:data.cliente,nombreArchivo:window.tizCotizacionNombreBaseV354?.(p.nro,data.cliente,p.desc,p.revision||'1.1')||p.nombreArchivo||''});
+      p.cliente=data.cliente;
+    }
+  }
+  try {
+    const syncResult = await syncToSheets({...data, firestoreId: docRefId});
+    if (syncResult?.driveFolderUrl || syncResult?.otSheetUrl) {
+      const links = {
+          driveFolderId: syncResult.folderId || syncResult.driveFolderId || data.driveFolderId || '',
+          driveFolderUrl: syncResult.driveFolderUrl || data.driveFolderUrl || '',
+          otSheetUrl: syncResult.otSheetUrl || data.otSheetUrl || '',
+          driveSyncedAt: new Date().toISOString()
+        };
+      if (docRefId) await updateDoc_('obras', docRefId, links);
+      if (String(data.estado || '').toLowerCase() === 'aprobado') showToast('Obra aprobada: carpeta Drive creada ✓');
+    } else if (String(data.estado || '').toLowerCase() === 'aprobado') {
+      showToast('Obra aprobada');
+    }
+  } catch(e) { console.warn('No se pudo sincronizar Drive/Sheets:', e); }
+  closeModal('obra'); showToast(existingId ? 'Obra actualizada' : 'Obra guardada');
+};
+
+window.sugerirContactoFichaClienteV1 = () => {
+  const core=window.TIZClienteContactosV1,c=(window.DB.clientes||[]).find(c=>c.id===window.editingId.cliente),input=document.getElementById('fc-contacto'),list=document.getElementById('fc-contactos-list');
+  const choices=c?core.list(window.DB,{clienteId:c.id}):[];
+  list.innerHTML=choices.map(x=>'<option value="'+String(x.nombre).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))+'"></option>').join('');
+  core.fill(input,document.getElementById('fc-cel'),document.getElementById('fc-email'),choices,document.getElementById('fc-cargo'));
+};
+
+window.saveCliente = async () => {
+  const numeroCliente = document.getElementById('fc-numero')?.value || nextClienteNumero();
+  const contactos=(document.getElementById('fc-contactos')?.value||'').split(/\r?\n/).map(line=>{
+    const [nombre,telefono,email,cargo]=line.split('|').map(x=>x.trim());return {nombre,telefono:telefono||'',email:email||'',cargo:cargo||''};
+  }).filter(x=>x.nombre);
+  const data = {
+    numeroCliente,
+    nombre: document.getElementById('fc-nombre').value.trim(),
+    cuit: document.getElementById('fc-cuit').value.trim(),
+    contacto: document.getElementById('fc-contacto').value.trim(),
+    cel: document.getElementById('fc-cel').value.trim(),
+    email: document.getElementById('fc-email').value.trim(),
+    contactoCargo: document.getElementById('fc-cargo').value.trim(),
+    contactos,
+    notas: document.getElementById('fc-notas').value.trim(),
+  };
+  if(!data.nombre){showToast('Ingresá un nombre');return;}
+  const id = window.editingId.cliente;
+  const previous=(window.DB.clientes||[]).find(c=>c.id===id),core=window.TIZClienteContactosV1;
+  data.contactos=core.merge(contactos,previous&&core.norm(previous.contacto)!==core.norm(data.contacto)?[{nombre:previous.contacto,telefono:previous.cel,email:previous.email,cargo:previous.contactoCargo}]:[]);
+  if(id){await updateDoc_('clientes',id,data);Object.assign(previous||{},data);}
+  else {const ref=await addDoc_('clientes',data);if(ref?.id&&!window.DB.clientes.some(c=>c.id===ref.id))window.DB.clientes.push({id:ref.id,...data});}
+  const fCliente = document.getElementById('f-cliente');
+  if (fCliente && document.getElementById('modal-obra')?.classList.contains('open')) fCliente.value = data.nombre;
+  const ppCliente = document.getElementById('pp-cliente');
+  if (ppCliente && document.getElementById('modal-prespdf')?.classList.contains('open')) ppCliente.value = data.nombre;
+  window.editingId.cliente=null;
+  window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
+  closeModal('cliente'); showToast(`Cliente ${numeroCliente} guardado`);
+};
+
+window.savePresupuesto = async () => {
+  const id = window.editingId.presupuesto;
+  const existing = id ? window.DB.presupuestos.find(x => x.id === id) : null;
+  const data = {
+    nro: document.getElementById('fp-nro').value.trim(),
+    vendedor: document.getElementById('fp-vend').value,
+    cliente: document.getElementById('fp-cliente').value.trim(),
+    desc: document.getElementById('fp-desc').value.trim(),
+    importe: +document.getElementById('fp-importe').value||0,
+    fecha: document.getElementById('fp-fecha').value.trim(),
+    estado: document.getElementById('fp-estado').value,
+    comentarios: document.getElementById('fp-comentarios').value.trim(),
+    driveFolderUrl: existing?.driveFolderUrl || '',
+    otSheetUrl: existing?.otSheetUrl || '',
+  };
+  if (!data.desc) { showToast('Ingresá una descripción'); return; }
+  let docRefId = id;
+  if(id) await updateDoc_('presupuestos',id,data); else { const ref = await addDoc_('presupuestos',data); docRefId = ref?.id || null; }
+
+  // V35.2: cada cotización tiene su carpeta en ANÁLISIS DE COTIZACIONES.
+  // Si luego se aprueba, se crea otra carpeta independiente en ÓRDENES DE TRABAJO.
+  // Ambas usan el mismo criterio: N° Cotización - Cliente - Descripción.
+  try {
+    const cotResult = await syncDriveFolder({
+      ...data,
+      firestoreId: docRefId,
+      ot: data.nro,
+      nroCotizacion: data.nro,
+      origen: 'presupuesto'
+    }, 'cotizacion');
+    if (cotResult?.driveFolderUrl && docRefId) {
+      await updateDoc_('presupuestos', docRefId, {
+        cotizacionFolderUrl: cotResult.driveFolderUrl,
+        cotizacionFolderId: cotResult.folderId || cotResult.driveFolderId || '',
+        cotizacionFolderName: cotResult.folderName || buildTizFolderName(data.nro, data.cliente, data.desc),
+        cotizacionDriveSyncedAt: new Date().toISOString()
+      });
+    }
+  } catch(e) {
+    console.warn('[TIZ V35.4] No se pudo crear carpeta de Análisis de Cotizaciones:', e);
+  }
+
+  if (String(data.estado || '').toLowerCase() === 'aprobado') {
+    try {
+      const otPayload = {
+        ...data,
+        ot: data.nro,
+        nroCotizacion: data.nro,
+        neto: data.importe,
+        totalItems: data.importe,
+        sector: data.sector || 'Ventas',
+        firestoreId: docRefId,
+        origen: 'presupuesto'
+      };
+      const syncResult = await syncDriveFolder(otPayload, 'ot');
+      if (syncResult?.driveFolderUrl && docRefId) {
+        await updateDoc_('presupuestos', docRefId, {
+          driveFolderUrl: syncResult.driveFolderUrl,
+          driveFolderId: syncResult.folderId || syncResult.driveFolderId || '',
+          otFolderName: syncResult.folderName || buildTizFolderName(data.nro, data.cliente, data.desc),
+          driveSyncedAt: new Date().toISOString()
+        });
+        showToast('Presupuesto aprobado: carpeta OT creada');
+      }
+    } catch(e) {
+      console.warn('[TIZ V35.4] No se pudo crear carpeta OT:', e);
+      showToast('Presupuesto aprobado y guardado');
+    }
+  }
+
+  window.editingId.presupuesto=null;
+  closeModal('presupuesto'); showToast('Presupuesto guardado');
+};
+
+window.saveRetencion = async () => {
+  const data = {
+    mes: document.getElementById('fr-mes').value.trim(),
+    cliente: document.getElementById('fr-cliente').value.trim(),
+    nrfc: document.getElementById('fr-nrfc').value.trim(),
+    bruto: +document.getElementById('fr-bruto').value||0,
+    suss: +document.getElementById('fr-suss').value||0,
+    iibb: +document.getElementById('fr-iibb').value||0,
+    gan: +document.getElementById('fr-gan').value||0,
+    iva: +document.getElementById('fr-iva').value||0,
+  };
+  await addDoc_('retenciones',data);
+  closeModal('retencion'); showToast('Retención guardada');
+};
+
+window.saveCobranza = async () => {
+  const data = {
+    ot: document.getElementById('fcob-ot').value.trim(),
+    cliente: document.getElementById('fcob-cliente').value.trim(),
+    desc: document.getElementById('fcob-desc').value.trim(),
+    nrfc: document.getElementById('fcob-nrfc').value.trim(),
+    importe: +document.getElementById('fcob-importe').value||0,
+    vencimiento: document.getElementById('fcob-venc').value.trim(),
+    fechaCobro: document.getElementById('fcob-real').value.trim(),
+    estado: document.getElementById('fcob-estado').value,
+    comentarios: document.getElementById('fcob-comentarios').value.trim(),
+  };
+  await addDoc_('cobranzas',data);
+  closeModal('cobranza'); showToast('Cobranza registrada');
+};
+
+// Toast
+window.showToast = msg => {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+};
+
+// ============================================================
+// TAREAS
+// ============================================================
+window.tareaTab = 'pendientes';
+
+window.setTareaTab = (tab, el) => {
+  window.tareaTab = tab;
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderTareas();
+};
+
+
+// ============================================================
+// PRESUPUESTO COMPLETO DESDE PÁGINA PRESUPUESTOS
+// ============================================================
+window.abrirNuevoPresupuestoCompleto = () => {
+  window.editingId.presupuesto = null;
+  window.editingId.obra = null;
+  window._presupuestoOrigen = 'presupuestos';
+  window._cotizacionBaseId = null;
+  window._cotizacionRevisionAnteriorId = null;
+  window._cotizacionEsRevisionNueva = false;
+  const presNros = window.DB.presupuestos.map(p=>parseInt(p.nro)||0).filter(n=>n>0);
+  const otNros = window.DB.obras.map(o=>parseInt(o.ot)||0).filter(n=>n>0);
+  const maxNro = Math.max(4695, ...presNros, ...otNros);
+  document.getElementById('pp-nro').value = (maxNro+1).toString().padStart(4,'0');
+  document.getElementById('pp-cliente').value = '';
+  document.getElementById('pp-desc').value = '';
+  document.getElementById('pp-revision').value = '1.1';
+  actualizarIdentificacionCotizacionV354();
+  const revBtn = document.getElementById('pp-btn-nueva-revision'); if (revBtn) revBtn.style.display='none';
+  document.getElementById('pp-nota').value = 'Los precios cotizados se encuentran a valores netos';
+  document.getElementById('pp-condicion').value = 'Anticipo 50% Saldo a contraentrega';
+  document.getElementById('pp-validez').value = '7';
+  window.ppItems = [{desc:'', precio:0, cant:1}];
+  window.ppCalculosAux = [{concepto:'Materiales',detalle:'',cantidad:1,unidad:'u',precioUnitario:0,total:0,observaciones:''}];
+  renderPPItems(); renderCalculosAuxPP();
+  document.getElementById('modal-prespdf').classList.add('open');
+};
+
+window.guardarPresupuestoCompleto = async () => {
+  const nro = window.tizNumeroBase(document.getElementById('pp-nro').value) || '0';
+  const cliente = document.getElementById('pp-cliente').value.trim();
+  const descGeneral = document.getElementById('pp-desc').value.trim();
+  const revision = normalizarRevisionV354(document.getElementById('pp-revision')?.value || '1.1');
+  const nota = document.getElementById('pp-nota').value.trim();
+  const cond = document.getElementById('pp-condicion').value.trim();
+  const hoy = new Date().toLocaleDateString('es-AR');
+  const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
+  const calculosAuxiliares = collectCalculosAuxPP();
+  const total = round2Presupuesto(items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0));
+  const presupuestoAnterior = window.editingId.presupuesto ? (window.DB.presupuestos||[]).find(p=>p.id===window.editingId.presupuesto) : null;
+  if (!cliente) { showToast('Falta cargar el cliente'); return; }
+  if (!descGeneral) { showToast('Cargá la descripción general'); return; }
+  if (!items.length) { showToast('Agregá al menos un ítem'); return; }
+
+  // V35.4: una revisión es un documento propio. Nunca se actualiza una revisión anterior.
+  const existente = (window.DB.presupuestos||[]).find(p => String(p.nro||'').replace(/\D/g,'')===String(nro).replace(/\D/g,'') && normalizarRevisionV354(p.revision||'1.1')===revision && p.id!==window.editingId.presupuesto);
+  if (existente && !window.editingId.presupuesto) {
+    showToast(`La revisión ${revision} ya existe. Usá “Nueva revisión” para conservar el historial.`);
+    return;
+  }
+
+  const payload = {
+    tipoFacturaSolicitada:document.getElementById('pp-tipo-factura')?.value??presupuestoAnterior?.tipoFacturaSolicitada??'',
+    emisorComercial:window.TIZPresupuestoEmisorV1.forSave(presupuestoAnterior),
+    nro, revision, cliente, desc: descGeneral || items.map(i=>i.desc).join(' / '),
+    importe: total, fecha: hoy, estado: 'Pendiente', nota, cond, items, calculosAuxiliares, totalCalculosAuxiliares:calculosAuxiliares.reduce((a,it)=>a+(+it.total||0),0),
+    creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
+    cotizacionBase: String(nro).replace(/\D/g,''),
+    revisionAnteriorId: window._cotizacionRevisionAnteriorId || '',
+    esRevision: !!window._cotizacionRevisionAnteriorId,
+    nombreArchivo: window.tizCotizacionNombreBaseV354(nro, cliente, descGeneral, revision)
+  };
+
+  let ref;
+  if (window.editingId.presupuesto && !window._cotizacionEsRevisionNueva) {
+    // Solo se permite editar el borrador actual; crear una revisión nueva genera otro documento.
+    await updateDoc_('presupuestos', window.editingId.presupuesto, payload);
+    ref = {id:window.editingId.presupuesto};
+  } else {
+    ref = await addDoc_('presupuestos', payload);
+    window.editingId.presupuesto = ref?.id || null;
+    window._cotizacionBaseId = ref?.id || window._cotizacionBaseId;
+    window._cotizacionEsRevisionNueva = false;
+  }
+  if (payload.obraId && presupuestoAnterior && presupuestoAnterior.cliente !== cliente) {
+    await updateDoc_('obras', payload.obraId, {cliente});
+    const obra=(window.DB.obras||[]).find(o=>o.id===payload.obraId); if(obra) obra.cliente=cliente;
+  }
+  const revBtn = document.getElementById('pp-btn-nueva-revision'); if (revBtn) revBtn.style.display='inline-flex';
+  showToast(`CT ${String(nro).replace(/\D/g,'')} ${revision} guardada sin borrar revisiones anteriores`);
+};
+
+// ============================================================
+// PRESUPUESTO PDF
+// ============================================================
+window.normalizarRevisionV354 = function(rev) {
+  const m = String(rev||'1.1').trim().match(/^(\d+)\.(\d+)$/);
+  return m ? `${parseInt(m[1],10)}.${parseInt(m[2],10)}` : '1.1';
+};
+function normalizarRevisionV354(rev){ return window.normalizarRevisionV354(rev); }
+window.siguienteRevisionV354 = function(rev) {
+  const r = normalizarRevisionV354(rev);
+  const [mayor, menor] = r.split('.').map(Number);
+  return `${mayor}.${menor+1}`;
+};
+window.actualizarIdentificacionCotizacionV354 = function() {
+  const n = window.tizNumeroBase(document.getElementById('pp-nro')?.value)||'0';
+  const r = normalizarRevisionV354(document.getElementById('pp-revision')?.value||'1.1');
+  const el = document.getElementById('pp-identificacion'); if(el) el.value = `CT ${window.tizNumeroCotizacion(n)} ${r}`;
+};
+window.abrirRevisionCotizacionV354 = function(id, crearNueva=false) {
+  const p = (window.DB.presupuestos||[]).find(x=>x.id===id);
+  if(!p) return showToast('No se encontró la cotización');
+  window.editingId.presupuesto = crearNueva ? null : id;
+  window.editingId.obra = p.obraId || null;
+  window._presupuestoOrigen='presupuestos';
+  window._cotizacionBaseId = p.cotizacionBaseId || p.id;
+  window._cotizacionRevisionAnteriorId = crearNueva ? p.id : (p.revisionAnteriorId||'');
+  window._cotizacionEsRevisionNueva = !!crearNueva;
+  document.getElementById('pp-nro').value = p.nro||'';
+  document.getElementById('pp-cliente').value = p.cliente||'';
+  document.getElementById('pp-desc').value = p.desc||'';
+  document.getElementById('pp-nota').value = p.nota||'Los precios cotizados se encuentran a valores netos';
+  document.getElementById('pp-condicion').value = p.cond||p.condicion||'Anticipo 50% Saldo a contraentrega';
+  document.getElementById('pp-validez').value = p.validezDias||7;
+  const revActual = normalizarRevisionV354(p.revision||'1.1');
+  document.getElementById('pp-revision').value = crearNueva ? window.siguienteRevisionV354(revActual) : revActual;
+  window.ppItems = (p.items&&p.items.length) ? p.items.map(it=>({desc:it.desc||it.descripcion||'',precio:+(it.precio??it.unitario)||0,cant:+(it.cant??it.unidades)||1})) : [{desc:p.desc||'',precio:+p.importe||0,cant:1}];
+  window.ppCalculosAux = (p.calculosAuxiliares&&p.calculosAuxiliares.length) ? p.calculosAuxiliares.map(it=>({...it})) : [{concepto:'Materiales',detalle:'',cantidad:1,unidad:'u',precioUnitario:0,total:0,observaciones:''}];
+  renderPPItems(); renderCalculosAuxPP(); actualizarIdentificacionCotizacionV354();
+  const revBtn=document.getElementById('pp-btn-nueva-revision'); if(revBtn) revBtn.style.display=crearNueva?'none':'inline-flex';
+  document.getElementById('modal-prespdf').classList.add('open');
+  if(crearNueva) showToast(`Nueva revisión ${document.getElementById('pp-revision').value}: copiamos la anterior y no se modifica el original`);
+};
+window.crearNuevaRevisionV354 = id => window.abrirRevisionCotizacionV354(id,true);
+window.crearNuevaRevisionDesdeCotizador = function(){
+  const id=window.editingId.presupuesto || window._cotizacionBaseId;
+  if(!id) return showToast('Primero guardá la cotización');
+  window.crearNuevaRevisionV354(id);
+};
+
+
+// ============================================================
+// V35.7 — CÁLCULOS AUXILIARES DEL PRESUPUESTO
+// Se guardan con cada revisión y NO forman parte del PDF del cliente.
+// ============================================================
+window.ppCalculosAux = window.ppCalculosAux || [];
+function ppNum(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
+function ppMoney(n){ return '$' + Math.round(+n||0).toLocaleString('es-AR'); }
+window.collectCalculosAuxPP = function(){
+  return [...document.querySelectorAll('.pp-calc-aux-row')].map(row=>{
+    const cantidad=ppNum(row.querySelector('.pp-ca-cant')?.value);
+    const precioUnitario=ppNum(row.querySelector('.pp-ca-unit')?.value);
+    const manual=ppNum(row.querySelector('.pp-ca-total')?.value);
+    return {concepto:row.querySelector('.pp-ca-concepto')?.value.trim()||'',detalle:row.querySelector('.pp-ca-detalle')?.value.trim()||'',cantidad,unidad:row.querySelector('.pp-ca-unidad')?.value.trim()||'',precioUnitario,total:manual||cantidad*precioUnitario,observaciones:row.querySelector('.pp-ca-obs')?.value.trim()||''};
+  }).filter(it=>it.concepto||it.detalle||it.total||it.precioUnitario||it.observaciones);
+};
+window.updateCalculosAuxPP=function(manual=false){
+  document.querySelectorAll('.pp-calc-aux-row').forEach(row=>{
+    const cant=ppNum(row.querySelector('.pp-ca-cant')?.value), unit=ppNum(row.querySelector('.pp-ca-unit')?.value), total=row.querySelector('.pp-ca-total');
+    if(total && !manual && document.activeElement!==total) total.value=Math.round(cant*unit*100)/100;
+  });
+  const total=window.collectCalculosAuxPP().reduce((a,it)=>a+(+it.total||0),0);
+  const el=document.getElementById('pp-calculos-total'); if(el) el.textContent=ppMoney(total);
+};
+window.renderCalculosAuxPP=function(){
+  const wrap=document.getElementById('pp-calculos-list'); if(!wrap) return;
+  const items=window.ppCalculosAux||[];
+  const eh=v=>String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  wrap.innerHTML=`<div style="display:grid;grid-template-columns:140px 1fr 70px 70px 105px 105px 34px;gap:6px;margin-bottom:5px;font-size:10px;color:var(--text3);text-transform:uppercase"><span>Concepto</span><span>Detalle</span><span>Cant.</span><span>Unidad</span><span>$ Unit.</span><span>Total</span><span></span></div>${items.map((it,i)=>`<div class="pp-calc-aux-row" data-idx="${i}" style="display:grid;grid-template-columns:140px 1fr 70px 70px 105px 105px 34px;gap:6px;margin-bottom:6px;align-items:center"><input class="pp-ca-concepto" value="${eh(it.concepto)}" placeholder="Material/horas/etc" oninput="updateCalculosAuxPP()"><input class="pp-ca-detalle" value="${eh(it.detalle)}" placeholder="Detalle del cálculo" oninput="updateCalculosAuxPP()"><input class="pp-ca-cant" type="number" step="0.01" value="${it.cantidad??1}" oninput="updateCalculosAuxPP()"><input class="pp-ca-unidad" value="${eh(it.unidad)}" placeholder="m2/hs/u"><input class="pp-ca-unit" type="number" step="0.01" value="${it.precioUnitario??0}" oninput="updateCalculosAuxPP()"><input class="pp-ca-total" type="number" step="0.01" value="${it.total??((+it.cantidad||0)*(+it.precioUnitario||0))}" oninput="updateCalculosAuxPP(true)"><button type="button" class="btn-icon" onclick="removeCalculoAuxPP(${i})" title="Quitar"><i class="ti ti-x" style="font-size:13px"></i></button><input class="pp-ca-obs" value="${eh(it.observaciones)}" placeholder="Observaciones internas" style="grid-column:1 / -1"></div>`).join('')||'<div style="font-size:12px;color:var(--text3);padding:8px 0">Sin cálculos auxiliares cargados todavía.</div>'}`;
+  window.updateCalculosAuxPP();
+};
+window.addCalculoAuxPP=function(){ window.ppCalculosAux=window.collectCalculosAuxPP(); window.ppCalculosAux.push({concepto:'',detalle:'',cantidad:1,unidad:'',precioUnitario:0,total:0,observaciones:''}); window.renderCalculosAuxPP(); };
+window.removeCalculoAuxPP=function(i){ window.ppCalculosAux=window.collectCalculosAuxPP(); window.ppCalculosAux.splice(i,1); window.renderCalculosAuxPP(); };
+
+window.ppItems = [];
+
+window.abrirPresupuesto = () => {
+  // Tomar datos de la obra actual
+  const obraId = window.editingId.obra;
+  const obra = obraId ? window.DB.obras.find(x => x.id === obraId) : null;
+
+  // Número de presupuesto
+  const nro = obra?.ot ? window.tizNumeroBase(obra.ot) : '0';
+  document.getElementById('pp-nro').value = nro;
+  document.getElementById('pp-cliente').value = obra?.cliente || '';
+  document.getElementById('pp-revision').value = '1.1';
+  window._cotizacionRevisionAnteriorId = null; window._cotizacionEsRevisionNueva=false;
+  actualizarIdentificacionCotizacionV354();
+  const revBtn=document.getElementById('pp-btn-nueva-revision'); if(revBtn) revBtn.style.display='none';
+
+  // Item inicial con descripción de la obra
+  window.ppItems = obra ? [{
+    desc: obra.desc || '',
+    precio: obra.neto || 0,
+    cant: 1,
+  }] : [{ desc:'', precio:0, cant:1 }];
+
+  renderPPItems();
+  document.getElementById('modal-prespdf').classList.add('open');
+};
+
+window.addItemPP = () => {
+  window.ppItems.push({ desc:'', precio:0, cant:1 });
+  renderPPItems();
+};
+
+window.removeItemPP = (i) => {
+  window.ppItems.splice(i, 1);
+  renderPPItems();
+};
+
+window.updateItemPP = (i, field, val) => {
+  window.ppItems[i][field] = field === 'desc' ? val : +val || 0;
+  // Actualizar subtotal mostrado
+  const row = document.querySelectorAll('.pp-item-row')[i];
+  if (row) {
+    const sub = (window.ppItems[i].precio || 0) * (window.ppItems[i].cant || 0);
+    const subEl = row.querySelector('.pp-subtotal');
+    if (subEl) subEl.textContent = fmtPesoPresupuesto(round2Presupuesto(sub));
+  }
+  updatePPTotal();
+};
+
+function fmtPeso(n) {
+  return '$ ' + Math.round(+n || 0).toLocaleString('es-AR');
+}
+function fmtPesoPresupuesto(n) {
+  const v = Math.round(((+n || 0) + Number.EPSILON) * 100) / 100;
+  return '$ ' + v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function round2Presupuesto(n) {
+  return Math.round(((+n || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function updatePPTotal() {
+  const total = round2Presupuesto(window.ppItems.reduce((a,it) => a + (it.precio||0)*(it.cant||0), 0));
+  const el = document.getElementById('pp-total');
+  if (el) el.textContent = fmtPesoPresupuesto(total);
+}
+
+function renderPPItems() {
+  const wrap = document.getElementById('pp-items');
+  if (!wrap) return;
+  wrap.innerHTML = window.ppItems.map((it, i) => `
+    <div class="pp-item-row">
+      <span aria-label="Renglón ${i+1}" style="width:28px;flex-shrink:0;text-align:center;color:var(--accent);font-weight:600">${i+1}</span>
+      <input value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Descripción del ítem ${i+1}" oninput="updateItemPP(${i},'desc',this.value)" style="flex:1">
+      <input type="number" value="${it.precio||''}" placeholder="$ Unit" oninput="updateItemPP(${i},'precio',this.value)" style="width:110px">
+      <input type="number" value="${it.cant||1}" placeholder="Cant" oninput="updateItemPP(${i},'cant',this.value)" style="width:70px">
+      <span class="pp-subtotal" style="font-size:12px;color:var(--text2);width:110px;text-align:right;padding:0 4px;white-space:nowrap">${fmtPesoPresupuesto(round2Presupuesto((it.precio||0)*(it.cant||1)))}</span>
+      <button class="btn-icon" onclick="removeItemPP(${i})" title="Eliminar ítem" style="padding:4px;color:var(--red)"><i class="ti ti-trash" style="font-size:13px"></i></button>
+    </div>
+  `).join('');
+  updatePPTotal();
+}
+
+
+window.tizCotizacionNombreBaseV354 = function(nro, cliente, descripcion, revision='1.1') {
+  const n = window.tizNumeroCotizacion(nro)||'0000000';
+  const clean = v => String(v||'').replace(/[\\/:*?"<>|#%{}~]/g,' ').replace(/\s+/g,' ').trim();
+  // Formato TIZ: CT 0005406 1.2 - Cliente - Descripción
+  return ['CT ' + n + ' ' + normalizarRevisionV354(revision), clean(cliente), clean(descripcion)].filter(Boolean).join(' - ').slice(0,180);
+};
+window.tizCotizacionNombreBaseV353 = window.tizCotizacionNombreBaseV354;
+
+window._postCotizacionDriveV353 = function(payload) {
+  return new Promise((resolve) => {
+    try {
+      const frameName = 'tiz-drive-upload-' + Date.now();
+      const iframe = document.createElement('iframe');
+      iframe.name = frameName;
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = TIZ_DRIVE_OT_WEBHOOK;
+      form.target = frameName;
+      form.style.display = 'none';
+      const inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'payload'; inp.value = JSON.stringify(payload);
+      form.appendChild(inp); document.body.appendChild(form);
+      let submitted = false;
+      iframe.onload = () => {
+        if (!submitted) return;
+        setTimeout(()=>{ try{form.remove();iframe.remove();}catch(_){} resolve({ok:true}); },300);
+      };
+      submitted = true; form.submit();
+      setTimeout(()=>{ try{form.remove();iframe.remove();}catch(_){} resolve({ok:true,timeout:true}); },12000);
+    } catch(e) { console.warn('[TIZ V35.4] Error enviando cotización a Drive', e); resolve({ok:false,error:String(e)}); }
+  });
+};
+
+window.generarPDF = async () => {
+  const nro = window.tizNumeroBase(document.getElementById('pp-nro').value) || '0';
+  const cliente = document.getElementById('pp-cliente').value.trim();
+  const descGeneral = document.getElementById('pp-desc').value.trim();
+  const nota = document.getElementById('pp-nota').value.trim();
+  const cond = document.getElementById('pp-condicion').value.trim();
+  const validezDias = +document.getElementById('pp-validez').value || 7;
+  const calculosAuxiliares = window.collectCalculosAuxPP?.() || window.ppCalculosAux || [];
+  const plazoEstimado = document.getElementById('pp-plazo')?.value || '';
+  const anticipoPct = +document.getElementById('pp-anticipo')?.value || 0;
+  const diasPago = +document.getElementById('pp-dias-pago')?.value || 0;
+  const oc = document.getElementById('pp-oc')?.value || '';
+  const observacionesComerciales = document.getElementById('pp-obs-comercial')?.value || '';
+  const items = (window.ppItems||[]).filter(i => (i.desc||'').trim() || (+i.precio||0)>0);
+  if (!cliente) { showToast('Falta cargar el cliente'); return; }
+  if (!descGeneral) { showToast('Cargá la descripción general: se usa para nombrar la cotización y la carpeta'); return; }
+  if (!items.length) { showToast('Agregá al menos un ítem'); return; }
+
+  const hoy = new Date();
+  const validez = new Date(hoy); validez.setDate(validez.getDate() + validezDias);
+  const revision = normalizarRevisionV354(document.getElementById('pp-revision')?.value || '1.1');
+  const total = round2Presupuesto(items.reduce((a,it)=>a+(+it.precio||0)*(+it.cant||1),0));
+  const fmtFecha = d => d.toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const esc = v => String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const nombreBase = window.tizCotizacionNombreBaseV354(nro, cliente, descGeneral, revision);
+  const entregaLogistica = window.collectEntregaLogisticaPP?.() || {tipo:'a_definir'};
+
+  const documentoExistente = !window._cotizacionEsRevisionNueva ? (window.DB.presupuestos||[]).find(p=>p.id===window.editingId.presupuesto)||(window.DB.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===String(nro).replace(/\D/g,'')&&normalizarRevisionV354(p.revision||'1.1')===revision) : null;
+  const emisorComercial = window.TIZPresupuestoEmisorV1.forSave(documentoExistente);
+  let ref;
+  const registro = {
+    emisorComercial,
+    nro, cliente, desc: descGeneral, importe: total,
+    fecha: hoy.toLocaleDateString('es-AR'), validez: validez.toLocaleDateString('es-AR'),
+    estado:'Pendiente', nota, cond, items, revision,
+    creadoPor: window.currentUser?.email || '', obraId: window.editingId.obra || '',
+    nombreArchivo: nombreBase, cotizacionBase:String(nro).replace(/\D/g,''),
+    revisionAnteriorId:window._cotizacionRevisionAnteriorId||'', esRevision:!!window._cotizacionRevisionAnteriorId,
+    entregaLogistica, calculosAuxiliares, plazoEstimado, anticipoPct, diasPago, oc, observacionesComerciales,
+    tipoFacturaSolicitada:document.getElementById('pp-tipo-factura')?.value??documentoExistente?.tipoFacturaSolicitada??'',
+    vendedor:document.getElementById('pp-vendedor')?.value||'',moneda:document.getElementById('pp-moneda')?.value||'ARS'
+  };
+  Object.assign(registro,window.TIZInsumosCotizacionV1?.saveFields()||{});
+  if(window.editingId.presupuesto && !window._cotizacionEsRevisionNueva){
+    await updateDoc_('presupuestos',window.editingId.presupuesto,registro); ref={id:window.editingId.presupuesto};
+  } else {
+    const existe=(window.DB.presupuestos||[]).find(p=>String(p.nro||'').replace(/\D/g,'')===String(nro).replace(/\D/g,'') && normalizarRevisionV354(p.revision||'1.1')===revision);
+    if(existe && !window._cotizacionEsRevisionNueva){ ref={id:existe.id}; await updateDoc_('presupuestos',existe.id,registro); }
+    else { ref=await addDoc_('presupuestos',registro); window.editingId.presupuesto=ref?.id||null; }
+    window._cotizacionEsRevisionNueva=false;
+  }
+
+  // Crea/asegura carpeta de análisis con el nombre CT - Cliente - Descripción.
+  try {
+    const cotResult = await syncDriveFolder({
+      nroCotizacion:nro, cliente, desc:descGeneral, revision, firestoreId:ref?.id||'', estado:'Pendiente'
+    }, 'cotizacion');
+    if (cotResult?.driveFolderUrl && ref?.id) await updateDoc_('presupuestos', ref.id, {
+      cotizacionFolderUrl:cotResult.driveFolderUrl,
+      cotizacionFolderId:cotResult.folderId||'',
+      cotizacionFolderName:cotResult.folderName||''
+    });
+  } catch(e) { console.warn('[TIZ V35.4] Carpeta análisis:',e); }
+
+  // Guarda automáticamente una copia PDF en PDF 2026 y una XLSX en Excel 2026.
+  window._postCotizacionDriveV353({
+    action:'guardarCotizacionArchivos', nroCotizacion:window.tizNumeroCotizacion(nro), revision, cliente, descripcion:descGeneral,
+    fecha:fmtFecha(hoy), validez:fmtFecha(validez), nota, condicion:cond, total,
+    items:items.map((it,i)=>({orden:i+1,descripcion:String(it.desc||''), unitario:+it.precio||0, unidades:+it.cant||1, subtotal:(+it.precio||0)*(+it.cant||1)})),
+    nombreBase, firestoreId:ref?.id||'', entregaLogistica, emisorComercial
+  });
+
+  const rows = items.map((it,i)=>`<tr><td class="cant">${i+1}</td><td>${esc(it.desc)}</td><td class="num">${fmtPesoPresupuesto(+it.precio||0)}</td><td class="cant">${+it.cant||1}</td><td class="num">${fmtPesoPresupuesto(round2Presupuesto((+it.precio||0)*(+it.cant||1)))}</td></tr>`).join('');
+  const html = `<div class="ct-page">
+    <div class="ct-header">
+      <div class="ct-brand"><img src="assets/tiz-logo-presupuesto.png"><div class="ct-contact">☎ 11-3479-9737<br>✉ info@tizpublicidad.com<br>www.tizpublicidad.com<br>⌖ ${esc(emisorComercial.direccion)}</div></div>
+      <div class="ct-meta"><div class="ct-title">Presupuesto Nro: <b>${window.tizNumeroCotizacion(nro)}</b></div><div>Fecha: ${esc(fmtFecha(hoy))}</div><div>Validez hasta: ${esc(fmtFecha(validez))}</div><div>Cliente: <b>${esc(cliente)}</b></div></div>
+    </div>
+    <div class="ct-items"><table class="ct-table"><colgroup><col style="width:5%"><col style="width:54%"><col style="width:14%"><col style="width:12%"><col style="width:15%"></colgroup><thead><tr><th>N°</th><th>Descripción</th><th>$ Unit</th><th>Unidades</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="ct-bottom"><div class="ct-notes"><div>Nota: ${esc(nota)}</div><div>Condición de pago: ${esc(cond)}</div></div><div class="ct-total"><b>Total Cotizado</b><b>${fmtPesoPresupuesto(total)}</b></div></div>
+    <div class="ct-footer"><span>☎ 11-3479-9737</span><span>✉ INFO@TIZPUBLICIDAD.COM</span><span>WWW.TIZPUBLICIDAD.COM</span><span>⌖ ${esc(emisorComercial.direccion.toLocaleUpperCase('es-AR'))}</span></div>
+  </div>`;
+
+  const printWin = window.open('', '_blank', 'width=920,height=780');
+  printWin.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(nombreBase)}</title><style>
+    *{box-sizing:border-box;print-color-adjust:exact}body{margin:0;background:#eee;font-family:Arial,sans-serif;color:#111}.toolbar{width:210mm;margin:12px auto 0;background:#1b1b1b;padding:10px;display:flex;gap:8px;align-items:center}.toolbar button{border:0;border-radius:5px;padding:9px 14px;cursor:pointer;font-weight:700}.pdf{background:#e8b84b}.hint{color:#bbb;font-size:11px}
+    .ct-page{width:210mm;min-height:297mm;margin:0 auto;background:white;padding:8mm 7mm 7mm;border:1px solid #aaa;display:flex;flex-direction:column}.ct-header{display:flex;justify-content:space-between;gap:12mm;min-height:30mm;margin-bottom:5mm}.ct-brand{width:90mm;background:#111;padding:3mm 4mm;color:white;display:flex;align-items:center;gap:4mm}.ct-brand img{width:32mm;height:22mm;object-fit:contain}.ct-contact{font-size:7.8pt;line-height:1.55}.ct-meta{font-size:9pt;line-height:1.55;padding-top:2mm}.ct-title{font-size:14pt;font-style:italic;margin-bottom:2mm}.ct-items{flex:1;border:1px solid #777;overflow:hidden}.ct-table{width:100%;border-collapse:collapse;table-layout:fixed}.ct-table th,.ct-table td{border-left:1px solid #999;padding:2.2mm 2mm;vertical-align:top}.ct-table th:first-child,.ct-table td:first-child{border-left:0}.ct-table th{border-bottom:1px solid #777;font-size:9.2pt;font-style:italic;text-align:center;white-space:nowrap;overflow:hidden}.ct-table td{font-size:8.3pt;border-bottom:1px solid #ddd;height:auto}.num{text-align:right;white-space:nowrap}.cant{text-align:center}.ct-bottom{border:1px solid #777;border-top:0;display:grid;grid-template-columns:1fr 36%;font-size:8pt}.ct-notes{padding:2mm 2.5mm;line-height:1.45}.ct-total{border-left:1px solid #777;padding:2mm 2.5mm;display:flex;justify-content:space-between;align-items:center;font-size:9pt}.ct-footer{margin-top:3mm;height:13mm;padding:0 4mm;display:flex;align-items:center;justify-content:space-between;color:white;font-size:7pt;font-weight:700;background:linear-gradient(90deg,#ff9b23,#ff3b55,#ef2375,#7537e8)}
+    @media print{body{background:white}.toolbar{display:none}.ct-page{margin:0;border:1px solid #777;min-height:282mm}@page{size:A4 portrait;margin:6mm}}
+  </style></head><body><div class="toolbar"><button class="pdf" onclick="window.print()">📄 Guardar PDF local</button><span class="hint">La copia PDF y Excel ya se envía a Drive.</span></div>${html}
+</body></html>`);
+  printWin.document.close();
+  showToast('Cotización guardada: Drive PDF 2026 + Excel 2026');
+};
+window.estTab = 'tabla';
+window.setEstTab = (tab, el) => {
+  if(!window.canViewIndicadores()||!window.currentUser?.isAdmin&&tab!=='indicadores')return;
+  window.estTab = tab;
+  document.querySelectorAll('#page-estadistica .page-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderEstadistica();
+};
+
+function renderEstadistica() {
+  const content=document.getElementById('est-content'),page=document.getElementById('page-estadistica');
+  if(!content||!window.canViewIndicadores())return;
+  if(!window.currentUser?.isAdmin)window.estTab='indicadores';
+  const indicators=window.estTab==='indicadores';
+  page.querySelectorAll('[data-est-tab]').forEach(el=>{el.style.display=(window.currentUser.isAdmin||el.dataset.estTab==='indicadores')?'':'none';el.classList.toggle('active',el.dataset.estTab===window.estTab);});
+  document.getElementById('est-kpis').style.display=indicators?'none':'';
+  page.querySelector('.header-actions').style.display=indicators?'none':'';
+  page.querySelector('.page-subtitle').textContent=indicators?'Indicadores de gestión por puesto y obra':'Ventas · Producción · Colocaciones · Cobranzas por semana';
+  if(indicators){
+    let host=document.getElementById('est-indicadores');
+    if(!host){content.innerHTML='<div id="est-indicadores"></div>';host=document.getElementById('est-indicadores');}
+    window.TIZAnalisisPreliminarV1?.renderIndicators(host);
+    return;
+  }
+
+  if(window.estTab==='cumplimiento'){
+    document.getElementById('est-kpis').innerHTML='';
+    page.querySelector('.header-actions').style.display='none';
+    page.querySelector('.page-subtitle').textContent='Cumplimiento operativo registrado en la app';
+    renderEstCumplimiento();
+  }else window.TIZEstadisticaSourceV1?.render();
+}
+
+function renderEstCumplimiento() {
+  const obras = window.DB.obras;
+  const conFProd = obras.filter(o => o.fprod_c);
+  const prodEnFecha  = conFProd.filter(o => semaforo(o.fprod_c,o.fprod_r)==='g').length;
+  const prodVencida  = conFProd.filter(o => semaforo(o.fprod_c,o.fprod_r)==='r').length;
+  const prodEnRiesgo = conFProd.filter(o => semaforo(o.fprod_c,o.fprod_r)==='a').length;
+  const prodSinFecha = obras.filter(o => !o.fprod_c).length;
+  const conFCol = obras.filter(o => o.fcol_c);
+  const colEnFecha   = conFCol.filter(o => semaforo(o.fcol_c,o.fcol_r)==='g').length;
+  const colVencida   = conFCol.filter(o => semaforo(o.fcol_c,o.fcol_r)==='r').length;
+  const colEnRiesgo  = conFCol.filter(o => semaforo(o.fcol_c,o.fcol_r)==='a').length;
+  const colSinFecha  = obras.filter(o => !o.fcol_c).length;
+
+  // --- Cobranzas ---
+  const cobr = window.DB.cobranzas;
+  const cobrCobradas  = cobr.filter(c => c.estado==='Cobrado').length;
+  const cobrPendiente = cobr.filter(c => c.estado==='Pendiente' && diasDesdeHoy(c.vencimiento)<0).length;
+  const cobrVencidas  = cobr.filter(c => c.estado==='Pendiente' && diasDesdeHoy(c.vencimiento)>=0).length;
+  const cobrTotalMonto = cobr.reduce((a,c)=>a+(+c.importe||0),0);
+  const cobrCobradoMonto = cobr.filter(c=>c.estado==='Cobrado').reduce((a,c)=>a+(+c.importe||0),0);
+  const cobrPendMonto = cobr.filter(c=>c.estado!=='Cobrado').reduce((a,c)=>a+(+c.importe||0),0);
+  const SECTORS = ['Producción','Colocaciones','Diseño','Ventas','Compras','Calidad'];
+  const COLORS_SEC = {'Producción':'#5b9cf6','Colocaciones':'#3dbfa0','Diseño':'#9b7ff4','Ventas':'#e8a020','Compras':'#e8b84b','Calidad':'#4caf7d'};
+  const sectorData = SECTORS.map(sec => {
+    const ws = obras.filter(o=>o.sector===sec&&o.fprod_c);
+    const ok = ws.filter(o=>semaforo(o.fprod_c,o.fprod_r)==='g').length;
+    const mal = ws.filter(o=>semaforo(o.fprod_c,o.fprod_r)==='r').length;
+    const riesgo = ws.filter(o=>semaforo(o.fprod_c,o.fprod_r)==='a').length;
+    const pct = ws.length?Math.round(ok/ws.length*100):0;
+    return {sec,ok,mal,riesgo,total:ws.length,pct};
+  });
+
+  document.getElementById('est-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">📦 Cumplimiento producción</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;align-items:center;gap:14px">
+          <div style="position:relative;width:200px;height:200px">
+            <canvas id="chart-prod" width="200" height="200"></canvas>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+              <div style="font-size:26px;font-weight:700;color:var(--green)">${conFProd.length?Math.round(prodEnFecha/conFProd.length*100):0}%</div>
+              <div style="font-size:10px;color:var(--text3)">en fecha</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:12px;color:var(--text2)">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#4caf7d;border-radius:2px;margin-right:4px"></span>En fecha: <b>${prodEnFecha}</b></span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#e8a020;border-radius:2px;margin-right:4px"></span>En riesgo: <b>${prodEnRiesgo}</b></span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#e05c5c;border-radius:2px;margin-right:4px"></span>Vencida: <b>${prodVencida}</b></span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#444;border-radius:2px;margin-right:4px"></span>Sin fecha: <b>${prodSinFecha}</b></span>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">Total con fecha: ${conFProd.length} obras</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">🚛 Cumplimiento colocaciones</span></div>
+        <div class="card-body" style="display:flex;flex-direction:column;align-items:center;gap:14px">
+          <div style="position:relative;width:200px;height:200px">
+            <canvas id="chart-col" width="200" height="200"></canvas>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+              <div style="font-size:26px;font-weight:700;color:var(--green)">${conFCol.length?Math.round(colEnFecha/conFCol.length*100):0}%</div>
+              <div style="font-size:10px;color:var(--text3)">en fecha</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:12px;color:var(--text2)">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#4caf7d;border-radius:2px;margin-right:4px"></span>En fecha: <b>${colEnFecha}</b></span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#e8a020;border-radius:2px;margin-right:4px"></span>En riesgo: <b>${colEnRiesgo}</b></span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#e05c5c;border-radius:2px;margin-right:4px"></span>Vencida: <b>${colVencida}</b></span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#444;border-radius:2px;margin-right:4px"></span>Sin fecha: <b>${colSinFecha}</b></span>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">Total con fecha: ${conFCol.length} obras</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cobranzas torta -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><span class="card-title">💰 Estado de cobranzas</span></div>
+      <div class="card-body" style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:center">
+        <div style="position:relative;width:200px;height:200px">
+          <canvas id="chart-cobr" width="200" height="200"></canvas>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--green)">${cobr.length?Math.round(cobrCobradas/cobr.length*100):0}%</div>
+            <div style="font-size:10px;color:var(--text3)">cobrado</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:12px;color:var(--text2)"><span style="display:inline-block;width:10px;height:10px;background:#4caf7d;border-radius:2px;margin-right:6px"></span>Cobrado</span>
+              <span style="font-size:12px;font-weight:500;color:var(--green)">${cobrCobradas} facturas · ${fmtM(cobrCobradoMonto)}</span>
+            </div>
+            <div style="height:6px;background:var(--border);border-radius:3px">
+              <div style="width:${cobr.length?Math.round(cobrCobradas/cobr.length*100):0}%;height:6px;background:#4caf7d;border-radius:3px"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:12px;color:var(--text2)"><span style="display:inline-block;width:10px;height:10px;background:#e8a020;border-radius:2px;margin-right:6px"></span>Pendiente</span>
+              <span style="font-size:12px;font-weight:500;color:var(--amber)">${cobrPendiente} facturas</span>
+            </div>
+            <div style="height:6px;background:var(--border);border-radius:3px">
+              <div style="width:${cobr.length?Math.round(cobrPendiente/cobr.length*100):0}%;height:6px;background:#e8a020;border-radius:3px"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:12px;color:var(--text2)"><span style="display:inline-block;width:10px;height:10px;background:#e05c5c;border-radius:2px;margin-right:6px"></span>Vencida</span>
+              <span style="font-size:12px;font-weight:500;color:var(--red)">${cobrVencidas} facturas</span>
+            </div>
+            <div style="height:6px;background:var(--border);border-radius:3px">
+              <div style="width:${cobr.length?Math.round(cobrVencidas/cobr.length*100):0}%;height:6px;background:#e05c5c;border-radius:3px"></div>
+            </div>
+          </div>
+          <div style="padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+            <span style="font-size:12px;color:var(--text3)">Total cobrado: <b style="color:var(--green)">${fmtM(cobrCobradoMonto)}</b></span>
+            <span style="font-size:12px;color:var(--text3)">Pendiente: <b style="color:var(--amber)">${fmtM(cobrPendMonto)}</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Cumplimiento de producción por sector</span></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center">
+          <div style="position:relative;height:220px"><canvas id="chart-sector"></canvas></div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${sectorData.map(d=>`
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;font-weight:500;color:${COLORS_SEC[d.sec]}">${d.sec}</span>
+                  <span style="font-size:12px;color:var(--text2)">${d.ok}/${d.total} · <b style="color:${d.pct>=80?'var(--green)':d.pct>=60?'var(--amber)':'var(--red)'}">${d.pct}%</b></span>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:3px">
+                  <div style="width:${d.pct}%;height:6px;background:${COLORS_SEC[d.sec]};border-radius:3px"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const drawCharts = () => {
+    if (window._chartProd) { try{window._chartProd.destroy();}catch(e){} }
+    if (window._chartCol)  { try{window._chartCol.destroy();}catch(e){} }
+    if (window._chartSec)  { try{window._chartSec.destroy();}catch(e){} }
+    if (window._chartCobr) { try{window._chartCobr.destroy();}catch(e){} }
+    const donutOpts = {
+      cutout:'65%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw}`}}},
+      animation:{animateRotate:true,duration:700}
+    };
+    window._chartProd = new Chart(document.getElementById('chart-prod'),{
+      type:'doughnut',
+      data:{labels:['En fecha','En riesgo','Vencida','Sin fecha'],
+        datasets:[{data:[prodEnFecha,prodEnRiesgo,prodVencida,prodSinFecha],
+          backgroundColor:['#4caf7d','#e8a020','#e05c5c','#2a2a2a'],borderWidth:0,hoverOffset:4}]},
+      options:donutOpts
+    });
+    window._chartCol = new Chart(document.getElementById('chart-col'),{
+      type:'doughnut',
+      data:{labels:['En fecha','En riesgo','Vencida','Sin fecha'],
+        datasets:[{data:[colEnFecha,colEnRiesgo,colVencida,colSinFecha],
+          backgroundColor:['#4caf7d','#e8a020','#e05c5c','#2a2a2a'],borderWidth:0,hoverOffset:4}]},
+      options:donutOpts
+    });
+    window._chartCobr = new Chart(document.getElementById('chart-cobr'),{
+      type:'doughnut',
+      data:{labels:['Cobrado','Pendiente','Vencida'],
+        datasets:[{data:[cobrCobradas,cobrPendiente,cobrVencidas],
+          backgroundColor:['#4caf7d','#e8a020','#e05c5c'],borderWidth:0,hoverOffset:4}]},
+      options:donutOpts
+    });
+    window._chartSec = new Chart(document.getElementById('chart-sector'),{
+      type:'bar',
+      data:{
+        labels:sectorData.map(d=>d.sec),
+        datasets:[
+          {label:'En fecha',data:sectorData.map(d=>d.ok),backgroundColor:'#4caf7d',borderRadius:4},
+          {label:'Vencida',data:sectorData.map(d=>d.mal),backgroundColor:'#e05c5c',borderRadius:4},
+          {label:'En riesgo',data:sectorData.map(d=>d.riesgo),backgroundColor:'#e8a020',borderRadius:4},
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#a09e9a',font:{size:11}}}},
+        scales:{
+          x:{stacked:true,ticks:{color:'#888780',font:{size:11}},grid:{display:false}},
+          y:{stacked:true,ticks:{color:'#888780',font:{size:11}},grid:{color:'rgba(255,255,255,0.05)'}}
+        }
+      }
+    });
+  };
+  if (typeof Chart==='undefined') {
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
+    s.onload=drawCharts; document.head.appendChild(s);
+  } else { setTimeout(drawCharts,50); }
+}
+
+// ============================================================
+// DRIVE OT — integración estable validada con Apps Script V16
+// ============================================================
+const TIZ_DRIVE_OT_WEBHOOK = "https://script.google.com/macros/s/AKfycbx_Uy_ijUG38rht-m-Xp-y9Eou8WzoG4jepXi1GqJaHAknwQsQd-rQgYcQ1ucrAJPlK/exec";
+// Exponer el endpoint a los módulos externos que se cargan después del módulo Firebase.
+window.TIZ_DRIVE_OT_WEBHOOK = TIZ_DRIVE_OT_WEBHOOK;
+
+function sanitizeTizFolderPart(value) {
+  return String(value || '')
+    .replace(/[\\/:*?"<>|#%{}~]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildTizFolderName(nroCotizacion, cliente, descripcion) {
+  const n=String(nroCotizacion||'').replace(/\D/g,'').padStart(7,'0');
+  const partes = ['CT '+n, cliente, descripcion].map(sanitizeTizFolderPart).filter(Boolean);
+  return partes.join(' - ').slice(0, 180) || 'SIN NOMBRE';
+}
+window.buildTizFolderName = buildTizFolderName;
+
+async function syncDriveFolder(data, tipoCarpeta) {
+  if (!TIZ_DRIVE_OT_WEBHOOK.includes('/exec')) throw new Error('URL /exec de Apps Script no configurada');
+  const tipo = tipoCarpeta === 'cotizacion' ? 'cotizacion' : 'ot';
+  const nroCotizacion = String(data.nroCotizacion || data.nroPresupuesto || data.presupuesto || data.ot || '').trim();
+  if (!nroCotizacion) throw new Error('Falta el número de cotización');
+  const folderName = buildTizFolderName(nroCotizacion, data.cliente, data.desc);
+  const compact = {
+    action: 'ensureTizFolder',
+    tipoCarpeta: tipo,
+    folderName,
+    obra: {
+      firestoreId: String(data.firestoreId || ''),
+      ot: String(data.ot || nroCotizacion).trim(),
+      nroCotizacion,
+      emisorComercial:window.TIZPresupuestoEmisorV1.forDocument(data),
+      cliente: String(data.cliente || '').trim(),
+      desc: String(data.desc || '').trim(),
+      estado: String(data.estado || '').trim(),
+      sector: String(data.sector || '').trim(),
+      vendedor: String(data.vendedor || '').trim(),
+      itemsTecnicos: (Array.isArray(data.itemsTecnicos)?data.itemsTecnicos:[]).map(item=>({
+        articulo:String(item?.articulo||item?.desc||item?.descripcion||'').trim(),
+        cantidad:Number(item?.cantidad||item?.cant||1)||1,
+        unidad:String(item?.unidad||'UNID').trim()||'UNID',
+        observaciones:String(item?.observaciones||item?.detalle||'').trim()
+      })).filter(item=>item.articulo),
+      folderName,
+      tipoCarpeta: tipo
+    }
+  };
+
+  return await new Promise((resolve, reject) => {
+    const callback = '__tizDriveCb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const timer = setTimeout(() => cleanup(new Error('Apps Script no respondió en 20 segundos')), 20000);
+    function cleanup(err, value) {
+      clearTimeout(timer);
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      script.remove();
+      if (err) reject(err); else resolve(value);
+    }
+    window[callback] = result => {
+      if (!result || result.ok !== true) cleanup(new Error(result?.error || 'Error desconocido de Apps Script'));
+      else cleanup(null, result);
+    };
+    script.onerror = () => cleanup(new Error('No se pudo conectar con Apps Script'));
+    const qs = new URLSearchParams({ callback, payload: JSON.stringify(compact) });
+    script.src = TIZ_DRIVE_OT_WEBHOOK + '?' + qs.toString();
+    document.head.appendChild(script);
+  });
+}
+window.syncDriveFolder = syncDriveFolder;
+
+async function syncToSheets(data) {
+  if (!data || String(data.estado || '').trim().toLowerCase() !== 'aprobado') {
+    return { ok:true, skipped:true, reason:'Estado distinto de Aprobado' };
+  }
+  return await syncDriveFolder(data, 'ot');
+}
+
+// ============================================================
+// V20 — cierre de integración y estado inicial
+// ============================================================
+(function(){
+  const forcePresupuestado = () => {
+    const estado = document.getElementById('f-estado');
+    if (estado) {
+      const option = [...estado.options].find(o => o.value === 'Pendiente' || o.textContent.trim() === 'Pendiente');
+      if (option) estado.value = option.value;
+    }
+  };
+
+  const originalNuevaObra = window.abrirNuevaObraV52;
+  window.abrirNuevaObraV52 = function(){
+    const result = originalNuevaObra ? originalNuevaObra.apply(this, arguments) : undefined;
+    forcePresupuestado();
+    requestAnimationFrame(forcePresupuestado);
+    setTimeout(forcePresupuestado, 50);
+    return result;
+  };
+
+  const originalNuevoPresupuesto = window.abrirNuevoPresupuestoCompleto;
+  window.abrirNuevoPresupuestoCompleto = function(){
+    const result = originalNuevoPresupuesto ? originalNuevoPresupuesto.apply(this, arguments) : undefined;
+    forcePresupuestado();
+    const sector = document.getElementById('f-sector');
+    if (sector) sector.value = 'Ventas';
+    const title = document.getElementById('modal-obra-title');
+    if (title) title.textContent = 'Nuevo presupuesto';
+    requestAnimationFrame(forcePresupuestado);
+    setTimeout(forcePresupuestado, 50);
+    return result;
+  };
+
+  const badge = document.createElement('div');
+  badge.id = 'tiz-build-v20';
+  badge.textContent = 'TIZ V35.7 · CLIENTES + CÁLCULOS AUXILIARES · 17/08/2026';
+  badge.style.cssText = 'position:fixed;right:10px;bottom:8px;z-index:9999;font:10px DM Mono,monospace;color:#e8b84b;background:#151515;border:1px solid rgba(232,184,75,.35);border-radius:6px;padding:4px 7px;opacity:.92;pointer-events:none';
+  const mountBadge = () => { if (!document.getElementById(badge.id)) document.body.appendChild(badge); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBadge);
+  else mountBadge();
+
+  console.info('[TIZ V35.7] Clientes históricos + cálculos auxiliares del presupuesto restaurados; revisiones e historial activos.');
+})();
+
+</script>
+
+
+<script>
+// ============================================================
+// TIZ V35.5 — Restauración de clientes + ayudamemoria comercial
+// ============================================================
+(function(){
+  const esc = v => String(v ?? '').replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const jsq = v => String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]+/g,' ');
+  const norm = v => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+  function clientesDisponibles(){
+    const mapa = new Map();
+    const add=(nombre,cuit='',numero='',fuente='')=>{
+      nombre=String(nombre||'').trim(); if(!nombre) return;
+      const k=norm(nombre);
+      const prev=mapa.get(k)||{};
+      mapa.set(k,{nombre:prev.nombre||nombre,cuit:prev.cuit||cuit||'',numero:prev.numero||numero||'',fuente:prev.fuente||fuente});
+    };
+    (window.DB?.clientes||[]).forEach(c=>{const fiscal=c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre;add(fiscal,c.cuit,c.numeroCliente||c.numero,'Base de clientes');if(c.nombre&&norm(c.nombre)!==norm(fiscal))add(c.nombre,c.cuit,c.numeroCliente||c.numero,'Nombre comercial');});
+    (window.DB?.obras||[]).forEach(o=>add(o.cliente,'','','Obras anteriores'));
+    (window.DB?.presupuestos||[]).forEach(p=>add(p.cliente,'','','Cotizaciones anteriores'));
+    return [...mapa.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  }
+
+  function posicionarSugerenciasPP(){
+    const input=document.getElementById('pp-cliente'),dd=document.getElementById('pp-clientes-dropdown');
+    if(!input||!dd)return;
+    if(input.nextElementSibling!==dd)input.insertAdjacentElement('afterend',dd);
+    dd.style.position='static';dd.style.left='auto';dd.style.top='auto';dd.style.width='100%';
+    dd.style.right='auto';dd.style.zIndex='auto';dd.style.background='var(--surface3,#202020)';
+    dd.style.boxShadow='0 8px 20px rgba(0,0,0,.35)';dd.style.marginTop='4px';
+  }
+
+  window.sugerirClientesPP=function(q, mostrarAunqueVacio=false){
+    const dd=document.getElementById('pp-clientes-dropdown'); if(!dd) return;
+    const texto=String(q||'').trim();
+    // V35.7: además de Clientes/Obras/Presupuestos, incorporar la Base Madre histórica.
+    const listaBase=clientesDisponibles();
+    const mapa=new Map(listaBase.map(c=>[norm(c.nombre),c]));
+    (window.OBRAS_MADRE_V291||[]).forEach(o=>{ const nombre=String(o.cliente||'').trim(); if(nombre && !mapa.has(norm(nombre))) mapa.set(norm(nombre),{nombre,cuit:'',numero:'',fuente:'Base Madre'}); });
+    const lista=[...mapa.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+    const nq=norm(texto);
+    if(!nq && !mostrarAunqueVacio){ dd.style.display='none'; return; }
+    const matches=(nq?lista.filter(c=>norm(c.nombre).includes(nq)):lista).slice(0,12);
+    let html=matches.map((c,i)=>`<div class="cli-option" data-cliente-index="${i}"><span>${esc(c.nombre)}</span><span class="cli-option-sub">${c.numero?'Cliente '+esc(c.numero)+' · ':''}${c.cuit?'CUIT: '+esc(c.cuit):esc(c.fuente||'Cliente existente')}</span></div>`).join('');
+    if(texto){
+      html += `<div class="cli-option" data-crear-cliente="1" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente nuevo: <strong>${esc(texto)}</strong></span><span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver al presupuesto</span></div>`;
+    }
+    dd.innerHTML=html || '<div style="padding:10px;color:var(--text3)">Sin clientes cargados todavía.</div>';
+    dd.querySelectorAll('[data-cliente-index]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();const c=matches[+el.dataset.clienteIndex];if(c){document.getElementById('pp-cliente').value=c.nombre;dd.style.display='none';}}));
+    dd.querySelector('[data-crear-cliente]')?.addEventListener('mousedown',e=>{e.preventDefault();window.nuevoClienteDesdePresupuestoV355(texto);});
+    posicionarSugerenciasPP();
+    dd.style.display='block';
+  };
+  window.nuevoClienteDesdePresupuestoV355=function(nombre){
+    document.getElementById('pp-clientes-dropdown')?.style && (document.getElementById('pp-clientes-dropdown').style.display='none');
+    window._clienteReturnTarget='presupuesto';
+    if(window.editingId) window.editingId.cliente=null;
+    if(document.getElementById('fc-numero') && typeof window.nextClienteNumero==='function') document.getElementById('fc-numero').value=window.nextClienteNumero();
+    if(document.getElementById('fc-nombre')) document.getElementById('fc-nombre').value=nombre||'';
+    ['fc-cuit','fc-contacto','fc-cel','fc-email','fc-cargo','fc-contactos','fc-notas'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+    document.getElementById('modal-cliente')?.classList.add('open');
+  };
+
+  const MEASURE=/\b\d+(?:[\.,]\d+)?\s*(?:m|mt|mts|cm|mm)?\s*[x×]\s*\d+/i;
+  const MATERIAL=/(acr[ií]lico|pvc|chapa|aluminio|acm|mdf|hierro|cañ[oó]|perfil|lona|vinilo|polyfan|polifan|madera|pintura|tela|backlight)/i;
+  const ILUM=/(led|m[oó]dulo|tira|ne[oó]n|retroilumin|iluminad|sin iluminaci[oó]n|fuente|driver|12v|24v|220v)/i;
+  const FINISH=/(pintura|poliuret|sint[eé]tica|horno|powder|laminado|mate|brillo|uv|impresi[oó]n|vinilo|backlight)/i;
+  const DEPTH=/(profundidad|prof\.|faja|lateral|espesor|canto|retorno|cuerpo)/i;
+  function textoCotizacion(){
+    const desc=document.getElementById('pp-desc')?.value||'';
+    const items=(window.ppItems||[]).map(i=>[i.desc,i.descripcion,i.observaciones].filter(Boolean).join(' ')).join(' ');
+    return (desc+' '+items).trim();
+  }
+  function add(arr,ok,titulo,sugerencia){arr.push({ok,titulo,sugerencia});}
+  window.renderAyudamemoriaPPV355=function(){
+    const box=document.getElementById('pp-ayudamemoria'); if(!box) return;
+    const txt=textoCotizacion(); const low=norm(txt); const checks=[];
+    add(checks,MEASURE.test(txt),'Medidas','Indicá ancho × alto y, cuando corresponda, profundidad.');
+    add(checks,MATERIAL.test(txt),'Material principal','Aclarar material: hierro/caño, chapa, PVC, acrílico, ACM, MDF, lona, vinilo, etc.');
+    if(/letra|corporea|corpórea/.test(low)){
+      add(checks,DEPTH.test(txt),'Profundidad / faja de letras','Ej.: faja 8 cm, lateral chapa, contraletra PVC.');
+      add(checks,ILUM.test(txt),'Iluminación','Aclarar retroiluminada, frente iluminado, neón flexible o sin iluminación.');
+    } else if(/ilumin|led|neon|neón|backlight/.test(low)) add(checks,ILUM.test(txt),'Tipo de iluminación','Indicar módulo/tira/neón y tensión o fuente cuando corresponda.');
+    if(/vinilo|lona|impres|pintura|chapa|acm|mdf/.test(low)) add(checks,FINISH.test(txt),'Terminación','Aclarar pintura, laminado, UV, brillo/mate u otra terminación cuando aplique.');
+    const pendientes=checks.filter(x=>!x.ok);
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:8px"><strong>${pendientes.length?'📝 Antes de enviar, revisar':'✅ Datos técnicos básicos completos'}</strong><span style="color:${pendientes.length?'var(--amber)':'var(--green)'}">${checks.length-pendientes.length}/${checks.length}</span></div>`+
+      checks.map(x=>`<div style="display:flex;gap:7px;margin:4px 0;color:${x.ok?'var(--text3)':'var(--text2)'}"><span>${x.ok?'✓':'•'}</span><div><b>${esc(x.titulo)}</b>${x.ok?'':` — ${esc(x.sugerencia)}`}</div></div>`).join('')+
+      `<div style="margin-top:8px;color:var(--text3)">Es un ayudamemoria: no bloquea el presupuesto y se actualiza mientras escribís.</div>`;
+  };
+
+  function bind(){
+    const cli=document.getElementById('pp-cliente'),dd=document.getElementById('pp-clientes-dropdown');
+    if(cli&&dd&&cli.nextElementSibling!==dd)cli.insertAdjacentElement('afterend',dd);
+    if(cli && !cli.dataset.v355){cli.dataset.v355='1';cli.addEventListener('focus',()=>window.sugerirClientesPP(cli.value,true));cli.addEventListener('input',()=>window.sugerirClientesPP(cli.value,false));}
+    document.getElementById('modal-prespdf')?.addEventListener('scroll',posicionarSugerenciasPP,{passive:true});
+    const desc=document.getElementById('pp-desc');
+    if(desc && !desc.dataset.v355){desc.dataset.v355='1';desc.addEventListener('input',window.renderAyudamemoriaPPV355);}
+    window.renderAyudamemoriaPPV355();
+  }
+  const oldRender=window.renderPPItems;
+  if(typeof oldRender==='function') window.renderPPItems=function(){const r=oldRender.apply(this,arguments);setTimeout(window.renderAyudamemoriaPPV355,0);return r;};
+  const oldOpen=window.abrirNuevoPresupuestoCompleto;
+  if(typeof oldOpen==='function') window.abrirNuevoPresupuestoCompleto=function(){const r=oldOpen.apply(this,arguments);setTimeout(bind,0);return r;};
+  document.addEventListener('input',e=>{if(e.target?.closest?.('#modal-prespdf') && (e.target.id==='pp-desc'||e.target.closest('#pp-items'))) window.renderAyudamemoriaPPV355();});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind); else bind();
+})();
+</script>
+
+<script src="excelMadre.js?v=TIZ-V40-BASE-20260903"></script>
+<script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
+<script src="functions/calidadChecklistCoreV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C-GIANCARLO-20261023"></script>
+<script src="calidadChecklistsV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C&baja-ventas=20261103"></script>
+<script src="calidadV1.js?v=TIZ-CALIDAD-COMPLETA-20261015&baja-ventas=20261103"></script>
+<script src="comprasObrasCoreV1.js?v=TIZ-COMPRAS-OBRAS-20261015&baja-ventas=20261103"></script>
+<script src="comprasBaseDatosV1.js?v=TIZ-BASE-DATOS-COMPRAS-20261030"></script>
+<script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015-DRIVE&base-datos=20261030&import-mes=20261030&orden-fecha=20261030&ingreso-guiado=20261103&proveedor-nombres=20261103&editar-insumo=20261103&ia-compartida=20261104&estado-lectura=20261104&vincular-catalogo=20261104&editar-catalogo=20261104&reintentos-ia=20261104&contactos-proveedor=20261104&unidades=20261104"></script>
+<script src="operacionesV31.js?v=TIZ-V31-3-CONTACTO-OT-20260929"></script>
+<script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901&orden=20261030"></script>
+<script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
+<script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
+<script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A&baja=20261030"></script>
+<script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261104-LEGIBLE"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103&obras-semaforo=20261104&insumos=20261104"></script>
+<script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
+<script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
+<script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
+<script src="baseMadreSyncV116.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
+<!-- GitHub Pages compatibility checks retained while Cobranzas V2 replaces the legacy UI:
+  cobranzasVistaUnificadaV98.js?v=TIZ-V99-BUSCADOR-FC0001-20260915
+  cobranzasIndicadorEnvioV100.js?v=TIZ-V100-ESTADO-ENVIO-20260916
+  cobranzasPorCobrarV101.js?v=TIZ-V1012-SOLO-FACTURAS-20260918
+  cobranzasCompatFacturasV102.js?v=TIZ-V102-HISTORICAS-20260916
+  cobranzasCompatPresupuestosV103.js?v=TIZ-V103-APROBADAS-20260916
+-->
+
+<!-- FACTURACIÓN / COBRANZAS V2: única interfaz activa -->
+<script src="cobranzasSemanalV127.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
+<script src="functions/arcaFechasV1.js?v=TIZ-ARCA-FECHA-20261023"></script>
+<script src="facturadorIntegralV83.js?v=TIZ-FCE-MINIMO-OFICIAL-20261026&tipo-factura=20261030"></script>
+<script src="facturacionEntregaUIV84.js?v=TIZ-FC-V2-EMAIL-V86-DIRECT-SAVE-20260922"></script>
+<script src="facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930"></script>
+<script src="facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&general=20261102"></script>
+<script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930&r=retenciones-20261030&baja=20261030&seguimiento=20261030&general=20261102"></script>
+<script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016"></script>
+<script src="facturacionCobranzasMadreV1.js?v=TIZ-COBRANZAS-GENERAL-20261102"></script>
+<script src="facturacionCobranzasSeguimientoV1.js?v=TIZ-FC-SEGUIMIENTO-20261030&edicion=20261102&general=20261102"></script>
+<script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&seguimiento=20261030&edicion=20261102&general=20261102"></script>
+<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-REALIZADO-20261029&baja=20261030"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-FECHAS-DDMMYYYY-20261104"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-CONTACTOS-REALIZADO-20261029"></script>
+<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE&baja-ventas=20261103"></script>
+<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023"></script>
+<script src="operacionesV1.js?v=TIZ-OPERACIONES-20261016C-OSCURO"></script>
+<script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023&obras-semaforo=20261104"></script>
+<script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
+<script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
+<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104"></script>
+<script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102&baja-ventas=20261103&obras-semaforo=20261104"></script>
+<script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102&estado=20261103&baja-ventas=20261103&obras-semaforo=20261104"></script>
+<script src="functions/insumosCotizacionCoreV1.js?v=20261104-control"></script>
+<script src="unidadesStockV1.js?v=20261104-control"></script>
+<script src="insumosCotizacionV1.js?v=20261104-control"></script>
+</body>
+</html>
+
