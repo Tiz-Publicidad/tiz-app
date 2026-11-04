@@ -20,6 +20,7 @@ function ensure(){
  anchor.insertAdjacentElement('beforebegin',box);box.addEventListener('click',click);box.addEventListener('input',input);box.addEventListener('change',change);
 }
 const label=a=>a.codigo+' · '+a.descripcion;
+const selectedArticle=value=>{const matches=catalog.filter(a=>label(a)===value);return matches.length===1?matches[0]:null;};
 function render(){
  ensure();if(!host())return;
  document.getElementById('iv-catalog').innerHTML=catalog.map(a=>`<option value="${esc(label(a))}">${esc(a.unidad)}</option>`).join('');
@@ -49,9 +50,9 @@ async function load(force=false){
  finally{loading=false;render();}
 }
 function open(data={},newRevision=false){generation++;newQuoteId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');rows=C.draft(data.insumosVentas||[]);baseline=newRevision?null:data.insumosVentasAprobados||null;error='';ensure();render();load();}
-function input(e){const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(['revisado','compraPendiente'].includes(key))return;row[key]=e.target.value;if(key==='descripcion'){row.articuloId='';}row.revisado=false;tr.querySelector('[data-field="revisado"]').checked=false;error='';status();}
+function input(e){const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(['revisado','compraPendiente'].includes(key))return;row[key]=e.target.value;if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}}row.revisado=false;tr.querySelector('[data-field="revisado"]').checked=false;error='';status();}
 function change(e){const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(['revisado','compraPendiente'].includes(key))row[key]=e.target.checked;else row[key]=e.target.value;
- if(key==='descripcion'){const a=catalog.find(a=>label(a)===e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}row.revisado=false;}
+ if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}row.revisado=false;}
  error='';status();
 }
 async function suggest(){
