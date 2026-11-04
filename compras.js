@@ -1,5 +1,6 @@
 import './comprasIngresoCoreV1.js?v=20261103-nombres';
 import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
   serverTimestamp, query, orderBy, limit, writeBatch, runTransaction, getDocs
@@ -273,7 +274,7 @@ function injectUI(){
   document.body.appendChild(pay);
 
   const cfg=document.createElement('div'); cfg.id='cp-modal-ia'; cfg.className='cp-modal-bg';
-  cfg.innerHTML=`<div class="cp-modal" style="max-width:650px"><div style="display:flex;justify-content:space-between"><h2>Configuración IA de comprobantes</h2><button class="cp-btn" onclick="cpCloseConfigIA()">✕</button></div><p style="font-size:12px;color:var(--text2)">Pegá la URL /exec del Apps Script incluido en la entrega. La clave de Gemini queda guardada en Apps Script, nunca en GitHub.</p><div class="cp-field"><label>URL Apps Script IA</label><input id="cp-ia-url" placeholder="https://script.google.com/macros/s/.../exec"></div><div style="margin-top:12px;text-align:right"><button class="cp-btn primary" onclick="cpSaveConfigIA()">Guardar</button></div></div>`;
+  cfg.innerHTML=`<div class="cp-modal" style="max-width:650px"><div style="display:flex;justify-content:space-between"><h2>Configuración IA de comprobantes</h2><button class="cp-btn" onclick="cpCloseConfigIA()">✕</button></div><p style="font-size:12px;color:var(--text2)">La conexión se comparte con los usuarios autorizados de TIZ. Pegá una sola vez el enlace privado completo de Apps Script. La clave API de Gemini permanece guardada en Apps Script.</p><div class="cp-field"><label>Enlace privado de conexión compartida</label><input id="cp-ia-url" placeholder="https://script.google.com/macros/s/…/exec/…"></div><div style="margin-top:12px;text-align:right"><button class="cp-btn primary" onclick="cpSaveConfigIA()">Guardar</button></div></div>`;
   document.body.appendChild(cfg);
 }
 
@@ -797,12 +798,47 @@ window.cpCreatePlan=async()=>{const ot=document.getElementById('cp-plan-ot').val
 window.cpAddPlanItem=async id=>{const p=C.planes.find(x=>x.id===id);if(!p)return;const raw=prompt('Material (escribí descripción exacta del catálogo):');if(!raw)return;const art=C.articulos.find(a=>normText(a.descripcion)===normText(raw))||findBestArticle(raw)?.article;if(!art)return toast('No encontré ese material en el catálogo.');const q=num(prompt('Cantidad para esta OT:',1));if(q<=0)return;const tipo=(prompt('Tipo de control: 1 = específico de esta OT / 2 = genérico por stock mínimo','1')==='2')?'generico':'especifico';const largo=prompt('Largo / desarrollo (opcional):','')||'';const ancho=prompt('Ancho (opcional):','')||'';const espesor=prompt('Espesor / calibre (opcional):','')||'';const obs=prompt('Observación (opcional):','')||'';const items=[...(p.items||[]),{articuloId:art.id||'',codigo:art.codigo||'',descripcion:art.descripcion,unidad:art.unidad||'',familia:art.familia||'',subfamilia:art.subfamilia||'',cantidadSugerida:q,cantidadPlanificada:q,modoStock:tipo,medidas:{largo,ancho,espesor},observacion:obs,confianza:100}];await updateDoc(doc(db,'planesMateriales',id),{items,estado:'explosion en curso',explosionCompleta:false,_ts:serverTimestamp()});toast('Material agregado a la explosión.');};
 window.cpUpdatePlanQty=async(id,ix,val)=>{const p=C.planes.find(x=>x.id===id),items=[...(p.items||[])];items[ix]={...items[ix],cantidadPlanificada:num(val),modificadoManualmente:true};await updateDoc(doc(db,'planesMateriales',id),{items});};
 window.cpRemovePlanItem=async(id,ix)=>{const p=C.planes.find(x=>x.id===id),items=(p.items||[]).filter((_,i)=>i!==ix);await updateDoc(doc(db,'planesMateriales',id),{items});};
-window.cpOpenConfigIA=()=>{document.getElementById('cp-ia-url').value=localStorage.getItem('tizComprasIaUrl')||'';document.getElementById('cp-modal-ia').classList.add('open');};
+// El enlace privado se comparte sólo mediante Firestore autenticado; la API key permanece en Apps Script.
+let cpIaUrlShared='',cpIaUser='',cpIaLoading=false,cpIaConfigError='',cpIaStop=null,cpIaResolve=null,cpIaConfigReady=Promise.resolve();
+function cpLocalIaUrl(){try{return (localStorage.getItem('tizComprasIaUrl')||'').trim();}catch{return '';}}
+function cpValidIaUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&u.hostname==='script.google.com'&&!u.username&&!u.password&&!u.search&&!u.hash&&/^\/macros\/s\/[A-Za-z0-9_-]+\/exec\/[A-Za-z0-9_-]+$/.test(u.pathname);}catch{return false;}}
+function cpStartSharedIA(user){
+ cpIaStop?.();cpIaStop=null;cpIaResolve?.();cpIaUrlShared='';cpIaUser=user?.uid||'';cpIaLoading=!!user;cpIaConfigError='';
+ if(!user){cpIaConfigReady=Promise.resolve();return;}
+ const uid=user.uid,ref=doc(db,'configuracionCompras','iaComprobantes');let migrating=false;
+ cpIaConfigReady=new Promise(resolve=>{cpIaResolve=resolve;});
+ cpIaStop=onSnapshot(ref,async snap=>{
+  if(cpIaUser!==uid)return;
+  const value=snap.exists()?String(snap.data().url||'').trim():'';
+  cpIaUrlShared=cpValidIaUrl(value)?value:'';cpIaConfigError='';
+  const local=cpLocalIaUrl();
+  // Migra una sola vez la conexión existente, sin reemplazar la de otro usuario.
+  if(!snap.exists()&&!migrating&&cpValidIaUrl(local)){
+   migrating=true;
+   try{await runTransaction(db,async tx=>{const current=await tx.get(ref);if(!current.exists())tx.set(ref,{url:local,actualizado:serverTimestamp()});});}
+   catch{if(cpIaUser===uid)cpIaConfigError='No se pudo compartir la conexión existente. Revisá la conexión e intentá Guardar en IA comprobantes.';}
+   finally{migrating=false;}
+  }
+  if(cpIaUser===uid){cpIaLoading=false;cpIaResolve?.();}
+ },()=>{if(cpIaUser!==uid)return;cpIaLoading=false;cpIaConfigError='No se pudo consultar la conexión compartida de IA. Revisá la conexión y los permisos de tu usuario.';cpIaResolve?.();});
+}
+window.cpOpenConfigIA=()=>{document.getElementById('cp-ia-url').value=cpIaUrlShared||cpLocalIaUrl();document.getElementById('cp-modal-ia').classList.add('open');};
 window.cpCloseConfigIA=()=>document.getElementById('cp-modal-ia').classList.remove('open');
-window.cpSaveConfigIA=()=>{localStorage.setItem('tizComprasIaUrl',document.getElementById('cp-ia-url').value.trim());cpCloseConfigIA();toast('Configuración IA guardada.');};
+let cpIaSaving=false;
+window.cpSaveConfigIA=async()=>{
+ if(cpIaSaving)return;const url=document.getElementById('cp-ia-url').value.trim();
+ if(!cpValidIaUrl(url))return toast('Pegá el enlace privado completo de Apps Script (/exec/…), no la clave API de Gemini.');
+ if(!cpIaUser)return toast('Iniciá sesión en TIZ para compartir la conexión.');
+ cpIaSaving=true;const uid=cpIaUser;
+ try{await runTransaction(db,async tx=>{tx.set(doc(db,'configuracionCompras','iaComprobantes'),{url,actualizado:serverTimestamp()});});if(cpIaUser!==uid)return;cpIaUrlShared=url;try{localStorage.setItem('tizComprasIaUrl',url);}catch{}window.cpCloseConfigIA();toast('Conexión IA compartida con los usuarios autorizados de TIZ.');}
+ catch{toast('No se pudo guardar la conexión compartida. Revisá la conexión y los permisos de tu usuario.');}
+ finally{cpIaSaving=false;}
+};
 window.cpAnalizarIA=async()=>{
   if(!selectedFile)return toast('Seleccioná una foto o PDF.');
-  const url=(localStorage.getItem('tizComprasIaUrl')||'').trim();
+  let waiting;await Promise.race([cpIaConfigReady,new Promise(resolve=>{waiting=setTimeout(resolve,5000);})]).finally(()=>clearTimeout(waiting));
+  const local=cpLocalIaUrl(),url=cpIaUrlShared||(cpValidIaUrl(local)?local:'');
+  if(!url&&(cpIaLoading||cpIaConfigError))return toast(cpIaConfigError||'Todavía se está consultando la conexión compartida. Intentá nuevamente en unos segundos.');
   if(!url){cpOpenConfigIA();return toast('Primero configurá la URL del Apps Script IA.');}
 
   if(aiCleanupActive) aiCleanupActive('restart');
@@ -1392,6 +1428,7 @@ document.addEventListener('change',e=>{if(cpIngreso&&e.target.closest('#cp-modal
 
 
 injectStyles();injectUI();startListeners();
+onAuthStateChanged(getAuth(getApp()),cpStartSharedIA);
 setInterval(()=>{if(window.currentPage==='compras'&&!document.hidden)cpRefreshMother();},60000);
 console.info('[TIZ V28.2] Hotfix Dashboard de Colocaciones cargado');
 
