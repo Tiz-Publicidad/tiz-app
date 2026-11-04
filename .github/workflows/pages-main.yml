@@ -76,7 +76,7 @@ jobs:
           node --test tests/comprasIngresoV1.test.cjs
           node --test tests/comprasLecturaEstadoV1.test.cjs
           node --test tests/comprasConexionCompartidaV1.test.cjs
-          node --test tests/comprasEditarInsumoV1.test.cjs
+          node --test tests/comprasEditarInsumoV1.test.cjs tests/comprasCatalogoIngresoV1.test.cjs
           node --test tests/comprasObrasV1.test.cjs
           node --check comprasBaseDatosV1.js
           node --test tests/comprasBaseDatosV1.test.cjs

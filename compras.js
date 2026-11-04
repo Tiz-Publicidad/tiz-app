@@ -1228,7 +1228,7 @@ const cpGoToV27=window.goTo;window.goTo=function(page){cpGoToV27(page);if(page==
 const ING=window.TIZComprasIngresoCoreV1;
 let cpIngreso=null,cpIngresoSaving=false,cpNewArticleRow=null;
 function cpIngresoNumberBase(){return [...CATALOGO_TIZ_BASE,...(window.TIZComprasBaseDatosV1?.source?.rows||[]).map(r=>({codigo:r.values?.[0]}))];}
-function cpResetIngreso(){cpIngreso=null;cpNewArticleRow=null;document.getElementById('cp-ingreso')?.setAttribute('hidden','');document.getElementById('cp-modal-new-insumo')?.classList.remove('open');const resume=document.getElementById('cp-resume-ingreso');if(resume)resume.hidden=true;const gate=document.getElementById('cp-items-gate');if(gate)gate.disabled=false;const save=document.querySelector('[onclick="cpGuardarCompra()"]');if(save)save.disabled=false;}
+function cpResetIngreso(){window.cpCloseCatalogoIngreso();cpIngreso=null;cpNewArticleRow=null;document.getElementById('cp-ingreso')?.setAttribute('hidden','');document.getElementById('cp-modal-new-insumo')?.classList.remove('open');const resume=document.getElementById('cp-resume-ingreso');if(resume)resume.hidden=true;const gate=document.getElementById('cp-items-gate');if(gate)gate.disabled=false;const save=document.querySelector('[onclick="cpGuardarCompra()"]');if(save)save.disabled=false;}
 function cpStartIngreso(data){
  cpIngreso={supplier:ING.supplier(data),providerId:'',confirmed:false,reviewed:'',editingProvider:false};
  document.querySelectorAll('#cp-items-body tr').forEach(tr=>cpPrepareIngresoRow(tr));cpRefreshIngreso();
@@ -1335,17 +1335,57 @@ function cpPrepareIngresoRow(tr){
  for(const candidate of ING.articleSuggestions(source,C.articulos,C.compras,cpIngreso.providerId)){
   const b=document.createElement('button');b.className='cp-btn';b.style.cssText='display:block;white-space:normal;text-align:left;margin:4px 0';b.textContent='Usar '+(candidate.article.codigo||'s/n')+' · '+candidate.article.descripcion+' ('+Math.round(candidate.score*100)+'%)';b.title=candidate.reason;b.onclick=()=>cpConfirmIngresoArticle(tr,candidate.article);note.append(b);
  }
- const create=document.createElement('button');create.className='cp-btn';create.textContent='+ Crear nuevo insumo';create.onclick=()=>cpOpenNewIngresoArticle(tr);note.append(create);
+ const browse=document.createElement('button');browse.className='cp-btn primary';browse.type='button';browse.textContent='Buscar en catálogo y vincular';browse.onclick=()=>window.cpOpenCatalogoIngreso(tr);note.append(browse);
+ const create=document.createElement('button');create.className='cp-btn';create.type='button';create.textContent='+ Crear nuevo insumo';create.onclick=()=>cpOpenNewIngresoArticle(tr);note.append(create);
 }
 function cpConfirmIngresoArticle(tr,a){
  if(!cpIngreso?.confirmed)return toast('Confirmá primero el proveedor.');
  applyArticleToRow(tr,a);tr.dataset.confirmed='1';cpIngreso.reviewed='';cpRefreshIngreso();
  const change=document.createElement('button');change.className='cp-btn';change.type='button';change.textContent='Cambiar insumo';
- change.onclick=()=>{tr.querySelector('.i-desc').value='';for(const selector of ['.i-code','.i-family','.i-subfamily'])tr.querySelector(selector).value='';cpPrepareIngresoRow(tr);cpRefreshIngreso();tr.querySelector('.i-desc').focus();};
+ change.onclick=()=>window.cpOpenCatalogoIngreso(tr);
  tr.querySelector('.cp-item-match').append(change);
  const edit=document.createElement('button');edit.className='cp-btn';edit.type='button';edit.dataset.editLinkedArticle='1';edit.textContent='Editar insumo';edit.onclick=()=>window.cpEditArticulo(a.id,tr);
  tr.querySelector('.cp-item-match').append(edit);
 }
+
+let cpCatalogSelection=null;
+function cpCatalogMatches(articles,query='',family=''){
+ const normalize=value=>ING.norm(value).replace(/\bjota\b/g,'j');
+ const terms=normalize(query).split(' ').filter(Boolean);
+ return articles.filter(a=>a.id&&(!family||ING.norm(a.familia||a.rubro)===ING.norm(family))&&terms.every(term=>normalize([a.codigo,a.descripcion,a.familia,a.rubro,a.subfamilia,a.unidad].join(' ')).includes(term))).sort((a,b)=>String(a.codigo||'').localeCompare(String(b.codigo||''),undefined,{numeric:true})||String(a.descripcion||'').localeCompare(String(b.descripcion||''),'es'));
+}
+window.cpCloseCatalogoIngreso=()=>{
+ const row=cpCatalogSelection?.row;cpCatalogSelection=null;
+ document.getElementById('cp-modal-catalogo-ingreso')?.classList.remove('open');
+ row?.querySelector('.i-desc')?.focus();
+};
+window.cpOpenCatalogoIngreso=tr=>{
+ if(!cpIngreso?.confirmed)return toast('Confirmá primero el proveedor.');
+ if(!cpIngresoRows().includes(tr))return;
+ cpCatalogSelection={row:tr,providerId:cpIngreso.providerId};
+ let modal=document.getElementById('cp-modal-catalogo-ingreso');
+ if(!modal){modal=document.createElement('div');modal.id='cp-modal-catalogo-ingreso';modal.className='cp-modal-bg';modal.style.zIndex='12004';document.body.append(modal);}
+ const original=tr.querySelector('.i-original').value;
+ const families=[...new Set(C.articulos.map(a=>a.familia||a.rubro).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+ modal.innerHTML=`<div class="cp-modal" style="max-width:960px;width:100%" role="dialog" aria-modal="true" aria-labelledby="cp-catalog-title"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 id="cp-catalog-title">Vincular con un insumo del catálogo</h2><button type="button" class="cp-btn" onclick="cpCloseCatalogoIngreso()" aria-label="Cerrar catálogo">✕</button></div><p class="cp-sub">Descripción de factura: <b>${esc(original)}</b></p><p class="cp-sub">Elegí el insumo existente que corresponde. Se conservan la descripción original, la cantidad y el precio de la factura.</p><div class="cp-row" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"><div class="cp-field"><label for="cp-catalog-query">Buscar en todo el catálogo</label><input id="cp-catalog-query" placeholder="Perfil J, jota, aluminio o código" oninput="cpRenderCatalogoIngreso()"></div><div class="cp-field"><label for="cp-catalog-family">Familia</label><select id="cp-catalog-family" onchange="cpRenderCatalogoIngreso()"><option value="">Todas las familias</option>${families.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select></div></div><p id="cp-catalog-count" class="cp-sub" role="status" aria-live="polite"></p><div style="overflow:auto;max-height:50vh"><table class="cp-table" style="min-width:650px"><thead><tr><th>Código</th><th>Insumo</th><th>Familia / subfamilia</th><th>Unidad</th><th></th></tr></thead><tbody id="cp-catalog-results"></tbody></table></div><div class="cp-actions" style="margin-top:14px"><button type="button" class="cp-btn" onclick="cpCloseCatalogoIngreso()">Volver sin vincular</button><button type="button" class="cp-btn" id="cp-catalog-create">No existe: crear nuevo insumo</button></div></div>`;
+ document.getElementById('cp-catalog-create').onclick=()=>{const row=cpCatalogSelection?.row;window.cpCloseCatalogoIngreso();if(row&&cpIngresoRows().includes(row))cpOpenNewIngresoArticle(row);};
+ modal.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();window.cpCloseCatalogoIngreso();}};
+ modal.classList.add('open');window.cpRenderCatalogoIngreso();document.getElementById('cp-catalog-query').focus();
+};
+window.cpRenderCatalogoIngreso=()=>{
+ if(!cpCatalogSelection)return;
+ const matches=cpCatalogMatches(C.articulos,document.getElementById('cp-catalog-query').value,document.getElementById('cp-catalog-family').value),visible=matches.slice(0,80),body=document.getElementById('cp-catalog-results');
+ document.getElementById('cp-catalog-count').textContent=matches.length?(matches.length+' insumos encontrados'+(matches.length>80?' · Se muestran los primeros 80. Refiná la búsqueda para ver los demás.':'.')):'No hay coincidencias. Probá otras palabras o creá un nuevo insumo.';
+ body.innerHTML=visible.map(a=>`<tr><td>${esc(a.codigo||'—')}</td><td><b>${esc(a.descripcion||'Sin descripción')}</b></td><td>${esc([a.familia||a.rubro,a.subfamilia].filter(Boolean).join(' / '))}</td><td>${esc(a.unidad||'—')}</td><td><button type="button" class="cp-btn primary" data-catalog-article="${esc(a.id)}" aria-label="Vincular ${esc(a.codigo||'')} ${esc(a.descripcion||'')}">Vincular</button></td></tr>`).join('')||'<tr><td colspan="5">Sin resultados para esta búsqueda.</td></tr>';
+ body.querySelectorAll('[data-catalog-article]').forEach(button=>button.onclick=()=>window.cpLinkCatalogoIngreso(button.dataset.catalogArticle));
+};
+window.cpLinkCatalogoIngreso=id=>{
+ const selection=cpCatalogSelection,article=C.articulos.find(a=>a.id===id);
+ if(!selection||!cpIngreso?.confirmed||cpIngreso.providerId!==selection.providerId||!cpIngresoRows().includes(selection.row)){window.cpCloseCatalogoIngreso();return toast('La compra cambió. Volvé a abrir el catálogo desde el ítem.');}
+ if(!article)return toast('Este insumo ya no está disponible. Elegí otro del catálogo.');
+ cpConfirmIngresoArticle(selection.row,article);window.cpCloseCatalogoIngreso();
+};
+
 let cpArticleEditor=null,cpArticleSaving=false;
 window.cpEditArticulo=(id,row=null)=>{
  if(cpArticleSaving)return;
