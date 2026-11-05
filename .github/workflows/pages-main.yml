@@ -93,6 +93,8 @@ jobs:
           node --check estadisticaSourceV1.js
           node --test tests/estadisticaSourceV1.test.cjs
           node --check operacionesV1.js
+          node --check operacionesV31.js
+          node --test tests/facturacionOtV1.test.cjs
           node --test tests/operacionesV1.test.cjs
           node --check analisisPreliminarV1.js
           node --test tests/analisisPreliminarV1.test.cjs tests/analisisIndicadoresV1.test.cjs tests/estadisticaIndicadoresV1.test.cjs

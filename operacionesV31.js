@@ -317,7 +317,8 @@
 
   window.saveSectorFichaV31 = async () => {
     const {root,o,sector,key,data:old}=current();if(!o)return;
-    const data=collectVisible(JSON.parse(JSON.stringify(old||{})),sector);
+    let data=collectVisible(JSON.parse(JSON.stringify(old||{})),sector);
+    if(sector==='Producción')data.observaciones=productionDataWithQuote(o,data).observaciones;
     data.actualizadoPor=window.currentUser?.email||'';data.actualizadoEn=new Date().toISOString();data.porcentaje=pct(sector,data);
     const gestion={...(o.gestionSectores||{}),[key]:data};
     try {
@@ -341,6 +342,9 @@
   const autoSyncState = { running:false, attempted:new Set(), timer:null };
 
   function productionDataWithQuote(o,old={}) {
+    const presupuesto=(window.DB?.presupuestos||[]).find(p=>p.id===(o.presupuestoId||o.cotizacionId));
+    const tipo=presupuesto?.tipoFacturaSolicitada??o.tipoFacturaSolicitada??o.infoPresupuesto?.tipoFacturaSolicitada??'';
+    const factura=tipo==='A'||tipo==='B'?'Factura '+tipo:'A definir';
     const source=(Array.isArray(o.itemsTecnicos)&&o.itemsTecnicos.length?o.itemsTecnicos:(o.itemsCotizados||[]));
     const materiales=source.map(item=>({
       articulo:String(item?.articulo||item?.desc||item?.descripcion||'').trim(),
@@ -354,7 +358,8 @@
       materiales: materiales.length?materiales:(old.materiales||[]),
       observaciones: [
         String(o.entregaLogistica?.contactoTelefono||o.infoPresupuesto?.contactoTelefono||'').trim(),
-        String(old.observaciones||quoteNotes).replace(/^Teléfono contacto:.*(?:\r?\n|$)/gm,'').trim()
+        'Tipo de factura: '+factura,
+        String(old.observaciones||quoteNotes).replace(/^(?:Teléfono contacto:|Tipo de factura:).*?(?:\r?\n|$)/gm,'').trim()
       ].map((text,i)=>i===0&&text?'Teléfono contacto: '+text:text).filter(Boolean).join('\n'),
       detalleCotizacion: materiales,
       datosCotizacionSinPrecios: true
