@@ -22,13 +22,15 @@ function statusPatch(work,estado,user,at=new Date().toISOString()){
 const active=o=>(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
 const isBaja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
 const canBaja=u=>!!u&&(u.sector==='Ventas'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
-function productionSignal(g,today=day()){
- const planned=iso(g.produccionPrevista),real=iso(g.seguimiento?.produccionReal);
+function phaseSignal(plannedDate,realDate,label,today){
+ const planned=iso(plannedDate),real=iso(realDate);
  if(!planned)return {color:'',label:'Sin fecha prevista'};
- if(real)return real<=planned?{color:'green',label:'Producción cumplida en fecha · Real: '+real}:{color:'red',label:'Producción cumplida con atraso · Real: '+real};
+ if(real)return real<=planned?{color:'green',label:label+' cumplida en fecha · Real: '+real}:{color:'red',label:label+' cumplida con atraso · Real: '+real};
  const remaining=days(planned,today);
- return remaining<0?{color:'red',label:'Producción vencida · falta registrar fecha real'}:remaining<2?{color:'yellow',label:'Producción próxima a vencer · falta registrar fecha real'}:{color:'',label:'Producción pendiente · fecha prevista: '+planned};
+ return remaining<0?{color:'red',label:label+' vencida · falta registrar fecha real'}:remaining<2?{color:'yellow',label:label+' próxima a vencer · falta registrar fecha real'}:{color:'',label:label+' pendiente · fecha prevista: '+planned};
 }
+function productionSignal(g,today=day()){return phaseSignal(g.produccionPrevista,g.seguimiento?.produccionReal,'Producción',today);}
+function installationSignal(g,today=day()){return phaseSignal(g.colocacionPrevista,g.seguimiento?.colocacionReal,'Colocación',today);}
 function bajaPatch(work,motivo,user,reactivar=false,at=new Date().toISOString()){
  if(!canBaja(user))throw Error('Solo Ventas puede dar de baja o reactivar trabajos desde Presupuestos.');
  motivo=T(motivo);if(motivo.length<3||motivo.length>1000)throw Error('Indicá un motivo de entre 3 y 1000 caracteres.');
@@ -137,5 +139,5 @@ function alerts(g,today=day()){
  return result;
 }
 function metrics(groups){groups=groups.filter(g=>!isBaja(g));const prod=groups.filter(g=>g.produccionPrevista&&g.seguimiento.produccionReal),col=groups.filter(g=>g.colocacionPrevista&&g.seguimiento.colocacionReal),closed=groups.filter(g=>g.seguimiento.cierreResultado);return {produccionesConFechaReal:prod.length,produccionesEnFecha:prod.filter(g=>g.seguimiento.produccionReal<=g.produccionPrevista).length,colocacionesConFechaReal:col.length,colocacionesEnFecha:col.filter(g=>g.seguimiento.colocacionReal<=g.colocacionPrevista).length,cerradas:closed.length,cerradasOk:closed.filter(g=>g.seguimiento.cierreResultado==='ok').length,conRetrabajo:closed.filter(g=>g.seguimiento.cierreResultado==='retrabajo').length};}
-return {STATES,EDITABLE_STATES,T,norm,ot,base,day,iso,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics};
+return {STATES,EDITABLE_STATES,T,norm,ot,base,day,iso,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,installationSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics};
 });
