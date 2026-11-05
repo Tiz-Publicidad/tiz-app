@@ -1419,7 +1419,8 @@ function renderPPItems() {
   if (!wrap) return;
   wrap.innerHTML = window.ppItems.map((it, i) => `
     <div class="pp-item-row">
-      <input value="${(it.desc||'').replace(/"/g,'&quot;')}" placeholder="Descripción del ítem ${i+1}" oninput="updateItemPP(${i},'desc',this.value)" style="flex:1">
+      <label class="pp-mobile-desc-label">Descripción del ítem</label>
+      <textarea rows="3" placeholder="Descripción del ítem ${i+1}" oninput="updateItemPP(${i},'desc',this.value)" style="flex:1;min-width:0;resize:vertical">${String(it.desc||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
       <input type="number" value="${it.precio||''}" placeholder="$ Unit" oninput="updateItemPP(${i},'precio',this.value)" style="width:110px">
       <input type="number" value="${it.cant||1}" placeholder="Cant" oninput="updateItemPP(${i},'cant',this.value)" style="width:70px">
       <span class="pp-subtotal" style="font-size:12px;color:var(--text2);width:110px;text-align:right;padding:0 4px;white-space:nowrap">${fmtPesoPresupuesto(round2Presupuesto((it.precio||0)*(it.cant||1)))}</span>
