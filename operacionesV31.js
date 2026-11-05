@@ -344,7 +344,7 @@
   function productionDataWithQuote(o,old={}) {
     const presupuesto=(window.DB?.presupuestos||[]).find(p=>p.id===(o.presupuestoId||o.cotizacionId));
     const tipo=presupuesto?.tipoFacturaSolicitada??o.tipoFacturaSolicitada??o.infoPresupuesto?.tipoFacturaSolicitada??'';
-    const factura=tipo==='A'||tipo==='B'?'Factura '+tipo:'A definir';
+    const factura=o.facturacionModo==='sin_factura'?'No se factura':tipo==='A'||tipo==='B'?'Factura '+tipo:'A definir';
     const source=(Array.isArray(o.itemsTecnicos)&&o.itemsTecnicos.length?o.itemsTecnicos:(o.itemsCotizados||[]));
     const materiales=source.map(item=>({
       articulo:String(item?.articulo||item?.desc||item?.descripcion||'').trim(),
