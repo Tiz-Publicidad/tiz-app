@@ -166,6 +166,8 @@
       return window.showToast?.("Sólo administración puede facturar");
     const o = (window.DB?.obras || []).find((x) => x.id === id);
     if (!o) return;
+    if (o.facturacionModo === 'sin_factura' && !options.notaCredito)
+      return window.showToast?.('Esta OT está marcada No se factura. Cambiá su tratamiento antes de facturar.');
     ensureStyle();
     const c = cli(o),
       f = fiscal(o),

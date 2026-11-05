@@ -104,7 +104,8 @@
  // One quality queue entry per OT; preserve every source row/description.
  function motherWorks(source=[], works=[], internalRecords=[]){
   const base=v=>{const m=text(v).match(/\d{4,7}/);return m?String(Number(m[0])):'';},groups=new Map(),cancelled=new Set(works.filter(o=>baja(o)&&o.revisionVigente!==false&&o.revisionOperativa!==false).map(o=>base(o.ot)).filter(Boolean));
-  for(const r of source){
+  for(const original of source){
+   const matches=works.filter(o=>base(o.ot)===base(original.ot)&&!o.archivado&&o.revisionVigente!==false&&o.revisionOperativa!==false),marked=matches.filter(o=>o.estadoDesdeObras||o.estadoGestionV1),states=[...new Set(marked.map(o=>o.estado))],r=marked.length===matches.length&&states.length===1?{...original,status:states[0]}:original;
    if(cancelled.has(base(r.ot))||!['pendiente','cobrado pendiente'].includes(norm(r.status).replace(/[_\s]+/g,' ')))continue;
    const ot=base(r.ot),key=ot?'ot:'+ot:'fila:'+r.row;
    if(!groups.has(key))groups.set(key,{key,ot,sourceRows:[],descriptions:[],clients:[],statuses:[]});

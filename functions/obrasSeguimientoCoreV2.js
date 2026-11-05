@@ -17,7 +17,7 @@ function statusPatch(work,estado,user,at=new Date().toISOString()){
  if(!canStatus(user))throw Error('Tu cuenta no puede modificar el estado de Obras.');
  if(isBaja(work)||!active(work))throw Error('La obra ya no está activa. Actualizá el listado.');
  if(!EDITABLE_STATES.includes(estado))throw Error('Elegí un estado válido para la obra.');
- return {estado,cobr:estado,estadoGestionV1:{estado,anterior:T(work.estado),fecha:at,usuario:T(user.email)}};
+ return {estado,cobr:estado,estadoDesdeObras:estado,estadoGestionV1:{estado,anterior:T(work.estado),fecha:at,usuario:T(user.email)}};
 }
 const active=o=>(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
 const isBaja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
@@ -69,7 +69,7 @@ function referencePlan(works,source,clients=[],at=new Date().toISOString()){
  for(const {group:g,rows} of links){if(g.estado==='Baja')continue;if(!rows.length){unmatched.push({ot:g.ot,cliente:g.cliente,id:g.id});continue;}
    const first=[...rows].filter(r=>r.fechaAlta).sort((a,b)=>a.fechaAlta.localeCompare(b.fechaAlta))[0]||rows[0],validStates=rows.filter(r=>STATES.includes(r.estado)),status=validStates.length?aggregateStatus(validStates):null;
    const uniqueDate=field=>{const d=[...new Set(rows.map(r=>r[field]).filter(Boolean))];return d.length===1?d[0]:null;};
-   for(const o of g.members){const p={...(status?{estado:status,cobr:status}:{}),referenciaGoogle2026:{filas:rows.map(r=>r.row),leidaEn:at,estado:status||T(o.estado),ot:rows[0].ot}};
+   for(const o of g.members){const p={...(status&&!o.estadoGestionV1&&!o.estadoDesdeObras?{estado:status,cobr:status}:{}),referenciaGoogle2026:{filas:rows.map(r=>r.row),leidaEn:at,estado:status||T(o.estado),ot:rows[0].ot}};
      if(first.fechaAlta)p.fechaAltaObra=first.fechaAlta;if(first.semana){p.semanaVenta=first.semana;p.semana=first.semana;}
      for(const [field,root] of [['produccionPrevista','fprod_c'],['colocacionPrevista','fcol_c']]){const value=uniqueDate(field);if(value!==null&&!o.obraSeguimientoV2?.planificadoPorCalidad){p[root]=value;p['obraSeguimientoV2.'+field]=value;p['gestionSectores.'+(field==='produccionPrevista'?'produccion':'colocaciones')+'.compromiso']=value;}}
      if(['fprod_c','fcol_c'].some(k=>k in p&&p[k]!==iso(o[k]))){p['obraSeguimientoV2.version']=(Number(o.obraSeguimientoV2?.version)||0)+1;p['obraSeguimientoV2.calidadAprobada']=false;p['obraSeguimientoV2.produccionPlanificada']=false;}

@@ -145,7 +145,7 @@
   }
   function pendingInstallation(o){
     if(!o||o.archivado||o.revisionVigente===false||o.revisionOperativa===false||o.colocacionesGestion?.cierre?.cerrada)return false;
-    const state=norm(o.estado),source=norm(o.estadoHistoricoExcel||o.historicoExcel?.estado||o.estado);
+    const state=norm(o.estado),source=norm((o.estadoDesdeObras||o.estadoGestionV1)?o.estado:o.estadoHistoricoExcel||o.historicoExcel?.estado||o.estado);
     if(/^(entregad[oa]s?|cobrado|archivado|anulado|cancelado|rechazado)$/.test(state))return false;
     if(/^(entregad[oa]s?|cobrado|archivado|anulado|cancelado|rechazado)$/.test(source))return false;
     return source==='pendiente'||source==='cobrado pendiente'||approvedForInstallation(o);
