@@ -5,6 +5,30 @@ const text=v=>String(v??'').trim();
 const norm=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const number=v=>typeof v==='number'?v:Number(text(v).replace(',','.'));
 const units=['UNID','PLACA','M²','MTS LINEALES','CM','MM','KG','G','LITRO','ML','ROLLO','TUBO','PAR','CAJA','PACK','HORA','JORNADA','SERVICIO'];
+const articleIdentity=v=>norm(v).replace(/\s+/g,' ');
+function argentinaDay(value=new Date()){
+ const raw=text(value);if(/^\d{4}-\d{2}-\d{2}$/.test(raw)||/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)){const d=day(raw);if(d)return d;}
+ const d=new Date(value);if(!Number.isFinite(d.getTime()))throw Error('Fecha de aprobación inválida.');
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d),v=k=>parts.find(p=>p.type===k).value;
+ return v('year')+'-'+v('month')+'-'+v('day');
+}
+function approvalWorkDates(data={},existing={},now=new Date()){
+ const stamp=existing.fechaAprobacion||data.fechaAprobacion||data.insumosVentasAprobados?.aprobadoEn||new Date(now).toISOString();
+ const alta=day(existing.fechaAltaObra)||argentinaDay(stamp),d=new Date(alta+'T12:00:00Z'),dow=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-dow);d.setUTCHours(0,0,0,0);
+ const week=Math.ceil(((d-new Date(Date.UTC(d.getUTCFullYear(),0,1)))/86400000+1)/7);
+ return {fechaAprobacion:stamp,fechaAltaObra:alta,fecha:existing.fecha||alta,semanaVenta:existing.semanaVenta??week,semana:existing.semana??week,fechaAltaObraOrigen:existing.fechaAltaObraOrigen||(existing.fechaAltaObra?'':'aprobacion')};
+}
+function articleDraft(input={}){
+ const out={};for(const [k,max] of [['descripcion',300],['familia',100],['subfamilia',100]]){if(typeof input[k]!=='string'||!text(input[k])||text(input[k]).length>max)throw Error('Completá '+k+' del insumo (máximo '+max+' caracteres).');out[k]=text(input[k]);}
+ out.unidad=unit(input.unidad);if(!units.includes(out.unidad))throw Error('Elegí una unidad válida para el insumo.');
+ if(!['estrategico','consumible','sin_stock'].includes(input.control))throw Error('Elegí el control de stock del insumo.');
+ return {...out,control:input.control,stockMinimo:0};
+}
+function nextArticleCode(articles,last=0){
+ // Los códigos 000001–000331 pertenecen a la base TIZ incluida en Compras.
+ const next=Math.max(331,Number(last)||0,...articles.map(a=>/^\d+$/.test(text(a.codigo))?Number(a.codigo):0))+1;
+ if(!Number.isSafeInteger(next))throw Error('La numeración de insumos está fuera de rango.');return String(next).padStart(6,'0');
+}
 function unit(v){const n=norm(v).replace(/\s/g,'');const aliases={u:'UNID',un:'UNID',und:'UNID',unid:'UNID',unidad:'UNID',unidades:'UNID',placa:'PLACA',placas:'PLACA',m2:'M²','m²':'M²',mts2:'M²',mt2:'M²',metroscuadrados:'M²',m:'MTS LINEALES',mt:'MTS LINEALES',mts:'MTS LINEALES',ml:'ML',metro:'MTS LINEALES',metros:'MTS LINEALES',mtslineales:'MTS LINEALES',metroslineales:'MTS LINEALES',litros:'LITRO',l:'LITRO',lt:'LITRO',lts:'LITRO',kilos:'KG',kilogramos:'KG',gr:'G',gramos:'G',hs:'HORA',horas:'HORA'};return aliases[n]||units.find(x=>norm(x).replace(/\s/g,'')===n)||text(v).toUpperCase();}
 const measures={'MTS LINEALES':['length',1],CM:['length',.01],MM:['length',.001],KG:['mass',1],G:['mass',.001],LITRO:['volume',1],ML:['volume',.001]};
 const finiteQuantity=q=>{if(!Number.isFinite(q)||q<=0)throw Error('La conversión debe dar una cantidad finita mayor que cero.');return q;};
@@ -46,7 +70,7 @@ function day(v){const s=text(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const 
 function timestamp(v){return v?.toMillis?.()||v?.seconds*1000||Date.parse(v)||0;}
 function catalog(articles,purchases,counts,plans){
  return articles.map(original=>{
-  let article;try{article=baseArticle(original);}catch(e){return {id:original.id,codigo:text(original.codigo),descripcion:text(original.descripcion),unidad:unit(original.unidadControl||original.unidad),unidadOrigen:unit(original.unidad),control:original.control||'',equivalenciasStock:{},ultimoCosto:null,errorPrecio:e.message,stockDisponible:null,stockFisico:null,errorStock:e.message,fechaStock:'',fechaCosto:'',proveedor:'',compraId:''};}
+  let article;try{article=baseArticle(original);}catch(e){return {id:original.id,codigo:text(original.codigo),descripcion:text(original.descripcion),familia:text(original.familia||original.rubro),subfamilia:text(original.subfamilia),unidad:unit(original.unidadControl||original.unidad),unidadOrigen:unit(original.unidad),control:original.control||'',equivalenciasStock:{},ultimoCosto:null,errorPrecio:e.message,stockDisponible:null,stockFisico:null,errorStock:e.message,fechaStock:'',fechaCosto:'',proveedor:'',compraId:''};}
   const matches=purchases.flatMap(p=>(p.items||[]).filter(i=>i.articuloId===article.id).map((i,index)=>({...i,compra:p,index}))).sort((a,b)=>day(b.compra.fecha).localeCompare(day(a.compra.fecha))||timestamp(b.compra._ts)-timestamp(a.compra._ts)||b.index-a.index);
   const last=matches[0];let price=null,priceError='',currency='ARS';
   if(last){try{if(!text(last.unidad))throw Error('La última compra no tiene unidad.');const quantity=number(last.cantidad),q=Number.isFinite(quantity)&&quantity>0?movementQuantity(last,original)/quantity:stockQuantity(1,last.unidad,article),raw=number(last.precioUnitarioNeto);if(!Number.isFinite(raw)||raw<=0||q<=0)throw Error('El último precio de compra debe ser mayor que cero.');currency=text(last.moneda||last.compra.moneda||'ARS').toUpperCase();if(currency!=='ARS')throw Error('El último precio de compra requiere conversión a ARS.');price=raw/q;}catch(e){priceError=e.message;}}
@@ -58,7 +82,7 @@ function catalog(articles,purchases,counts,plans){
    if(stock!==null){const incoming=purchases.filter(p=>day(p.fecha)>day(count.conteo.fecha)&&norm(p.destino)==='stock').flatMap(p=>(p.items||[]).filter(i=>i.articuloId===article.id));for(const i of incoming){try{stock+=movementQuantity(i,original);}catch{stock=null;stockError='Hay compras posteriores con unidades sin resolver.';break;}}}
   }
   let reserved=0,reserveError=false;for(const i of plans.filter(p=>p.estado!=='cerrado').flatMap(p=>p.items||[]).filter(i=>i.articuloId===article.id&&i.modoStock!=='generico')){try{const quantity=number(i.cantidadPlanificada??i.cantidadSugerida);if(quantity<0)throw Error('Reserva negativa.');reserved+=movementQuantity({...i,cantidad:quantity,cantidadStock:undefined},original);}catch{reserveError=true;stockError='Hay reservas con unidades sin resolver.';}}
-  return {id:article.id,codigo:text(article.codigo),descripcion:text(article.descripcion),unidad:unit(article.unidad),unidadOrigen:unit(original.unidad),unidadControl:unit(original.unidadControl||original.unidad),control:article.control||'',stockMinimo:article.stockMinimo,equivalenciasStock:article.equivalenciasStock||{},ultimoCosto:price,errorPrecio:priceError,monedaCosto:currency,proveedor:text(last?.compra.proveedor),fechaCosto:text(last?.compra.fecha),compraId:text(last?.compra.id),stockFisico:stock,reservado:reserveError?null:reserved,stockDisponible:stock===null||reserveError?null:Math.max(0,stock-reserved),fechaStock:text(count?.conteo.fecha),errorStock:stockError};
+  return {id:article.id,codigo:text(article.codigo),descripcion:text(article.descripcion),familia:text(article.familia||article.rubro),subfamilia:text(article.subfamilia),unidad:unit(article.unidad),unidadOrigen:unit(original.unidad),unidadControl:unit(original.unidadControl||original.unidad),control:article.control||'',stockMinimo:article.stockMinimo,equivalenciasStock:article.equivalenciasStock||{},ultimoCosto:price,errorPrecio:priceError,monedaCosto:currency,proveedor:text(last?.compra.proveedor),fechaCosto:text(last?.compra.fecha),compraId:text(last?.compra.id),stockFisico:stock,reservado:reserveError?null:reserved,stockDisponible:stock===null||reserveError?null:Math.max(0,stock-reserved),fechaStock:text(count?.conteo.fecha),errorStock:stockError};
  });
 }
 function validate(rows,articles){
@@ -82,5 +106,5 @@ function validate(rows,articles){
 }
 function draft(rows){return (Array.isArray(rows)?rows:[]).slice(0,200).map(r=>({articuloId:text(r.articuloId),descripcion:text(r.descripcion).slice(0,300),cantidad:text(r.cantidad),unidad:unit(r.unidad),revisado:r.revisado===true,compraPendiente:r.compraPendiente===true,origen:r.origen==='ia'?'ia':'manual',nota:text(r.nota).slice(0,500)}));}
 function snapshot(rows,articles,quote,user,at){const result=validate(rows,articles);if(!result.ok)throw Error(result.errores.join('\n'));return {version:1,aprobadoEn:at,aprobadoPor:user.email,monedaCosto:'ARS',importeVenta:number(quote.importe)||0,monedaVenta:text(quote.moneda||'ARS'),totalCosto:result.total,items:result.items.map(r=>{const a=articles.find(a=>a.id===r.articuloId);return {...draft([r])[0],codigo:a.codigo,descripcion:a.descripcion,cantidadStock:r.cantidadStock,unidadStock:a.unidad,costoUnitarioStock:a.ultimoCosto,costoTotal:r.costoTotal,compraId:a.compraId,fechaCosto:a.fechaCosto,proveedor:a.proveedor,equivalenciasStock:a.equivalenciasStock,stockDisponible:a.stockDisponible,fechaStock:a.fechaStock,avisos:r.avisos};})};}
-return {text,norm,number,units,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,unitSetting,day,timestamp,catalog,validate,draft,snapshot};
+return {text,norm,number,units,articleIdentity,articleDraft,nextArticleCode,argentinaDay,approvalWorkDates,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,unitSetting,day,timestamp,catalog,validate,draft,snapshot};
 });
