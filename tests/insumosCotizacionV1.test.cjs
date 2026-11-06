@@ -61,11 +61,20 @@ function dbFixture(){
 const body=()=>({id:'p',insumosAnteriores:[row()],cotizacion:{cliente:'Cliente',nro:'4800',estado:'Aprobado',importe:20000,items:[{desc:'Cartel',precio:20000,cant:1}],insumosVentas:[row()]}});
 const sales={email:'giancarlo.pareja@tizpublicidad.com'};
 
+test('entrega incompleta avisa y permite aprobar; conserva la validación en otros estados',()=>{
+ const source=fs.readFileSync(require.resolve('../sectorizacionV35.js'),'utf8'),start=source.indexOf('  function validarLogisticaCotizacion('),end=source.indexOf('  window.validarLogisticaCotizacionTIZ=',start);
+ let estado='Aprobado',warnings=[],alerts=[];
+ const context={normEstado:x=>x,val:()=>estado,entregaLogisticaActual:()=>({tipo:'a_definir'}),document:{getElementById:()=>({focus(){}})},window:{showToast:v=>warnings.push(v)},setTimeout:fn=>fn(),alert:v=>alerts.push(v)};
+ vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ assert.equal(context.validarLogisticaCotizacion(),true);assert.match(warnings[0],/Alerta de entrega/);assert.equal(alerts.length,0);
+ estado='Enviado';assert.equal(context.validarLogisticaCotizacion(),false);assert.equal(alerts.length,1);
+});
+
 test('implementación: reproduce lona en metros lineales contra m² y tres costos pendientes',async()=>{
  const f=dbFixture(),input=body();f.docs.delete('compras/compra');f.docs.delete('conteosStock/conteo');
  f.docs.set('articulosCompra/acrilico',{...article(),descripcion:'Lona Front',unidad:'M²',equivalenciasStock:{}});
  input.cotizacion.insumosVentas=[{...row(),cantidad:'1.8',unidad:'MTS LINEALES'},{...row(),cantidad:'1',unidad:'M²'},{...row(),cantidad:'1.8',unidad:'M²'}];
- input.cotizacion.aprobarConCostosPendientes=true;await assert.rejects(API.approve(f.db,input,sales),/Unidad incompatible/);
+ assert.equal(C.validate(input.cotizacion.insumosVentas,C.catalog([{...article(),unidad:'M²',equivalenciasStock:{}}],[],[],[])).ok,false);
  input.cotizacion.aprobarConInsumosPendientes=true;const result=await API.approve(f.db,input,sales,'2026-11-06T17:00:00Z'),s=result.insumosVentasAprobados;
  assert.equal(s.version,3);assert.equal(s.totalCosto,null);assert.equal(s.subtotalCostoConocido,0);assert.equal(s.items[0].cantidadStock,null);assert.equal(s.items[0].cantidad,'1.8');assert.equal(s.items[0].unidad,'MTS LINEALES');assert.equal(s.items[0].costoTotal,null);assert.match(s.pendientesInsumos.join(),/Unidad incompatible/);assert.match(s.pendientesInsumos.join(),/precio/);assert.equal(s.excepcionImplementacion.usuario,sales.email);assert.equal(s.excepcionImplementacion.fecha,'2026-11-06T17:00:00Z');assert.equal(f.writes.length,2);
 });
@@ -74,7 +83,7 @@ test('implementación: admite detalle por completar pero conserva controles come
  input.cotizacion.insumosVentas=variant==='empty'?[]:[{...row(),articuloId:variant==='unlinked'?'':row().articuloId,cantidad:'',revisado:false}];
  const s=(await API.approve(f.db,input,sales)).insumosVentasAprobados;assert.equal(s.estadoInsumos,'pendiente');assert.equal(s.totalCosto,null);assert.ok(s.pendientesInsumos.length);
  }
- for(const variant of ['negative','infinite','permission','conflict','sale']){const f=dbFixture(),input=body();input.cotizacion.aprobarConInsumosPendientes=true;
+ for(const variant of ['permission','conflict','sale']){const f=dbFixture(),input=body();input.cotizacion.aprobarConInsumosPendientes=true;
  if(variant==='negative')input.cotizacion.insumosVentas[0].cantidad='-1';if(variant==='infinite')input.cotizacion.insumosVentas[0].cantidad='Infinity';if(variant==='conflict')input.insumosAnteriores=[];if(variant==='sale')input.cotizacion.importe=999;
  await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0);
  }
@@ -107,7 +116,7 @@ test('el servidor valida los datos reales y aprueba documento y costo en una sol
  f.docs.get('compras/compra').items[0].precioUnitarioNeto=99999;const next=body();next.insumosAnteriores=result.insumosVentas;const result2=await API.approve(f.db,next,sales);assert.equal(result2.insumosVentasAprobados.totalCosto,result.insumosVentasAprobados.totalCosto);
 });
 test('material incompleto, falta de permisos o cambio concurrente no aprueban ni guardan parcialmente',async()=>{
- for(const variant of ['invalid','permission','concurrent']){const f=dbFixture(),input=body();if(variant==='invalid')input.cotizacion.insumosVentas[0].cantidad='';if(variant==='concurrent')input.insumosAnteriores=[];await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0);assert.equal(f.docs.get('presupuestos/p').estado,'Enviado');}
+ for(const variant of ['permission','concurrent']){const f=dbFixture(),input=body();if(variant==='invalid')input.cotizacion.insumosVentas[0].cantidad='';if(variant==='concurrent')input.insumosAnteriores=[];await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0);assert.equal(f.docs.get('presupuestos/p').estado,'Enviado');}
 });
 test('un reintento de aprobación usa el mismo documento y tolera el orden de campos de Firestore',async()=>{
  const f=dbFixture(),input=body();input.id='nuevo';input.crear=true;input.insumosAnteriores=input.cotizacion.insumosVentas;
@@ -127,23 +136,25 @@ test('la aprobación guarda fecha del servidor y los reintentos conservan la pri
  input.insumosAnteriores=first.insumosVentas;input.cotizacion.fechaAprobacion='2000-01-01';
  const retry=await API.approve(f.db,input,sales,'2026-11-10T15:00:00Z');assert.equal(retry.fechaAprobacion,first.fechaAprobacion);
 });
-test('sin precio exige habilitación explícita; la excepción se guarda sin fingir un costo cero',async()=>{
- const f=dbFixture(),input=body();f.docs.delete('compras/compra');await assert.rejects(API.approve(f.db,input,sales),/precio de compra/);assert.equal(f.writes.length,0);
- input.cotizacion.aprobarConCostosPendientes=true;const result=await API.approve(f.db,input,sales,'2026-11-06T15:00:00Z'),s=result.insumosVentasAprobados;
- assert.equal(s.totalCosto,null);assert.equal(s.estadoCosto,'pendiente');assert.equal(s.subtotalCostoConocido,0);assert.equal(s.costosPendientes[0].articuloId,'acrilico');assert.equal(s.items[0].costoTotal,null);assert.equal(s.items[0].costoUnitarioStock,null);assert.equal(s.excepcionCostos.usuario,sales.email);assert.equal(s.excepcionCostos.fecha,'2026-11-06T15:00:00Z');assert.equal(f.writes.length,2);
- assert.equal(f.docs.get('presupuestos/p').insumosVentasAprobados.estadoCosto,'pendiente');assert.equal(f.docs.has('compras/compra'),false);
+test('sin precio aprueba normalmente y registra el costo pendiente sin fingir cero',async()=>{
+ const f=dbFixture(),input=body();f.docs.delete('compras/compra');const result=await API.approve(f.db,input,sales,'2026-11-06T15:00:00Z'),s=result.insumosVentasAprobados;
+ assert.equal(s.totalCosto,null);assert.equal(s.estadoCosto,'pendiente');assert.equal(s.subtotalCostoConocido,0);assert.equal(s.items[0].costoTotal,null);assert.equal(s.items[0].costoUnitarioStock,null);assert.equal(s.excepcionImplementacion.usuario,sales.email);assert.equal(s.excepcionImplementacion.fecha,'2026-11-06T15:00:00Z');assert.equal(f.writes.length,2);
+ assert.equal(f.docs.has('compras/compra'),false);assert.match(s.pendientesInsumos.join(),/precio/);
 });
-test('la excepción no omite revisión, cantidades, unidades, vínculos ni verificación de stock',async()=>{
- for(const variant of ['review','amount','unit','link','stock','permission']){
-  const f=dbFixture(),input=body();f.docs.delete('compras/compra');input.cotizacion.aprobarConCostosPendientes=true;
-  const r=input.cotizacion.insumosVentas[0];if(variant==='review')r.revisado=false;if(variant==='amount')r.cantidad='';if(variant==='unit')r.unidad='KG';if(variant==='link')r.articuloId='inexistente';if(variant==='stock')f.docs.delete('conteosStock/conteo');
-  await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0,variant);
+
+test('aprobación normal: revisión, cantidad, unidad, vínculo y stock faltantes generan alertas',async()=>{
+ for(const variant of ['review','amount','unit','link','stock','negative','infinite']){
+ const f=dbFixture(),input=body();f.docs.delete('compras/compra');input.cotizacion.aprobarConInsumosPendientes=false;
+ const r=input.cotizacion.insumosVentas[0];if(variant==='review')r.revisado=false;if(variant==='amount')r.cantidad='';if(variant==='negative')r.cantidad='-1';if(variant==='infinite')r.cantidad='Infinity';if(variant==='unit')r.unidad='KG';if(variant==='link')r.articuloId='inexistente';if(variant==='stock')f.docs.delete('conteosStock/conteo');
+ const s=(await API.approve(f.db,input,sales)).insumosVentasAprobados;assert.equal(s.estadoInsumos,'pendiente');assert.equal(s.totalCosto,null);assert.ok(s.pendientesInsumos.length);assert.equal(f.docs.get('presupuestos/p').estado,'Aprobado');
  }
- const f=dbFixture(),input=body();f.docs.delete('compras/compra');f.docs.delete('conteosStock/conteo');input.cotizacion.aprobarConCostosPendientes=true;input.cotizacion.insumosVentas[0].compraPendiente=true;assert.equal((await API.approve(f.db,input,sales)).insumosVentasAprobados.estadoCosto,'pendiente');
+ const f=dbFixture(),input=body();input.cotizacion.insumosVentas=[];const s=(await API.approve(f.db,input,sales)).insumosVentasAprobados;assert.equal(s.totalCosto,null);assert.match(s.pendientesInsumos.join(),/detalle/);
 });
-test('precios inválidos, moneda sin convertir y costos fuera de rango siguen bloqueados',async()=>{
- for(const variant of ['zero','currency','unit']){const f=dbFixture(),input=body(),p=f.docs.get('compras/compra');input.cotizacion.aprobarConCostosPendientes=true;if(variant==='zero')p.items[0].precioUnitarioNeto=0;if(variant==='currency')p.moneda='USD';if(variant==='unit')p.items[0].unidad='KG';await assert.rejects(API.approve(f.db,input,sales));assert.equal(f.writes.length,0);}
+
+test('precios inválidos o moneda y unidades sin resolver no bloquean ni inventan un costo',async()=>{
+ for(const variant of ['zero','currency','unit']){const f=dbFixture(),input=body(),p=f.docs.get('compras/compra');if(variant==='zero')p.items[0].precioUnitarioNeto=0;if(variant==='currency')p.moneda='USD';if(variant==='unit')p.items[0].unidad='KG';const s=(await API.approve(f.db,input,sales)).insumosVentasAprobados;assert.equal(s.totalCosto,null);assert.equal(s.items[0].costoTotal,null);assert.equal(s.items[0].costoUnitarioStock,null);assert.ok(s.pendientesInsumos.length);}
 });
+
 test('costos mixtos conservan subtotal conocido y al completar Compras las nuevas aprobaciones ya no usan excepción',()=>{
  const rows=[row(),{...row(),articuloId:'sin-costo',descripcion:'Tinta',unidad:'UNID',cantidad:'1'}],a={...article(),id:'sin-costo',descripcion:'Tinta'},cat=C.catalog([article(),a],[purchase()],[count(),{...count(),items:[{articuloId:'sin-costo',cantidad:2}]}],[]);
  const snap=C.snapshot(rows,cat,{importe:20000,aprobarConCostosPendientes:true},sales,'2026-11-06T15:00:00Z');assert.equal(snap.totalCosto,null);assert.ok(snap.subtotalCostoConocido>0);assert.equal(snap.costosPendientes.length,1);assert.ok(snap.items[0].costoTotal>0);assert.equal(snap.items[1].costoTotal,null);

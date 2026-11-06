@@ -23,7 +23,7 @@ async function approve(db,body,user,at=new Date().toISOString()){
   const rows=C.draft(input.insumosVentas);let baseline;
   if(check.exists){
    const prior=check.data();if(JSON.stringify(rows)!==JSON.stringify(C.draft(prior.insumos)))throw fail('El detalle aprobado está congelado. Creá una nueva revisión para cambiar materiales.');baseline=prior.resumen;
-  }else{const catalog=await readCatalog(db,tx);baseline=C.snapshot(rows,catalog,input,user,at);}
+  }else{const catalog=await readCatalog(db,tx);baseline=C.snapshot(rows,catalog,{...input,aprobarConInsumosPendientes:true},user,at);}
   const context=C.printingContext(input),memoryRef=!check.exists&&context?db.collection('memoriaInsumosCotizacion').doc(context.key):null;
   const memory=memoryRef?await tx.get(memoryRef):null;
   const reviewed=rows.filter(r=>r.revisado&&baseline.items.some(i=>i.articuloId===r.articuloId&&i.codigo)).map(r=>({articuloId:r.articuloId}));

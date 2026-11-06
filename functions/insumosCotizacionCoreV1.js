@@ -111,17 +111,16 @@ function draft(rows){return (Array.isArray(rows)?rows:[]).slice(0,200).map(r=>({
 function implementationValidation(rows,articles){
  const result=validate(rows,articles),errors=[];
  if(!Array.isArray(rows)||rows.length>200)errors.push('El detalle admite hasta 200 materiales.');
- for(const [i,r] of (Array.isArray(rows)?rows:[]).entries())if(text(r.cantidad)&&(!Number.isFinite(number(r.cantidad))||number(r.cantidad)<=0))errors.push('Material '+(i+1)+': corregí la cantidad inválida.');
  const pending=[...new Set([...result.errores,...result.avisos])];
  const items=result.items.map(r=>({...r,cantidadStock:Number.isFinite(r.cantidadStock)?r.cantidadStock:null,costoUnitarioStock:Number.isFinite(r.costoUnitarioStock)&&r.costoUnitarioStock>0?r.costoUnitarioStock:null,costoTotal:Number.isFinite(r.cantidadStock)&&Number.isFinite(r.costoUnitarioStock)&&r.costoUnitarioStock>0&&Number.isFinite(r.cantidadStock*r.costoUnitarioStock)?r.cantidadStock*r.costoUnitarioStock:null}));
- let total=items.reduce((sum,r)=>sum+(r.costoTotal??0),0);if(!Number.isFinite(total)){errors.push('El costo calculado está fuera de rango.');total=0;}
+ let total=items.reduce((sum,r)=>sum+(r.costoTotal??0),0);if(!Number.isFinite(total)){pending.push('El costo calculado está fuera de rango.');total=null;}
  return {...result,ok:!errors.length,errores:errors,items,total,pendientesInsumos:pending,costosPendientes:items.filter(r=>r.costoTotal===null)};
 }
 function implementationSnapshot(rows,articles,quote,user,at){
  const r=implementationValidation(rows,articles);if(!r.ok)throw Error(r.errores.join('\n'));
  if(!r.pendientesInsumos.length)return snapshot(rows,articles,{...quote,aprobarConInsumosPendientes:false},user,at);
  const items=r.items.map(line=>{const a=articles.find(a=>a.id===line.articuloId)||{};return {...draft([line])[0],codigo:a.codigo||'',descripcion:a.descripcion||line.descripcion,cantidadStock:line.cantidadStock,unidadStock:a.unidad||'',costoUnitarioStock:line.costoUnitarioStock,costoTotal:line.costoTotal,costoPendiente:line.costoTotal===null,compraId:a.compraId||'',fechaCosto:a.fechaCosto||'',proveedor:a.proveedor||'',equivalenciasStock:a.equivalenciasStock||{},stockDisponible:a.stockDisponible??null,fechaStock:a.fechaStock||'',pendientes:[...line.errores,...line.avisos]};});
- const unknown=!items.length||items.some(r=>r.costoTotal===null);
+ const unknown=!items.length||r.total===null||items.some(r=>r.costoTotal===null);
  return {version:3,aprobadoEn:at,aprobadoPor:user.email,monedaCosto:'ARS',importeVenta:number(quote.importe)||0,monedaVenta:text(quote.moneda||'ARS'),estadoInsumos:'pendiente',estadoCosto:unknown?'pendiente':'definido',totalCosto:unknown?null:r.total,subtotalCostoConocido:r.total,costosPendientes:items.filter(r=>r.costoPendiente).map(r=>({articuloId:r.articuloId,codigo:r.codigo,descripcion:r.descripcion})),pendientesInsumos:r.pendientesInsumos,excepcionImplementacion:{motivo:'Implementación inicial: completar insumos, equivalencias, stock y costos',fecha:at,usuario:user.email},items};
 }
 function snapshot(rows,articles,quote,user,at){
