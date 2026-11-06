@@ -203,6 +203,7 @@
     else if(retiro&&!e.retira){mensaje='Cargá la persona del cliente que retira.';campo='pp-entrega-retira';}
     else if(!retiro&&!e.contacto){mensaje='Cargá el contacto del cliente en destino.';campo='pp-entrega-contacto';}
     if(!mensaje)return true;
+    if(estado==='Aprobado'){window.showToast?.('Alerta de entrega: '+mensaje+' Podés aprobar y completarlo después.');return true;}
     const panel=document.getElementById('pp-entrega-wrap');if(panel)panel.open=true;
     document.getElementById(campo)?.focus();
     window.showToast?.(mensaje);setTimeout(()=>alert('Faltan datos básicos de la cotización.\n\n'+mensaje),50);

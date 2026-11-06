@@ -23,10 +23,14 @@ async function approve(db,body,user,at=new Date().toISOString()){
   const rows=C.draft(input.insumosVentas);let baseline;
   if(check.exists){
    const prior=check.data();if(JSON.stringify(rows)!==JSON.stringify(C.draft(prior.insumos)))throw fail('El detalle aprobado está congelado. Creá una nueva revisión para cambiar materiales.');baseline=prior.resumen;
-  }else{const catalog=await readCatalog(db,tx);baseline=C.snapshot(rows,catalog,input,user,at);}
+  }else{const catalog=await readCatalog(db,tx);baseline=C.snapshot(rows,catalog,{...input,aprobarConInsumosPendientes:true},user,at);}
+  const context=C.printingContext(input),memoryRef=!check.exists&&context?db.collection('memoriaInsumosCotizacion').doc(context.key):null;
+  const memory=memoryRef?await tx.get(memoryRef):null;
+  const reviewed=rows.filter(r=>r.revisado&&baseline.items.some(i=>i.articuloId===r.articuloId&&i.codigo)).map(r=>({articuloId:r.articuloId}));
   const data=Object.fromEntries(FIELDS.filter(k=>input[k]!==undefined).map(k=>[k,input[k]]));
   Object.assign(data,{insumosVentas:rows,insumosVentasAprobados:baseline,fechaAprobacion:C.text(old?.fechaAprobacion)||baseline.aprobadoEn});
   if(!old)data._ts=new Date(at);
+  if(memoryRef&&reviewed.length)tx.set(memoryRef,{version:1,contexto:context.key,ejemplos:[{insumos:reviewed,fecha:at},...(memory.exists?memory.data().ejemplos||[]:[])].slice(0,8),actualizadoEn:at});
   if(!check.exists)tx.set(audit,{presupuestoId:id,insumos:rows,resumen:baseline});
   tx.set(ref,data,{merge:true});return {ok:true,id,insumosVentas:rows,insumosVentasAprobados:baseline,fechaAprobacion:data.fechaAprobacion};
  });
@@ -99,7 +103,9 @@ async function suggest(db,body){
  if(!description&&!items.some(i=>i.descripcion))throw fail('Describí el trabajo en Cotizaciones antes de pedir el desglose.');
  const catalog=await readCatalog(db);if(!catalog.length)throw fail('Primero cargá el catálogo de insumos en Compras.');
  const servicioIA=await sharedIA(db,{descripcion:description,items,catalogo:catalog.map(a=>({articuloId:a.id,codigo:a.codigo,descripcion:a.descripcion,unidad:a.unidad}))});
- return {ok:true,servicioIA};
+ const context=C.printingContext(quote);let memoriaInsumos=[];
+ if(context){const snap=await db.collection('memoriaInsumosCotizacion').doc(context.key).get();if(snap.exists)memoriaInsumos=snap.data().ejemplos?.[0]?.insumos||[];}
+ return {ok:true,servicioIA,memoriaInsumos};
 }
 async function handle(req,res){
  res.set('Cache-Control','no-store');try{const header=req.get('authorization')||'';if(!header.startsWith('Bearer '))throw fail('Iniciá sesión en TIZ.',401);const admin=require('firebase-admin'),token=await admin.auth().verifyIdToken(header.slice(7)),user={email:C.norm(token.email)};if(!USERS.has(user.email))throw fail('Tu cuenta no tiene acceso a los materiales de cotizaciones.',403);const db=admin.firestore(),body=req.body||{},mode=C.text(body.mode).replace(/^quote-materials-/,'');
