@@ -1312,6 +1312,7 @@ function initListeners() {
       if(generation!==dataGeneration)return;
       window.DB[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if(key==='clientes') window.DB[key].sort(clienteAZ);
+      if(['clientes','presupuestos','obras'].includes(key)&&document.getElementById('modal-prespdf')?.classList.contains('open')){window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();}
       if(key==='obras') window.DB[key].sort(window.TIZObrasSeguimientoCoreV2?.compareApproved||numeroDesc);
       if(key==='presupuestos'||key==='cobranzas') window.DB[key].sort(numeroDesc);
       refreshCurrent();
@@ -3708,7 +3709,7 @@ async function syncToSheets(data) {
       html += `<div class="cli-option" data-crear-cliente="1" style="border-top:1px solid var(--border);color:var(--accent)"><span>➕ Crear cliente nuevo: <strong>${esc(texto)}</strong></span><span class="cli-option-sub" style="color:var(--accent)">Dar de alta y volver al presupuesto</span></div>`;
     }
     dd.innerHTML=html || '<div style="padding:10px;color:var(--text3)">Sin clientes cargados todavía.</div>';
-    dd.querySelectorAll('[data-cliente-index]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();const c=matches[+el.dataset.clienteIndex];if(c){document.getElementById('pp-cliente').value=c.nombre;dd.style.display='none';}}));
+    dd.querySelectorAll('[data-cliente-index]').forEach(el=>el.addEventListener('mousedown',e=>{e.preventDefault();const c=matches[+el.dataset.clienteIndex];if(c)window.elegirClientePP(c.nombre);}));
     dd.querySelector('[data-crear-cliente]')?.addEventListener('mousedown',e=>{e.preventDefault();window.nuevoClienteDesdePresupuestoV355(texto);});
     posicionarSugerenciasPP();
     dd.style.display='block';
