@@ -2,6 +2,19 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TIZObrasSeguimientoCoreV2=api;})(typeof window==='object'?window:globalThis,function(){
 'use strict';
 const STATES=['Cobrado','Cobrado pendiente','Pendiente','Entregado','Baja'];
+const REPLAN_REASONS=Object.freeze([
+ ['cliente','Cliente / aprobación'],['diseno','Diseño / información faltante'],
+ ['materiales','Materiales / insumos'],['proveedor','Proveedor externo'],
+ ['capacidad','Capacidad / personal'],['planificacion','Planificación / coordinación'],
+ ['calidad','Calidad / retrabajo'],['logistica','Logística / transporte'],
+ ['acceso','Acceso / condiciones de obra'],['clima','Clima'],
+ ['otro','Otro'],['investigacion','En investigación']
+]);
+function replanHistory(members){const events=new Map();for(const o of members)for(const e of o.obraSeguimientoV2?.reprogramaciones||[]){
+ if(!e||!Array.isArray(e.cambios)||!e.id)continue;
+ const old=events.get(e.id);if(!old)events.set(e.id,{...e,cambios:e.cambios.map(c=>({...c}))});
+ else for(const c of e.cambios)if(!old.cambios.some(x=>x.etapa===c.etapa&&x.anterior===c.anterior&&x.nueva===c.nueva))old.cambios.push({...c});
+ }return [...events.values()].sort((a,b)=>T(a.fecha).localeCompare(T(b.fecha))||T(a.id).localeCompare(T(b.id)));}
 const T=v=>String(v??'').trim(),norm=v=>T(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
 const ot=v=>T(v).replace(/^0+(?=\d)/,'').replace(/\s+/g,'').replace(/,/g,'.').toLowerCase();
 const base=v=>{const m=ot(v).match(/^\d{4,7}/);return m?String(Number(m[0])):'';};
@@ -53,7 +66,7 @@ function grouped(works=[]){
    const o=members[0],s=o.obraSeguimientoV2||{},alta=iso(o.fechaAltaObra||o.fecha||o.fechaAprobacion)||iso(o._ts),prod=iso(s.produccionPrevista??o.fprod_c??o.gestionSectores?.produccion?.compromiso),col=iso(s.colocacionPrevista??o.fcol_c??o.gestionSectores?.colocaciones?.compromiso);
    const estados=members.map(m=>({estado:state(m.estado),desc:m.desc||m.descripcion||''}));
    const cancelled=members.find(isBaja);
-   return {key,id:o.id,ids:members.map(m=>m.id),versions:Object.fromEntries(members.map(m=>[m.id,Number(m.obraSeguimientoV2?.version)||0])),ot:T(o.ot),desc:T(o.desc||o.descripcion),cliente:T(o.cliente),estado:cancelled?'Baja':aggregateStatus(estados),bajaObra:cancelled?.bajaObra||null,fechaAlta:alta,semana:Number(o.semanaVenta??o.semana)||0,produccionPrevista:prod,colocacionPrevista:col,seguimiento:{...s,produccionPrevista:prod,colocacionPrevista:col,produccionReal:iso(s.produccionReal??o.fprod_r),colocacionReal:iso(s.colocacionReal??o.fcol_r)},members};
+   return {key,id:o.id,ids:members.map(m=>m.id),versions:Object.fromEntries(members.map(m=>[m.id,Number(m.obraSeguimientoV2?.version)||0])),ot:T(o.ot),desc:T(o.desc||o.descripcion),cliente:T(o.cliente),estado:cancelled?'Baja':aggregateStatus(estados),bajaObra:cancelled?.bajaObra||null,fechaAlta:alta,semana:Number(o.semanaVenta??o.semana)||0,produccionPrevista:prod,colocacionPrevista:col,seguimiento:{...s,reprogramaciones:replanHistory(members),produccionPrevista:prod,colocacionPrevista:col,produccionReal:iso(s.produccionReal??o.fprod_r),colocacionReal:iso(s.colocacionReal??o.fcol_r)},members};
  }).sort((a,b)=>(Number(base(b.ot))||-1)-(Number(base(a.ot))||-1)||a.cliente.localeCompare(b.cliente,'es'));
 }
 function clientAliases(group,clients=[]){const result=new Set([family(group.cliente)]);for(const c of clients){const names=[c.nombre,c.razonSocial,c.razon_social,c.nombreFiscal].map(family).filter(Boolean);if(names.some(n=>result.has(n))||group.members.some(m=>m.clienteId===c.id))names.forEach(n=>result.add(n));}return result;}
@@ -78,13 +91,14 @@ function referencePlan(works,source,clients=[],at=new Date().toISOString()){
  }
  return {groups:groups.length,linked:links.filter(x=>x.rows.length).length,updates,unmatched};
 }
-function trackingPatch(work,input,user,at=new Date().toISOString(),today=day()){
+function trackingPatch(work,input,user,at=new Date().toISOString(),today=day(),eventId=''){
  if(isBaja(work))throw Error('La obra está dada de baja. Reactivala antes de modificar su seguimiento.');
  if(!canProduction(user))throw Error('Calidad administra las fechas y el cierre; Producción confirma su planificación y fecha real.');
- const old=work.obraSeguimientoV2||{},s={...old},allowed=['produccionPrevista','colocacionPrevista','avisoDias','calidadAprobada','produccionPlanificada','produccionReal','colocacionReal','cierreResultado','cierreFecha','retrabajoDetalle','retrabajoResuelto','retrabajoResueltoFecha'];
+ const old=work.obraSeguimientoV2||{},s={...old},allowed=['produccionPrevista','colocacionPrevista','avisoDias','calidadAprobada','produccionPlanificada','produccionReal','colocacionReal','cierreResultado','cierreFecha','retrabajoDetalle','retrabajoResuelto','retrabajoResueltoFecha','reprogramacionMotivo','reprogramacionDetalle'];
  for(const k of Object.keys(input))if(!allowed.includes(k))throw Error('Campo de seguimiento inválido: '+k);
  if(!canPlan(user)&&Object.keys(input).some(k=>!['produccionPlanificada','produccionReal'].includes(k)))throw Error('Las fechas previstas, la aprobación y el cierre los registra Calidad.');
  for(const [k,v] of Object.entries(input)){
+   if(k==='reprogramacionMotivo'||k==='reprogramacionDetalle')continue;
    if(['calidadAprobada','produccionPlanificada','retrabajoResuelto'].includes(k)){if(typeof v!=='boolean')throw Error('Confirmación inválida.');s[k]=v;}
    else if(k==='avisoDias'){if(![1,2].includes(Number(v)))throw Error('Elegí aviso con 1 o 2 días.');s[k]=Number(v);}
    else if(k.endsWith('Prevista')||k.endsWith('Real')||k.endsWith('Fecha')){if(T(v)&&!iso(v))throw Error('Fecha inválida.');s[k]=iso(v);}
@@ -94,6 +108,19 @@ function trackingPatch(work,input,user,at=new Date().toISOString(),today=day()){
  if(prod&&col&&prod>col)throw Error('La producción prevista no puede quedar después de la colocación prevista.');
  for(const k of ['produccionReal','colocacionReal','cierreFecha','retrabajoResueltoFecha'])if(s[k]&&s[k]>today)throw Error('Las fechas reales y de cierre no pueden ser futuras.');
  const changed=prod!==(old.produccionPrevista??iso(work.fprod_c))||col!==(old.colocacionPrevista??iso(work.fcol_c));
+ const cambios=[];
+ for(const [campo,root,etapa] of [['produccionPrevista','fprod_c','produccion'],['colocacionPrevista','fcol_c','colocacion']]){
+  const anterior=iso(old[campo]??work[root]),nueva=iso(s[campo]??work[root]);
+  const original=campo+'Original';if(!s[original]&&(anterior||nueva))s[original]=anterior||nueva;
+  if(anterior&&anterior!==nueva)cambios.push({etapa,anterior,nueva,desplazamientoDias:nueva?days(nueva,anterior):null});
+ }
+ if(cambios.length){
+  const motivo=T(input.reprogramacionMotivo),detalle=T(input.reprogramacionDetalle);
+  if(!REPLAN_REASONS.some(([id])=>id===motivo))throw Error('Seleccioná el motivo de la reprogramación.');
+  if(detalle.length<5||detalle.length>2000)throw Error('Describí el motivo de la reprogramación con entre 5 y 2000 caracteres.');
+  const event={id:eventId||T(work.id)+':'+at+':'+((Number(old.version)||0)+1),fecha:at,usuario:T(user.email),motivo,detalle,cambios};
+  s.reprogramaciones=[...(old.reprogramaciones||[]),event];
+ }
  if(changed){s.calidadAprobada=input.calidadAprobada===true;s.produccionPlanificada=input.produccionPlanificada===true;s.planRevision=(Number(old.planRevision)||0)+1;}
  if(s.calidadAprobada&&!col&&!prod)throw Error('Cargá primero al menos una fecha prevista para aprobar Calidad.');
  if(s.calidadAprobada&&Object.values(work.calidadGestion?.registros||{}).some(r=>r.estado==='Pendiente'))throw Error('Resolvé las observaciones pendientes de Calidad antes de confirmar la aprobación.');
@@ -137,5 +164,32 @@ function alerts(g,today=day()){
  return result;
 }
 function metrics(groups){groups=groups.filter(g=>!isBaja(g));const prod=groups.filter(g=>g.produccionPrevista&&g.seguimiento.produccionReal),col=groups.filter(g=>g.colocacionPrevista&&g.seguimiento.colocacionReal),closed=groups.filter(g=>g.seguimiento.cierreResultado);return {produccionesConFechaReal:prod.length,produccionesEnFecha:prod.filter(g=>g.seguimiento.produccionReal<=g.produccionPrevista).length,colocacionesConFechaReal:col.length,colocacionesEnFecha:col.filter(g=>g.seguimiento.colocacionReal<=g.colocacionPrevista).length,cerradas:closed.length,cerradasOk:closed.filter(g=>g.seguimiento.cierreResultado==='ok').length,conRetrabajo:closed.filter(g=>g.seguimiento.cierreResultado==='retrabajo').length};}
-return {STATES,EDITABLE_STATES,T,norm,ot,base,day,iso,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics};
+function replanReport(groups,{desde='',hasta='',etapa='',motivo='',query=''}={}){
+ if(desde&&!iso(desde)||hasta&&!iso(hasta)||desde&&hasta&&desde>hasta)throw Error('Revisá el período del informe.');
+ const rows=[];
+ for(const g of groups){
+  if(query&&!norm(g.ot+' '+g.cliente+' '+g.desc).includes(norm(query)))continue;
+  for(const e of g.seguimiento?.reprogramaciones||[]){
+   const fecha=iso(e.fecha);if(!fecha||desde&&fecha<desde||hasta&&fecha>hasta||motivo&&e.motivo!==motivo)continue;
+   const cambios=(e.cambios||[]).filter(c=>!etapa||c.etapa===etapa);if(!cambios.length)continue;
+   const desplazamientos=cambios.filter(c=>c.nueva&&iso(c.anterior)&&iso(c.nueva)).map(c=>days(c.nueva,c.anterior));
+   const dias=Math.max(0,...desplazamientos),tipo=dias>0?'postergacion':cambios.some(c=>!c.nueva)?'sin_fecha':'adelanto';
+   rows.push({...e,obraId:g.id,ot:g.ot,cliente:g.cliente,desc:g.desc,fechaRegistro:fecha,cambios,dias,tipo});
+  }
+ }
+ rows.sort((a,b)=>T(b.fecha).localeCompare(T(a.fecha))||T(a.ot).localeCompare(T(b.ot)));
+ const aggregate=key=>{
+  const map=new Map();for(const r of rows){const k=key(r),a=map.get(k)||{key:k,eventos:0,obras:new Set(),postergaciones:0,dias:0};a.eventos++;a.obras.add(r.obraId);if(r.tipo==='postergacion')a.postergaciones++;a.dias+=r.dias;map.set(k,a);}
+  return [...map.values()].map(a=>({...a,obras:a.obras.size,promedio:Math.round(a.dias/a.eventos*10)/10,porcentaje:rows.length?Math.round(a.eventos/rows.length*100):0})).sort((a,b)=>b.eventos-a.eventos||b.dias-a.dias||a.key.localeCompare(b.key));
+ };
+ const counts=new Map();for(const r of rows)counts.set(r.obraId,(counts.get(r.obraId)||0)+1);
+ const original={produccion:{evaluadas:0,enFecha:0},colocacion:{evaluadas:0,enFecha:0}};
+ for(const g of groups)for(const phase of ['produccion','colocacion']){
+  if(etapa&&phase!==etapa||query&&!norm(g.ot+' '+g.cliente+' '+g.desc).includes(norm(query)))continue;
+  const real=iso(g.seguimiento?.[phase+'Real']),prevista=iso(g.seguimiento?.[phase+'PrevistaOriginal']);
+  if(real&&prevista&&(!desde||real>=desde)&&(!hasta||real<=hasta)){original[phase].evaluadas++;if(real<=prevista)original[phase].enFecha++;}
+ }
+ return{rows,total:rows.length,obras:counts.size,reincidentes:[...counts.values()].filter(n=>n>1).length,postergaciones:rows.filter(r=>r.tipo==='postergacion').length,dias:rows.reduce((n,r)=>n+r.dias,0),porMotivo:aggregate(r=>r.motivo),porCliente:aggregate(r=>r.cliente),porMes:aggregate(r=>r.fechaRegistro.slice(0,7)).sort((a,b)=>a.key.localeCompare(b.key)),original};
+}
+return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });

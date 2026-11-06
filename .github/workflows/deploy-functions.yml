@@ -63,7 +63,7 @@ jobs:
           node --test tests/obrasSemaforoV1.test.cjs
           node --check functions/obrasSeguimientoCoreV2.js
           node --check functions/obrasSeguimientoApiV2.js
-          node --test tests/obrasSeguimientoV2.test.cjs tests/obrasSeguimientoApiV2.test.cjs
+          node --test tests/obrasSeguimientoV2.test.cjs tests/obrasSeguimientoApiV2.test.cjs tests/obrasReprogramacionesV1.test.cjs
           node --check calidadChecklistsV2.js
           node --check functions/calidadChecklistCoreV2.js
           node --check functions/calidadChecklistApiV2.js

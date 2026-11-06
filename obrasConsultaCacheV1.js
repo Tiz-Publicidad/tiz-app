@@ -1,10 +1,10 @@
 /* Conserva la consulta común y refleja cambios operativos recibidos mientras se lee. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.TIZObrasConsultaCacheV1=factory();})(typeof window==='object'?window:globalThis,()=>{
 'use strict';
-const dates=['produccionPrevista','colocacionPrevista','produccionReal','colocacionReal','cierreFecha','retrabajoResueltoFecha'];
+const dates=['produccionPrevistaOriginal','colocacionPrevistaOriginal','produccionPrevista','colocacionPrevista','produccionReal','colocacionReal','cierreFecha','retrabajoResueltoFecha'];
 const text=v=>String(v??'').trim();
 function driveFolder(w){try{const u=new URL(text(w.driveFolderUrl));if(u.protocol==='https:'&&u.hostname==='drive.google.com'&&!u.username&&!u.password&&/^\/(?:drive\/(?:u\/\d+\/)?folders|folders)\/[\w-]+/.test(u.pathname))return u.href;}catch(_){}return /^[\w-]{10,200}$/.test(text(w.driveFolderId))?'https://drive.google.com/drive/folders/'+w.driveFolderId:'';}
-function project(w,C){const s=w.obraSeguimientoV2||{},tracking={};
+function project(w,C){const s=w.obraSeguimientoV2||{},tracking={reprogramaciones:C.replanHistory([{obraSeguimientoV2:s}])};
  for(const k of dates)if(s[k]!=null)tracking[k]=C.iso(s[k]);
  for(const k of ['planificadoPorCalidad','calidadAprobada','produccionPlanificada','retrabajoResuelto'])tracking[k]=s[k]===true;
  for(const k of ['version','planRevision','avisoDias'])tracking[k]=Number(s[k])||0;
