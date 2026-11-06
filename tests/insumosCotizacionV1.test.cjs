@@ -85,6 +85,28 @@ test('la aprobación guarda fecha del servidor y los reintentos conservan la pri
  input.insumosAnteriores=first.insumosVentas;input.cotizacion.fechaAprobacion='2000-01-01';
  const retry=await API.approve(f.db,input,sales,'2026-11-10T15:00:00Z');assert.equal(retry.fechaAprobacion,first.fechaAprobacion);
 });
+test('sin precio exige habilitación explícita; la excepción se guarda sin fingir un costo cero',async()=>{
+ const f=dbFixture(),input=body();f.docs.delete('compras/compra');await assert.rejects(API.approve(f.db,input,sales),/precio de compra/);assert.equal(f.writes.length,0);
+ input.cotizacion.aprobarConCostosPendientes=true;const result=await API.approve(f.db,input,sales,'2026-11-06T15:00:00Z'),s=result.insumosVentasAprobados;
+ assert.equal(s.totalCosto,null);assert.equal(s.estadoCosto,'pendiente');assert.equal(s.subtotalCostoConocido,0);assert.equal(s.costosPendientes[0].articuloId,'acrilico');assert.equal(s.items[0].costoTotal,null);assert.equal(s.items[0].costoUnitarioStock,null);assert.equal(s.excepcionCostos.usuario,sales.email);assert.equal(s.excepcionCostos.fecha,'2026-11-06T15:00:00Z');assert.equal(f.writes.length,2);
+ assert.equal(f.docs.get('presupuestos/p').insumosVentasAprobados.estadoCosto,'pendiente');assert.equal(f.docs.has('compras/compra'),false);
+});
+test('la excepción no omite revisión, cantidades, unidades, vínculos ni verificación de stock',async()=>{
+ for(const variant of ['review','amount','unit','link','stock','permission']){
+  const f=dbFixture(),input=body();f.docs.delete('compras/compra');input.cotizacion.aprobarConCostosPendientes=true;
+  const r=input.cotizacion.insumosVentas[0];if(variant==='review')r.revisado=false;if(variant==='amount')r.cantidad='';if(variant==='unit')r.unidad='KG';if(variant==='link')r.articuloId='inexistente';if(variant==='stock')f.docs.delete('conteosStock/conteo');
+  await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0,variant);
+ }
+ const f=dbFixture(),input=body();f.docs.delete('compras/compra');f.docs.delete('conteosStock/conteo');input.cotizacion.aprobarConCostosPendientes=true;input.cotizacion.insumosVentas[0].compraPendiente=true;assert.equal((await API.approve(f.db,input,sales)).insumosVentasAprobados.estadoCosto,'pendiente');
+});
+test('precios inválidos, moneda sin convertir y costos fuera de rango siguen bloqueados',async()=>{
+ for(const variant of ['zero','currency','unit']){const f=dbFixture(),input=body(),p=f.docs.get('compras/compra');input.cotizacion.aprobarConCostosPendientes=true;if(variant==='zero')p.items[0].precioUnitarioNeto=0;if(variant==='currency')p.moneda='USD';if(variant==='unit')p.items[0].unidad='KG';await assert.rejects(API.approve(f.db,input,sales));assert.equal(f.writes.length,0);}
+});
+test('costos mixtos conservan subtotal conocido y al completar Compras las nuevas aprobaciones ya no usan excepción',()=>{
+ const rows=[row(),{...row(),articuloId:'sin-costo',descripcion:'Tinta',unidad:'UNID',cantidad:'1'}],a={...article(),id:'sin-costo',descripcion:'Tinta'},cat=C.catalog([article(),a],[purchase()],[count(),{...count(),items:[{articuloId:'sin-costo',cantidad:2}]}],[]);
+ const snap=C.snapshot(rows,cat,{importe:20000,aprobarConCostosPendientes:true},sales,'2026-11-06T15:00:00Z');assert.equal(snap.totalCosto,null);assert.ok(snap.subtotalCostoConocido>0);assert.equal(snap.costosPendientes.length,1);assert.ok(snap.items[0].costoTotal>0);assert.equal(snap.items[1].costoTotal,null);
+ const p={...purchase(100),items:[{articuloId:'sin-costo',cantidad:1,unidad:'UNID',precioUnitarioNeto:100}]},complete=C.catalog([article(),a],[purchase(),p],[count(),{...count(),items:[{articuloId:'sin-costo',cantidad:2}]}],[]),next=C.snapshot(rows,complete,{importe:20000,aprobarConCostosPendientes:true},sales,'2026-11-07T15:00:00Z');assert.ok(next.totalCosto>0);assert.equal(next.excepcionCostos,undefined);assert.equal(snap.totalCosto,null);
+});
 test('el flujo nace en Cotizaciones, se guarda en la OT y no aparece en el generador de PDF',()=>{
  const sector=fs.readFileSync(require.resolve('../sectorizacionV35.js'),'utf8'),html=fs.readFileSync(require.resolve('../index.html'),'utf8');assert.match(sector,/TIZInsumosCotizacionV1\?\.open\(data,crearNueva\)/);assert.match(sector,/TIZInsumosCotizacionV1\?\.canApprove\(\)/);assert.match(sector,/obra.insumosVentasAprobados=data.insumosVentasAprobados/);assert.match(html,/quote-materials-/);const pdf=html.slice(html.indexOf('window.generarPDF ='),html.indexOf('window.estTab ='));assert.doesNotMatch(pdf,/insumosVentasAprobados|pp-insumos-ventas/);
 });
