@@ -1,5 +1,23 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const C=require('../functions/obrasSeguimientoCoreV2');
+
+test('el último trabajo aprobado va primero aunque su CT sea menor o se haya cotizado antes',()=>{
+ const works=[{id:'alta',ot:'9999',cliente:'Cliente',fecha:'2026-11-06',fechaAprobacion:'2026-11-06T12:00:00Z'},{id:'nueva',ot:'4200',cliente:'Cliente',fecha:'2026-09-01',fechaAltaObra:'2026-11-06',fechaAprobacion:'2026-11-06T18:30:00Z'}];
+ assert.deepEqual([...works].sort(C.compareApproved).map(w=>w.id),['nueva','alta']);assert.deepEqual(C.grouped(works).map(w=>w.id),['nueva','alta']);assert.equal(works[1].fecha,'2026-09-01');
+});
+test('misma fecha: conserva la hora de aprobación aunque se edite el seguimiento del otro trabajo',()=>{
+ const rows=[{id:'anterior',ot:'9999',cliente:'Cliente',fechaAprobacion:'2026-11-06T10:00:00-03:00',obraSeguimientoV2:{actualizadoEn:'2026-11-08T19:00:00Z'}},{id:'ultima',ot:'4000',cliente:'Cliente',fechaAprobacion:'2026-11-06T13:00:01Z'}];
+ assert.equal(C.grouped(rows)[0].id,'ultima');assert.equal(C.grouped(rows)[0].fechaAprobacion,'2026-11-06T13:00:01.000Z');
+});
+test('históricos usan su fecha de alta; fechas ausentes o inválidas quedan detrás sin ordenar por CT',()=>{
+ const rows=[{id:'sin',ot:'9999',fechaAprobacion:'inválida'},{id:'antes',ot:'8888',fechaAltaObra:'05/11/2026'},{id:'hoy',ot:'4000',fechaAltaObra:'2026-11-06'}];
+ assert.deepEqual(rows.sort(C.compareApproved).map(w=>w.id),['hoy','antes','sin']);assert.equal(C.approvalTime({fechaAltaObra:'2026-11-06'}),Date.parse('2026-11-06T03:00:00Z'));
+ const ms=Date.parse('2026-11-06T18:00:00Z');assert.equal(C.approvalTime({fechaAprobacion:{seconds:ms/1000,nanoseconds:12000000}}),ms+12);assert.equal(C.approvalTime({_ts:{toMillis:()=>ms}}),ms);
+});
+test('el grupo conserva la aprobación aunque el miembro elegido por seguimiento no tenga la marca',()=>{
+ const g=C.grouped([{id:'original',ot:'4000',cliente:'Cliente',fechaAprobacion:'2026-11-06T18:00:00Z'},{id:'saldo',ot:'4000',cliente:'Cliente',desc:'Saldo',obraSeguimientoV2:{actualizadoEn:'2026-11-07T18:00:00Z'}}])[0];
+ assert.equal(g.fechaAprobacion,'2026-11-06T18:00:00.000Z');
+});
 const quality={email:'cristiantizpublicidad@gmail.com',sector:'Calidad'},admin={email:'info@tizpublicidad.com',isAdmin:true},production={email:'pablo.aciar@tizpublicidad.com',sector:'Producción'},other={email:'carolina.flores@tizpublicidad.com',sector:'Compras'};
 const at='2026-10-29T20:00:00.000Z',today='2026-10-29';
 const work=(id='w',extra={})=>({id,ot:'4781',cliente:'ASM SA',desc:'Miniso Mar del Plata',estado:'Pendiente',fprod_c:'2026-10-30',fcol_c:'2026-11-01',...extra});
@@ -52,3 +70,4 @@ test('atraso usa días corridos al cruzar mes y año bisiesto; no inventa una pr
 test('una obra nueva aparece en el mismo listado agrupado sin mantener otra lista',()=>{
  const works=[work()];assert.equal(C.grouped(works).length,1);works.push(work('new',{ot:'4800',fechaAltaObra:today,semanaVenta:44}));const g=C.grouped(works).find(g=>g.id==='new');assert.equal(g.ot,'4800');assert.equal(g.fechaAlta,today);assert.equal(g.semana,44);
 });
+

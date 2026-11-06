@@ -59,15 +59,28 @@ function references(data){
  const col={ot:find(['otct','ot']),desc:find(['descripciondelaobra','descripcion']),cliente:find(['cliente']),alta:find(['fecha']),semana:find(['sem','semana']),prod:find(['fdeprod']),col:find(['fcol']),estado:find(['status','estado'])};
  return data.rows.slice(1).map((r,i)=>({row:i+3,ot:T(r[col.ot]),desc:T(r[col.desc]),cliente:T(r[col.cliente]),fechaAlta:iso(r[col.alta]),semana:Number(r[col.semana])||0,produccionPrevista:iso(r[col.prod]),colocacionPrevista:iso(r[col.col]),estado:T(r[col.estado])})).filter(r=>r.ot||r.desc||r.cliente);
 }
+
+function instant(value){
+ if(value?.toMillis){const n=value.toMillis();return Number.isFinite(n)?n:0;}
+ if(value?.toDate)return instant(value.toDate());
+ if(value instanceof Date)return Number.isFinite(value.getTime())?value.getTime():0;
+ const seconds=value?.seconds??value?._seconds;if(Number.isFinite(seconds))return seconds*1000+(Number(value.nanoseconds??value._nanoseconds)||0)/1e6;
+ const s=T(value);if(/^\d{4}-\d{2}-\d{2}T/.test(s)){const n=Date.parse(s);return Number.isFinite(n)?n:0;}
+ const date=iso(s);return date?Date.parse(date+'T00:00:00-03:00'):0;
+}
+function approvalStamp(work={}){const n=instant(work.fechaAprobacion)||instant(work.insumosVentasAprobados?.aprobadoEn);return n?new Date(n).toISOString():'';}
+function approvalTime(work={}){return instant(approvalStamp(work))||instant(work.fechaAltaObra)||instant(work.fechaAlta)||instant(work.fecha)||instant(work._ts);}
+function compareApproved(a,b){return approvalTime(b)-approvalTime(a)||T(a.cliente).localeCompare(T(b.cliente),'es')||T(a.id||a.key).localeCompare(T(b.id||b.key));}
+
 function grouped(works=[]){
  const map=new Map();for(const o of works.filter(active)){const key=ot(o.ot)?ot(o.ot)+'|'+family(o.cliente):'sin-ot:'+o.id;const a=map.get(key)||[];a.push(o);map.set(key,a);}
  return [...map.entries()].map(([key,members])=>{
    members.sort((a,b)=>T(b.obraSeguimientoV2?.actualizadoEn).localeCompare(T(a.obraSeguimientoV2?.actualizadoEn))||Number(/\b(anticipo|saldo)\b/i.test(a.desc||''))-Number(/\b(anticipo|saldo)\b/i.test(b.desc||''))||T(a.id).localeCompare(T(b.id)));
    const o=members[0],s=o.obraSeguimientoV2||{},alta=iso(o.fechaAltaObra||o.fecha||o.fechaAprobacion)||iso(o._ts),prod=iso(s.produccionPrevista??o.fprod_c??o.gestionSectores?.produccion?.compromiso),col=iso(s.colocacionPrevista??o.fcol_c??o.gestionSectores?.colocaciones?.compromiso);
    const estados=members.map(m=>({estado:state(m.estado),desc:m.desc||m.descripcion||''}));
-   const cancelled=members.find(isBaja);
-   return {key,id:o.id,ids:members.map(m=>m.id),versions:Object.fromEntries(members.map(m=>[m.id,Number(m.obraSeguimientoV2?.version)||0])),ot:T(o.ot),desc:T(o.desc||o.descripcion),cliente:T(o.cliente),estado:cancelled?'Baja':aggregateStatus(estados),bajaObra:cancelled?.bajaObra||null,fechaAlta:alta,semana:Number(o.semanaVenta??o.semana)||0,produccionPrevista:prod,colocacionPrevista:col,seguimiento:{...s,reprogramaciones:replanHistory(members),produccionPrevista:prod,colocacionPrevista:col,produccionReal:iso(s.produccionReal??o.fprod_r),colocacionReal:iso(s.colocacionReal??o.fcol_r)},members};
- }).sort((a,b)=>(Number(base(b.ot))||-1)-(Number(base(a.ot))||-1)||a.cliente.localeCompare(b.cliente,'es'));
+   const cancelled=members.find(isBaja),approved=Math.max(0,...members.map(m=>instant(approvalStamp(m))));
+   return {key,id:o.id,ids:members.map(m=>m.id),versions:Object.fromEntries(members.map(m=>[m.id,Number(m.obraSeguimientoV2?.version)||0])),ot:T(o.ot),desc:T(o.desc||o.descripcion),cliente:T(o.cliente),estado:cancelled?'Baja':aggregateStatus(estados),bajaObra:cancelled?.bajaObra||null,fechaAprobacion:approved?new Date(approved).toISOString():'',fechaAlta:alta,semana:Number(o.semanaVenta??o.semana)||0,produccionPrevista:prod,colocacionPrevista:col,seguimiento:{...s,reprogramaciones:replanHistory(members),produccionPrevista:prod,colocacionPrevista:col,produccionReal:iso(s.produccionReal??o.fprod_r),colocacionReal:iso(s.colocacionReal??o.fcol_r)},members};
+ }).sort(compareApproved);
 }
 function clientAliases(group,clients=[]){const result=new Set([family(group.cliente)]);for(const c of clients){const names=[c.nombre,c.razonSocial,c.razon_social,c.nombreFiscal].map(family).filter(Boolean);if(names.some(n=>result.has(n))||group.members.some(m=>m.clienteId===c.id))names.forEach(n=>result.add(n));}return result;}
 function linkReference(groups,rows,clients=[]){
@@ -191,5 +204,5 @@ function replanReport(groups,{desde='',hasta='',etapa='',motivo='',query=''}={})
  }
  return{rows,total:rows.length,obras:counts.size,reincidentes:[...counts.values()].filter(n=>n>1).length,postergaciones:rows.filter(r=>r.tipo==='postergacion').length,dias:rows.reduce((n,r)=>n+r.dias,0),porMotivo:aggregate(r=>r.motivo),porCliente:aggregate(r=>r.cliente),porMes:aggregate(r=>r.fechaRegistro.slice(0,7)).sort((a,b)=>a.key.localeCompare(b.key)),original};
 }
-return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
+return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });
