@@ -18,8 +18,8 @@ function approvalWorkDates(data={},existing={},now=new Date()){
  const week=Math.ceil(((d-new Date(Date.UTC(d.getUTCFullYear(),0,1)))/86400000+1)/7);
  return {fechaAprobacion:stamp,fechaAltaObra:alta,fecha:existing.fecha||alta,semanaVenta:existing.semanaVenta??week,semana:existing.semana??week,fechaAltaObraOrigen:existing.fechaAltaObraOrigen||(existing.fechaAltaObra?'':'aprobacion')};
 }
-function articleDraft(input={}){
- const out={};for(const [k,max] of [['descripcion',300],['familia',100],['subfamilia',100]]){if(typeof input[k]!=='string'||!text(input[k])||text(input[k]).length>max)throw Error('Completá '+k+' del insumo (máximo '+max+' caracteres).');out[k]=text(input[k]);}
+function articleDraft(input={},editing=false){
+ const out={};for(const [k,max] of [['descripcion',300],['familia',100],['subfamilia',100]]){if(typeof input[k]!=='string'||!text(input[k])&&!(editing&&k==='subfamilia')||text(input[k]).length>max)throw Error('Completá '+k+' del insumo (máximo '+max+' caracteres).');out[k]=text(input[k]);}
  out.unidad=unit(input.unidad);if(!units.includes(out.unidad))throw Error('Elegí una unidad válida para el insumo.');
  if(!['estrategico','consumible','sin_stock'].includes(input.control))throw Error('Elegí el control de stock del insumo.');
  return {...out,control:input.control,stockMinimo:0};

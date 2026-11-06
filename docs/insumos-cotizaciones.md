@@ -8,6 +8,8 @@ Cada fila ofrece **Buscar / vincular** y **Nuevo insumo**. La búsqueda usa cód
 
 Ventas y Compras pueden dar de alta un insumo con descripción, unidad, familia, subfamilia y tipo de control. El servidor usa el contador compartido `comprasSecuencias/insumos`, evita descripciones duplicadas y hace idempotentes los reintentos mediante `altasInsumosCotizacion`. Se reservan los códigos de la base TIZ. El alta no genera una compra, un precio ni un ingreso de stock. Si falta el costo de Compras, la cotización puede conservarse como borrador, pero no aprobarse todavía.
 
+El catálogo tiene un botón **Cerrar** y cada resultado ofrece **Editar**, además de Vincular. Editar permite modificar descripción, familia, subfamilia, control y unidad de registro. Una unidad equivocada se corrige directamente si el insumo no tiene compras, conteos, reservas ni cotizaciones aprobadas. En ese caso se reinician sus equivalencias y se conservan el código y el mínimo de stock. Con registros anteriores, la unidad original no se renombra: se usa **Unidades y equivalencias**, con un rendimiento explícito, para cambiar la unidad de control. Por ejemplo, para tinta comprada por litro y controlada en m² se debe indicar cuántos m² rinde un litro. Las ediciones quedan auditadas y se rechazan los cambios simultáneos sobre una ficha desactualizada. La cantidad de la cotización se conserva y la fila requiere revisión antes de aprobar.
+
 Para impresión propia sobre lona aportada por el cliente, corresponde vincular la tinta consumida, sin agregar lona. La cantidad de tinta se carga según el consumo previsto; no se deduce de los m² vendidos. Un trabajo contratado a terceros puede vincularse como servicio sin stock, con su propio costo.
 
 ## Fecha de aprobación y alta en Obras

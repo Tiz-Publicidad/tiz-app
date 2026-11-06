@@ -54,6 +54,28 @@ async function createArticle(db,body,user,at=new Date().toISOString()){
  });
 }
 function unitVersion(a){return require('node:crypto').createHash('sha256').update(JSON.stringify({unidad:a.unidad||'',unidadControl:a.unidadControl||'',unidadCompra:a.unidadCompraPreferida||'',equivalencias:Object.entries(a.equivalenciasStock||{}).sort(([a],[b])=>a.localeCompare(b)),medidas:a.medidasPresentacion||{}})).digest('hex');}
+function articleVersion(a){return require('node:crypto').createHash('sha256').update(JSON.stringify({descripcion:a.descripcion||'',familia:a.familia||a.rubro||'',subfamilia:a.subfamilia||'',control:a.control||'',stockMinimo:a.stockMinimo??0,codigo:a.codigo||'',unidades:unitVersion(a)})).digest('hex');}
+async function editArticle(db,body,user,at=new Date().toISOString()){
+ mayUnits(user);const id=C.text(body.articuloId);if(!/^[\w-]{1,150}$/.test(id))throw fail('Insumo inválido.');const ref=db.collection('articulosCompra').doc(id);
+ if(body.mode==='quote-materials-article-read'){const snap=await ref.get();if(!snap.exists)throw fail('El insumo ya no existe.',404);return {ok:true,articulo:{...snap.data(),id},version:articleVersion(snap.data())};}
+ const input=C.articleDraft(body.articulo,true);
+ return db.runTransaction(async tx=>{
+  const snap=await tx.get(ref);if(!snap.exists)throw fail('El insumo ya no existe.',404);const old=snap.data();
+  if(body.version!==articleVersion(old))throw fail('Otra persona modificó el insumo. Cerrá y volvé a abrir Editar antes de guardar.',409);
+  const all=list(await tx.get(db.collection('articulosCompra')));
+  if(all.some(a=>a.id!==id&&C.articleIdentity(a.descripcion)===C.articleIdentity(input.descripcion)))throw fail('Ya existe otro insumo con esa descripción. Buscalo y vinculalo.',409);
+  const changedUnit=C.unit(input.unidad)!==C.unit(old.unidad),changedControl=(input.control==='sin_stock')!==(old.control==='sin_stock');
+  if(changedUnit||changedControl){
+   const sources=await Promise.all(['compras','conteosStock','planesMateriales','aprobacionesInsumosCotizacion'].map(name=>tx.get(db.collection(name))));
+   const used=sources.flatMap(list).some(d=>[...(d.items||[]),...(d.insumos||[]),...(d.resumen?.items||[])].some(i=>i.articuloId===id));
+   if(used)throw fail(changedUnit?'El insumo tiene registros anteriores. Usá Unidades y equivalencias para cambiar la unidad de control conservando cantidades y costos.':'El insumo tiene registros anteriores. Conservá el control de stock o creá un artículo distinto.',409);
+  }
+  const patch={descripcion:input.descripcion,familia:input.familia,subfamilia:input.subfamilia,unidad:input.unidad,control:input.control,actualizadoEn:at,actualizadoPor:user.email};
+  if(changedUnit)Object.assign(patch,{unidadControl:input.unidad,unidadCompraPreferida:input.unidad,equivalenciasStock:{},medidasPresentacion:{}});
+  tx.update(ref,patch);tx.set(ref.collection('historialArticulo').doc(),{anterior:old,nuevo:patch,fecha:at,usuario:user.email,motivo:'Edición desde el catálogo de Cotizaciones'});
+  return {ok:true,articulo:{...old,...patch,id}};
+ });
+}
 function mayUnits(user){if(!SALES.has(user.email)&&user.email!=='carolina.flores@tizpublicidad.com')throw fail('Ventas o Compras deben definir las unidades de stock.',403);}
 async function stockUnits(db,body,user,at=new Date().toISOString()){
  mayUnits(user);const id=C.text(body.articuloId);if(!/^[\w-]{1,150}$/.test(id))throw fail('Insumo inválido.');const ref=db.collection('articulosCompra').doc(id);
@@ -85,8 +107,9 @@ async function handle(req,res){
   if(mode==='approve')return res.json(await approve(db,body,user));
   if(mode==='equivalence')return res.json(await equivalence(db,body,user));
   if(mode==='article-create')return res.json(await createArticle(db,body,user));
+  if(['article-read','article-update'].includes(mode))return res.json(await editArticle(db,body,user));
   if(['units-read','units-preview','units-save'].includes(mode))return res.json(await stockUnits(db,body,user));
   if(mode==='suggest'){if(!SALES.has(user.email))throw fail('Sólo Ventas puede generar el desglose de una cotización.',403);return res.json(await suggest(db,body));}throw fail('Operación inválida.');
  }catch(e){return res.status(e.status||400).json({ok:false,error:e.message||'No se pudo procesar el detalle de materiales.'});}
 }
-module.exports={readCatalog,approve,equivalence,createArticle,stockUnits,unitVersion,aiRows,sharedIA,suggest,handle};
+module.exports={readCatalog,approve,equivalence,createArticle,editArticle,articleVersion,stockUnits,unitVersion,aiRows,sharedIA,suggest,handle};
