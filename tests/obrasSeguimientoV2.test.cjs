@@ -1,6 +1,18 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const C=require('../functions/obrasSeguimientoCoreV2');
 
+test('Darssa y Miniso: las altas del 2, 3 y 4 de noviembre completan semana 45 si falta',()=>{
+ for(const fecha of ['2026-11-02','2026-11-03','2026-11-04']){const w={id:fecha,ot:'4798',cliente:'Cliente',fechaAltaObra:fecha,semanaVenta:0};assert.equal(C.approvalWeek(w),45);assert.equal(C.grouped([w])[0].semana,45);assert.equal(w.semanaVenta,0);}
+ assert.equal(C.approvalWeek({fechaAltaObra:'inválida'}),0);assert.equal(C.approvalWeek({semanaVenta:0,semana:44}),44);
+});
+test('semana de aprobación usa Buenos Aires, incluso el domingo de noche y el cambio de año ISO',()=>{
+ assert.equal(C.approvalWeek({fechaAprobacion:'2026-11-09T02:59:59Z',semanaVenta:40}),45);assert.equal(C.approvalWeek({fechaAprobacion:'2026-11-09T03:00:00Z'}),46);
+ assert.equal(C.approvalWeek({fechaAltaObra:'2021-01-01'}),53);assert.equal(C.approvalWeek({fechaAltaObra:'2021-01-04'}),1);
+});
+test('OT 4756 recién aprobada se ubica antes de 4811, 4810 y 4804',()=>{
+ const obras=['4811','4810','4804'].map((ot,i)=>({id:ot,ot,fechaAprobacion:'2026-11-06T'+(12+i)+':00:00Z'}));obras.push({id:'4756',ot:'4756',fecha:'2026-10-01',fechaAprobacion:'2026-11-06T18:35:00Z'});assert.equal(C.grouped(obras)[0].ot,'4756');
+});
+
 test('el último trabajo aprobado va primero aunque su CT sea menor o se haya cotizado antes',()=>{
  const works=[{id:'alta',ot:'9999',cliente:'Cliente',fecha:'2026-11-06',fechaAprobacion:'2026-11-06T12:00:00Z'},{id:'nueva',ot:'4200',cliente:'Cliente',fecha:'2026-09-01',fechaAltaObra:'2026-11-06',fechaAprobacion:'2026-11-06T18:30:00Z'}];
  assert.deepEqual([...works].sort(C.compareApproved).map(w=>w.id),['nueva','alta']);assert.deepEqual(C.grouped(works).map(w=>w.id),['nueva','alta']);assert.equal(works[1].fecha,'2026-09-01');

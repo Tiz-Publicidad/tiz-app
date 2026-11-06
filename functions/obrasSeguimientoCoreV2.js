@@ -70,6 +70,11 @@ function instant(value){
 }
 function approvalStamp(work={}){const n=instant(work.fechaAprobacion)||instant(work.insumosVentasAprobados?.aprobadoEn);return n?new Date(n).toISOString():'';}
 function approvalTime(work={}){return instant(approvalStamp(work))||instant(work.fechaAltaObra)||instant(work.fechaAlta)||instant(work.fecha)||instant(work._ts);}
+function approvalWeek(work={}){
+ const stamp=approvalStamp(work);let date=stamp?day(new Date(stamp)):'';
+ if(!date){const saved=[work.semanaVenta,work.semana].map(Number).find(n=>Number.isInteger(n)&&n>=1&&n<=53);if(saved)return saved;date=iso(work.fechaAltaObra)||iso(work.fechaAlta)||iso(work.fecha)||iso(work._ts);}
+ if(!date)return 0;const d=new Date(date+'T12:00:00Z'),dow=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-dow);d.setUTCHours(0,0,0,0);return Math.ceil(((d-new Date(Date.UTC(d.getUTCFullYear(),0,1)))/86400000+1)/7);
+}
 function compareApproved(a,b){return approvalTime(b)-approvalTime(a)||T(a.cliente).localeCompare(T(b.cliente),'es')||T(a.id||a.key).localeCompare(T(b.id||b.key));}
 
 function grouped(works=[]){
@@ -79,7 +84,7 @@ function grouped(works=[]){
    const o=members[0],s=o.obraSeguimientoV2||{},alta=iso(o.fechaAltaObra||o.fecha||o.fechaAprobacion)||iso(o._ts),prod=iso(s.produccionPrevista??o.fprod_c??o.gestionSectores?.produccion?.compromiso),col=iso(s.colocacionPrevista??o.fcol_c??o.gestionSectores?.colocaciones?.compromiso);
    const estados=members.map(m=>({estado:state(m.estado),desc:m.desc||m.descripcion||''}));
    const cancelled=members.find(isBaja),approved=Math.max(0,...members.map(m=>instant(approvalStamp(m))));
-   return {key,id:o.id,ids:members.map(m=>m.id),versions:Object.fromEntries(members.map(m=>[m.id,Number(m.obraSeguimientoV2?.version)||0])),ot:T(o.ot),desc:T(o.desc||o.descripcion),cliente:T(o.cliente),estado:cancelled?'Baja':aggregateStatus(estados),bajaObra:cancelled?.bajaObra||null,fechaAprobacion:approved?new Date(approved).toISOString():'',fechaAlta:alta,semana:Number(o.semanaVenta??o.semana)||0,produccionPrevista:prod,colocacionPrevista:col,seguimiento:{...s,reprogramaciones:replanHistory(members),produccionPrevista:prod,colocacionPrevista:col,produccionReal:iso(s.produccionReal??o.fprod_r),colocacionReal:iso(s.colocacionReal??o.fcol_r)},members};
+   return {key,id:o.id,ids:members.map(m=>m.id),versions:Object.fromEntries(members.map(m=>[m.id,Number(m.obraSeguimientoV2?.version)||0])),ot:T(o.ot),desc:T(o.desc||o.descripcion),cliente:T(o.cliente),estado:cancelled?'Baja':aggregateStatus(estados),bajaObra:cancelled?.bajaObra||null,fechaAprobacion:approved?new Date(approved).toISOString():'',fechaAlta:alta,semana:approvalWeek({...o,fechaAprobacion:approved?new Date(approved).toISOString():o.fechaAprobacion}),produccionPrevista:prod,colocacionPrevista:col,seguimiento:{...s,reprogramaciones:replanHistory(members),produccionPrevista:prod,colocacionPrevista:col,produccionReal:iso(s.produccionReal??o.fprod_r),colocacionReal:iso(s.colocacionReal??o.fcol_r)},members};
  }).sort(compareApproved);
 }
 function clientAliases(group,clients=[]){const result=new Set([family(group.cliente)]);for(const c of clients){const names=[c.nombre,c.razonSocial,c.razon_social,c.nombreFiscal].map(family).filter(Boolean);if(names.some(n=>result.has(n))||group.members.some(m=>m.clienteId===c.id))names.forEach(n=>result.add(n));}return result;}
@@ -204,5 +209,6 @@ function replanReport(groups,{desde='',hasta='',etapa='',motivo='',query=''}={})
  }
  return{rows,total:rows.length,obras:counts.size,reincidentes:[...counts.values()].filter(n=>n>1).length,postergaciones:rows.filter(r=>r.tipo==='postergacion').length,dias:rows.reduce((n,r)=>n+r.dias,0),porMotivo:aggregate(r=>r.motivo),porCliente:aggregate(r=>r.cliente),porMes:aggregate(r=>r.fechaRegistro.slice(0,7)).sort((a,b)=>a.key.localeCompare(b.key)),original};
 }
-return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
+return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });
+

@@ -2,6 +2,10 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),M=require('../obrasConsultaCacheV1'),C=require('../functions/obrasSeguimientoCoreV2');
 const work=(id,extra={})=>({id,ot:String(4800+Number(id)||4800),cliente:'Cliente '+id,desc:'Trabajo '+id,estado:'Aprobado',...extra});
 
+test('semana faltante se completa igual en la consulta y en la caché, sin modificar la fecha',()=>{
+ const API=require('../functions/obrasConsultaV1'),w=work('1',{fechaAltaObra:'2026-11-02',semanaVenta:0});assert.equal(API.projectWork({id:w.id,data:()=>w}).semanaVenta,45);assert.equal(M.project(w,C).semanaVenta,45);assert.equal(w.fechaAltaObra,'2026-11-02');
+});
+
 test('consulta y caché conservan hora exacta para ordenar aprobaciones del mismo día',()=>{
  const API=require('../functions/obrasConsultaV1'),w=work('1',{fechaAltaObra:'2026-11-06',fechaAprobacion:'2026-11-06T18:30:25.123Z'}),server=API.projectWork({id:w.id,data:()=>w}),local=M.project(w,C);
  assert.equal(server.fechaAprobacion,w.fechaAprobacion);assert.equal(local.fechaAprobacion,w.fechaAprobacion);const result=M.merge([server],M.snapshot([w],C),[w],C);assert.equal(result.works[0].fechaAprobacion,w.fechaAprobacion);
