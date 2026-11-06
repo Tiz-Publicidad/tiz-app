@@ -12,6 +12,12 @@ El catálogo tiene un botón **Cerrar** y cada resultado ofrece **Editar**, adem
 
 Para impresión propia sobre lona aportada por el cliente, corresponde vincular la tinta consumida, sin agregar lona. La cantidad de tinta se carga según el consumo previsto; no se deduce de los m² vendidos. Un trabajo contratado a terceros puede vincularse como servicio sin stock, con su propio costo.
 
+## Aprobación transitoria con costos pendientes
+
+Mientras se completa la carga inicial de Compras, el botón **Permitir aprobación con costos pendientes** habilita una excepción para el detalle actual de una cotización. Sólo cubre insumos que todavía no tienen ninguna compra con precio registrado; no permite ignorar precios inválidos, moneda sin convertir o unidades incompatibles. Cantidad, vínculo al catálogo, revisión y verificación de stock siguen siendo obligatorios. Después de habilitarlo, se elige Aprobado y se guarda normalmente. La autorización se pierde al cambiar el detalle y no se hereda al abrir otra cotización.
+
+El servidor vuelve a comprobar el catálogo y registra insumos pendientes, motivo, usuario y fecha en el resumen aprobado. El costo total y los costos individuales desconocidos se guardan como `null`, con `estadoCosto: pendiente`; el subtotal de costos conocidos queda separado. No se inventa un precio cero ni se modifica el precio de venta. Cuando Compras incorpora los precios, las nuevas aprobaciones ya no requieren la excepción. Los resúmenes previamente aprobados conservan su estado y sus datos históricos.
+
 ## Fecha de aprobación y alta en Obras
 
 La aprobación guarda la fecha del servidor en la cotización. Al promoverla a Obra, se toma su día en Buenos Aires como fecha de alta y su semana ISO como semana de venta. La fecha original de cotización queda en el documento comercial y en `infoPresupuesto.fechaCotizacion`. Reintentar, editar o sincronizar una obra no cambia su fecha de alta. Las obras nativas marcadas con `fechaAltaObraOrigen: aprobacion` conservan esos datos ante la sincronización de la referencia externa.
