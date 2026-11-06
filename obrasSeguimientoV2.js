@@ -8,7 +8,7 @@ const consulta={email:'',works:[],busy:false,loaded:false,error:'',generation:0,
 const user=()=>window.currentUser,usesConsulta=()=>window.currentPage==='obras'&&!!user();
 const localWorksFallback=()=>usesConsulta()&&!consulta.loaded&&!user()?.restrictedOperaciones&&!user()?.restrictedColocaciones&&!user()?.restrictedChecklists&&consulta.email===user()?.email&&Array.isArray(window.DB?.obras)&&window.DB.obras.length>0;
 function consultationWorks(){if(localWorksFallback())return window.DB.obras;const cache=window.TIZObrasConsultaCacheV1;if(consulta.loaded&&cache){const merged=cache.merge(consulta.works,consulta.local,window.DB?.obras||[],C);consulta.works=merged.works;consulta.local=merged.local;}return consulta.works;}
-const groups=()=>C.grouped(usesConsulta()?consultationWorks():(window.DB?.obras||[])).filter(g=>window.currentPage!=='obras'||!C.isBaja(g)).sort((a,b)=>order(b.ot)-order(a.ot));
+const groups=()=>C.grouped(usesConsulta()?consultationWorks():(window.DB?.obras||[])).filter(g=>window.currentPage!=='obras'||!C.isBaja(g)).sort(C.compareApproved);
 // Las obras archivadas conservan su historial en estadística. No se reactivan ni se editan.
 const statisticsGroups=()=>C.grouped((usesConsulta()?consultationWorks():(window.DB?.obras||[])).map(w=>w.archivado?{...w,archivado:false}:w));
 function resetConsulta(){consulta.generation++;consulta.email='';consulta.works=[];consulta.busy=false;consulta.loaded=false;consulta.error='';consulta.local=new Map();document.getElementById('obras2-root')?.remove();}
