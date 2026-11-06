@@ -30,7 +30,7 @@ async function save(db,body,user,at=new Date().toISOString()){
   const snap=await tx.get(db.collection('obras')),works=snap.docs.map(d=>({...d.data(),id:d.id})),group=C.grouped(works).find(g=>g.ids.includes(id));
   if(!group)throw fail('La obra ya no está disponible.',404);
   const versions=body.versiones||{};if(Object.keys(versions).length!==group.ids.length||group.ids.some(id=>Number(versions[id])!==group.versions[id]))throw fail('Otra persona actualizó la obra. Cerrá el formulario y volvé a abrirlo.',409);
-  const patches=group.members.map(o=>({id:o.id,patch:C.trackingPatch(o,body.campos||{},user,at)}));
+  const patches=group.members.map(o=>({id:o.id,patch:C.trackingPatch(o,body.campos||{},user,at,C.day(),group.id+":"+at)}));
   for(const p of patches){const ref=db.collection('obras').doc(p.id),old=works.find(w=>w.id===p.id);tx.update(ref,p.patch);tx.set(ref.collection('seguimientoHistorial').doc(),{tipo:'seguimiento',fecha:at,usuario:user.email,antes:old.obraSeguimientoV2||{},despues:p.patch.obraSeguimientoV2});}
   return {ok:true,obraId:group.id,patches};
  });
