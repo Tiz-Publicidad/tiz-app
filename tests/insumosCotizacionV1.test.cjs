@@ -79,6 +79,12 @@ test('cantidades y costos que desbordan el rango numérico no permiten aprobar',
 test('cambiar materiales aprobados requiere una revisión y conserva el costo original',async()=>{
  const f=dbFixture(),result=await API.approve(f.db,body(),sales);const input=body();input.insumosAnteriores=result.insumosVentas;input.cotizacion.insumosVentas[0].cantidad='1';await assert.rejects(API.approve(f.db,input,sales),/nueva revisión/);assert.equal(f.writes.length,2);
 });
+test('la aprobación guarda fecha del servidor y los reintentos conservan la primera aprobación',async()=>{
+ const f=dbFixture(),input=body(),first=await API.approve(f.db,input,sales,'2026-11-07T01:30:00Z');
+ assert.equal(first.fechaAprobacion,'2026-11-07T01:30:00Z');assert.equal(f.docs.get('presupuestos/p').fechaAprobacion,first.fechaAprobacion);
+ input.insumosAnteriores=first.insumosVentas;input.cotizacion.fechaAprobacion='2000-01-01';
+ const retry=await API.approve(f.db,input,sales,'2026-11-10T15:00:00Z');assert.equal(retry.fechaAprobacion,first.fechaAprobacion);
+});
 test('el flujo nace en Cotizaciones, se guarda en la OT y no aparece en el generador de PDF',()=>{
  const sector=fs.readFileSync(require.resolve('../sectorizacionV35.js'),'utf8'),html=fs.readFileSync(require.resolve('../index.html'),'utf8');assert.match(sector,/TIZInsumosCotizacionV1\?\.open\(data,crearNueva\)/);assert.match(sector,/TIZInsumosCotizacionV1\?\.canApprove\(\)/);assert.match(sector,/obra.insumosVentasAprobados=data.insumosVentasAprobados/);assert.match(html,/quote-materials-/);const pdf=html.slice(html.indexOf('window.generarPDF ='),html.indexOf('window.estTab ='));assert.doesNotMatch(pdf,/insumosVentasAprobados|pp-insumos-ventas/);
 });

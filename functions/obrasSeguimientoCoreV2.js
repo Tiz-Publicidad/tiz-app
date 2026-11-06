@@ -83,7 +83,7 @@ function referencePlan(works,source,clients=[],at=new Date().toISOString()){
    const first=[...rows].filter(r=>r.fechaAlta).sort((a,b)=>a.fechaAlta.localeCompare(b.fechaAlta))[0]||rows[0],validStates=rows.filter(r=>STATES.includes(r.estado)),status=validStates.length?aggregateStatus(validStates):null;
    const uniqueDate=field=>{const d=[...new Set(rows.map(r=>r[field]).filter(Boolean))];return d.length===1?d[0]:null;};
    for(const o of g.members){const p={...(status?{estado:status,cobr:status}:{}),referenciaGoogle2026:{filas:rows.map(r=>r.row),leidaEn:at,estado:status||T(o.estado),ot:rows[0].ot}};
-     if(first.fechaAlta)p.fechaAltaObra=first.fechaAlta;if(first.semana){p.semanaVenta=first.semana;p.semana=first.semana;}
+     if(o.fechaAltaObraOrigen!=='aprobacion'){if(first.fechaAlta)p.fechaAltaObra=first.fechaAlta;if(first.semana){p.semanaVenta=first.semana;p.semana=first.semana;}}
      for(const [field,root] of [['produccionPrevista','fprod_c'],['colocacionPrevista','fcol_c']]){const value=uniqueDate(field);if(value!==null&&!o.obraSeguimientoV2?.planificadoPorCalidad){p[root]=value;p['obraSeguimientoV2.'+field]=value;p['gestionSectores.'+(field==='produccionPrevista'?'produccion':'colocaciones')+'.compromiso']=value;}}
      if(['fprod_c','fcol_c'].some(k=>k in p&&p[k]!==iso(o[k]))){p['obraSeguimientoV2.version']=(Number(o.obraSeguimientoV2?.version)||0)+1;p['obraSeguimientoV2.calidadAprobada']=false;p['obraSeguimientoV2.produccionPlanificada']=false;}
      updates.push({id:o.id,patch:p,sourceRows:rows.map(r=>r.row)});

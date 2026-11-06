@@ -69,6 +69,11 @@ function shortDate(value) {
   if (match) return `${String(match[1]).padStart(2,"0")}/${String(match[2]).padStart(2,"0")}/${String(match[3]).slice(-2)}`;
   return new Intl.DateTimeFormat("es-AR", {day:"2-digit", month:"2-digit", year:"2-digit"}).format(new Date());
 }
+function approvalDate(p) {
+  const stamp=p.fechaAprobacion||p.insumosVentasAprobados?.aprobadoEn;
+  const value=stamp?require('./insumosCotizacionCoreV1').argentinaDay(stamp).split('-').reverse().join('/'):p.fecha;
+  return shortDate(value);
+}
 async function operator(req) {
   const header = req.get("authorization") || "";
   if (!header.startsWith("Bearer ")) throw Object.assign(new Error("Falta iniciar sesión"), {status:401});
@@ -251,7 +256,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
     if(matches.length>1)throw Object.assign(new Error("La OT tiene varias filas en Base Madre; revisar antes de sincronizar"),{status:409});
     const found = matches[0] ?? -1;
     let rowNumber = found >= 0 ? found + 3 : nextEmptyRow(values);
-    const date = shortDate(p.fecha || p.fechaAprobacion);
+    const date = approvalDate(p);
     const [dd,mm,yy] = date.split("/").map(Number);
     const week = isoWeek(new Date(2000 + yy, mm - 1, dd));
     if (found < 0) rowNumber = await nextAvailableRow(sheets, rowNumber);

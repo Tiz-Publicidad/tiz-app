@@ -2,6 +2,18 @@
 
 El detalle de Ventas vive en Cotizaciones, antes de aprobar. Las filas describen la cantidad necesaria para la cotización completa. La IA propone materiales y nunca confirma cantidades ni revisiones. Una fila sin vínculo al catálogo, cantidad positiva, unidad convertible, precio de compra o revisión bloquea la aprobación. Los faltantes y conteos desconocidos se muestran en rojo y requieren marcar una compra o verificación pendiente.
 
+## Vincular y crear desde la cotización
+
+Cada fila ofrece **Buscar / vincular** y **Nuevo insumo**. La búsqueda usa código, descripción, familia y subfamilia del catálogo compartido `articulosCompra`. Vincular conserva cantidad y unidad de uso y exige revisar nuevamente la fila; no hace conversiones implícitas ni registra movimientos de stock.
+
+Ventas y Compras pueden dar de alta un insumo con descripción, unidad, familia, subfamilia y tipo de control. El servidor usa el contador compartido `comprasSecuencias/insumos`, evita descripciones duplicadas y hace idempotentes los reintentos mediante `altasInsumosCotizacion`. Se reservan los códigos de la base TIZ. El alta no genera una compra, un precio ni un ingreso de stock. Si falta el costo de Compras, la cotización puede conservarse como borrador, pero no aprobarse todavía.
+
+Para impresión propia sobre lona aportada por el cliente, corresponde vincular la tinta consumida, sin agregar lona. La cantidad de tinta se carga según el consumo previsto; no se deduce de los m² vendidos. Un trabajo contratado a terceros puede vincularse como servicio sin stock, con su propio costo.
+
+## Fecha de aprobación y alta en Obras
+
+La aprobación guarda la fecha del servidor en la cotización. Al promoverla a Obra, se toma su día en Buenos Aires como fecha de alta y su semana ISO como semana de venta. La fecha original de cotización queda en el documento comercial y en `infoPresupuesto.fechaCotizacion`. Reintentar, editar o sincronizar una obra no cambia su fecha de alta. Las obras nativas marcadas con `fechaAltaObraOrigen: aprobacion` conservan esos datos ante la sincronización de la referencia externa.
+
 ## Presentaciones de compra y unidad de control
 
 La unidad original del artículo se conserva para interpretar los registros históricos. unidadCompraPreferida indica cómo se compra y unidadControl la unidad operativa de stock y consumo. equivalenciasStock relaciona unidades con la original: si la original es ROLLO, { "M²": 68.5 }; si la original ya es M² y se compra por rollos, { "ROLLO": 1/68.5 }. La interfaz siempre pide la relación legible «1 ROLLO contiene 68,5 m²». No se infieren tamaños desde la descripción ni se renombra la unidad de registros antiguos.

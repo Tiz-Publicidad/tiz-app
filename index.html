@@ -1400,7 +1400,7 @@ window.insumosCotizacionApiV1 = async body => {
 };
 window.addDoc_ = async (col_, data) => {
   if(col_==='presupuestos'&&data.estado==='Aprobado'){
-    const result=await window.insumosCotizacionApiV1({mode:'approve',crear:true,id:data.insumosCotizacionId||'',cotizacion:data,insumosAnteriores:data.insumosVentas||[]});Object.assign(data,{insumosVentas:result.insumosVentas,insumosVentasAprobados:result.insumosVentasAprobados});return {id:result.id};
+    const result=await window.insumosCotizacionApiV1({mode:'approve',crear:true,id:data.insumosCotizacionId||'',cotizacion:data,insumosAnteriores:data.insumosVentas||[]});Object.assign(data,{insumosVentas:result.insumosVentas,insumosVentasAprobados:result.insumosVentasAprobados,fechaAprobacion:result.fechaAprobacion});return {id:result.id};
   }
   const patch={...data};
   if(col_==='obras') {
@@ -1412,7 +1412,7 @@ window.addDoc_ = async (col_, data) => {
 window.updateDoc_ = async (col_, id, data) => {
   if(col_==='presupuestos'&&data.estado==='Aprobado'){
     const prior=window.DB?.presupuestos?.find(p=>p.id===id)||{};
-    const result=await window.insumosCotizacionApiV1({mode:'approve',id,cotizacion:{...prior,...data},insumosAnteriores:prior.insumosVentas||[]});Object.assign(data,{insumosVentas:result.insumosVentas,insumosVentasAprobados:result.insumosVentasAprobados});return;
+    const result=await window.insumosCotizacionApiV1({mode:'approve',id,cotizacion:{...prior,...data},insumosAnteriores:prior.insumosVentas||[]});Object.assign(data,{insumosVentas:result.insumosVentas,insumosVentasAprobados:result.insumosVentasAprobados,fechaAprobacion:result.fechaAprobacion});return;
   }
   if(col_!=='obras'||String(data?.estado||'').trim().toLowerCase()!=='aprobado') return updateDoc(doc(db,col_,id),data);
   return runTransaction(db,async transaction=>{
@@ -3781,7 +3781,7 @@ async function syncToSheets(data) {
 <script src="clemenBuscarPresupuestoV81.js?v=TIZ-V82-FILTRO-PRESUPUESTOS-20260929"></script>
 <script src="obrasListadoV1.js?v=TIZ-LISTADOS-COMPACTOS-20261016A&baja=20261030"></script>
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261104-LEGIBLE"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103&obras-semaforo=20261104&insumos=20261104"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103&obras-semaforo=20261104&insumos=20261104&catalogo-aprobacion=20261106"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
@@ -3813,11 +3813,11 @@ async function syncToSheets(data) {
 <script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023&obras-semaforo=20261104"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
-<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104&reprogramaciones=20261106"></script>
+<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104&reprogramaciones=20261106&catalogo-aprobacion=20261106"></script>
 <script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102&baja-ventas=20261103&obras-semaforo=20261104&reprogramaciones=20261106"></script>
 <script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102&estado=20261103&baja-ventas=20261103&obras-semaforo=20261104&reprogramaciones=20261106"></script>
-<script src="functions/insumosCotizacionCoreV1.js?v=20261104"></script>
-<script src="insumosCotizacionV1.js?v=20261104-callback3"></script>
+<script src="functions/insumosCotizacionCoreV1.js?v=20261104&catalogo-aprobacion=20261106"></script>
+<script src="insumosCotizacionV1.js?v=20261104-callback3&catalogo-aprobacion=20261106"></script>
 </body>
 </html>
 

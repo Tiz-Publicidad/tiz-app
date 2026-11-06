@@ -57,6 +57,8 @@ jobs:
           node --check functions/baseMadreLayoutV1.js
           node --test tests/baseMadreLayoutV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
+          node --check functions/insumosCotizacionApiV1.js
+          node --test tests/insumosCotizacionV1.test.cjs tests/cotizacionesCatalogoAltaV1.test.cjs
           node --check functions/obrasConsultaV1.js
           node --test tests/obrasConsultaV1.test.cjs
           node --check obrasSeguimientoV2.js

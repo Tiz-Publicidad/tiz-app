@@ -25,16 +25,33 @@ async function approve(db,body,user,at=new Date().toISOString()){
    const prior=check.data();if(JSON.stringify(rows)!==JSON.stringify(C.draft(prior.insumos)))throw fail('El detalle aprobado está congelado. Creá una nueva revisión para cambiar materiales.');baseline=prior.resumen;
   }else{const catalog=await readCatalog(db,tx);baseline=C.snapshot(rows,catalog,input,user,at);}
   const data=Object.fromEntries(FIELDS.filter(k=>input[k]!==undefined).map(k=>[k,input[k]]));
-  Object.assign(data,{insumosVentas:rows,insumosVentasAprobados:baseline});
+  Object.assign(data,{insumosVentas:rows,insumosVentasAprobados:baseline,fechaAprobacion:C.text(old?.fechaAprobacion)||baseline.aprobadoEn});
   if(!old)data._ts=new Date(at);
   if(!check.exists)tx.set(audit,{presupuestoId:id,insumos:rows,resumen:baseline});
-  tx.set(ref,data,{merge:true});return {ok:true,id,insumosVentas:rows,insumosVentasAprobados:baseline};
+  tx.set(ref,data,{merge:true});return {ok:true,id,insumosVentas:rows,insumosVentasAprobados:baseline,fechaAprobacion:data.fechaAprobacion};
  });
 }
 async function equivalence(db,body,user,at=new Date().toISOString()){
  if(!SALES.has(user.email)&&user.email!=='carolina.flores@tizpublicidad.com')throw fail('Ventas o Compras deben definir la equivalencia.',403);
  const id=C.text(body.articuloId),target=C.unit(body.unidad),factor=C.number(body.factor);if(!/^[\w-]{1,150}$/.test(id)||!C.units.includes(target)||!Number.isFinite(factor)||factor<=0)throw fail('Equivalencia inválida.');
  return db.runTransaction(async tx=>{const ref=db.collection('articulosCompra').doc(id),snap=await tx.get(ref);if(!snap.exists)throw fail('El insumo ya no existe.');const a=snap.data();if(C.unit(a.unidad)!==C.unit(body.unidadStock))throw fail('Cambió la unidad de stock. Actualizá el catálogo.');if(target===C.unit(a.unidad))throw fail('La unidad de uso ya coincide con stock.');const values={...(a.equivalenciasStock||{}),[target]:factor};tx.update(ref,{equivalenciasStock:values,equivalenciasActualizadasEn:at,equivalenciasActualizadasPor:user.email});return {ok:true,equivalenciasStock:values};});
+}
+async function createArticle(db,body,user,at=new Date().toISOString()){
+ mayUnits(user);const data=C.articleDraft(body.articulo),request=C.text(body.solicitudId);
+ if(!/^[\w-]{16,100}$/.test(request))throw fail('La solicitud de alta no es válida. Reabrí el formulario.');
+ const fingerprint=JSON.stringify(data),receipt=db.collection('altasInsumosCotizacion').doc(request),sequence=db.collection('comprasSecuencias').doc('insumos');
+ return db.runTransaction(async tx=>{
+  const prior=await tx.get(receipt);
+  if(prior.exists){const saved=prior.data();if(saved.datos!==fingerprint)throw fail('Esta solicitud ya creó otro insumo. Reabrí el formulario.',409);const snap=await tx.get(db.collection('articulosCompra').doc(saved.articuloId));if(!snap.exists)throw fail('El insumo creado ya no está disponible.',409);return {ok:true,articulo:{...snap.data(),id:snap.id||saved.articuloId}};}
+  const [snap,seq]=await Promise.all([tx.get(db.collection('articulosCompra')),tx.get(sequence)]),articles=list(snap);
+  const duplicate=articles.find(a=>C.articleIdentity(a.descripcion)===C.articleIdentity(data.descripcion));
+  if(duplicate)throw fail('Ya existe '+C.text(duplicate.codigo)+' · '+C.text(duplicate.descripcion)+'. Buscalo y vinculalo desde el catálogo.',409);
+  const codigo=C.nextArticleCode(articles,seq.exists?seq.data().ultimo:0),ref=db.collection('articulosCompra').doc('insumo-'+codigo),existing=await tx.get(ref);
+  if(existing.exists)throw fail('El número ya existe. Actualizá el catálogo y reintentá.',409);
+  const article={...data,codigo,origen:'cotizacion',creadoPor:user.email,creadoEn:at,_ts:new Date(at)};
+  tx.set(sequence,{ultimo:Number(codigo)},{merge:true});tx.set(ref,article);tx.set(receipt,{datos:fingerprint,articuloId:ref.id,fecha:at,usuario:user.email});
+  return {ok:true,articulo:{...article,id:ref.id}};
+ });
 }
 function unitVersion(a){return require('node:crypto').createHash('sha256').update(JSON.stringify({unidad:a.unidad||'',unidadControl:a.unidadControl||'',unidadCompra:a.unidadCompraPreferida||'',equivalencias:Object.entries(a.equivalenciasStock||{}).sort(([a],[b])=>a.localeCompare(b)),medidas:a.medidasPresentacion||{}})).digest('hex');}
 function mayUnits(user){if(!SALES.has(user.email)&&user.email!=='carolina.flores@tizpublicidad.com')throw fail('Ventas o Compras deben definir las unidades de stock.',403);}
@@ -67,8 +84,9 @@ async function handle(req,res){
   if(mode==='catalog')return res.json({ok:true,articulos:await readCatalog(db)});
   if(mode==='approve')return res.json(await approve(db,body,user));
   if(mode==='equivalence')return res.json(await equivalence(db,body,user));
+  if(mode==='article-create')return res.json(await createArticle(db,body,user));
   if(['units-read','units-preview','units-save'].includes(mode))return res.json(await stockUnits(db,body,user));
   if(mode==='suggest'){if(!SALES.has(user.email))throw fail('Sólo Ventas puede generar el desglose de una cotización.',403);return res.json(await suggest(db,body));}throw fail('Operación inválida.');
  }catch(e){return res.status(e.status||400).json({ok:false,error:e.message||'No se pudo procesar el detalle de materiales.'});}
 }
-module.exports={readCatalog,approve,equivalence,stockUnits,unitVersion,aiRows,sharedIA,suggest,handle};
+module.exports={readCatalog,approve,equivalence,createArticle,stockUnits,unitVersion,aiRows,sharedIA,suggest,handle};
