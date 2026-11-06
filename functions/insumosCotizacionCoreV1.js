@@ -107,12 +107,60 @@ function validate(rows,articles,{allowMissingCosts=false}={}){
  });let total=lines.reduce((s,l)=>s+(Number.isFinite(l.costoTotal)?l.costoTotal:0),0);if(!Number.isFinite(total)){errors.push('El costo total está fuera de rango.');total=0;}return {ok:errors.length===0,errores:errors,avisos:warnings,items:lines,total,costosPendientes:lines.filter(l=>l.costoPendiente)};
 }
 function draft(rows){return (Array.isArray(rows)?rows:[]).slice(0,200).map(r=>({articuloId:text(r.articuloId),descripcion:text(r.descripcion).slice(0,300),cantidad:text(r.cantidad),unidad:unit(r.unidad),revisado:r.revisado===true,compraPendiente:r.compraPendiente===true,origen:r.origen==='ia'?'ia':'manual',nota:text(r.nota).slice(0,500)}));}
+// Explicit rollout exception: preserve unresolved values and the full list of work to finish.
+function implementationValidation(rows,articles){
+ const result=validate(rows,articles),errors=[];
+ if(!Array.isArray(rows)||rows.length>200)errors.push('El detalle admite hasta 200 materiales.');
+ for(const [i,r] of (Array.isArray(rows)?rows:[]).entries())if(text(r.cantidad)&&(!Number.isFinite(number(r.cantidad))||number(r.cantidad)<=0))errors.push('Material '+(i+1)+': corregí la cantidad inválida.');
+ const pending=[...new Set([...result.errores,...result.avisos])];
+ const items=result.items.map(r=>({...r,cantidadStock:Number.isFinite(r.cantidadStock)?r.cantidadStock:null,costoUnitarioStock:Number.isFinite(r.costoUnitarioStock)&&r.costoUnitarioStock>0?r.costoUnitarioStock:null,costoTotal:Number.isFinite(r.cantidadStock)&&Number.isFinite(r.costoUnitarioStock)&&r.costoUnitarioStock>0&&Number.isFinite(r.cantidadStock*r.costoUnitarioStock)?r.cantidadStock*r.costoUnitarioStock:null}));
+ let total=items.reduce((sum,r)=>sum+(r.costoTotal??0),0);if(!Number.isFinite(total)){errors.push('El costo calculado está fuera de rango.');total=0;}
+ return {...result,ok:!errors.length,errores:errors,items,total,pendientesInsumos:pending,costosPendientes:items.filter(r=>r.costoTotal===null)};
+}
+function implementationSnapshot(rows,articles,quote,user,at){
+ const r=implementationValidation(rows,articles);if(!r.ok)throw Error(r.errores.join('\n'));
+ if(!r.pendientesInsumos.length)return snapshot(rows,articles,{...quote,aprobarConInsumosPendientes:false},user,at);
+ const items=r.items.map(line=>{const a=articles.find(a=>a.id===line.articuloId)||{};return {...draft([line])[0],codigo:a.codigo||'',descripcion:a.descripcion||line.descripcion,cantidadStock:line.cantidadStock,unidadStock:a.unidad||'',costoUnitarioStock:line.costoUnitarioStock,costoTotal:line.costoTotal,costoPendiente:line.costoTotal===null,compraId:a.compraId||'',fechaCosto:a.fechaCosto||'',proveedor:a.proveedor||'',equivalenciasStock:a.equivalenciasStock||{},stockDisponible:a.stockDisponible??null,fechaStock:a.fechaStock||'',pendientes:[...line.errores,...line.avisos]};});
+ const unknown=!items.length||items.some(r=>r.costoTotal===null);
+ return {version:3,aprobadoEn:at,aprobadoPor:user.email,monedaCosto:'ARS',importeVenta:number(quote.importe)||0,monedaVenta:text(quote.moneda||'ARS'),estadoInsumos:'pendiente',estadoCosto:unknown?'pendiente':'definido',totalCosto:unknown?null:r.total,subtotalCostoConocido:r.total,costosPendientes:items.filter(r=>r.costoPendiente).map(r=>({articuloId:r.articuloId,codigo:r.codigo,descripcion:r.descripcion})),pendientesInsumos:r.pendientesInsumos,excepcionImplementacion:{motivo:'Implementación inicial: completar insumos, equivalencias, stock y costos',fecha:at,usuario:user.email},items};
+}
 function snapshot(rows,articles,quote,user,at){
+ if(quote.aprobarConInsumosPendientes===true)return implementationSnapshot(rows,articles,quote,user,at);
  const result=validate(rows,articles,{allowMissingCosts:quote.aprobarConCostosPendientes===true});if(!result.ok)throw Error(result.errores.join('\n'));
  const pending=result.costosPendientes.map(r=>{const a=articles.find(a=>a.id===r.articuloId);return {articuloId:a.id,codigo:a.codigo,descripcion:a.descripcion};});
  const incomplete=pending.length>0;
  return {version:incomplete?2:1,aprobadoEn:at,aprobadoPor:user.email,monedaCosto:'ARS',importeVenta:number(quote.importe)||0,monedaVenta:text(quote.moneda||'ARS'),totalCosto:incomplete?null:result.total,...(incomplete?{estadoCosto:'pendiente',subtotalCostoConocido:result.total,costosPendientes:pending,excepcionCostos:{motivo:'Implementación inicial: costos de Compras pendientes',fecha:at,usuario:user.email}}:{}),items:result.items.map(r=>{const a=articles.find(a=>a.id===r.articuloId);return {...draft([r])[0],codigo:a.codigo,descripcion:a.descripcion,cantidadStock:r.cantidadStock,unidadStock:a.unidad,costoUnitarioStock:a.ultimoCosto,costoTotal:r.costoTotal,...(r.costoPendiente?{costoPendiente:true}:{}),compraId:a.compraId,fechaCosto:a.fechaCosto,proveedor:a.proveedor,equivalenciasStock:a.equivalenciasStock,stockDisponible:a.stockDisponible,fechaStock:a.fechaStock,avisos:r.avisos};})};
 }
 
-return {text,norm,number,units,articleIdentity,articleDraft,nextArticleCode,argentinaDay,approvalWorkDates,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,unitSetting,day,timestamp,catalog,validate,draft,snapshot};
+function printingContext(quote={}){
+ const s=norm([quote.desc,...(quote.items||[]).map(i=>i.desc||i.descripcion)].join(' '));
+ if(!/impres|imprim|plot(eo|eado|ear)/.test(s)||/sin impresion|no lleva impresion|solo estructura/.test(s))return null;
+ const only=/solo (?:tinta|impresion)|sin (?:lona|material|soporte)|no incluye (?:lona|material|soporte)|(?:lona|material|soporte) (?:del|provisto por el) cliente/.test(s);
+ const supports=['lona','vinilo','pvc'].filter(x=>s.includes(x));
+ // Memory is isolated by support, technique and whether the client supplies the support.
+ return {key:'impresion-'+(supports.join('-')||'otro')+'-'+(/\buv\b/.test(s)?'uv':'general')+'-'+(only?'solo':'con-soporte'),soloImpresion:only,soportes:supports,uv:/\buv\b/.test(s)};
+}
+function printKind(description){
+ const s=norm(description),printing=/tinta|impres|imprim/.test(s),support=/lona|vinilo|pvc/.test(s),only=/solo (?:tinta|impresion)|sin (?:lona|material|soporte)|no incluye/.test(s);
+ if(support&&/para impres|para imprim/.test(s)&&!/tinta/.test(s))return 'soporte';
+ if(printing&&support&&!only&&!/tinta/.test(s))return 'combinado';
+ if(printing)return 'impresion';return support?'soporte':'otro';
+}
+function printingMaterials(quote,articles,proposed,memory=[]){
+ const context=printingContext(quote);if(!context)return proposed;
+ const results=proposed.filter(r=>!context.soloImpresion||r.origen==='manual'||r.revisado===true||!['soporte','combinado'].includes(printKind(articles.find(a=>a.id===r.articuloId)?.descripcion||r.descripcion||''))),description=r=>articles.find(a=>a.id===r.articuloId)?.descripcion||r.descripcion||'';
+ const add=(role,fallback)=>{
+  const kinds=results.map(r=>printKind(description(r)));if(kinds.includes(role)||kinds.includes('combinado'))return;
+  // Prefer the last human-reviewed choice, never an unreviewed model response.
+  const learned=[...new Set(memory.map(r=>r.articuloId))].map(id=>articles.find(a=>a.id===id)).filter(Boolean).filter(a=>printKind(a.descripcion)===role);
+  const candidates=articles.filter(a=>printKind(a.descripcion)===role&&(!context.uv||!/solvente|latex/.test(norm(a.descripcion)))&&(role!=='soporte'||!context.soportes.length||context.soportes.some(x=>norm(a.descripcion).includes(x))));
+  const a=learned.length===1?learned[0]:candidates.length===1?candidates[0]:null;
+  results.push({articuloId:a?.id||'',descripcion:a?.descripcion||fallback,unidad:a?.unidad||'',motivo:a&&learned.includes(a)?'Selección revisada en trabajos similares. Confirmá que corresponde.':'Impresión propia: revisar soporte y tinta por separado. Cantidad y rendimiento por confirmar.'});
+ };
+ // Bundles already containing printing and support must not acquire a second ink line.
+ if(!context.soloImpresion)add('soporte','Soporte para impresión ('+(context.soportes.join(' / ')||'por definir')+')');
+ add('impresion','Tinta / impresión'+(context.uv?' UV':'')+' (sin soporte)');
+ return results;
+}
+return {text,norm,number,units,articleIdentity,articleDraft,nextArticleCode,argentinaDay,approvalWorkDates,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,unitSetting,day,timestamp,catalog,validate,implementationValidation,draft,snapshot,printingContext,printingMaterials,printKind};
 });

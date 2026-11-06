@@ -60,6 +60,48 @@ function dbFixture(){
 }
 const body=()=>({id:'p',insumosAnteriores:[row()],cotizacion:{cliente:'Cliente',nro:'4800',estado:'Aprobado',importe:20000,items:[{desc:'Cartel',precio:20000,cant:1}],insumosVentas:[row()]}});
 const sales={email:'giancarlo.pareja@tizpublicidad.com'};
+
+test('implementación: reproduce lona en metros lineales contra m² y tres costos pendientes',async()=>{
+ const f=dbFixture(),input=body();f.docs.delete('compras/compra');f.docs.delete('conteosStock/conteo');
+ f.docs.set('articulosCompra/acrilico',{...article(),descripcion:'Lona Front',unidad:'M²',equivalenciasStock:{}});
+ input.cotizacion.insumosVentas=[{...row(),cantidad:'1.8',unidad:'MTS LINEALES'},{...row(),cantidad:'1',unidad:'M²'},{...row(),cantidad:'1.8',unidad:'M²'}];
+ input.cotizacion.aprobarConCostosPendientes=true;await assert.rejects(API.approve(f.db,input,sales),/Unidad incompatible/);
+ input.cotizacion.aprobarConInsumosPendientes=true;const result=await API.approve(f.db,input,sales,'2026-11-06T17:00:00Z'),s=result.insumosVentasAprobados;
+ assert.equal(s.version,3);assert.equal(s.totalCosto,null);assert.equal(s.subtotalCostoConocido,0);assert.equal(s.items[0].cantidadStock,null);assert.equal(s.items[0].cantidad,'1.8');assert.equal(s.items[0].unidad,'MTS LINEALES');assert.equal(s.items[0].costoTotal,null);assert.match(s.pendientesInsumos.join(),/Unidad incompatible/);assert.match(s.pendientesInsumos.join(),/precio/);assert.equal(s.excepcionImplementacion.usuario,sales.email);assert.equal(s.excepcionImplementacion.fecha,'2026-11-06T17:00:00Z');assert.equal(f.writes.length,2);
+});
+test('implementación: admite detalle por completar pero conserva controles comerciales, permisos y conflicto',async()=>{
+ for(const variant of ['empty','unlinked','unreviewed']){const f=dbFixture(),input=body();input.cotizacion.aprobarConInsumosPendientes=true;
+ input.cotizacion.insumosVentas=variant==='empty'?[]:[{...row(),articuloId:variant==='unlinked'?'':row().articuloId,cantidad:'',revisado:false}];
+ const s=(await API.approve(f.db,input,sales)).insumosVentasAprobados;assert.equal(s.estadoInsumos,'pendiente');assert.equal(s.totalCosto,null);assert.ok(s.pendientesInsumos.length);
+ }
+ for(const variant of ['negative','infinite','permission','conflict','sale']){const f=dbFixture(),input=body();input.cotizacion.aprobarConInsumosPendientes=true;
+ if(variant==='negative')input.cotizacion.insumosVentas[0].cantidad='-1';if(variant==='infinite')input.cotizacion.insumosVentas[0].cantidad='Infinity';if(variant==='conflict')input.insumosAnteriores=[];if(variant==='sale')input.cotizacion.importe=999;
+ await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0);
+ }
+ const normal=C.snapshot([row()],catalog(),{aprobarConInsumosPendientes:true},sales,'now');assert.equal(normal.version,1);assert.ok(normal.totalCosto>0);
+});
+test('implementación: conserva subtotal conocido y deja cantidad / equivalencia desconocida en null',()=>{
+ const rows=[row(),{...row(),unidad:'KG'}],s=C.snapshot(rows,catalog(),{aprobarConInsumosPendientes:true},sales,'now');assert.equal(s.items[1].cantidadStock,null);assert.equal(s.items[1].costoTotal,null);assert.ok(s.items[1].costoUnitarioStock>0);assert.equal(s.totalCosto,null);assert.equal(s.subtotalCostoConocido,s.items[0].costoTotal);
+});
+const printingCatalog=[{id:'lona',descripcion:'Lona Front para impresión UV',unidad:'M²'},{id:'tinta',descripcion:'Impresión de lona UV (Solo tinta, no incluye insumo)',unidad:'M²'}];
+test('impresión propone soporte y tinta separados, sin cantidades ni revisión automática',()=>{
+ const q={desc:'Impresión UV de lona para banner'},a=C.printingMaterials(q,printingCatalog,[{articuloId:'lona'}]);assert.equal(a.length,2);assert.equal(a[1].articuloId,'tinta');assert.equal(a[1].cantidad,undefined);assert.equal(a[1].revisado,undefined);
+ assert.equal(C.printingMaterials(q,printingCatalog,a).length,2);
+ assert.equal(C.printingMaterials({desc:'Cartel de PVC sin impresión'},printingCatalog,[]).length,0);
+ const solo=C.printingMaterials({desc:'Solo impresión UV de lona, no incluye lona'},printingCatalog,[{articuloId:'lona'}]);assert.equal(solo.length,1);assert.equal(solo[0].articuloId,'tinta');
+ const bundle=C.printingMaterials(q,printingCatalog,[{descripcion:'Lona con impresión UV incluida'}]);assert.equal(bundle.length,1);
+});
+test('impresión: varios insumos posibles exigen vínculo; reutiliza la selección humana sin adivinar rendimiento',()=>{
+ const a=[...printingCatalog,{id:'tinta2',descripcion:'Tinta UV alternativa',unidad:'ML'}],q={desc:'Impresión UV en lona'};
+ assert.equal(C.printingMaterials(q,a,[{articuloId:'lona'}])[1].articuloId,'');
+ const r=C.printingMaterials(q,a,[{articuloId:'lona'}],[{articuloId:'tinta2'}]);assert.equal(r[1].articuloId,'tinta2');assert.equal(r[1].unidad,'ML');assert.equal(r[1].cantidad,undefined);assert.match(r[1].motivo,/revisada/);
+});
+test('aprende sólo artículos revisados en aprobaciones nuevas y sin datos de cliente ni cantidades',async()=>{
+ const f=dbFixture(),input=body();input.cotizacion.desc='Impresión UV de lona';input.cotizacion.aprobarConInsumosPendientes=true;
+ input.cotizacion.insumosVentas=[row(),{...row(),articuloId:'otro',revisado:false}];
+ await API.approve(f.db,input,sales,'2026-11-06T18:00:00Z');const key='memoriaInsumosCotizacion/'+C.printingContext(input.cotizacion).key,m=f.docs.get(key);assert.deepEqual(m.ejemplos[0].insumos,[{articuloId:'acrilico'}]);assert.equal(JSON.stringify(m).includes('Cliente'),false);assert.equal(JSON.stringify(m).includes('cantidad'),false);
+ input.insumosAnteriores=input.cotizacion.insumosVentas;await API.approve(f.db,input,sales);assert.equal(f.docs.get(key).ejemplos.length,1);
+});
 test('el servidor valida los datos reales y aprueba documento y costo en una sola transacción',async()=>{
  const f=dbFixture();const result=await API.approve(f.db,body(),sales,'2026-11-04T10:00:00Z');assert.equal(result.ok,true);assert.equal(f.writes.length,2);assert.equal(f.docs.get('presupuestos/p').estado,'Aprobado');assert.deepEqual(f.docs.get('presupuestos/p').insumosVentasAprobados,f.docs.get('aprobacionesInsumosCotizacion/p').resumen);
  f.docs.get('compras/compra').items[0].precioUnitarioNeto=99999;const next=body();next.insumosAnteriores=result.insumosVentas;const result2=await API.approve(f.db,next,sales);assert.equal(result2.insumosVentasAprobados.totalCosto,result.insumosVentasAprobados.totalCosto);
