@@ -28,6 +28,30 @@ function formFixture(){
  vm.runInNewContext(sector.slice(sector.indexOf('  function normContacto('),sector.indexOf('  function cargarEntregaLogisticaPP('))+'\nwindow.remember=recordarContactoEntregaCliente;',ctx);
  field('pp-cliente').value='Miniso';return {window,field,current,writes,latest:()=>latest};
 }
+
+test('elegir cliente desde el autocompletado real de Presupuestos carga contactos de entrega y retiro',()=>{
+ const f=formFixture(),handlers=[],dd=f.field('pp-clientes-dropdown');dd.style={};
+ dd.querySelectorAll=()=>[{dataset:{clienteIndex:'0'},addEventListener:(_event,fn)=>handlers.push(fn)}];dd.querySelector=()=>null;
+ f.window.DB.clientes.push({id:'otro',nombre:'Otro',contactos:[{nombre:'Exclusivo otro cliente'}]});
+ f.field('pp-cliente').value='Mini';f.window.sugerirContactoClientePP();assert.doesNotMatch(f.field('pp-entrega-contacto-select').innerHTML,/Belén/);
+ const ctx={window:f.window,document:{getElementById:f.field},esc:v=>v,norm:C.norm,posicionarSugerenciasPP(){}};
+ const start=html.indexOf('window.elegirClientePP =');vm.runInNewContext(html.slice(start,html.indexOf('window.cerrarSugerenciasPP =',start)),ctx);
+ const clients=html.lastIndexOf('  function clientesDisponibles(){');vm.runInNewContext(html.slice(clients,html.indexOf('  function posicionarSugerenciasPP()',clients)),ctx);
+ const picker=html.lastIndexOf('  window.sugerirClientesPP=function(');vm.runInNewContext(html.slice(picker,html.indexOf('  window.nuevoClienteDesdePresupuestoV355=',picker)),ctx);
+ f.window.sugerirClientesPP('Mini');handlers[0]({preventDefault(){}});
+ assert.equal(f.field('pp-cliente').value,'Miniso');assert.equal(dd.style.display,'none');
+ for(const type of ['contacto','retira']){const options=f.field('pp-entrega-'+type+'-select').innerHTML;assert.match(options,/Ana/);assert.match(options,/Belén Núñez/);assert.doesNotMatch(options,/Exclusivo otro/);}
+});
+
+test('la ficha de cliente recibida después de abrir el presupuesto refresca contactos sin borrar lo manual',()=>{
+ const f=formFixture();f.window.DB.clientes=[];f.field('pp-entrega-contacto').value='Contacto escrito a mano';f.field('pp-entrega-contacto-tel').value='555';f.field('pp-entrega-contacto-email').value='manual@example.test';
+ f.field('modal-prespdf').classList={contains:()=>true};let callback;
+ const ctx={window:f.window,document:{getElementById:f.field},dataSubscriptions:[],generation:1,dataGeneration:1,db:{},collection:(_db,col)=>col,onSnapshot:(_col,fn)=>{callback=fn;return ()=>{};},clienteAZ:()=>0,numeroDesc:()=>0,refreshCurrent(){}};
+ const start=html.indexOf('  function listen(col, key)');vm.runInNewContext(html.slice(start,html.indexOf("  listen('obras', 'obras');",start)),ctx);ctx.listen('clientes','clientes');
+ callback({docs:[{id:f.current.id,data:()=>f.current}]});
+ assert.match(f.field('pp-entrega-contacto-select').innerHTML,/Belén Núñez/);assert.match(f.field('pp-entrega-retira-select').innerHTML,/Ana/);
+ assert.equal(f.field('pp-entrega-contacto').value,'Contacto escrito a mano');assert.equal(f.field('pp-entrega-contacto-tel').value,'555');assert.equal(f.field('pp-entrega-contacto-email').value,'manual@example.test');
+});
 test('la sugerencia del presupuesto incluye Otros contactos y completa teléfono/correo',()=>{
  const f=formFixture();f.field('pp-entrega-contacto').value='Belen Nunez';f.window.sugerirContactoClientePP();assert.match(f.field('pp-entrega-contactos-list').innerHTML,/Belén Núñez/);assert.equal(f.field('pp-entrega-contacto-tel').value,'222');assert.equal(f.field('pp-entrega-contacto-email').value,'belen@example.test');
 });
@@ -89,3 +113,4 @@ test('ficha de cliente conserva cargo del principal y de los contactos adicional
  f.field('fc-nombre').value='Miniso';f.field('fc-contacto').value='Ana';f.field('fc-cargo').value='Compradora';f.field('fc-contactos').value='Belén | 222 | belen@example.test | Compras';
  await f.window.saveCliente();assert.equal(f.current.contactoCargo,'Compradora');assert.equal(f.current.contactos[0].cargo,'Compras');
 });
+
