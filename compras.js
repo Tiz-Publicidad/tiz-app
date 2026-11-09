@@ -1298,11 +1298,12 @@ function cpRefreshIngreso(){
  document.getElementById('cp-items-gate').disabled=!cpIngreso.confirmed;
  const ready=cpIngreso.confirmed&&rows.length>0&&resolved===rows.length;
  const reviewed=ready&&cpIngreso.reviewed===cpIngresoSignature();
- const save=document.querySelector('[onclick="cpGuardarCompra()"]');if(save)save.disabled=!reviewed||cpIngresoSaving;
- const uiKey=JSON.stringify([cpIngreso.confirmed,cpIngreso.providerId,cpIngreso.supplier.nombre,cpIngreso.supplier.cuit,resolved,rows.length,reviewed,C.proveedores.map(p=>[p.id,p.nombre,p.cuit,p.domicilio,p.contacto,p.telefono,p.email,p.contactos])]);
+ const save=document.querySelector('[onclick="cpGuardarCompra()"]');if(save)save.disabled=!ready||cpIngresoSaving;
+ const uiKey=JSON.stringify([cpIngreso.confirmed,cpIngreso.providerId,cpIngreso.supplier.nombre,cpIngreso.supplier.cuit,resolved,rows.length,reviewed,cpIngreso.reviewError||'',C.proveedores.map(p=>[p.id,p.nombre,p.cuit,p.domicilio,p.contacto,p.telefono,p.email,p.contactos])]);
  if(cpIngreso.uiKey===uiKey)return;cpIngreso.uiKey=uiKey;
  box.replaceChildren();const heading=document.createElement('b');heading.textContent='1. Proveedor → 2. Insumos → 3. Revisar y guardar';box.append(heading);
  const status=document.createElement('p');status.className='cp-sub';box.append(status);
+ if(cpIngreso.reviewError){const error=document.createElement('p');error.className='cp-match-warn';error.setAttribute('role','alert');error.textContent=cpIngreso.reviewError;box.append(error);}
  const button=(label,action)=>{const b=document.createElement('button');b.className='cp-btn';b.textContent=label;b.onclick=action;box.append(b);return b;};
  if(!cpIngreso.confirmed){
   cpIngreso.supplier.nombre=document.getElementById('cp-proveedor').value.trim()||cpIngreso.supplier.nombre;
@@ -1527,14 +1528,20 @@ window.cpSaveNewIngresoArticle=async()=>{
  const b=document.getElementById('cp-new-save');if(b.disabled)return;b.disabled=true;
  try{const a=await cpCreateNumberedArticle(data);C.articulos=[...C.articulos.filter(x=>x.id!==a.id),a];cpConfirmIngresoArticle(tr,a);window.cpCloseNewIngresoArticle();toast('Insumo '+a.codigo+' creado y vinculado.');}catch(e){error.textContent=e.message;}finally{b.disabled=false;}
 };
+function cpReviewError(message,fieldId=''){
+ if(cpIngreso){cpIngreso.reviewed='';cpIngreso.reviewError=message;cpRefreshIngreso();}
+ document.getElementById('cp-ingreso')?.scrollIntoView?.({behavior:'smooth',block:'center'});
+ if(fieldId)document.getElementById(fieldId)?.focus();
+ toast(message);return false;
+}
 function cpReviewIngreso(){
- if(!cpIngreso?.confirmed)return toast('Confirmá el proveedor.');
- const rows=cpIngresoRows();if(!rows.length||rows.some(tr=>tr.dataset.confirmed!=='1'||!C.articulos.some(a=>a.id===tr.dataset.articleId)))return toast('Resolvé todos los insumos antes de revisar.');
- if(rows.some(tr=>!tr.querySelector('.i-original').value.trim()||num(tr.querySelector('.i-qty').value)<=0||num(tr.querySelector('.i-price').value)<0))return toast('Revisá la descripción, cantidad y precio de cada renglón.');
- if(!document.getElementById('cp-fecha').value)return toast('Completá la fecha.');
+ if(!cpIngreso?.confirmed)return cpReviewError('Confirmá el proveedor.');
+ const rows=cpIngresoRows();if(!rows.length||rows.some(tr=>tr.dataset.confirmed!=='1'||!C.articulos.some(a=>a.id===tr.dataset.articleId)))return cpReviewError('Resolvé todos los insumos antes de revisar.');
+ if(rows.some(tr=>!tr.querySelector('.i-original').value.trim()||num(tr.querySelector('.i-qty').value)<=0||num(tr.querySelector('.i-price').value)<0))return cpReviewError('Revisá la descripción, cantidad y precio de cada renglón.');
+ if(!document.getElementById('cp-fecha').value)return cpReviewError('Completá la fecha del comprobante.','cp-fecha');
  const number=document.getElementById('cp-numero').value.trim();
- if(number&&C.compras.some(c=>c.id!==compraEditId&&(c.proveedorId===cpIngreso.providerId||ING.norm(c.proveedor)===ING.norm(document.getElementById('cp-proveedor').value))&&ING.digits(c.numeroComprobante)===ING.digits(number)&&c.tipoComprobante===document.getElementById('cp-tipo').value))return toast('Este comprobante ya está cargado para ese proveedor.');
- cpIngreso.reviewed=cpIngresoSignature();cpRefreshIngreso();
+ if(number&&C.compras.some(c=>c.id!==compraEditId&&(c.proveedorId===cpIngreso.providerId||ING.norm(c.proveedor)===ING.norm(document.getElementById('cp-proveedor').value))&&ING.digits(c.numeroComprobante)===ING.digits(number)&&c.tipoComprobante===document.getElementById('cp-tipo').value))return cpReviewError('Este comprobante ya está cargado para ese proveedor. Revisá el número antes de volver a guardarlo.','cp-numero');
+ cpIngreso.reviewError='';cpIngreso.reviewed=cpIngresoSignature();cpRefreshIngreso();return true;
 }
 const cpNuevaCompraLegacy=window.cpNuevaCompra;
 window.cpNuevaCompra=()=>{cpResetIngreso();cpSetIaStatus('');cpNuevaCompraLegacy();};
@@ -1551,7 +1558,7 @@ applyAI=function(data){
 const cpGuardarCompraLegacy=window.cpGuardarCompra;
 window.cpGuardarCompra=async()=>{
  if(cpIngresoSaving)return;
- if(cpIngreso&&(!cpIngreso.confirmed||cpIngreso.reviewed!==cpIngresoSignature()))return toast('Confirmá el proveedor, resolvé los insumos y revisá la compra antes de guardar.');
+ if(cpIngreso&&!cpReviewIngreso())return;
  cpIngresoSaving=true;cpRefreshIngreso();try{await cpGuardarCompraLegacy();if(!document.getElementById('cp-modal-compra').classList.contains('open'))cpResetIngreso();}catch(e){toast('No se pudo completar el guardado: '+e.message);}finally{cpIngresoSaving=false;cpRefreshIngreso();}
 };
 // Cambiar un dato del comprobante invalida la revisión final, sin borrar el trabajo.

@@ -221,7 +221,7 @@ td.strong { color: var(--text); font-weight: 500; }
 }
 
 /* Toast */
-.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface3); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 18px; font-size: 13px; color: var(--text); z-index: 200; transform: translateY(80px); opacity: 0; transition: all .25s; pointer-events: none; }
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface3); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 18px; font-size: 13px; color: var(--text); z-index: 25000; transform: translateY(80px); opacity: 0; transition: all .25s; pointer-events: none; }
 .toast.show { transform: translateY(0); opacity: 1; }
 
 /* Responsive */
@@ -3776,7 +3776,7 @@ async function syncToSheets(data) {
 <script src="calidadV1.js?v=TIZ-CALIDAD-COMPLETA-20261015&baja-ventas=20261103"></script>
 <script src="comprasObrasCoreV1.js?v=TIZ-COMPRAS-OBRAS-20261015&baja-ventas=20261103"></script>
 <script src="comprasBaseDatosV1.js?v=TIZ-BASE-DATOS-COMPRAS-20261030"></script>
-<script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015-DRIVE&base-datos=20261030&import-mes=20261030&orden-fecha=20261030&ingreso-guiado=20261103&proveedor-nombres=20261103&editar-insumo=20261103&ia-compartida=20261104&estado-lectura=20261104&vincular-catalogo=20261104&editar-catalogo=20261104&reintentos-ia=20261104&contactos-proveedor=20261104&descripcion-completa=20261109&costo-compra=20261109"></script>
+<script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015-DRIVE&base-datos=20261030&import-mes=20261030&orden-fecha=20261030&ingreso-guiado=20261103&proveedor-nombres=20261103&editar-insumo=20261103&ia-compartida=20261104&estado-lectura=20261104&vincular-catalogo=20261104&editar-catalogo=20261104&reintentos-ia=20261104&contactos-proveedor=20261104&descripcion-completa=20261109&costo-compra=20261109&guardar-compra=20261109"></script>
 <script src="operacionesV31.js?v=TIZ-V31-4-FACTURACION-OT-20261105"></script>
 <script src="cotizadorV32.js?v=TIZ-V35-12-ITEMS-TECNICOS-20260901&orden=20261030"></script>
 <script src="expedientesV33.js?v=TIZ-V54-NUMERO-BASE-20260904"></script>
