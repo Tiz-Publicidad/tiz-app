@@ -1,6 +1,37 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const C=require('../functions/insumosCotizacionCoreV1'),API=require('../functions/insumosCotizacionApiV1');
+test('vinilos de distintos anchos se comparan por m² con el precio propio de cada rollo',()=>{
+ const row={cantidad:2,unidad:'UNID',ivaPorcentaje:21},a={id:'angosto',descripcion:'Vinilo angosto',familia:'Lonas y Vinilos',unidad:'UNID',unidadControl:'M²',equivalenciasStock:{'M²':20}},b={...a,id:'ancho',descripcion:'Vinilo ancho',equivalenciasStock:{'M²':30}};
+ const small=C.comparablePurchaseCost({...row,precioUnitarioNeto:200},a),large=C.comparablePurchaseCost({...row,precioUnitarioNeto:300},b);
+ assert.equal(small.unidadCosto,'M²');assert.equal(small.cantidadCosto,40);assert.equal(large.cantidadCosto,60);assert.equal(small.precioUnitarioCostoNeto,10);assert.equal(large.precioUnitarioCostoNeto,10);assert.equal(small.precioUnitarioCostoConIVA,12.1);assert.equal(large.precioUnitarioCostoConIVA,12.1);
+ assert.equal(C.comparablePurchaseCost({...row,precioUnitarioNeto:330},b).precioUnitarioCostoNeto,11);
+});
+test('una placa conserva costo por unidad de compra aunque el stock se controle por m²',()=>{
+ const a={id:'placa',descripcion:'Placa de prueba',unidad:'PLACA',unidadControl:'M²',equivalenciasStock:{'M²':5}},row={articuloId:'placa',cantidad:2,unidad:'PLACA',precioUnitarioNeto:100,ivaPorcentaje:21,cantidadStock:10,unidadStock:'M²'};
+ const p=C.comparablePurchaseCost(row,a);assert.equal(p.unidadCosto,'PLACA');assert.equal(p.cantidadCosto,2);assert.equal(p.precioUnitarioCostoNeto,100);assert.equal(p.precioUnitarioCostoConIVA,121);
+ const meta=C.catalog([a],[{id:'ultima',fecha:'2026-01-10',proveedor:'Proveedor de prueba',items:[row]}],[],[])[0];assert.equal(meta.ultimoCosto,20);assert.equal(meta.ultimoCostoCompraConIVA,121);assert.equal(meta.unidadCosto,'PLACA');assert.equal(meta.fechaCosto,'2026-01-10');
+});
+test('última compra usa el costo normalizado y no inventa IVA ausente ni dimensiones',()=>{
+ const a={id:'v',descripcion:'Vinilo',unidad:'ROLLO',unidadControl:'M²',equivalenciasStock:{'M²':10}},row={articuloId:'v',cantidad:1,unidad:'ROLLO',precioUnitarioNeto:100};
+ const old={id:'old',fecha:'2026-01-01',items:[{...row,precioUnitarioNeto:50,ivaPorcentaje:21}]},last={id:'new',fecha:'2026-01-02',items:[row]},meta=C.catalog([a],[old,last],[],[])[0];assert.equal(meta.ultimoCostoCompraNeto,10);assert.equal(meta.ultimoCostoCompraConIVA,null);assert.match(meta.errorCostoCompra,/IVA/);assert.equal(meta.compraId,'new');
+ assert.equal(C.comparablePurchaseCost({...row,totalNeto:100,totalBruto:121},a).precioUnitarioCostoConIVA,12.1);
+ assert.throws(()=>C.comparablePurchaseCost(row,{...a,unidadControl:'ROLLO',equivalenciasStock:{}}),/equivalencia/);assert.throws(()=>C.comparablePurchaseCost({...row,moneda:'USD'},a),/ARS/);
+});
+test('el costo normalizado guardado conserva el área de esa compra al cambiar la configuración',()=>{
+ const p=C.comparablePurchaseCost({cantidad:1,unidad:'ROLLO',precioUnitarioNeto:100,ivaPorcentaje:0,unidadCosto:'M²',cantidadCosto:20,cantidadCompraCosto:1,unidadCompraCosto:'ROLLO'},{descripcion:'Vinilo',unidad:'ROLLO',unidadControl:'M²',equivalenciasStock:{'M²':30}});assert.equal(p.cantidadCosto,20);assert.equal(p.precioUnitarioCostoNeto,5);
+});
+test('placa de madera de 1,83 por 2,75 registra 5,0325 m² y permite comprar por placa',()=>{
+ const a={id:'mdf',descripcion:'MDF',unidad:'UNID'},setting=C.unitSetting(a,{unidadCompra:'PLACA',unidadControl:'M²',factor:5.0325,ancho:1.83,largo:2.75,contenidoOriginal:1}),view=C.baseArticle({...a,...setting});assert.equal(C.stockQuantity(1,'PLACA',view),5.0325);assert.equal(C.stockQuantity(2,'PLACA',view),10.065);
+ const p=C.comparablePurchaseCost({cantidad:2,unidad:'UNID',precioUnitarioNeto:100,ivaPorcentaje:21},{...a,...setting});assert.equal(p.unidadCosto,'PLACA');assert.equal(p.precioUnitarioCostoConIVA,121);
+ const source=fs.readFileSync(require.resolve('../compras.js'),'utf8');assert.match(source,/data-tab="equivalencias"/);assert.match(source,/equivalencias:renderEquivalencias/);assert.match(fs.readFileSync(require.resolve('../unidadesStockV1.js'),'utf8'),/data-preset-wood/);
+});
+
+test('guardar una compra agrega el costo comparable sin reemplazar cantidad, precio ni importes de factura',()=>{
+ const source=fs.readFileSync(require.resolve('../compras.js'),'utf8'),article={id:'v',descripcion:'Vinilo',unidad:'UNID',unidadControl:'M²',equivalenciasStock:{'M²':20}},invoice={articuloId:'v',cantidad:2,unidad:'UNID',precioUnitarioNeto:200,ivaPorcentaje:21,totalNeto:400,totalBruto:484,cantidadStock:40,unidadStock:'M²'},before=JSON.stringify(invoice),ctx={window:{TIZInsumosCotizacionCoreV1:C},C:{articulos:[article]},cpIngreso:null,rowToItem:()=>invoice};
+ vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('function cpPurchaseCostFields('),source.indexOf('function cpRefreshPurchaseCost('))+source.slice(source.indexOf('const cpRowToItemLegacy='),source.indexOf('const cpApplyAILegacy=')),ctx);
+ const saved=ctx.rowToItem({dataset:{}});assert.equal(saved.precioUnitarioNeto,200);assert.equal(saved.cantidad,2);assert.equal(saved.totalBruto,484);assert.equal(saved.unidadCosto,'M²');assert.equal(saved.precioUnitarioCostoConIVA,12.1);assert.equal(saved.cantidadCosto,40);assert.equal(JSON.stringify(invoice),before);
+});
 test('esta compra divide el total por el área total y distingue costo neto y con IVA',()=>{
  const article={id:'material',unidad:'ROLLO',unidadControl:'M²',equivalenciasStock:{'M²':50}},row={articuloId:'material',cantidad:2,unidad:'ROLLO',precioUnitarioNeto:100,ivaPorcentaje:21};
  const before=JSON.stringify({article,row}),r=C.purchaseCostPreview(row,article);
