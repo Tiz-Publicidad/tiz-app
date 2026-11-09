@@ -1,4 +1,5 @@
 import './comprasIngresoCoreV1.js?v=20261103-nombres';
+import { createMaterialsControl } from './comprasControlUIV1.js?v=20261109-control';
 import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
@@ -13,6 +14,16 @@ const C = {
 let compraEditId = null;
 let selectedFile = null;
 let currentTab = 'inicio';
+const cpMaterialsControl=createMaterialsControl({
+ data:()=>C,works:()=>cpWorks(),planForWork:o=>cpPlanForWork(o),sameOT:(a,b)=>window.TIZComprasObrasCoreV1.same(a,b),
+ quoteForWork:o=>(window.DB?.presupuestos||[]).find(q=>q.id===o?.presupuestoId||window.TIZComprasObrasCoreV1.same(q.nro||q.numero,o?.ot)),
+ esc:(...args)=>esc(...args),money:(...args)=>money(...args),today:()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),week:d=>weekKey(new Date(d+'T12:00:00')),user:()=>window.currentUser?.email||'',toast:msg=>toast(msg),stock:()=>cpStockSnapshot(),
+ motherState:()=>cpMotherState(),refreshMother:()=>cpRefreshMother(true),refresh:()=>render(),
+ savePlan:async(id,payload,revision)=>{const existing=cpPlanForWork({id:payload.obraId,ot:payload.ot});const ref=doc(db,'planesMateriales',id||existing?.id||'materiales-'+encodeURIComponent(payload.obraId));await runTransaction(db,async tx=>{const snap=await tx.get(ref),old=snap.exists()?snap.data():{};if((old.revisionMateriales||0)!==revision)throw Error('Otra persona revisó este plan. Cerrá y reabrí la revisión para conservar ambos cambios.');tx.set(ref,{...payload,_ts:serverTimestamp()},{merge:true});});},
+ addMovement:async(id,m)=>{await runTransaction(db,async tx=>{const ref=doc(db,'planesMateriales',id),snap=await tx.get(ref);if(!snap.exists())throw Error('No se encontró el plan. Reabrí la OT.');tx.update(ref,{movimientosMateriales:[...(snap.data().movimientosMateriales||[]),m]});});},
+ saveCount:async payload=>{await addDoc(collection(db,'conteosStock'),{...payload,_ts:serverTimestamp()});},
+ justifyCount:async(id,index,note)=>{await runTransaction(db,async tx=>{const ref=doc(db,'conteosStock',id),snap=await tx.get(ref);if(!snap.exists())throw Error('No se encontró el conteo.');const items=[...(snap.data().items||[])];items[index]={...items[index],justificaciones:[...(items[index].justificaciones||[]),note]};tx.update(ref,{items});});}
+});
 let cpMotherRows=[],cpMotherUser='',cpMotherBusy=false,cpMotherRead=0,cpMotherError='';
 function cpWorks(){return window.TIZComprasObrasCoreV1.merge(cpMotherUser===window.currentUser?.email?cpMotherRows:[],window.DB?.obras||[]);}
 function cpFindWork(id){return cpWorks().find(w=>w.id===id);}
@@ -291,7 +302,7 @@ function syncFC(){
 }
 
 function startListeners(){
-  const listen=(name,key)=>onSnapshot(['articulos','proveedores'].includes(key)?collection(db,name):query(collection(db,name),orderBy('_ts','desc'),limit(1000)),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();cpRefreshIngreso();},()=>{
+  const listen=(name,key)=>onSnapshot(['articulos','proveedores','compras','conteos','planes'].includes(key)?collection(db,name):query(collection(db,name),orderBy('_ts','desc'),limit(1000)),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();cpRefreshIngreso();},()=>{
     onSnapshot(collection(db,name),s=>{C[key]=s.docs.map(d=>({id:d.id,...d.data()}));render();});
   });
   listen('compras','compras'); listen('articulosCompra','articulos'); listen('conteosStock','conteos'); listen('planesMateriales','planes'); listen('pagosCompra','pagos'); listen('proveedoresCompra','proveedores'); listen('analisisComprasOT','analisisOT'); listen('preparacionColocaciones','preparacionCol'); listen('ayudamemoriasOT','ayudamemorias');
@@ -381,6 +392,7 @@ function alerts(){
   C.pagos.filter(p=>p.estado!=='pagado'&&p.vencimiento).forEach(p=>{const dd=Math.ceil((new Date(p.vencimiento+'T12:00:00')-now)/86400000);if(dd<0)out.push({level:'red',title:`Deuda vencida: ${p.proveedor||'Proveedor'}`,text:`${p.concepto||'Compromiso'} · ${money(p.importe)} · venció hace ${Math.abs(dd)} días.`});else if(dd<=7)out.push({level:'amber',title:`Pago a preparar: ${p.proveedor||'Proveedor'}`,text:`${p.concepto||'Compromiso'} · ${money(p.importe)} · vence en ${dd} días.`});});
   priceAlerts().forEach(x=>out.push({level:'amber',title:`Cambio de precio: ${x.descripcion}`,text:`Último ${money(x.actual)} vs anterior ${money(x.anterior)} (${x.pct>0?'+':''}${x.pct.toFixed(1)}%).`}));
   const below=cpBelowMinimumItems();if(below.length>35)out.push({level:'red',title:'Stock mínimo fuera de objetivo',text:`${below.length} ítems están debajo del mínimo. El objetivo es no superar 35.`});
+  const unexplained=C.conteos.flatMap(c=>(c.items||[]).map(i=>({...i,cierre:c.fecha}))).filter(i=>i.desvio>0&&(!i.justificaciones?.length)&&(!i.motivo||i.motivo==='Por justificar'));if(unexplained.length)out.push({level:'amber',title:'Consumos por encima de lo previsto',text:unexplained.length+' diferencias sin explicación. Revisalas en Stock / conteo → Desvíos e historial.'});
   const pendingExp=cpPendingExplosionWorks();if(pendingExp.length)out.push({level:'amber',title:'OT pendientes de explosión',text:`${pendingExp.length} obras todavía no tienen despiece de materiales.`});
   if(new Date().getDay()===2&&!C.conteos.some(x=>String(x.fecha||'')===todayISO()))out.push({level:'amber',title:'Conteo semanal pendiente',text:'Hoy es martes. Falta confirmar el conteo físico de stock.'});
   return out;
@@ -772,6 +784,7 @@ window.cpConfirmarMigracion=async()=>{
 };
 
 function renderConteo(el){
+  return cpMaterialsControl.renderCounts(el);
   const arts=C.articulos.filter(a=>a.control!=='sin_stock'); const last=latestCounts();
   el.innerHTML=`<div class="cp-panel"><b>Conteo físico semanal · martes</b><p class="cp-sub">El conteo físico se realiza todos los martes. Solo se informa lo que queda. El ERP calcula consumo real: stock inicial + compras − stock final y lo compara contra materiales reservados por OT.</p><div class="cp-row"><div class="cp-field"><label>Semana</label><input id="cp-count-week" value="${weekKey()}"></div><div class="cp-field"><label>Fecha de cierre</label><input id="cp-count-date" type="date" value="${todayISO()}"></div></div></div>
   <div class="cp-table-wrap"><table class="cp-table" style="min-width:720px"><thead><tr><th>Artículo</th><th>Tipo</th><th>Último conteo</th><th>Compras desde conteo</th><th>Planificado OT</th><th>Conteo actual</th><th>Consumo calculado</th></tr></thead><tbody>${arts.map(a=>countRow(a,last[a.id]||last[a.descripcion])).join('')||'<tr><td colspan="7">Primero cargá artículos controlados.</td></tr>'}</tbody></table></div><div style="margin-top:12px;text-align:right"><button class="cp-btn primary" onclick="cpSaveConteo()">Confirmar conteo semanal</button></div>`;
@@ -790,6 +803,7 @@ function cpQuoteItemsForWork(o){
 function cpPlanForWork(o){return C.planes.find(p=>p.obraId===o.id||window.TIZComprasObrasCoreV1.same(p.ot,o.ot||o.nro));}
 function cpPendingExplosionWorks(){return cpWorks().filter(o=>!cpPlanForWork(o));}
 function renderPlanes(el){
+  return cpMaterialsControl.renderPlans(el);
   const obras=cpWorks();
   const pending=obras.filter(o=>!cpPlanForWork(o));
   const pendingRows=pending.map(o=>{
@@ -870,6 +884,7 @@ window.cpDeleteArticulo=async id=>{if(confirm('¿Borrar artículo?'))await delet
 window.cpCalcCountRow=input=>{const tr=input.closest('tr'),final=num(input.value),cons=num(tr.dataset.inicial)+num(tr.dataset.compras)-final;tr.querySelector('.cp-consumo').textContent=tr.dataset.unitError?'Revisar unidades':tr.dataset.primerConteo==='1'?'Primer saldo':isNaN(cons)?'—':cons;};
 window.cpSaveConteo=async()=>{const items=[...document.querySelectorAll('[data-count-row]')].map(tr=>{const raw=tr.querySelector('.cp-count-input').value;if(raw==='')return null;const cantidad=num(raw);return {articuloId:tr.dataset.id,descripcion:tr.dataset.desc,cantidad,unidad:tr.dataset.unit,stockInicial:num(tr.dataset.inicial),comprasPeriodo:num(tr.dataset.compras),planificadoOT:num(tr.dataset.plan),consumoReal:tr.dataset.unitError||tr.dataset.primerConteo==='1'?null:num(tr.dataset.inicial)+num(tr.dataset.compras)-cantidad,errorUnidadStock:tr.dataset.unitError||''};}).filter(Boolean);if(!items.length)return toast('Ingresá al menos un conteo.');if(items.some(i=>!Number.isFinite(i.cantidad)||i.cantidad<0))return toast('El conteo debe ser una cantidad válida, cero o mayor.');await addDoc(collection(db,'conteosStock'),{semana:document.getElementById('cp-count-week').value,fecha:document.getElementById('cp-count-date').value,items,usuario:window.currentUser?.email||'',_ts:serverTimestamp()});toast('Conteo guardado. Consumos calculados automáticamente.');};
 window.cpExplodeObra=async obraId=>{
+  return cpMaterialsControl.openWork(obraId);
   const o=cpFindWork(obraId);if(!o)return toast('No se encontró la obra.');
   if(cpPlanForWork(o))return toast('La OT ya tiene un plan de materiales.');
   await addDoc(collection(db,'planesMateriales'),{obraId:o.id,ot:o.ot||o.nro||'',cliente:o.cliente||'',descripcion:o.desc||o.descripcion||'',estado:'pendiente de explosion',origen:'venta sincronizada',componentesVenta:cpQuoteItemsForWork(o),items:[],fechaAlta:todayISO(),_ts:serverTimestamp()});
@@ -1646,3 +1661,4 @@ window.tizComprasCatalogoV32 = function(){
     return [];
   }
 };
+
