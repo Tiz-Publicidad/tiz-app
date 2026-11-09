@@ -4,13 +4,13 @@ const ING=require('../comprasIngresoCoreV1');
 const source=fs.readFileSync(path.join(__dirname,'../compras.js'),'utf8');
 function node(){return {value:'',innerHTML:'',textContent:'',children:[],style:{},dataset:{},classList:{open:false,add(){this.open=true;},remove(){this.open=false;}},focus(){this.focused=true;},addEventListener(){},append(x){this.children.push(x);},replaceChildren(){this.children=[];},querySelectorAll(){return [];}};}
 function fixture(){
- const fields=Object.fromEntries(['.i-original','.i-desc','.i-code','.i-family','.i-subfamily','.i-unit','.i-qty','.i-price','.cp-item-match'].map(k=>[k,node()]));
+ const fields=Object.fromEntries(['.i-original','.i-desc','.cp-full-desc','.i-code','.i-family','.i-subfamily','.i-unit','.i-qty','.i-price','.cp-item-match'].map(k=>[k,node()]));
  fields['.i-original'].value='Perfil nro 80 Blanco - 10 t x 6 mts';fields['.i-desc'].value=fields['.i-original'].value;fields['.i-qty'].value='10';fields['.i-price'].value='123.45';
  const row={dataset:{providerCode:'80'},querySelector:s=>fields[s]},elements=Object.fromEntries(['cp-catalog-create','cp-catalog-query','cp-catalog-family','cp-catalog-count','cp-catalog-results'].map(id=>[id,node()])),messages=[],created=[];
  const article={id:'perfil-j',codigo:'000321',descripcion:'Perfil J de aluminio blanco',familia:'Hierros',subfamilia:'Aluminio',unidad:'UNID'};
  const context={window:{},ING,C:{articulos:[article],compras:[]},cpIngreso:{confirmed:true,providerId:'proveedor',reviewed:'revisada'},cpIngresoRows:()=>[row],cpRefreshIngreso(){},cpOpenNewIngresoArticle:r=>created.push(r),toast:m=>messages.push(m),esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),document:{createElement:node,getElementById:id=>elements[id],body:{append(el){elements[el.id]=el;}}}};
  vm.createContext(context);
- vm.runInContext(source.slice(source.indexOf('function applyArticleToRow('),source.indexOf('function matchRowArticle('))+source.slice(source.indexOf('function cpPrepareIngresoRow('),source.indexOf('let cpArticleEditor=')),context);
+ vm.runInContext(source.slice(source.indexOf('function cpRefreshItemText('),source.indexOf('function matchRowArticle('))+source.slice(source.indexOf('function cpPrepareIngresoRow('),source.indexOf('let cpArticleEditor=')),context);
  return {context,row,fields,elements,article,messages,created};
 }
 test('el renglón ofrece sugerencias, búsqueda manual y alta, incluso sin coincidencias',()=>{

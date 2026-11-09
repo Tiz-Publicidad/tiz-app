@@ -55,5 +55,5 @@ test('conflictos, unidades originales distintas y usuarios sin permiso no cambia
 });
 test('vincular una factura no convierte 1 rollo en 1 m² ni altera sus importes',()=>{
  const source=fs.readFileSync(require.resolve('../compras.js'),'utf8'),fields=Object.fromEntries(['.i-desc','.i-code','.i-family','.i-subfamily','.i-unit','.cp-item-match'].map(k=>[k,{value:k==='.i-unit'?'ROLLO':''}])),tr={dataset:{},querySelector:k=>fields[k]};
- const context={window:{},C:{articulos:[]},num:Number,document:{},esc:String};vm.createContext(context);const start=source.indexOf('function applyArticleToRow('),end=source.indexOf('function matchRowArticle(',start);vm.runInContext(source.slice(start,end),context);context.applyArticleToRow(tr,{id:'vinilo',descripcion:'Vinilo',unidad:'M²'});assert.equal(fields['.i-unit'].value,'ROLLO');assert.equal(tr.dataset.articleId,'vinilo');
+ const context={window:{},C:{articulos:[]},num:Number,document:{},esc:String};vm.createContext(context);const start=source.indexOf('function cpRefreshItemText('),end=source.indexOf('function matchRowArticle(',start);vm.runInContext(source.slice(start,end),context);context.applyArticleToRow(tr,{id:'vinilo',descripcion:'Vinilo',unidad:'M²'});assert.equal(fields['.i-unit'].value,'ROLLO');assert.equal(tr.dataset.articleId,'vinilo');
 });
