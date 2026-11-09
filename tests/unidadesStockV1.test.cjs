@@ -1,6 +1,18 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const C=require('../functions/insumosCotizacionCoreV1'),API=require('../functions/insumosCotizacionApiV1');
+test('la aplicación carga el editor de unidades después del núcleo y antes de la interfaz de insumos',()=>{
+ const html=fs.readFileSync(require.resolve('../index.html'),'utf8'),scripts=[...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/g)].map(m=>m[1].split('?')[0]);
+ assert.equal(scripts.filter(s=>s==='unidadesStockV1.js').length,1);assert.ok(scripts.indexOf('unidadesStockV1.js')>scripts.indexOf('functions/insumosCotizacionCoreV1.js'));assert.ok(scripts.indexOf('unidadesStockV1.js')<scripts.indexOf('insumosCotizacionV1.js'));
+});
+
+test('el editor monta una ventana al abrir desde Compras y muestra un error de conexión sin cerrar la compra',async()=>{
+ const source=fs.readFileSync(require.resolve('../unidadesStockV1.js'),'utf8'),mounted=[],loading=[];
+ const element=()=>({innerHTML:'',setAttribute(k,v){this[k]=v;},querySelector(){return {};},remove(){this.removed=true;}}),window={TIZInsumosCotizacionCoreV1:C,insumosCotizacionApiV1:async request=>{loading.push(request);throw Error('Conexión de prueba no disponible');}},document={createElement:element,head:{append(){}},body:{append:el=>mounted.push(el)}};
+ vm.runInNewContext(source,{window,document});assert.equal(typeof window.TIZUnidadesStockV1.open,'function');
+ await window.TIZUnidadesStockV1.open('vinilo',{unidadCompra:'ROLLO'});assert.equal(mounted.length,1);assert.equal(mounted[0].role,'dialog');assert.equal(loading[0].mode,'units-read');assert.equal(loading[0].articuloId,'vinilo');assert.match(mounted[0].innerHTML,/Conexión de prueba no disponible/);assert.equal(mounted[0].removed,undefined);
+ window.TIZUnidadesStockV1.close();assert.equal(mounted[0].removed,true);
+});
 const raw=()=>({id:'vinilo',codigo:'v1',descripcion:'Vinilo 1,37 x 50 m',unidad:'ROLLO',stockMinimo:1,control:'estrategico',equivalenciasStock:{'M²':68.5}});
 const controlled=()=>({...raw(),unidadControl:'M²'});
 const purchases=()=>[{id:'p',fecha:'2026-11-03',destino:'Stock',proveedor:'Proveedor',items:[{articuloId:'vinilo',cantidad:2,unidad:'ROLLO',precioUnitarioNeto:68500}]}];
