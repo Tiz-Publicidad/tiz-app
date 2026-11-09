@@ -1,6 +1,28 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const C=require('../functions/insumosCotizacionCoreV1'),API=require('../functions/insumosCotizacionApiV1');
+test('esta compra divide el total por el área total y distingue costo neto y con IVA',()=>{
+ const article={id:'material',unidad:'ROLLO',unidadControl:'M²',equivalenciasStock:{'M²':50}},row={articuloId:'material',cantidad:2,unidad:'ROLLO',precioUnitarioNeto:100,ivaPorcentaje:21};
+ const before=JSON.stringify({article,row}),r=C.purchaseCostPreview(row,article);
+ assert.equal(r.cantidadStock,100);assert.equal(r.totalNeto,200);assert.equal(r.totalConIVA,242);assert.equal(r.costoNetoStock,2);assert.equal(r.costoConIVAStock,2.42);assert.equal(JSON.stringify({article,row}),before);
+ assert.equal(C.purchaseCostPreview({...row,cantidad:5},article).costoConIVAStock,2.42);
+});
+test('no toma el precio de otra compra ni inventa IVA o conversiones para el renglón actual',()=>{
+ const article={id:'material',unidad:'ROLLO',unidadControl:'M²',equivalenciasStock:{'M²':50}},row={cantidad:1,unidad:'ROLLO',precioUnitarioNeto:100,ivaPorcentaje:0};
+ assert.equal(C.purchaseCostPreview(row,article).costoConIVAStock,2);assert.equal(C.purchaseCostPreview({...row,precioUnitarioNeto:0},article).costoConIVAStock,0);
+ for(const change of [{cantidad:''},{cantidad:-1},{precioUnitarioNeto:''},{ivaPorcentaje:undefined},{ivaPorcentaje:-1},{unidad:'KG'},{articuloId:'otro'},{cantidad:1e308,precioUnitarioNeto:1e308}])assert.throws(()=>C.purchaseCostPreview({...row,...change},article));
+});
+test('una compra guardada sin cambios conserva el área registrada al corregir otra equivalencia',()=>{
+ const r=C.purchaseCostPreview({cantidad:2,unidad:'ROLLO',precioUnitarioNeto:100,ivaPorcentaje:20,cantidadStock:80,unidadStock:'M²'},{unidad:'ROLLO',unidadControl:'M²',equivalenciasStock:{'M²':100}});
+ assert.equal(r.cantidadStock,80);assert.equal(r.costoNetoStock,2.5);assert.equal(r.costoConIVAStock,3);
+});
+test('Compras envía cantidad, precio neto e IVA del renglón y sólo conserva una conversión anterior si no cambió',()=>{
+ const source=fs.readFileSync(require.resolve('../compras.js'),'utf8'),fields={'.i-qty':{value:'2'},'.i-unit':{value:'ROLLO'},'.i-price':{value:'100'},'.i-iva':{value:'21'}},tr={dataset:{articleId:'material'},querySelector:k=>fields[k]},ctx={window:{TIZInsumosCotizacionCoreV1:C},num:Number};
+ vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('function cpUnitPreviewPurchase('),source.indexOf('function cpRefreshUnitNotices(')),ctx);
+ const r=ctx.cpUnitPreviewPurchase(tr);assert.equal(r.precioUnitarioNeto,'100');assert.equal(r.ivaPorcentaje,'21');assert.equal(r.cantidadStock,undefined);
+ tr.dataset.stockMovementOriginal=JSON.stringify({articuloId:'material',cantidad:2,unidad:'ROLLO',precio:100,cantidadStock:80,unidadStock:'M²'});assert.equal(ctx.cpUnitPreviewPurchase(tr).cantidadStock,80);
+ fields['.i-qty'].value='3';assert.equal(ctx.cpUnitPreviewPurchase(tr).cantidadStock,undefined);
+});
 test('la aplicación carga el editor de unidades después del núcleo y antes de la interfaz de insumos',()=>{
  const html=fs.readFileSync(require.resolve('../index.html'),'utf8'),scripts=[...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/g)].map(m=>m[1].split('?')[0]);
  assert.equal(scripts.filter(s=>s==='unidadesStockV1.js').length,1);assert.ok(scripts.indexOf('unidadesStockV1.js')>scripts.indexOf('functions/insumosCotizacionCoreV1.js'));assert.ok(scripts.indexOf('unidadesStockV1.js')<scripts.indexOf('insumosCotizacionV1.js'));

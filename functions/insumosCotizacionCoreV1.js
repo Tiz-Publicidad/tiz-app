@@ -55,6 +55,19 @@ function movementQuantity(row,raw,field='cantidad'){
  const a=baseArticle(raw);if(field==='cantidad'&&Number.isFinite(row.cantidadStock)&&text(row.unidadStock))return measuredQuantity(row.cantidadStock,row.unidadStock,a);
  return measuredQuantity(row[field],row.unidad||raw.unidad,a);
 }
+
+function purchaseCostPreview(row={},raw={}){
+ if(row.articuloId&&raw.id&&row.articuloId!==raw.id)throw Error('Cambió el insumo del renglón. Reabrí las unidades.');
+ const quantity=number(row.cantidad),price=number(row.precioUnitarioNeto),vat=number(row.ivaPorcentaje??row.ivaPct);
+ if(!text(row.cantidad)||!Number.isFinite(quantity)||quantity<=0)throw Error('Completá una cantidad de compra mayor que cero.');
+ if(!text(row.precioUnitarioNeto)||!Number.isFinite(price)||price<0)throw Error('Completá el precio unitario neto de esta compra.');
+ if(!text(row.ivaPorcentaje??row.ivaPct)||!Number.isFinite(vat)||vat<0||vat>100)throw Error('Revisá el porcentaje de IVA de esta compra.');
+ const view=baseArticle(raw),stock=Number.isFinite(row.cantidadStock)&&text(row.unidadStock)?movementQuantity(row,raw):stockQuantity(quantity,row.unidad,view);
+ const totalNeto=quantity*price,ivaImporte=totalNeto*vat/100,totalConIVA=totalNeto+ivaImporte,costoNetoStock=totalNeto/stock,costoConIVAStock=totalConIVA/stock;
+ if(![stock,totalNeto,ivaImporte,totalConIVA,costoNetoStock,costoConIVAStock].every(Number.isFinite)||stock<=0)throw Error('El cálculo de esta compra está fuera de rango.');
+ return {cantidad:quantity,unidadCompra:unit(row.unidad),precioUnitarioNeto:price,cantidadStock:stock,unidadStock:view.unidad,ivaPorcentaje:vat,totalNeto,ivaImporte,totalConIVA,costoNetoStock,costoConIVAStock};
+}
+
 function unitSetting(raw,input){
  const target=unit(input.unidadControl),purchase=unit(input.unidadCompra||raw.unidadCompraPreferida||raw.unidad),factor=number(input.factor),origin=unit(raw.unidad);if(!origin||!units.includes(target)||!units.includes(purchase)||!Number.isFinite(factor)||factor<=0)throw Error('Completá las unidades de compra y control y una equivalencia mayor que cero.');
  const fixed=purchase===target?1:measures[purchase]&&measures[target]&&measures[purchase][0]===measures[target][0]?measures[purchase][1]/measures[target][1]:null;
@@ -161,5 +174,5 @@ function printingMaterials(quote,articles,proposed,memory=[]){
  add('impresion','Tinta / impresión'+(context.uv?' UV':'')+' (sin soporte)');
  return results;
 }
-return {text,norm,number,units,articleIdentity,articleDraft,nextArticleCode,argentinaDay,approvalWorkDates,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,unitSetting,day,timestamp,catalog,validate,implementationValidation,draft,snapshot,printingContext,printingMaterials,printKind};
+return {text,norm,number,units,articleIdentity,articleDraft,nextArticleCode,argentinaDay,approvalWorkDates,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,purchaseCostPreview,unitSetting,day,timestamp,catalog,validate,implementationValidation,draft,snapshot,printingContext,printingMaterials,printKind};
 });
