@@ -240,7 +240,7 @@ function injectUI(){
   page.innerHTML=`
     <div class="cp-head"><div><div class="cp-title">Compras y Proveedores</div><div class="cp-sub">Compras por ítem, deudas, pagos, proveedores, servicios contratados, stock y ayudamemorias.</div></div><div class="cp-actions"><button class="cp-btn" id="cp-resume-ingreso" hidden onclick="cpResumeIngreso()">Retomar compra en curso</button><button class="cp-btn" onclick="cpOpenConfigIA()">⚙ IA comprobantes</button><button class="cp-btn primary" onclick="cpNuevaCompra()">＋ Nueva compra</button></div></div>
     <div class="cp-tabs">
-      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="historico">Histórico materiales</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="equivalencias">Equivalencias</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button>
+      <button class="cp-tab active" data-tab="inicio">Dashboard</button><button class="cp-tab" data-tab="compras">Compras</button><button class="cp-tab" data-tab="proveedores">Proveedores</button><button class="cp-tab" data-tab="pagos">Deudas y previsiones</button><button class="cp-tab" data-tab="conteo">Stock / conteo</button><button class="cp-tab" data-tab="articulos">Artículos</button><button class="cp-tab" data-tab="equivalencias">Equivalencias</button><button class="cp-tab" data-tab="planes">Materiales por OT</button><button class="cp-tab" data-tab="controlot">Control OT</button><button class="cp-tab" data-tab="alertas">Alertas</button>
     </div><div id="cp-content"></div>`;
   document.querySelector('.main, main, .content')?.appendChild(page) || document.body.appendChild(page);
   page.querySelectorAll('.cp-tab').forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;page.querySelectorAll('.cp-tab').forEach(x=>x.classList.toggle('active',x===b));render();});
@@ -303,7 +303,7 @@ function render(){
   if(currentTab==='proveedores'&&document.getElementById('cp-prov-id')&&(cpIngreso?.editingProvider||(document.activeElement?.matches('input,textarea,select')&&document.activeElement.closest('#cp-provider-form'))))return;
   cpRefreshMother();
   const el=document.getElementById('cp-content'); if(!el)return;
-  ({inicio:renderInicio,compras:renderCompras,historico:renderHistoricoMateriales,proveedores:renderProveedores,pagos:renderPagos,conteo:renderConteo,articulos:renderArticulos,equivalencias:renderEquivalencias,planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
+  ({inicio:renderInicio,compras:renderCompras,proveedores:renderProveedores,pagos:renderPagos,conteo:renderConteo,articulos:renderArticulos,equivalencias:renderEquivalencias,planes:renderPlanes,controlot:renderControlOT,alertas:renderAlertas}[currentTab]||renderInicio)(el);
   if(currentTab==='inicio')el.insertAdjacentHTML('afterbegin',`<div class="cp-panel"><div class="cp-actions" style="justify-content:space-between"><div><b>${cpWorks().length} obras para Compras</b><p class="cp-sub">Pendiente / Cobrado pendiente de TIZ 2026 y obras nuevas, sin duplicar OT.</p></div><button class="cp-btn primary" onclick="cpTab('planes')">Ver materiales por OT</button></div>${cpMotherState()}</div>`);
   if(cpIngreso?.editingProvider&&currentTab==='proveedores'){cpFillProvider(cpIngreso.providerDraft);cpShowProviderReturn();cpMarkProviderPending();}
   cpRefreshIngreso();
@@ -405,7 +405,13 @@ function iaSummary(cm,al){
 function alertHTML(a){return `<div class="cp-alert ${a.level}"><div>${a.level==='red'?'🔴':'🟠'}</div><div><b>${esc(a.title)}</b><div class="cp-sub">${esc(a.text)}</div></div></div>`}
 
 function getFilteredPurchaseItems(){const f=purchaseFilters;return purchaseItems().filter(x=>{const c=x.compra||{},date=String(c.fecha||'');if(f.period==='week'&&c.semana!==f.week)return false;if(f.period==='month'&&!date.startsWith(f.month))return false;if(f.period==='custom'&&((f.from&&date<f.from)||(f.to&&date>f.to)))return false;if(f.proveedor&&c.proveedor!==f.proveedor)return false;if(f.familia&&String(x.familia||x.rubro||'')!==f.familia)return false;if(f.subfamilia&&String(x.subfamilia||'')!==f.subfamilia)return false;if(f.fc&&c.fc!==f.fc)return false;if(f.search){const hay=normText([x.descripcionOriginal,x.descripcion,x.codigo,x.familia,x.subfamilia,c.proveedor,c.numeroComprobante,c.ot].join(' '));if(!hay.includes(normText(f.search)))return false;}return true;});}
+let cpPurchaseView='comprobantes';
+window.cpSetPurchaseView=value=>{cpPurchaseView=value==='anual'?'anual':'comprobantes';render();};
 function renderCompras(el){
+  if(cpPurchaseView==='anual')renderHistoricoMateriales(el);else renderComprobantes(el);
+  el.insertAdjacentHTML('afterbegin',`<div class="cp-panel"><div class="cp-field"><label for="cp-purchase-view">Vista de Compras</label><select id="cp-purchase-view" onchange="cpSetPurchaseView(this.value)"><option value="comprobantes" ${cpPurchaseView==='comprobantes'?'selected':''}>Comprobantes</option><option value="anual" ${cpPurchaseView==='anual'?'selected':''}>Comparativo anual de materiales</option></select></div></div>`);
+}
+function renderComprobantes(el){
   const families=uniqueSorted([...C.articulos.map(a=>a.familia),...purchaseItems().map(i=>i.familia||i.rubro)]),providers=uniqueSorted(C.compras.map(c=>c.proveedor));
   const subfamilies=uniqueSorted([...C.articulos.filter(a=>!purchaseFilters.familia||a.familia===purchaseFilters.familia).map(a=>a.subfamilia),...purchaseItems().filter(i=>!purchaseFilters.familia||(i.familia||i.rubro)===purchaseFilters.familia).map(i=>i.subfamilia)]);
   const items=getFilteredPurchaseItems(),ids=new Set(items.map(i=>i.compra.id)),filtered=C.compras.filter(c=>ids.has(c.id)).sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')));
@@ -421,7 +427,7 @@ window.cpSetHistFilter=(key,value)=>{window.cpHistFilters[key]=value;render();};
 function renderHistoricoMateriales(el){
   const all=purchaseItems().filter(i=>i.compra?.fecha);
   if(!all.length){
-    el.innerHTML='<div class="cp-panel"><b>Histórico de materiales</b><div class="cp-sub" style="margin-top:6px">Todavía no hay compras históricas cargadas en la base.</div></div>';
+    el.innerHTML='<div class="cp-panel"><b>Comparativo anual de materiales</b><div class="cp-sub" style="margin-top:6px">Todavía no hay compras históricas cargadas en la base.</div></div>';
     return;
   }
   const years=uniqueSorted(all.map(i=>String(i.compra.fecha||'').slice(0,4)).filter(Boolean)).sort().reverse();
@@ -467,7 +473,7 @@ function renderHistoricoMateriales(el){
     return [...m.values()].sort((a,b)=>b.net-a.net).slice(0,12).map(x=>'<tr><td><b>'+esc(x.name)+'</b></td><td style="text-align:right">'+x.qty.toFixed(2)+'</td><td style="text-align:right"><b>'+money(x.net)+'</b></td></tr>').join('');
   })();
 
-  el.innerHTML='<div class="cp-pay-toolbar"><div><div class="cp-pay-title">Histórico de materiales por mes</div><div class="cp-sub">Filtrá por año, familia, código o descripción. Ejemplo: buscá “chapa c22” para ver cuánto se compró en cada mes.</div></div></div>'+
+  el.innerHTML='<div class="cp-pay-toolbar"><div><div class="cp-pay-title">Comparativo anual de materiales</div><div class="cp-sub">Filtrá por año, familia, código o descripción. Ejemplo: buscá “chapa c22” para ver cuánto se compró en cada mes.</div></div></div>'+
     '<div class="cp-panel"><div class="cp-filter-grid">'+
       '<div class="cp-field"><label>Año</label><select onchange="cpSetHistFilter(\'year\',this.value)">'+years.map(y=>'<option '+(f.year===y?'selected':'')+'>'+esc(y)+'</option>').join('')+'</select></div>'+
       '<div class="cp-field"><label>Familia</label><select onchange="cpSetHistFilter(\'familia\',this.value)"><option value="">Todas</option>'+fams.map(v=>'<option '+(f.familia===v?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></div>'+
@@ -815,7 +821,7 @@ window.cpCompleteExplosion=async id=>{const p=C.planes.find(x=>x.id===id);if(!p)
 
 function renderAlertas(el){const al=alerts();el.innerHTML=`<div class="cp-panel"><b>Alertas visuales y avisos</b><p class="cp-sub">Se generan desde comprobantes, vencimientos, stock mínimo, planes de OT e historial de precios.</p></div>${al.map(alertHTML).join('')||'<div class="cp-alert green">✅ Sin alertas activas.</div>'}`}
 
-window.cpTab=t=>{currentTab=t==='base-datos'?'articulos':t==='obras'?'planes':t==='migracion'?'historico':t==='contrataciones'?'compras':t;document.querySelectorAll('.cp-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));render();};
+window.cpTab=t=>{if(t==='historico')cpPurchaseView='anual';currentTab=t==='base-datos'?'articulos':t==='obras'?'planes':t==='migracion'?'compras':t==='historico'?'compras':t==='contrataciones'?'compras':t;document.querySelectorAll('.cp-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));render();};
 window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');const file=document.getElementById('cp-file');if(file)file.value='';['cp-proveedor','cp-numero','cp-ot','cp-obs','cp-vencimiento','cp-primer-venc','cp-ref-pago'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-condicion').value='contado';document.getElementById('cp-cuotas').value=1;document.getElementById('cp-dias-cuota').value=30;document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
 window.cpCloseCompra=()=>{ if(aiCleanupActive) aiCleanupActive('cancelled'); document.getElementById('cp-modal-compra').classList.remove('open'); };
 function refreshCatalogDatalist(){const dl=document.getElementById('cp-catalog-list');if(!dl)return;dl.innerHTML=C.articulos.map(a=>`<option value="${esc(a.descripcion)}">${esc(a.codigo||'')} · ${esc(a.familia||'')}${a.subfamilia?' / '+esc(a.subfamilia):''}</option>`).join('');}
