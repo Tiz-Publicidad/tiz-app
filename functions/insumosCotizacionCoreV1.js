@@ -68,6 +68,24 @@ function purchaseCostPreview(row={},raw={}){
  return {cantidad:quantity,unidadCompra:unit(row.unidad),precioUnitarioNeto:price,cantidadStock:stock,unidadStock:view.unidad,ivaPorcentaje:vat,totalNeto,ivaImporte,totalConIVA,costoNetoStock,costoConIVAStock};
 }
 
+
+function purchaseCostUnit(raw={},row={}){
+ const configured=unit(raw.unidadCosto);if(units.includes(configured))return configured;
+ const surface=raw.control!=='sin_stock'&&(/^vinilo\b/.test(norm(raw.descripcion))||/vinilos/.test(norm(raw.familia||raw.rubro)));
+ return surface?'M²':unit(raw.unidadCompraPreferida||raw.unidad||row.unidad);
+}
+function comparablePurchaseCost(row={},raw={}){
+ const target=purchaseCostUnit(raw,row);if(!units.includes(target))throw Error('Falta la unidad para comparar el costo.');
+ const currency=text(row.moneda||row.compra?.moneda||'ARS').toUpperCase();if(currency!=='ARS')throw Error('El costo comparable requiere conversión a ARS.');
+ let rate=row.ivaPorcentaje??row.ivaPct,known=text(rate)!=='';
+ if(!known&&Number.isFinite(row.totalNeto)&&row.totalNeto>0&&Number.isFinite(row.totalBruto)&&row.totalBruto>=row.totalNeto){rate=(row.totalBruto/row.totalNeto-1)*100;known=true;}
+ const input={...row,ivaPorcentaje:known?rate:0};let costArticle={...raw,unidadControl:target};
+ if(unit(row.unidad)===target){input.cantidadStock=undefined;input.unidadStock=undefined;costArticle={...raw,unidad:target,unidadControl:target};}
+ else if(row.unidadCosto===target&&row.cantidadCompraCosto===number(row.cantidad)&&unit(row.unidadCompraCosto)===unit(row.unidad)&&Number.isFinite(row.cantidadCosto)&&row.cantidadCosto>0){input.cantidadStock=row.cantidadCosto;input.unidadStock=target;}
+ const p=purchaseCostPreview(input,costArticle);
+ return {unidadCosto:target,cantidadCosto:p.cantidadStock,cantidadCompraCosto:p.cantidad,unidadCompraCosto:p.unidadCompra,factorCosto:p.cantidadStock/p.cantidad,precioUnitarioCostoNeto:p.costoNetoStock,precioUnitarioCostoConIVA:known?p.costoConIVAStock:null,ivaCosto:known?p.ivaPorcentaje:null,costoComparadoPendiente:known?'':'IVA no informado en la compra.'};
+}
+
 function unitSetting(raw,input){
  const target=unit(input.unidadControl),purchase=unit(input.unidadCompra||raw.unidadCompraPreferida||raw.unidad),factor=number(input.factor),origin=unit(raw.unidad);if(!origin||!units.includes(target)||!units.includes(purchase)||!Number.isFinite(factor)||factor<=0)throw Error('Completá las unidades de compra y control y una equivalencia mayor que cero.');
  const fixed=purchase===target?1:measures[purchase]&&measures[target]&&measures[purchase][0]===measures[target][0]?measures[purchase][1]/measures[target][1]:null;
@@ -88,6 +106,7 @@ function catalog(articles,purchases,counts,plans){
   const last=matches[0];let price=null,priceError='',currency='ARS';
   if(last){try{if(!text(last.unidad))throw Error('La última compra no tiene unidad.');const quantity=number(last.cantidad),q=Number.isFinite(quantity)&&quantity>0?movementQuantity(last,original)/quantity:stockQuantity(1,last.unidad,article),raw=number(last.precioUnitarioNeto);if(!Number.isFinite(raw)||raw<=0||q<=0)throw Error('El último precio de compra debe ser mayor que cero.');currency=text(last.moneda||last.compra.moneda||'ARS').toUpperCase();if(currency!=='ARS')throw Error('El último precio de compra requiere conversión a ARS.');price=raw/q;}catch(e){priceError=e.message;}}
   else priceError='Sin precio de compra registrado.';
+  let comparable={unidadCosto:purchaseCostUnit(original),precioUnitarioCostoNeto:null,precioUnitarioCostoConIVA:null,costoComparadoPendiente:'Sin compra registrada.'};if(last){try{comparable=comparablePurchaseCost(last,original);}catch(e){comparable.costoComparadoPendiente=e.message;}}
   const count=counts.flatMap(c=>(c.items||[]).filter(i=>i.articuloId===article.id).map(i=>({...i,conteo:c}))).sort((a,b)=>day(b.conteo.fecha).localeCompare(day(a.conteo.fecha))||timestamp(b.conteo._ts)-timestamp(a.conteo._ts))[0];
   // An undated or absent count is unknown stock, never assumed to be zero.
   let stock=null,stockError='';if(count&&day(count.conteo.fecha)){
@@ -95,7 +114,7 @@ function catalog(articles,purchases,counts,plans){
    if(stock!==null){const incoming=purchases.filter(p=>day(p.fecha)>day(count.conteo.fecha)&&norm(p.destino)==='stock').flatMap(p=>(p.items||[]).filter(i=>i.articuloId===article.id));for(const i of incoming){try{stock+=movementQuantity(i,original);}catch{stock=null;stockError='Hay compras posteriores con unidades sin resolver.';break;}}}
   }
   let reserved=0,reserveError=false;for(const i of plans.filter(p=>p.estado!=='cerrado').flatMap(p=>p.items||[]).filter(i=>i.articuloId===article.id&&i.modoStock!=='generico')){try{const quantity=number(i.cantidadPlanificada??i.cantidadSugerida);if(quantity<0)throw Error('Reserva negativa.');reserved+=movementQuantity({...i,cantidad:quantity,cantidadStock:undefined},original);}catch{reserveError=true;stockError='Hay reservas con unidades sin resolver.';}}
-  return {id:article.id,codigo:text(article.codigo),descripcion:text(article.descripcion),familia:text(article.familia||article.rubro),subfamilia:text(article.subfamilia),unidad:unit(article.unidad),unidadOrigen:unit(original.unidad),unidadControl:unit(original.unidadControl||original.unidad),control:article.control||'',stockMinimo:article.stockMinimo,equivalenciasStock:article.equivalenciasStock||{},ultimoCosto:price,errorPrecio:priceError,monedaCosto:currency,proveedor:text(last?.compra.proveedor),fechaCosto:text(last?.compra.fecha),compraId:text(last?.compra.id),costoPendiente:!last,stockFisico:stock,reservado:reserveError?null:reserved,stockDisponible:stock===null||reserveError?null:Math.max(0,stock-reserved),fechaStock:text(count?.conteo.fecha),errorStock:stockError};
+  return {id:article.id,codigo:text(article.codigo),descripcion:text(article.descripcion),familia:text(article.familia||article.rubro),subfamilia:text(article.subfamilia),unidad:unit(article.unidad),unidadOrigen:unit(original.unidad),unidadControl:unit(original.unidadControl||original.unidad),control:article.control||'',stockMinimo:article.stockMinimo,equivalenciasStock:article.equivalenciasStock||{},ultimoCosto:price,unidadCosto:comparable.unidadCosto,ultimoCostoCompraNeto:comparable.precioUnitarioCostoNeto,ultimoCostoCompraConIVA:comparable.precioUnitarioCostoConIVA,errorCostoCompra:comparable.costoComparadoPendiente,errorPrecio:priceError,monedaCosto:currency,proveedor:text(last?.compra.proveedor),fechaCosto:text(last?.compra.fecha),compraId:text(last?.compra.id),costoPendiente:!last,stockFisico:stock,reservado:reserveError?null:reserved,stockDisponible:stock===null||reserveError?null:Math.max(0,stock-reserved),fechaStock:text(count?.conteo.fecha),errorStock:stockError};
  });
 }
 function validate(rows,articles,{allowMissingCosts=false}={}){
@@ -174,5 +193,5 @@ function printingMaterials(quote,articles,proposed,memory=[]){
  add('impresion','Tinta / impresión'+(context.uv?' UV':'')+' (sin soporte)');
  return results;
 }
-return {text,norm,number,units,articleIdentity,articleDraft,nextArticleCode,argentinaDay,approvalWorkDates,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,purchaseCostPreview,unitSetting,day,timestamp,catalog,validate,implementationValidation,draft,snapshot,printingContext,printingMaterials,printKind};
+return {text,norm,number,units,articleIdentity,articleDraft,nextArticleCode,argentinaDay,approvalWorkDates,unit,stockQuantity,baseArticle,measuredQuantity,movementQuantity,purchaseCostPreview,purchaseCostUnit,comparablePurchaseCost,unitSetting,day,timestamp,catalog,validate,implementationValidation,draft,snapshot,printingContext,printingMaterials,printKind};
 });
