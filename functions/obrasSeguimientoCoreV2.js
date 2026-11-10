@@ -35,13 +35,15 @@ function statusPatch(work,estado,user,at=new Date().toISOString()){
 const active=o=>(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
 const isBaja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
 const canBaja=u=>!!u&&(u.sector==='Ventas'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
-function productionSignal(g,today=day()){
- const planned=iso(g.produccionPrevista),real=iso(g.seguimiento?.produccionReal);
+function stageSignal(g,phase,label,today=day()){
+ const planned=iso(g[phase+'Prevista']),real=iso(g.seguimiento?.[phase+'Real']);
  if(!planned)return {color:'',label:'Sin fecha prevista'};
- if(real)return real<=planned?{color:'green',label:'Producción cumplida en fecha · Real: '+real}:{color:'red',label:'Producción cumplida con atraso · Real: '+real};
+ if(real)return real<=planned?{color:'green',label:label+' cumplida en fecha · Real: '+real}:{color:'red',label:label+' cumplida con atraso · Real: '+real};
  const remaining=days(planned,today);
- return remaining<0?{color:'red',label:'Producción vencida · falta registrar fecha real'}:remaining<2?{color:'yellow',label:'Producción próxima a vencer · falta registrar fecha real'}:{color:'',label:'Producción pendiente · fecha prevista: '+planned};
+ return remaining<0?{color:'red',label:label+' vencida · falta registrar fecha real'}:remaining<2?{color:'yellow',label:label+' próxima a vencer · falta registrar fecha real'}:{color:'',label:label+' pendiente · fecha prevista: '+planned};
 }
+function productionSignal(g,today=day()){return stageSignal(g,'produccion','Producción',today);}
+function placementSignal(g,today=day()){return stageSignal(g,'colocacion','Colocación',today);}
 function bajaPatch(work,motivo,user,reactivar=false,at=new Date().toISOString()){
  if(!canBaja(user))throw Error('Solo Ventas puede dar de baja o reactivar trabajos desde Presupuestos.');
  motivo=T(motivo);if(motivo.length<3||motivo.length>1000)throw Error('Indicá un motivo de entre 3 y 1000 caracteres.');
@@ -209,6 +211,6 @@ function replanReport(groups,{desde='',hasta='',etapa='',motivo='',query=''}={})
  }
  return{rows,total:rows.length,obras:counts.size,reincidentes:[...counts.values()].filter(n=>n>1).length,postergaciones:rows.filter(r=>r.tipo==='postergacion').length,dias:rows.reduce((n,r)=>n+r.dias,0),porMotivo:aggregate(r=>r.motivo),porCliente:aggregate(r=>r.cliente),porMes:aggregate(r=>r.fechaRegistro.slice(0,7)).sort((a,b)=>a.key.localeCompare(b.key)),original};
 }
-return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
+return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });
 
