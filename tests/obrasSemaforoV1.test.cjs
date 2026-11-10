@@ -1,9 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
 const C=require('../functions/obrasSeguimientoCoreV2'),Cache=require('../obrasConsultaCacheV1'),Consulta=require('../functions/obrasConsultaV1');
 const src=p=>fs.readFileSync(require.resolve('../'+p),'utf8');
-test('semáforo compara fecha real y compromiso; amarillo sólo a menos de dos días y nunca tapa un vencimiento',()=>{
+test('semáforo muestra gris antes de los dos días previos, amarillo ambos días y rojo desde el vencimiento',()=>{
  const signal=(planned,real='',today='2026-11-04')=>C.productionSignal({produccionPrevista:planned,seguimiento:{produccionReal:real}},today).color;
- assert.equal(signal('2026-11-03'),'red');assert.equal(signal('2026-11-04'),'yellow');assert.equal(signal('2026-11-05'),'yellow');assert.equal(signal('2026-11-06'),'');
+ assert.equal(signal('2026-11-03'),'red');assert.equal(signal('2026-11-04'),'red');assert.equal(signal('2026-11-05'),'yellow');assert.equal(signal('2026-11-06'),'yellow');
  assert.equal(signal('2026-11-03','2026-11-02'),'green');assert.equal(signal('2026-11-03','2026-11-03'),'green');assert.equal(signal('2026-11-03','2026-11-04'),'red');assert.equal(signal(''),'');
  assert.equal(signal('2027-01-01','','2026-12-31'),'yellow');assert.equal(signal('2028-02-29','','2028-03-01'),'red');
 });
@@ -41,7 +41,7 @@ test('OT 4778: colocación del 30/10 vencida se marca roja aunque producción se
 test('colocación compara su propia fecha real: en fecha, atraso, hoy, mañana, futura y sin fecha',()=>{
  const signal=(planned,real='',today='2026-11-10')=>C.placementSignal({colocacionPrevista:planned,seguimiento:{colocacionReal:real}},today).color;
  assert.equal(signal('2026-10-30','2026-10-29'),'green');assert.equal(signal('2026-10-30','2026-10-30'),'green');assert.equal(signal('2026-10-30','2026-11-02'),'red');
- assert.equal(signal('2026-11-10'),'yellow');assert.equal(signal('2026-11-11'),'yellow');assert.equal(signal('2026-11-12'),'');assert.equal(signal(''),'');
+ assert.equal(signal('2026-11-10'),'red');assert.equal(signal('2026-11-11'),'yellow');assert.equal(signal('2026-11-12'),'yellow');assert.equal(signal(''),'');
  assert.equal(signal('2027-01-01','','2026-12-31'),'yellow');
 });
 test('listado de Obras aplica el semáforo a las dos columnas y expone el motivo accesible',()=>{
@@ -50,4 +50,27 @@ test('listado de Obras aplica el semáforo a las dos columnas y expone el motivo
  const g={produccionPrevista:'2026-10-29',colocacionPrevista:'2026-10-30',seguimiento:{produccionReal:'2026-10-29'}};
  assert.match(ctx.production(g),/o2-date-green/);assert.match(ctx.placement(g),/o2-date-red/);assert.match(ctx.placement(g),/aria-label="[^"]*Colocación vencida/);
  assert.match(ui,/placementDate\(g\)\+'<\/td><td>'\+statusCell/);
+});
+
+test('OT 4799: colocación prevista 06/12 permanece gris aunque exista una fecha real previa o futura',()=>{
+ for(const colocacionReal of ['', '2026-11-05', '2026-12-06']){
+  const g={ot:'4799',colocacionPrevista:'2026-12-06',seguimiento:{colocacionReal}};
+  assert.equal(C.placementSignal(g,'2026-11-10').color,'gray');
+  assert.equal(C.placementSignal(g,'2026-12-03').color,'gray');
+  assert.equal(C.placementSignal(g,'2026-12-04').color,'yellow');
+  assert.equal(C.placementSignal(g,'2026-12-05').color,'yellow');
+ }
+});
+test('el día previsto ya es rojo sin ejecución registrada; una fecha real futura no acredita cumplimiento',()=>{
+ const g={colocacionPrevista:'2026-12-06',seguimiento:{}};
+ assert.equal(C.placementSignal(g,'2026-12-06').color,'red');assert.match(C.placementSignal(g,'2026-12-06').label,/vence hoy/);
+ assert.equal(C.placementSignal(g,'2026-12-07').color,'red');
+ g.seguimiento.colocacionReal='2026-12-07';assert.equal(C.placementSignal(g,'2026-12-06').color,'red');
+ g.seguimiento.colocacionReal='2026-12-06';assert.equal(C.placementSignal(g,'2026-12-06').color,'green');
+});
+test('la fecha futura de colocación usa una clase gris explícita en el listado',()=>{
+ const ui=src('obrasSeguimientoV2.js'),line=ui.split('\n').find(l=>l.startsWith('const placementDate=')),ctx={C:{placementSignal:g=>C.placementSignal(g,'2026-11-10')},E:String,date:s=>s};
+ vm.runInNewContext(line+'\nglobalThis.dateHTML=placementDate;',ctx);
+ assert.match(ctx.dateHTML({colocacionPrevista:'2026-12-06',seguimiento:{colocacionReal:'2026-12-06'}}),/o2-date-gray/);
+ assert.match(ui,/\.o2-date-gray\{color:var\(--text2,#aaa\)\}/);
 });
