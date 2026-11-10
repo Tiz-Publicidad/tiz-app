@@ -254,7 +254,7 @@
     </div>`;
     if(tab==='checks') c.innerHTML=`<div class="v31-checks">${(CHECKS[key]||[]).map(([k,l])=>`<label class="v31-check ${(data.checks||{})[k]?'done':''}"><input class="v31-check-input" type="checkbox" data-key="${k}" ${(data.checks||{})[k]?'checked':''}>${l}</label>`).join('')}</div>`;
     if(tab==='materials') {
-      const rows=(data.materiales||[]).length?data.materiales:[{articulo:'',cantidad:1,unidad:'UNID'}];
+      const normalized=normalizeProductionMaterials(data.materiales);const rows=normalized.length?normalized:[{articulo:'',cantidad:'',unidad:''}];
       c.innerHTML=`<div id="v31-material-list">${rows.map(materialHTML).join('')}</div><button class="btn btn-ghost" onclick="addMaterialV31()">＋ Agregar material</button><div class="v31-sub" style="margin-top:8px">Seleccionar materiales específicos de la OT. No cargar consumibles generales.</div>`;
     }
     if(tab==='notes') c.innerHTML=`<div class="v31-panel"><div id="v31-generated-alerts">${alertsFor(o,sector).map(a=>`<div class="v31-alert">${esc(a)}</div>`).join('')||'<div class="v31-alert">No hay ayudamemorias automáticos pendientes.</div>'}</div><div class="v31-field full" style="margin-top:9px"><label>Ayudamemoria / nota natural</label><textarea id="v31-ayudamemoria" rows="4">${esc(data.ayudamemoria||'')}</textarea></div><div class="v31-sub">Ejemplo: “Confirmar color con Pablo antes de pintar”.</div></div>`;
@@ -309,7 +309,7 @@
     if(!o?.id&&!o?.firestoreId)throw new Error('Falta identificar la OT');
     const old=getGestion(o,'Producción'), data={...productionDataWithQuote(o,old),estadoInterno:old.estadoInterno||'Pendiente',checks:old.checks||{},porcentaje:pct('Producción',old),actualizadoPor:old.actualizadoPor||'Sincronización automática',actualizadoEn:new Date().toISOString()};
     const result=await callWebhook({action:'syncSectorDocument',obra:{firestoreId:o.id||o.firestoreId,ot:o.ot,cliente:o.cliente,desc:o.desc,estado:o.estado,driveFolderId:o.driveFolderId||'',driveFolderUrl:o.driveFolderUrl||'',sector:'Producción',data:{...productionSheetPayload(data),entregaLogistica:o.entregaLogistica||{},infoPresupuesto:o.infoPresupuesto||{}}}});
-    data.sheetUrl=result.sheetUrl||data.sheetUrl||'';data.sheetId=result.sheetId||data.sheetId||'';data.cotizacionTecnicaSincronizada=true;
+    data.sheetUrl=result.sheetUrl||data.sheetUrl||'';data.sheetId=result.sheetId||data.sheetId||'';data.cotizacionTecnicaSincronizada=data.materiales.length>0;
     const patch={gestionSectores:{...(o.gestionSectores||{}),produccion:data}};
     if(result.driveFolderUrl){patch.driveFolderUrl=result.driveFolderUrl;patch.driveFolderId=result.driveFolderId||result.folderId||'';}
     await window.updateDoc_('obras',o.id||o.firestoreId,patch);Object.assign(o,patch);return result;
@@ -318,7 +318,7 @@
   window.saveSectorFichaV31 = async () => {
     const {root,o,sector,key,data:old}=current();if(!o)return;
     let data=collectVisible(JSON.parse(JSON.stringify(old||{})),sector);
-    if(sector==='Producción')data.observaciones=productionDataWithQuote(o,data).observaciones;
+    if(sector==='Producción')data=productionDataWithQuote(o,data);
     data.actualizadoPor=window.currentUser?.email||'';data.actualizadoEn=new Date().toISOString();data.porcentaje=pct(sector,data);
     const gestion={...(o.gestionSectores||{}),[key]:data};
     try {
@@ -342,30 +342,33 @@
   const autoSyncState = { running:false, attempted:new Set(), timer:null };
 
   function productionDataWithQuote(o,old={}) {
-    const presupuesto=(window.DB?.presupuestos||[]).find(p=>p.id===(o.presupuestoId||o.cotizacionId));
+    const presupuesto=(window.DB?.presupuestos||[]).find(p=>p.id&&(p.id===o.presupuestoId||p.id===o.cotizacionId));
     const tipo=presupuesto?.tipoFacturaSolicitada??o.tipoFacturaSolicitada??o.infoPresupuesto?.tipoFacturaSolicitada??'';
     const factura=tipo==='A'||tipo==='B'?'Factura '+tipo:'A definir';
-    const source=(Array.isArray(o.itemsTecnicos)&&o.itemsTecnicos.length?o.itemsTecnicos:(o.itemsCotizados||[]));
-    const materiales=source.map(item=>({
-      articulo:String(item?.articulo||item?.desc||item?.descripcion||'').trim(),
-      cantidad:Number(item?.cantidad||item?.cant||1)||1,
-      unidad:String(item?.unidad||'UNID').trim()||'UNID',
-      observaciones:String(item?.observaciones||item?.detalle||'').trim()
-    })).filter(item=>item.articulo);
-    const quoteNotes=materiales.map((item,i)=>`${i+1}. ${item.articulo} — Cantidad: ${item.cantidad} ${item.unidad}${item.observaciones?' — '+item.observaciones:''}`).join('\n');
+    const sources=[old.materiales,o.itemsTecnicos,o.itemsCotizados,o.items,o.infoPresupuesto?.items,presupuesto?.items,old.materialesCotizados,old.detalleCotizacion];
+    const materiales=sources.map(normalizeProductionMaterials).find(rows=>rows.length)||[];
+    const quoteNotes=new Set(materiales.map((item,i)=>`${i+1}. ${item.articulo} — Cantidad: ${item.cantidad} ${item.unidad}${item.observaciones?' — '+item.observaciones:''}`));
+    const notes=String(old.observaciones||'').split(/\r?\n/).filter(line=>!quoteNotes.has(line.trim())&&!materiales.some((item,i)=>line.trim().startsWith((i+1)+'. '+item.articulo+' — Cantidad: '))&&!/^(?:Teléfono contacto:|Tipo de factura:)/.test(line)).join('\n').trim();
     return {
       ...old,
-      materiales: materiales.length?materiales:(old.materiales||[]),
+      materiales,
       observaciones: [
         String(o.entregaLogistica?.contactoTelefono||o.infoPresupuesto?.contactoTelefono||'').trim(),
         'Tipo de factura: '+factura,
-        String(old.observaciones||quoteNotes).replace(/^(?:Teléfono contacto:|Tipo de factura:).*?(?:\r?\n|$)/gm,'').trim()
+        notes
       ].map((text,i)=>i===0&&text?'Teléfono contacto: '+text:text).filter(Boolean).join('\n'),
       detalleCotizacion: materiales,
       datosCotizacionSinPrecios: true
     };
   }
   window.productionDataWithQuoteV311=productionDataWithQuote;
+
+  function normalizeProductionMaterials(items){
+    return (Array.isArray(items)?items:[]).map(item=>{
+      const raw=item?.cantidad??item?.cant,quantity=raw===undefined||raw===null||String(raw).trim()===''?'':Number(String(raw).replace(',','.'));
+      return {articulo:String(item?.articulo||item?.descripcion||item?.desc||'').trim(),cantidad:Number.isFinite(quantity)?quantity:'',unidad:String(item?.unidad||'').trim(),observaciones:String(item?.observaciones||item?.detalle||'').trim()};
+    }).filter(item=>item.articulo);
+  }
 
   function productionSheetPayload(data={}) {
     return {
@@ -381,12 +384,7 @@
       motivoDesvio:String(data.motivoDesvio||''),
       checks:{...(data.checks||{})},
       ayudamemoria:String(data.ayudamemoria||''),
-      materiales:(data.materiales||[]).map(item=>({
-        articulo:String(item?.articulo||''),
-        cantidad:Number(item?.cantidad||0),
-        unidad:String(item?.unidad||'UNID'),
-        observaciones:String(item?.observaciones||'')
-      })).filter(item=>item.articulo),
+      materiales:normalizeProductionMaterials(data.materiales),
       porcentaje:Number(data.porcentaje||0),
       actualizadoPor:String(data.actualizadoPor||'Sincronización automática'),
       actualizadoEn:String(data.actualizadoEn||new Date().toISOString())
@@ -410,12 +408,11 @@
         const data = {
           ...productionDataWithQuote(o,old),
           estadoInterno: old.estadoInterno || 'Pendiente',
-          checks: old.checks || {},
-          materiales: old.materiales || [],
-          porcentaje: pct('Producción', old),
+          checks: old.checks || {},          porcentaje: pct('Producción', old),
           actualizadoPor: old.actualizadoPor || 'Sincronización automática',
           actualizadoEn: new Date().toISOString()
         };
+        if(!data.materiales.length){autoSyncState.attempted.delete(o.id);continue;}
         try {
           const result = await callWebhook({action:'syncSectorDocument',obra:{
             firestoreId:o.id, ot:o.ot, cliente:o.cliente, desc:o.desc, estado:o.estado,
@@ -424,7 +421,7 @@
           }});
           data.sheetUrl=result.sheetUrl||''; data.sheetId=result.sheetId||'';
           delete data.pdfUrl; delete data.pdfId;
-          data.cotizacionTecnicaSincronizada=true;
+          data.cotizacionTecnicaSincronizada=data.materiales.length>0;
           const gestionSectores={...(o.gestionSectores||{}),produccion:data};
           const patch={gestionSectores};
           if(result.driveFolderUrl){patch.driveFolderUrl=result.driveFolderUrl;patch.driveFolderId=result.driveFolderId||result.folderId||'';}
