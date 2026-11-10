@@ -38,9 +38,12 @@ const canBaja=u=>!!u&&(u.sector==='Ventas'||['info@tizpublicidad.com','giancarlo
 function stageSignal(g,phase,label,today=day()){
  const planned=iso(g[phase+'Prevista']),real=iso(g.seguimiento?.[phase+'Real']);
  if(!planned)return {color:'',label:'Sin fecha prevista'};
- if(real)return real<=planned?{color:'green',label:label+' cumplida en fecha · Real: '+real}:{color:'red',label:label+' cumplida con atraso · Real: '+real};
  const remaining=days(planned,today);
- return remaining<0?{color:'red',label:label+' vencida · falta registrar fecha real'}:remaining<2?{color:'yellow',label:label+' próxima a vencer · falta registrar fecha real'}:{color:'',label:label+' pendiente · fecha prevista: '+planned};
+ // El compromiso futuro conserva su aviso de calendario, sin verde anticipado.
+ if(remaining>2)return {color:'gray',label:label+' pendiente · fecha prevista: '+planned};
+ if(remaining>0)return {color:'yellow',label:label+' próxima a vencer · fecha prevista: '+planned};
+ if(real&&real<=today)return real<=planned?{color:'green',label:label+' cumplida en fecha · Real: '+real}:{color:'red',label:label+' cumplida con atraso · Real: '+real};
+ return {color:'red',label:label+(remaining===0?' vence hoy':' vencida')+' · falta registrar fecha real'};
 }
 function productionSignal(g,today=day()){return stageSignal(g,'produccion','Producción',today);}
 function placementSignal(g,today=day()){return stageSignal(g,'colocacion','Colocación',today);}
