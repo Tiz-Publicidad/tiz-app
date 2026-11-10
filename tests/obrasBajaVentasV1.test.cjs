@@ -7,7 +7,7 @@ test('Obras no permite la baja, incluso para Ventas; una selección antigua no g
  const ctx={C:O,E:String,badge:String,user:()=>actor,groups:()=>[g],window:{TIZObraBajaV1:{open:id=>opened=id},cambiarEstadoObraV1:()=>writes++},consulta:{},S:{},render(){},renderQuality(){}};
  vm.runInNewContext(src.slice(src.indexOf('const statusSaving='),src.indexOf('const oldEditButton='))+'\nglobalThis.cell=statusCell;globalThis.save=saveStatus;',ctx);
  assert.doesNotMatch(ctx.cell(g),/value="Baja"/);const select={dataset:{o2Status:w.id},value:'Baja'};await ctx.save(select);assert.equal(opened,'');assert.match(ctx.S.error,/Presupuestos/);assert.equal(select.value,'Pendiente');assert.equal(writes,0);
- for(const email of ['pablo.aciar@tizpublicidad.com','carolina.flores@tizpublicidad.com']){actor={email};assert.doesNotMatch(ctx.cell(g),/value="Baja"/);assert.throws(()=>O.bajaPatch(w,'Cancelada por cliente',actor),/Ventas/);}
+ for(const email of ['julieta.aguirre@tizpublicidad.com','carolina.flores@tizpublicidad.com']){actor={email};assert.doesNotMatch(ctx.cell(g),/value="Baja"/);assert.throws(()=>O.bajaPatch(w,'Cancelada por cliente',actor),/Ventas/);}
 });
 test('la baja impide que la planilla recree pendientes en Compras, Calidad, Operaciones y análisis preliminar',()=>{
  const w=cancel();for(const works of [[w],[w,{...work(),id:'saldo',ot:'4800.2'}]]){assert.deepEqual(P.merge(source,works),[]);assert.deepEqual(Q.motherWorks(source,works),[]);assert.deepEqual(A.workList(source,works),[]);}

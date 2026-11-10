@@ -25,7 +25,7 @@ test('guardar fecha real y verificaciones conserva el historial sin exigir otra 
  assert.equal(v.obraSeguimientoV2.reprogramaciones.length,1);assert.equal(v.obraSeguimientoV2.produccionPrevistaOriginal,'2026-11-03');assert.equal(C.metrics(C.grouped([v])).produccionesEnFecha,0);
 });
 test('Producción no cambia motivos ni fechas previstas; el historial y original no se aceptan del cliente',()=>{
- assert.throws(()=>C.trackingPatch(work(),{...reason},{email:'pablo.aciar@tizpublicidad.com'},at,today),/Calidad/);
+ assert.throws(()=>C.trackingPatch(work(),{...reason},{email:'carolina.flores@tizpublicidad.com'},at,today),/Calidad/);
  for(const k of ['reprogramaciones','produccionPrevistaOriginal'])assert.throws(()=>apply(work(),{[k]:[]}),/Campo de seguimiento inválido/);
 });
 test('historial agrupado no duplica anticipo y saldo ni cuenta dos etapas como dos cambios',()=>{
@@ -64,7 +64,7 @@ test('fecha real atrasada permite registrar causa y atribución por etapa con au
  const original=JSON.stringify(saved);const next=apply(saved,{...fields,produccionDemoraResponsabilidad:'mixta'},'2026-11-06T14:00:00Z');assert.equal(next.obraSeguimientoV2.produccionDemora.responsabilidad,'mixta');assert.equal(JSON.stringify(saved),original);
  for(const project of [Consulta.projectWork({id:saved.id,data:()=>saved}),Cache.project(saved,C)])assert.deepEqual(project.obraSeguimientoV2.produccionDemora,d);
  const prod={email:'pablo.aciar@tizpublicidad.com',sector:'Producción'};assert.equal(C.trackingPatch(work(),fields,prod,at,today).obraSeguimientoV2.produccionDemora.responsabilidad,'externa');
- assert.throws(()=>C.trackingPatch(work(),{colocacionDemoraMotivo:'cliente'},prod,at,today),/Calidad/);
+ assert.throws(()=>C.trackingPatch(work(),{colocacionDemoraMotivo:'cliente'},{email:'carolina.flores@tizpublicidad.com'},at,today),/Calidad/);
  assert.throws(()=>apply(work(),{...fields,produccionReal:'2026-11-02'}),/posterior/);
 });
 
@@ -84,10 +84,10 @@ test('reprogramaciones conservan atribución explícita y no la deducen del moti
  assert.throws(()=>apply(work(),{produccionPrevista:'2026-11-04',...reason,reprogramacionResponsabilidad:'inventado'}),/Atribución/);
 });
 
-test('el formulario habilita el detalle de demora de Producción y conserva Colocación sólo para Calidad',()=>{
+test('el formulario permite a Pablo registrar demoras de Producción y Colocación con acceso completo',()=>{
  const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('../obrasSeguimientoV2'),'utf8'),start=source.indexOf('function updateDelayForm('),end=source.indexOf('function delayStatsHTML(',start),ctx={C,user:()=>({email:'pablo.aciar@tizpublicidad.com',sector:'Producción'})};vm.runInNewContext(source.slice(start,end)+';globalThis.update=updateDelayForm;',ctx);
  const values={produccionReal:'2026-11-05',colocacionReal:'2026-11-06',produccionPrevista:'2026-11-03',colocacionPrevista:'2026-11-05'},boxes=Object.fromEntries(['produccion','colocacion'].map(p=>[p,{hidden:true,inputs:[{},{}],querySelectorAll(){return this.inputs}}])),form={__group:{seguimiento:{},produccionPrevista:'2026-11-03',colocacionPrevista:'2026-11-05'},elements:{namedItem:k=>({value:values[k]})},querySelector:s=>boxes[s.includes('produccion')?'produccion':'colocacion']};
- ctx.update(form);assert.equal(boxes.produccion.hidden,false);assert.ok(boxes.produccion.inputs.every(x=>x.required&&!x.disabled));assert.ok(boxes.colocacion.inputs.every(x=>x.disabled&&!x.required));
+ ctx.update(form);assert.equal(boxes.produccion.hidden,false);assert.ok(boxes.produccion.inputs.every(x=>x.required&&!x.disabled));assert.ok(boxes.colocacion.inputs.every(x=>!x.disabled&&x.required));
  ctx.user=()=>user;ctx.update(form);assert.ok(boxes.colocacion.inputs.every(x=>x.required&&!x.disabled));values.produccionReal='2026-11-03';ctx.update(form);assert.equal(boxes.produccion.hidden,true);assert.ok(boxes.produccion.inputs.every(x=>!x.required));
  const block=source.slice(source.indexOf('function delayFields('),source.indexOf('function updateDelayForm('));assert.ok(!block.includes('name="reprogramacionResponsabilidad"'));
 });

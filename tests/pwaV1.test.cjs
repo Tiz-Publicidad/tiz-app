@@ -47,8 +47,8 @@ test('actualización automática espera cambios sin guardar, un guardado activo 
  const retry=p.intervals.find(x=>x.ms===5000).fn;field.isConnected=false;p.busy(true);retry();assert.equal(p.posted(),undefined);p.busy(false);retry();assert.equal(p.posted().type,'TIZ_APPLY_UPDATE');
  const unknown=page(null);await unknown.flush();assert.equal(unknown.posted(),undefined);unknown.window.currentUser={email:'pablo.aciar@tizpublicidad.com'};unknown.intervals.find(x=>x.ms===5000).fn();assert.equal(unknown.document.getElementById('tiz-update').hidden,false);assert.equal(unknown.posted(),undefined);
 });
-test('Pablo puede editar Colocaciones sin recibir permisos de administrador',()=>{
+test('Pablo conserva acceso administrativo completo y Juli mantiene su sector',()=>{
  const s=fs.readFileSync(path.join(root,'index.html'),'utf8'),start=s.indexOf('window.canAnnotateSector ='),end=s.indexOf('// ============================================================',start),window={currentUser:{email:'pablo.aciar@tizpublicidad.com',sector:'Producción',isAdmin:false}};
- vm.runInNewContext(s.slice(start,end),{window});assert.equal(window.canAnnotateSector('Colocaciones'),true);assert.equal(window.canAnnotateSector('Producción'),true);assert.equal(window.canAnnotateSector('Ventas'),false);assert.equal(window.canEditObra(),false);
+ vm.runInNewContext(s.slice(start,end),{window});assert.equal(window.canAnnotateSector('Colocaciones'),true);assert.equal(window.canAnnotateSector('Producción'),true);assert.equal(window.canAnnotateSector('Ventas'),true);assert.equal(window.canEditObra(),true);
  window.currentUser={email:'julieta.aguirre@tizpublicidad.com',sector:'Diseño',isAdmin:false};assert.equal(window.canAnnotateSector('Colocaciones'),false);
 });

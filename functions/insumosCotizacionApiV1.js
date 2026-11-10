@@ -1,6 +1,6 @@
 'use strict';
 const C=require('./insumosCotizacionCoreV1');
-const SALES=new Set(['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com']);
+const SALES=new Set(['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com']);
 const USERS=new Set([...SALES,'pablo.aciar@tizpublicidad.com','julieta.aguirre@tizpublicidad.com','carolina.flores@tizpublicidad.com']);
 const fail=(message,status=400)=>Object.assign(Error(message),{status});
 const list=s=>s.docs.map(d=>({...d.data(),id:d.id}));

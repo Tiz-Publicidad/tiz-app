@@ -82,7 +82,7 @@ async function operator(req) {
         .map((x) => x.trim().toLowerCase())
         .filter(Boolean),
     );
-  if (!set.has(email) && !(email === 'giancarlo.pareja@tizpublicidad.com' && set.has('info@tizpublicidad.com')))
+  if (!set.has(email) && !(['giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(email) && set.has('info@tizpublicidad.com')))
     throw Object.assign(new Error("Usuario sin permiso para facturar"), {
       status: 403,
     });

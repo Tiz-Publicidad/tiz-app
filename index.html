@@ -1119,7 +1119,7 @@ provider.setCustomParameters({ hd: 'tizpublicidad.com' });
 // PERMISOS
 // ============================================================
 const ADMIN_EMAIL = 'info@tizpublicidad.com';
-const ADMIN_EMAILS = new Set([ADMIN_EMAIL, 'giancarlo.pareja@tizpublicidad.com']);
+const ADMIN_EMAILS = new Set([ADMIN_EMAIL, 'giancarlo.pareja@tizpublicidad.com', 'pablo.aciar@tizpublicidad.com']);
 
 // Mapa email → sector. Completar con los emails reales del equipo.
 const USER_SECTOR_MAP = {
@@ -1154,13 +1154,13 @@ function getUserSector(email) {
   return 'Ventas';
 }
 // Colocaciones is visible to authenticated users; edits keep sector permissions.
-window.canViewPage = page => !!window.currentUser && (page==='obras'||page==='colocaciones');
+window.canViewPage = page => !!window.currentUser && (window.currentUser.isAdmin || ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser.email||'').toLowerCase()) || page==='obras'||page==='colocaciones'||page==='calidad'&&window.currentUser.sector==='Calidad');
 window.canViewOperaciones = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','contrerasfedericogabriel365@gmail.com'].includes(String(window.currentUser?.email||'').toLowerCase());
-window.canEditFechasCompromiso = () => window.currentUser?.isAdmin;
+window.canEditFechasCompromiso = () => !!window.currentUser && (window.currentUser.isAdmin || window.currentUser.email === 'pablo.aciar@tizpublicidad.com');
 window.canViewIndicadores = () => ['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase());
 window.canAnnotateSector = s => {
   if (!window.currentUser) return false;
-  if (window.currentUser.isAdmin) return true;
+  if (window.currentUser.isAdmin || window.currentUser.email === 'pablo.aciar@tizpublicidad.com') return true;
   if (window.currentUser.sector === s) return true;
   if (s === 'Operaciones' && window.canViewOperaciones()) return true;
   if (s === 'Calidad' && window.currentUser.email === 'pablo.aciar@tizpublicidad.com') return true;
@@ -1168,8 +1168,8 @@ window.canAnnotateSector = s => {
   if (s === 'Colocaciones' && (window.currentUser.sector === 'Compras' || window.currentUser.email === 'pablo.aciar@tizpublicidad.com')) return true;
   return false;
 };
-window.canEditObra        = () => window.currentUser?.isAdmin;
-window.isAdmin            = () => window.currentUser?.isAdmin;
+window.canEditObra        = () => !!window.currentUser && (window.currentUser.isAdmin || window.currentUser.email === 'pablo.aciar@tizpublicidad.com');
+window.isAdmin            = () => !!window.currentUser && (window.currentUser.isAdmin || window.currentUser.email === 'pablo.aciar@tizpublicidad.com');
 
 // ============================================================
 // AUTH SCREEN
@@ -3809,14 +3809,14 @@ async function syncToSheets(data) {
 <script src="facturacionCobranzasMadreV1.js?v=TIZ-COBRANZAS-GENERAL-20261102"></script>
 <script src="facturacionCobranzasSeguimientoV1.js?v=TIZ-FC-SEGUIMIENTO-20261030&edicion=20261102&general=20261102"></script>
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&seguimiento=20261030&edicion=20261102&general=20261102"></script>
-<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022&aprobaciones=20261110"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-REALIZADO-20261029&baja=20261030&planificacion-demoras=20261110&aprobaciones=20261110"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-FECHAS-DDMMYYYY-20261104"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-CONTACTOS-REALIZADO-20261029&aprobaciones=20261110"></script>
-<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE&baja-ventas=20261103"></script>
-<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023"></script>
+<script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022&aprobaciones=20261110&acceso-pablo=20261110"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-REALIZADO-20261029&baja=20261030&planificacion-demoras=20261110&aprobaciones=20261110&acceso-pablo=20261110"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-FECHAS-DDMMYYYY-20261104"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-CONTACTOS-REALIZADO-20261029&aprobaciones=20261110"></script>
+<script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE&baja-ventas=20261103&acceso-pablo=20261110"></script>
+<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023&acceso-pablo=20261110"></script>
 <script src="operacionesV1.js?v=TIZ-OPERACIONES-20261016C-OSCURO"></script>
 <script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023&obras-semaforo=20261104"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
-<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104&reprogramaciones=20261106&catalogo-aprobacion=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110"></script>
+<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104&reprogramaciones=20261106&catalogo-aprobacion=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110&acceso-pablo=20261110"></script>
 <script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102&baja-ventas=20261103&obras-semaforo=20261104&reprogramaciones=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110"></script>
 <script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102&estado=20261103&baja-ventas=20261103&obras-semaforo=20261104&reprogramaciones=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110"></script>
 <script src="functions/insumosCotizacionCoreV1.js?v=20261104&catalogo-aprobacion=20261106&editar-insumo=20261106&costos-pendientes=20261106&aprobar-insumos=20261106&solo-alertas=20261106&costo-compra=20261109&costos-equivalencias=20261109&control-materiales=20261109"></script>

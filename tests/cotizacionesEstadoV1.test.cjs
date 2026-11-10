@@ -79,7 +79,7 @@ test('Baja comercial cancela la cotización y todas sus obras en una transacció
  const f=cancellationFixture();const r=await f.window.darBajaCotizacionV1('p','Cliente canceló el trabajo');assert.equal(f.writes.length,3);assert.equal(f.rows.get('presupuestos/p').estado,'Baja');assert.equal(f.rows.get('presupuestos/p').importe,100);assert.equal(f.rows.get('obras/a').estado,'Baja');assert.equal(f.rows.get('obras/b').archivado,true);assert.equal(f.rows.get('obras/other').estado,'Pendiente');assert.equal(f.rows.get('obras/a').cobros[0].importe,50);assert.equal(r.patches.length,2);assert.equal(f.window.DB.presupuestos[0].estado,'Baja');
 });
 test('fallo, vínculo faltante, motivo inválido o usuario sin permiso no dejan una baja parcial',async()=>{
- for(const options of [{fail:true},{missing:true},{user:{email:'pablo.aciar@tizpublicidad.com'}}]){const f=cancellationFixture(options);await assert.rejects(f.window.darBajaCotizacionV1('p','Cancelado por el cliente'));assert.equal(f.writes.length,0);assert.equal(f.rows.get('presupuestos/p').estado,'Aprobado');assert.equal(f.rows.get('obras/a').estado,'Pendiente');}
+ for(const options of [{fail:true},{missing:true},{user:{email:'arielbenitezpublicidad@gmail.com'}}]){const f=cancellationFixture(options);await assert.rejects(f.window.darBajaCotizacionV1('p','Cancelado por el cliente'));assert.equal(f.writes.length,0);assert.equal(f.rows.get('presupuestos/p').estado,'Aprobado');assert.equal(f.rows.get('obras/a').estado,'Pendiente');}
  const f=cancellationFixture();await assert.rejects(f.window.darBajaCotizacionV1('p','x'),/motivo/);assert.equal(f.writes.length,0);
 });
 

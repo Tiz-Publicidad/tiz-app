@@ -78,6 +78,10 @@ test('implementación: reproduce lona en metros lineales contra m² y tres costo
  input.cotizacion.aprobarConInsumosPendientes=true;const result=await API.approve(f.db,input,sales,'2026-11-06T17:00:00Z'),s=result.insumosVentasAprobados;
  assert.equal(s.version,3);assert.equal(s.totalCosto,null);assert.equal(s.subtotalCostoConocido,0);assert.equal(s.items[0].cantidadStock,null);assert.equal(s.items[0].cantidad,'1.8');assert.equal(s.items[0].unidad,'MTS LINEALES');assert.equal(s.items[0].costoTotal,null);assert.match(s.pendientesInsumos.join(),/Unidad incompatible/);assert.match(s.pendientesInsumos.join(),/precio/);assert.equal(s.excepcionImplementacion.usuario,sales.email);assert.equal(s.excepcionImplementacion.fecha,'2026-11-06T17:00:00Z');assert.equal(f.writes.length,2);
 });
+
+test('Pablo puede aprobar una cotización con los mismos controles de insumos que Administración',async()=>{
+ const f=dbFixture();await API.approve(f.db,body(),{email:'pablo.aciar@tizpublicidad.com'});assert.equal(f.docs.get('presupuestos/p').estado,'Aprobado');assert.equal(f.docs.get('aprobacionesInsumosCotizacion/p').resumen.aprobadoPor,'pablo.aciar@tizpublicidad.com');
+});
 test('implementación: admite detalle por completar pero conserva controles comerciales, permisos y conflicto',async()=>{
  for(const variant of ['empty','unlinked','unreviewed']){const f=dbFixture(),input=body();input.cotizacion.aprobarConInsumosPendientes=true;
  input.cotizacion.insumosVentas=variant==='empty'?[]:[{...row(),articuloId:variant==='unlinked'?'':row().articuloId,cantidad:'',revisado:false}];
@@ -85,7 +89,7 @@ test('implementación: admite detalle por completar pero conserva controles come
  }
  for(const variant of ['permission','conflict','sale']){const f=dbFixture(),input=body();input.cotizacion.aprobarConInsumosPendientes=true;
  if(variant==='negative')input.cotizacion.insumosVentas[0].cantidad='-1';if(variant==='infinite')input.cotizacion.insumosVentas[0].cantidad='Infinity';if(variant==='conflict')input.insumosAnteriores=[];if(variant==='sale')input.cotizacion.importe=999;
- await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0);
+ await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'arielbenitezpublicidad@gmail.com'}:sales));assert.equal(f.writes.length,0);
  }
  const normal=C.snapshot([row()],catalog(),{aprobarConInsumosPendientes:true},sales,'now');assert.equal(normal.version,1);assert.ok(normal.totalCosto>0);
 });
@@ -116,7 +120,7 @@ test('el servidor valida los datos reales y aprueba documento y costo en una sol
  f.docs.get('compras/compra').items[0].precioUnitarioNeto=99999;const next=body();next.insumosAnteriores=result.insumosVentas;const result2=await API.approve(f.db,next,sales);assert.equal(result2.insumosVentasAprobados.totalCosto,result.insumosVentasAprobados.totalCosto);
 });
 test('material incompleto, falta de permisos o cambio concurrente no aprueban ni guardan parcialmente',async()=>{
- for(const variant of ['permission','concurrent']){const f=dbFixture(),input=body();if(variant==='invalid')input.cotizacion.insumosVentas[0].cantidad='';if(variant==='concurrent')input.insumosAnteriores=[];await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(f.writes.length,0);assert.equal(f.docs.get('presupuestos/p').estado,'Enviado');}
+ for(const variant of ['permission','concurrent']){const f=dbFixture(),input=body();if(variant==='invalid')input.cotizacion.insumosVentas[0].cantidad='';if(variant==='concurrent')input.insumosAnteriores=[];await assert.rejects(API.approve(f.db,input,variant==='permission'?{email:'arielbenitezpublicidad@gmail.com'}:sales));assert.equal(f.writes.length,0);assert.equal(f.docs.get('presupuestos/p').estado,'Enviado');}
 });
 test('un reintento de aprobación usa el mismo documento y tolera el orden de campos de Firestore',async()=>{
  const f=dbFixture(),input=body();input.id='nuevo';input.crear=true;input.insumosAnteriores=input.cotizacion.insumosVentas;

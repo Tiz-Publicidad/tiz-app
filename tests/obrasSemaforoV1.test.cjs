@@ -29,7 +29,7 @@ test('Drive válido llega a todos los puestos y se muestra verde; enlaces ausent
  window.TIZObrasSeguimientoV2.getGroup=()=>({members:[projected,{driveFolderId:'anotherfolder123'}]});assert.doesNotMatch(ctx.button({id:'w'}),/apv1-drive-ready/);
 });
 test('un administrador ajeno a Ventas no puede dar de baja',()=>{
- assert.throws(()=>C.bajaPatch({estado:'Pendiente'},'Cliente canceló',{isAdmin:true,sector:'Producción',email:'pablo.aciar@tizpublicidad.com'}),/Solo Ventas/);
+ assert.throws(()=>C.bajaPatch({estado:'Pendiente'},'Cliente canceló',{isAdmin:true,sector:'Producción',email:'otro@tizpublicidad.com'}),/Solo Ventas/);
 });
 
 test('OT 4778: colocación del 30/10 vencida se marca roja aunque producción se haya cumplido',()=>{
