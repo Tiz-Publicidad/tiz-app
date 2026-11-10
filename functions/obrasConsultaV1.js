@@ -5,7 +5,7 @@ const USERS=Object.freeze(['info@tizpublicidad.com','giancarlo.pareja@tizpublici
 const ORIGINS=new Set(['https://tiz-publicidad.github.io','https://tiz---app.web.app','https://tiz---app.firebaseapp.com']);
 const text=v=>String(v??'').trim(),fail=(m,s)=>Object.assign(Error(m),{status:s});
 const dates=['produccionPrevistaOriginal','colocacionPrevistaOriginal','produccionPrevista','colocacionPrevista','produccionReal','colocacionReal','cierreFecha','retrabajoResueltoFecha'];
-function projectWork(d){const w=d.data(),s=w.obraSeguimientoV2||{},tracking={reprogramaciones:C.replanHistory([{obraSeguimientoV2:s}])};
+function projectWork(d){const w=d.data(),s=w.obraSeguimientoV2||{},tracking={...C.delayData(s),reprogramaciones:C.replanHistory([{obraSeguimientoV2:s}])};
  for(const k of dates)tracking[k]=C.iso(s[k]);
  for(const k of ['planificadoPorCalidad','calidadAprobada','produccionPlanificada','retrabajoResuelto'])tracking[k]=s[k]===true;
  for(const k of ['version','planRevision','avisoDias'])tracking[k]=Number(s[k])||0;

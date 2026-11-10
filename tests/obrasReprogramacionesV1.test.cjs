@@ -55,3 +55,39 @@ test('API de consulta y caché conservan motivos, originales e historial operati
 test('días de postergación son corridos y respetan meses y años bisiestos',()=>{
  const w=apply(work({fprod_c:'2024-02-28',fcol_c:'2024-03-05'}),{produccionPrevista:'2024-03-01',...reason});assert.equal(w.obraSeguimientoV2.reprogramaciones[0].cambios[0].desplazamientoDias,2);
 });
+
+test('fecha real atrasada permite registrar causa y atribución por etapa con autor y auditoría',()=>{
+ const fields={registrarDemoras:true,produccionReal:'2026-11-05',produccionDemoraMotivo:'materiales',produccionDemoraDetalle:'Entrega del material posterior al compromiso.',produccionDemoraResponsabilidad:'externa'};
+ assert.throws(()=>apply(work(),{registrarDemoras:true,produccionReal:'2026-11-05'}),/motivo de demora/);
+ for(const bad of [{produccionDemoraMotivo:'inventado'},{produccionDemoraResponsabilidad:'culpa_cliente'},{produccionDemoraDetalle:'abc'}])assert.throws(()=>apply(work(),{...fields,...bad}),/motivo|demora/);
+ const saved=apply(work(),fields),d=saved.obraSeguimientoV2.produccionDemora;assert.equal(d.prevista,'2026-11-03');assert.equal(d.real,'2026-11-05');assert.equal(d.usuario,user.email);assert.equal(d.fecha,at);
+ const original=JSON.stringify(saved);const next=apply(saved,{...fields,produccionDemoraResponsabilidad:'mixta'},'2026-11-06T14:00:00Z');assert.equal(next.obraSeguimientoV2.produccionDemora.responsabilidad,'mixta');assert.equal(JSON.stringify(saved),original);
+ for(const project of [Consulta.projectWork({id:saved.id,data:()=>saved}),Cache.project(saved,C)])assert.deepEqual(project.obraSeguimientoV2.produccionDemora,d);
+ const prod={email:'pablo.aciar@tizpublicidad.com',sector:'Producción'};assert.equal(C.trackingPatch(work(),fields,prod,at,today).obraSeguimientoV2.produccionDemora.responsabilidad,'externa');
+ assert.throws(()=>C.trackingPatch(work(),{colocacionDemoraMotivo:'cliente'},prod,at,today),/Calidad/);
+ assert.throws(()=>apply(work(),{...fields,produccionReal:'2026-11-02'}),/posterior/);
+});
+
+test('indicador distingue TIZ, terceros, mixtas y sin analizar sin ocultar atrasos al reprogramar',()=>{
+ const works=['interna','externa','mixta','pendiente'].map((responsabilidad,i)=>apply(work({id:'w'+i,ot:String(4800+i)}),{registrarDemoras:true,produccionReal:'2026-11-05',produccionDemoraMotivo:'materiales',produccionDemoraDetalle:'Detalle de la entrega fuera de término.',produccionDemoraResponsabilidad:responsabilidad}));
+ works.push(apply(work({id:'on',ot:'4900'}),{produccionReal:'2026-11-03'}));works.push(apply(work({id:'legacy',ot:'4901'}),{produccionReal:'2026-11-04'}));
+ const r=C.delayReport(C.grouped(works));assert.equal(r.evaluadas,6);assert.equal(r.enFecha,1);assert.equal(r.atrasadas,5);assert.equal(r.internas,1);assert.equal(r.tasaInterna,17);assert.equal(r.cobertura,60);assert.equal(r.porResponsabilidad.find(x=>x.key==='pendiente').total,2);
+ const filtered=C.delayReport(C.grouped(works),{responsabilidad:'externa',etapa:'produccion',desde:'2026-11-05',hasta:'2026-11-05'});assert.equal(filtered.rows.length,1);assert.equal(filtered.evaluadas,4);assert.equal(filtered.rows[0].dias,2);
+ let moved=apply(work(),{produccionPrevista:'2026-11-05',...reason});moved=apply(moved,{produccionReal:'2026-11-05'});assert.equal(C.delayReport(C.grouped([moved])).atrasadas,1);
+ const changed=apply(works[0],{produccionReal:'2026-11-06'});assert.equal(C.delayReport(C.grouped([changed])).rows[0].responsabilidad,'pendiente');
+ assert.equal(C.delayReport(C.grouped([works[0],{...works[0],id:'saldo',desc:'Saldo'}])).rows.length,1);
+ assert.equal(C.delayReport([]).tasaInterna,null);assert.throws(()=>C.delayReport([],{desde:'2026-02-30'}),/período/);
+});
+
+test('reprogramaciones conservan atribución explícita y no la deducen del motivo',()=>{
+ const w=apply(work(),{produccionPrevista:'2026-11-04',...reason,reprogramacionResponsabilidad:'interna'});assert.equal(w.obraSeguimientoV2.reprogramaciones[0].responsabilidad,'interna');assert.equal(C.replanReport(C.grouped([w]),{responsabilidad:'externa'}).total,0);assert.equal(C.replanReport(C.grouped([w])).porResponsabilidad[0].key,'interna');
+ assert.throws(()=>apply(work(),{produccionPrevista:'2026-11-04',...reason,reprogramacionResponsabilidad:'inventado'}),/Atribución/);
+});
+
+test('el formulario habilita el detalle de demora de Producción y conserva Colocación sólo para Calidad',()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('../obrasSeguimientoV2'),'utf8'),start=source.indexOf('function updateDelayForm('),end=source.indexOf('function delayStatsHTML(',start),ctx={C,user:()=>({email:'pablo.aciar@tizpublicidad.com',sector:'Producción'})};vm.runInNewContext(source.slice(start,end)+';globalThis.update=updateDelayForm;',ctx);
+ const values={produccionReal:'2026-11-05',colocacionReal:'2026-11-06',produccionPrevista:'2026-11-03',colocacionPrevista:'2026-11-05'},boxes=Object.fromEntries(['produccion','colocacion'].map(p=>[p,{hidden:true,inputs:[{},{}],querySelectorAll(){return this.inputs}}])),form={__group:{seguimiento:{},produccionPrevista:'2026-11-03',colocacionPrevista:'2026-11-05'},elements:{namedItem:k=>({value:values[k]})},querySelector:s=>boxes[s.includes('produccion')?'produccion':'colocacion']};
+ ctx.update(form);assert.equal(boxes.produccion.hidden,false);assert.ok(boxes.produccion.inputs.every(x=>x.required&&!x.disabled));assert.ok(boxes.colocacion.inputs.every(x=>x.disabled&&!x.required));
+ ctx.user=()=>user;ctx.update(form);assert.ok(boxes.colocacion.inputs.every(x=>x.required&&!x.disabled));values.produccionReal='2026-11-03';ctx.update(form);assert.equal(boxes.produccion.hidden,true);assert.ok(boxes.produccion.inputs.every(x=>!x.required));
+ const block=source.slice(source.indexOf('function delayFields('),source.indexOf('function updateDelayForm('));assert.ok(!block.includes('name="reprogramacionResponsabilidad"'));
+});

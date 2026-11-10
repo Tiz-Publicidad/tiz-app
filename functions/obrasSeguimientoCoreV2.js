@@ -10,6 +10,9 @@ const REPLAN_REASONS=Object.freeze([
  ['acceso','Acceso / condiciones de obra'],['clima','Clima'],
  ['otro','Otro'],['investigacion','En investigación']
 ]);
+const RESPONSIBILITIES=Object.freeze([['interna','Interna · TIZ'],['externa','Externa'],['mixta','Mixta'],['pendiente','Pendiente de analizar']]);
+const DELAY_KEYS=['registrarDemoras',...['produccion','colocacion'].flatMap(p=>['Motivo','Detalle','Responsabilidad'].map(k=>p+'Demora'+k))];
+function delayData(s){return Object.fromEntries(['produccion','colocacion'].filter(p=>s[p+'Demora']).map(p=>{const d=s[p+'Demora'];return [p+'Demora',{motivo:T(d.motivo),detalle:T(d.detalle),responsabilidad:T(d.responsabilidad),prevista:iso(d.prevista),real:iso(d.real),usuario:T(d.usuario),fecha:T(d.fecha)}]}))}
 function replanHistory(members){const events=new Map();for(const o of members)for(const e of o.obraSeguimientoV2?.reprogramaciones||[]){
  if(!e||!Array.isArray(e.cambios)||!e.id)continue;
  const old=events.get(e.id);if(!old)events.set(e.id,{...e,cambios:e.cambios.map(c=>({...c}))});
@@ -117,11 +120,11 @@ function referencePlan(works,source,clients=[],at=new Date().toISOString()){
 function trackingPatch(work,input,user,at=new Date().toISOString(),today=day(),eventId=''){
  if(isBaja(work))throw Error('La obra está dada de baja. Reactivala antes de modificar su seguimiento.');
  if(!canProduction(user))throw Error('Calidad administra las fechas y el cierre; Producción confirma su planificación y fecha real.');
- const old=work.obraSeguimientoV2||{},s={...old},allowed=['produccionPrevista','colocacionPrevista','avisoDias','calidadAprobada','produccionPlanificada','produccionReal','colocacionReal','cierreResultado','cierreFecha','retrabajoDetalle','retrabajoResuelto','retrabajoResueltoFecha','reprogramacionMotivo','reprogramacionDetalle'];
+ const old=work.obraSeguimientoV2||{},s={...old},allowed=['produccionPrevista','colocacionPrevista','avisoDias','calidadAprobada','produccionPlanificada','produccionReal','colocacionReal','cierreResultado','cierreFecha','retrabajoDetalle','retrabajoResuelto','retrabajoResueltoFecha','reprogramacionMotivo','reprogramacionDetalle','reprogramacionResponsabilidad',...DELAY_KEYS];
  for(const k of Object.keys(input))if(!allowed.includes(k))throw Error('Campo de seguimiento inválido: '+k);
- if(!canPlan(user)&&Object.keys(input).some(k=>!['produccionPlanificada','produccionReal'].includes(k)))throw Error('Las fechas previstas, la aprobación y el cierre los registra Calidad.');
+ if(!canPlan(user)&&Object.keys(input).some(k=>!['produccionPlanificada','produccionReal',...DELAY_KEYS.filter(k=>!k.startsWith('colocacion'))].includes(k)))throw Error('Las fechas previstas, la aprobación y el cierre los registra Calidad.');
  for(const [k,v] of Object.entries(input)){
-   if(k==='reprogramacionMotivo'||k==='reprogramacionDetalle')continue;
+   if(k==='reprogramacionMotivo'||k==='reprogramacionDetalle'||k==='reprogramacionResponsabilidad'||DELAY_KEYS.includes(k))continue;
    if(['calidadAprobada','produccionPlanificada','retrabajoResuelto'].includes(k)){if(typeof v!=='boolean')throw Error('Confirmación inválida.');s[k]=v;}
    else if(k==='avisoDias'){if(![1,2].includes(Number(v)))throw Error('Elegí aviso con 1 o 2 días.');s[k]=Number(v);}
    else if(k.endsWith('Prevista')||k.endsWith('Real')||k.endsWith('Fecha')){if(T(v)&&!iso(v))throw Error('Fecha inválida.');s[k]=iso(v);}
@@ -141,8 +144,24 @@ function trackingPatch(work,input,user,at=new Date().toISOString(),today=day(),e
   const motivo=T(input.reprogramacionMotivo),detalle=T(input.reprogramacionDetalle);
   if(!REPLAN_REASONS.some(([id])=>id===motivo))throw Error('Seleccioná el motivo de la reprogramación.');
   if(detalle.length<5||detalle.length>2000)throw Error('Describí el motivo de la reprogramación con entre 5 y 2000 caracteres.');
-  const event={id:eventId||T(work.id)+':'+at+':'+((Number(old.version)||0)+1),fecha:at,usuario:T(user.email),motivo,detalle,cambios};
+  const responsabilidad=T(input.reprogramacionResponsabilidad)||'pendiente';if(!RESPONSIBILITIES.some(([id])=>id===responsabilidad))throw Error('Atribución de reprogramación inválida.');
+  const event={responsabilidad,id:eventId||T(work.id)+':'+at+':'+((Number(old.version)||0)+1),fecha:at,usuario:T(user.email),motivo,detalle,cambios};
   s.reprogramaciones=[...(old.reprogramaciones||[]),event];
+ }
+ for(const phase of ['produccion','colocacion']){
+  if(!canPlan(user)&&phase!=='produccion')continue;
+  const planned=iso(s[phase+'PrevistaOriginal']||s[phase+'Prevista']||work[phase==='produccion'?'fprod_c':'fcol_c']),real=iso(s[phase+'Real']??work[phase==='produccion'?'fprod_r':'fcol_r']);
+  const supplied=['Motivo','Detalle','Responsabilidad'].some(k=>T(input[phase+'Demora'+k]));
+  if(!real||!planned||real<=planned){if(supplied)throw Error('El detalle de demora requiere una fecha real posterior a la prevista.');continue;}
+  if(!supplied&&input.registrarDemoras!==true)continue;
+  const prior=old[phase+'Demora'],validPrior=prior?.real===real&&prior?.prevista===planned;
+  if(!supplied&&validPrior)continue;
+  const motivo=T(input[phase+'DemoraMotivo']),detalle=T(input[phase+'DemoraDetalle']),responsabilidad=T(input[phase+'DemoraResponsabilidad']);
+  if(!REPLAN_REASONS.some(([id])=>id===motivo))throw Error('Seleccioná el motivo de demora de '+(phase==='produccion'?'Producción.':'Colocación.'));
+  if(detalle.length<5||detalle.length>2000)throw Error('Describí la demora con entre 5 y 2000 caracteres.');
+  if(!RESPONSIBILITIES.some(([id])=>id===responsabilidad))throw Error('Seleccioná si la demora fue interna, externa, mixta o pendiente de analizar.');
+  if(validPrior&&prior.motivo===motivo&&prior.detalle===detalle&&prior.responsabilidad===responsabilidad)continue;
+  s[phase+'Demora']={motivo,detalle,responsabilidad,prevista:planned,real,usuario:T(user.email),fecha:at};
  }
  if(changed){s.calidadAprobada=input.calidadAprobada===true;s.produccionPlanificada=input.produccionPlanificada===true;s.planRevision=(Number(old.planRevision)||0)+1;}
  if(s.calidadAprobada&&!col&&!prod)throw Error('Cargá primero al menos una fecha prevista para aprobar Calidad.');
@@ -187,13 +206,13 @@ function alerts(g,today=day()){
  return result;
 }
 function metrics(groups){groups=groups.filter(g=>!isBaja(g));const prod=groups.filter(g=>g.produccionPrevista&&g.seguimiento.produccionReal),col=groups.filter(g=>g.colocacionPrevista&&g.seguimiento.colocacionReal),closed=groups.filter(g=>g.seguimiento.cierreResultado);return {produccionesConFechaReal:prod.length,produccionesEnFecha:prod.filter(g=>g.seguimiento.produccionReal<=g.produccionPrevista).length,colocacionesConFechaReal:col.length,colocacionesEnFecha:col.filter(g=>g.seguimiento.colocacionReal<=g.colocacionPrevista).length,cerradas:closed.length,cerradasOk:closed.filter(g=>g.seguimiento.cierreResultado==='ok').length,conRetrabajo:closed.filter(g=>g.seguimiento.cierreResultado==='retrabajo').length};}
-function replanReport(groups,{desde='',hasta='',etapa='',motivo='',query=''}={}){
+function replanReport(groups,{desde='',hasta='',etapa='',motivo='',responsabilidad='',query=''}={}){
  if(desde&&!iso(desde)||hasta&&!iso(hasta)||desde&&hasta&&desde>hasta)throw Error('Revisá el período del informe.');
  const rows=[];
  for(const g of groups){
   if(query&&!norm(g.ot+' '+g.cliente+' '+g.desc).includes(norm(query)))continue;
   for(const e of g.seguimiento?.reprogramaciones||[]){
-   const fecha=iso(e.fecha);if(!fecha||desde&&fecha<desde||hasta&&fecha>hasta||motivo&&e.motivo!==motivo)continue;
+   const fecha=iso(e.fecha);if(!fecha||desde&&fecha<desde||hasta&&fecha>hasta||motivo&&e.motivo!==motivo||responsabilidad&&(e.responsabilidad||'pendiente')!==responsabilidad)continue;
    const cambios=(e.cambios||[]).filter(c=>!etapa||c.etapa===etapa);if(!cambios.length)continue;
    const desplazamientos=cambios.filter(c=>c.nueva&&iso(c.anterior)&&iso(c.nueva)).map(c=>days(c.nueva,c.anterior));
    const dias=Math.max(0,...desplazamientos),tipo=dias>0?'postergacion':cambios.some(c=>!c.nueva)?'sin_fecha':'adelanto';
@@ -212,8 +231,29 @@ function replanReport(groups,{desde='',hasta='',etapa='',motivo='',query=''}={})
   const real=iso(g.seguimiento?.[phase+'Real']),prevista=iso(g.seguimiento?.[phase+'PrevistaOriginal']);
   if(real&&prevista&&(!desde||real>=desde)&&(!hasta||real<=hasta)){original[phase].evaluadas++;if(real<=prevista)original[phase].enFecha++;}
  }
- return{rows,total:rows.length,obras:counts.size,reincidentes:[...counts.values()].filter(n=>n>1).length,postergaciones:rows.filter(r=>r.tipo==='postergacion').length,dias:rows.reduce((n,r)=>n+r.dias,0),porMotivo:aggregate(r=>r.motivo),porCliente:aggregate(r=>r.cliente),porMes:aggregate(r=>r.fechaRegistro.slice(0,7)).sort((a,b)=>a.key.localeCompare(b.key)),original};
+ return{rows,total:rows.length,obras:counts.size,reincidentes:[...counts.values()].filter(n=>n>1).length,postergaciones:rows.filter(r=>r.tipo==='postergacion').length,dias:rows.reduce((n,r)=>n+r.dias,0),porResponsabilidad:aggregate(r=>r.responsabilidad||'pendiente'),porMotivo:aggregate(r=>r.motivo),porCliente:aggregate(r=>r.cliente),porMes:aggregate(r=>r.fechaRegistro.slice(0,7)).sort((a,b)=>a.key.localeCompare(b.key)),original};
 }
-return {STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
+function delayReport(groups,{desde='',hasta='',etapa='',motivo='',responsabilidad='',query=''}={}){
+ if(desde&&!iso(desde)||hasta&&!iso(hasta)||desde&&hasta&&desde>hasta)throw Error('Revisá el período del informe.');
+ const late=[];let evaluadas=0,enFecha=0;
+ for(const g of groups){if(isBaja(g)||query&&!norm(g.ot+' '+g.cliente+' '+g.desc).includes(norm(query)))continue;
+  const s=g.seguimiento||{};
+  for(const phase of ['produccion','colocacion']){
+   if(etapa&&phase!==etapa)continue;
+   const real=iso(s[phase+'Real']),prevista=iso(s[phase+'PrevistaOriginal']||g[phase+'Prevista']);
+   if(!real||!prevista||desde&&real<desde||hasta&&real>hasta)continue;
+   evaluadas++;if(real<=prevista){enFecha++;continue;}
+   const data=s[phase+'Demora'],valid=data?.real===real&&data?.prevista===prevista,d=valid?data:{};
+   late.push({obraId:g.id,ot:g.ot,cliente:g.cliente,desc:g.desc,etapa:phase,prevista,real,dias:days(real,prevista),motivo:d.motivo||'investigacion',detalle:d.detalle||'',responsabilidad:d.responsabilidad||'pendiente',usuario:d.usuario||'',fecha:d.fecha||''});
+  }
+ }
+ const porResponsabilidad=RESPONSIBILITIES.map(([key,label])=>{const rows=late.filter(r=>r.responsabilidad===key);return {key,label,total:rows.length,dias:rows.reduce((n,r)=>n+r.dias,0),porcentaje:late.length?Math.round(100*rows.length/late.length):0}});
+ const rows=late.filter(r=>(!motivo||r.motivo===motivo)&&(!responsabilidad||r.responsabilidad===responsabilidad)).sort((a,b)=>b.real.localeCompare(a.real)||a.ot.localeCompare(b.ot)||a.etapa.localeCompare(b.etapa));
+ const counts=new Map();for(const r of rows){const key=r.motivo,a=counts.get(key)||{key,total:0,dias:0};a.total++;a.dias+=r.dias;counts.set(key,a);}
+ const porMotivo=[...counts.values()].sort((a,b)=>b.total-a.total||b.dias-a.dias);
+ return {rows,evaluadas,enFecha,atrasadas:late.length,porResponsabilidad,porMotivo,internas:porResponsabilidad.find(r=>r.key==='interna').total,tasaInterna:evaluadas?Math.round(100*porResponsabilidad.find(r=>r.key==='interna').total/evaluadas):null,cobertura:late.length?Math.round(100*late.filter(r=>r.responsabilidad!=='pendiente').length/late.length):null};
+}
+
+return {delayData,delayReport,RESPONSIBILITIES,STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });
 

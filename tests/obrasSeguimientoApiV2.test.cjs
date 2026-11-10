@@ -26,3 +26,11 @@ test('reprogramar sin motivo no escribe fechas ni auditorías; al guardar se cue
  assert.equal(C.replanReport(C.grouped(f.works)).total,1);assert.equal(f.audits[0].p.despues.produccionPrevistaOriginal,'2026-10-30');
  await assert.rejects(f.api.save(f.db,body,quality),/Otra persona/);assert.equal(f.writes.length,2);
 });
+
+test('demora real se valida antes de escribir y conserva autor, causa y versiones en todas las filas',async()=>{
+ const f=fixture([work('a',{desc:'Anticipo'}),work('b',{desc:'Saldo'})]),body={obraId:'a',versiones:{a:0,b:0},campos:{registrarDemoras:true,produccionReal:'2026-11-02'}};
+ await assert.rejects(f.api.save(f.db,body,production,'2026-11-06T12:00:00Z'),/motivo de demora/);assert.equal(f.writes.length,0);assert.equal(f.audits.length,0);
+ Object.assign(body.campos,{produccionDemoraMotivo:'capacidad',produccionDemoraDetalle:'La carga de trabajo superó la capacidad disponible.',produccionDemoraResponsabilidad:'interna'});
+ await f.api.save(f.db,body,production,'2026-11-06T12:00:00Z');assert.equal(f.writes.length,2);assert.equal(f.audits.length,2);for(const w of f.works){assert.equal(w.obraSeguimientoV2.produccionDemora.usuario,production.email);assert.equal(w.obraSeguimientoV2.produccionDemora.prevista,'2026-10-30');}
+ assert.equal(C.delayReport(C.grouped(f.works)).internas,1);assert.equal(f.audits[0].p.despues.produccionDemora.responsabilidad,'interna');
+});
