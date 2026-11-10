@@ -31,3 +31,23 @@ test('Drive válido llega a todos los puestos y se muestra verde; enlaces ausent
 test('un administrador ajeno a Ventas no puede dar de baja',()=>{
  assert.throws(()=>C.bajaPatch({estado:'Pendiente'},'Cliente canceló',{isAdmin:true,sector:'Producción',email:'pablo.aciar@tizpublicidad.com'}),/Solo Ventas/);
 });
+
+test('OT 4778: colocación del 30/10 vencida se marca roja aunque producción se haya cumplido',()=>{
+ const g=C.grouped([{id:'4778',ot:'4778',estado:'Pendiente',fprod_c:'2026-10-29',fprod_r:'2026-10-29',fcol_c:'2026-10-30'}])[0];
+ assert.equal(C.productionSignal(g,'2026-11-10').color,'green');
+ assert.equal(C.placementSignal(g,'2026-11-10').color,'red');
+ assert.match(C.placementSignal(g,'2026-11-10').label,/Colocación vencida/);
+});
+test('colocación compara su propia fecha real: en fecha, atraso, hoy, mañana, futura y sin fecha',()=>{
+ const signal=(planned,real='',today='2026-11-10')=>C.placementSignal({colocacionPrevista:planned,seguimiento:{colocacionReal:real}},today).color;
+ assert.equal(signal('2026-10-30','2026-10-29'),'green');assert.equal(signal('2026-10-30','2026-10-30'),'green');assert.equal(signal('2026-10-30','2026-11-02'),'red');
+ assert.equal(signal('2026-11-10'),'yellow');assert.equal(signal('2026-11-11'),'yellow');assert.equal(signal('2026-11-12'),'');assert.equal(signal(''),'');
+ assert.equal(signal('2027-01-01','','2026-12-31'),'yellow');
+});
+test('listado de Obras aplica el semáforo a las dos columnas y expone el motivo accesible',()=>{
+ const ui=src('obrasSeguimientoV2.js'),code=ui.split('\n').filter(l=>l.startsWith('const productionDate=')||l.startsWith('const placementDate=')).join('\n'),fixed={...C,productionSignal:g=>C.productionSignal(g,'2026-11-10'),placementSignal:g=>C.placementSignal(g,'2026-11-10')},ctx={C:fixed,E:String,date:s=>s||'—'};
+ vm.runInNewContext(code+'\nglobalThis.production=productionDate;globalThis.placement=placementDate;',ctx);
+ const g={produccionPrevista:'2026-10-29',colocacionPrevista:'2026-10-30',seguimiento:{produccionReal:'2026-10-29'}};
+ assert.match(ctx.production(g),/o2-date-green/);assert.match(ctx.placement(g),/o2-date-red/);assert.match(ctx.placement(g),/aria-label="[^"]*Colocación vencida/);
+ assert.match(ui,/placementDate\(g\)\+'<\/td><td>'\+statusCell/);
+});
