@@ -33,6 +33,21 @@ test('resolver conserva fecha original y exige motivo, fecha real y nueva fecha 
  assert.equal(G.resolveDraftAction(old,result,null,'2026-10-08','at','u').closed.estado,'Cerrada');
 });
 function ui(doc,extras={}){const window={DB:{obras:[],clientes:[],presupuestos:[]},TIZColocacionesGeneralCore:G};const c={window,console,Date,Intl,URL,URLSearchParams,TextEncoder,setInterval:()=>{},setTimeout:()=>{},...extras};vm.runInNewContext(fs.readFileSync(path.join(root,'colocacionesV128.js'),'utf8'),c);if(doc)c.document=doc;vm.runInNewContext(fs.readFileSync(path.join(root,'colocacionesGeneralUIV129.js'),'utf8'),c);return window;}
+
+test('planificación permite varias semanas, calendario, filtros y períodos personalizados sin escribir datos',async()=>{
+ const events={},w=ui({getElementById:id=>id==='g129-style'?{}:null}),g=w.TIZColocacionesGeneralV129;w.TIZColocacionesUIV128={render:()=>{}};g.attach({addEventListener:(type,fn)=>events[type]=fn});
+ w.DB.obras=[{id:'o',ot:'4799',cliente:'Farmacity',estado:'Pendiente',colocacionesGestion:{acciones:Object.fromEntries(['2026-12-28','2027-01-18','2027-02-15','2027-03-14'].map((d,i)=>['a'+i,{...action(d),id:'a'+i,titulo:'Visita '+i}]))}}];
+ const before=JSON.stringify(w.DB),change=(id,value)=>events.change({target:{id,value}}),click=(attr,dataset)=>events.click({target:{closest:()=>({hasAttribute:k=>k===attr,dataset})}});
+ change('g-date-span','28');let html=g.datesBody('2026-12-28');assert.ok(html.includes('Visita 1'));assert.ok(!html.includes('Visita 2'));assert.equal(g.planningWindow('2026-12-28').to,'2027-01-24');
+ change('g-date-span','56');assert.ok(g.datesBody('2026-12-28').includes('Visita 2'));
+ change('g-date-span','84');html=g.datesBody('2026-12-28');assert.ok(html.includes('Visita 3'));assert.equal((html.match(/data-g-detail="o\/a/g)||[]).length,4);
+ await click('data-g-date-mode',{gDateMode:'calendar'});html=g.datesBody('2026-12-28');assert.ok(html.includes('g-date-grid'));assert.ok(html.includes('Lunes'));assert.equal((html.match(/data-g-detail="o\/a/g)||[]).length,4);
+ change('g129-query','inexistente'); // Search uses the input handler, while owner/zone use change.
+ change('g129-owner','Otra persona');assert.ok(!g.datesBody('2026-12-28').includes('Visita 0'));change('g129-owner','');
+ change('g-date-start','2027-01-18');change('g-date-end','2027-02-15');html=g.datesBody('2026-12-28');assert.ok(!html.includes('Visita 0'));assert.ok(html.includes('Visita 1'));assert.ok(html.includes('Visita 2'));assert.ok(!html.includes('Visita 3'));
+ await click('data-g-date-shift',{gDateShift:'29',gDateStart:'2027-01-18',gDateEnd:'2027-02-15'});assert.equal(g.planningWindow('2026-12-28').from,'2027-02-16');assert.equal(g.planningWindow('2026-12-28').days,29);
+ change('g-date-end','2027-01-01');assert.match(g.datesBody('2026-12-28'),/igual o posterior/);change('g-date-end','2029-01-01');assert.match(g.datesBody('2026-12-28'),/hasta un año/);assert.equal(JSON.stringify(w.DB),before);
+});
 test('base contiene obras pendientes sin acción ni fecha y mantiene acciones con y sin fecha',()=>{
  const w=ui();w.DB.obras=[{id:'1',ot:'4700',cliente:'A',estado:'Pendiente'},{id:'2',ot:'4701',cliente:'B',estado:'Pendiente',colocacionesGestion:{acciones:{a:action(''),b:{...action('2026-10-09'),id:'b'}}}},{id:'3',estado:'Rechazado'}];
  const rows=w.TIZColocacionesGeneralV129.baseRows();assert.equal(rows.length,3);assert.equal(rows.filter(r=>r.obra.id==='1'&&r.empty).length,1);assert.equal(rows.some(r=>r.obra.id==='3'),false);assert.equal(w.TIZColocacionesGeneralV129.entries().length,2);
