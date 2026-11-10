@@ -147,7 +147,7 @@ document.addEventListener('change',e=>{if(e.target.matches?.('[data-o2-status]')
 document.addEventListener('submit',e=>{if(e.target.id==='obras2-form'){e.preventDefault();save(e.target);}});
 function updateBadge(){const button=document.querySelector('.nav-item[onclick*="goTo(\'calidad\')"]');if(!button)return;let badge=button.querySelector('[data-o2-quality-badge]');if(!badge){badge=document.createElement('span');badge.dataset.o2QualityBadge='1';badge.className='nav-badge';button.appendChild(badge);}const n=groups().filter(g=>workAlerts(g).length).length;badge.textContent=String(n);badge.title=n+' obras con avisos de planificación o cierre';badge.style.display=n?'inline-flex':'none';}
 function install(){if(!window.renderObras||!window.TIZCalidadV1)return;window.renderObras=render;const quality=window.TIZCalidadV1.render;window.TIZCalidadV1.render=function(){const r=quality.apply(this,arguments);renderQuality();return r;};const refresh=window.refreshCurrent;if(refresh)window.refreshCurrent=function(){const r=refresh.apply(this,arguments);updateBadge();return r;};window.canEditFechasCompromiso=()=>C.canPlan(user());render();renderQuality();updateBadge();}
-window.TIZObrasSeguimientoV2={render,renderQuality,open,sync,resetConsulta,applyWorkPatches,getGroup:id=>groups().find(g=>g.ids.includes(id))};
+window.TIZObrasSeguimientoV2={render,renderQuality,open,sync,resetConsulta,applyWorkPatches,getGroups:()=>groups(),getGroup:id=>groups().find(g=>g.ids.includes(id))};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 setInterval(()=>{if(window.currentPage==='calidad')renderQuality();if(usesConsulta())void loadConsulta();if(user())updateBadge();},60000);
 })();

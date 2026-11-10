@@ -55,6 +55,7 @@ test('original page content remains and the analysis list only opens on request'
  const box={classList:{remove(){}},get innerHTML(){return html},set innerHTML(v){html=v},insertAdjacentHTML(where,v){html+=v},querySelector(q){return controls[q]||(controls[q]={addEventListener(type,fn){this[type]=fn}})},querySelectorAll(){return []}};
  const ctx={window:{currentUser:{isAdmin:true},currentPage:'presupuestos'},document:{getElementById:()=>page},host:()=>page,mount(){},renderedPage:'',expanded:false,tracking:false,selected:'',selectedPage:'',sectors:{ventas:'Ventas'},pageSector:{presupuestos:'ventas'},mayWrite:()=>true,esc:String,reportFor:w=>w.reportes.ventas,status:()=> '47 h 30 min',fmt:String,driveButton:()=>'',manager:()=>true,weeklyMarkup:()=>'<p>Indicadores semanales</p>',loadWeekly:()=>{},weeklyStart:'',weeklyData:null,now:()=>0,lastLoad:1,data:[{obraId:'a',ot:'4776',cliente:'Cliente',descripcion:'Obra',reportes:{},venceEn:'2026-10-17'}]};
  vm.runInNewContext(ui.slice(ui.indexOf('function currentSector(){'),ui.indexOf('\nfunction host(){'))+'\n'+ui.slice(ui.indexOf('function render(){'),ui.indexOf('\nfunction paintWeekly('))+'\nglobalThis.paint=render;',ctx);
+ ctx.driveRenderer=()=>ctx.driveButton;
  ctx.paint();assert.doesNotMatch(html,/<table/);assert.match(html,/Ver análisis preliminares/);assert.equal(page.children[0],legacy);
  controls['[data-ap-expand]'].click();assert.match(html,/<table/);assert.match(html,/47 h 30 min/);assert.match(html,/Cargar análisis preliminar/);
  ctx.paint();assert.match(html,/<table/); // A data refresh preserves an explicitly opened list.
@@ -69,10 +70,28 @@ test('native refresh restores analysis before paint without waiting for the cloc
  let panel=false,slot=true,renders=0,decorations=0,observed=0,disconnected=0;
  const page={querySelector:q=>q==='.apv1-summary-panel'?panel:slot};
  const ctx={window:{currentUser:{},currentPage:'calidad'},document:{body:{}},host:()=>page,renderedPage:'calidad',observer:{disconnect(){disconnected++},observe(){observed++}},render(){renders++;panel=true},decorate(){decorations++;slot=false}};
- vm.runInNewContext(ui.slice(ui.indexOf('function syncLayout(){'),ui.indexOf("const observer=typeof MutationObserver"))+'\nglobalThis.sync=syncLayout;',ctx);
+ vm.runInNewContext(ui.slice(ui.indexOf('function syncLayout('),ui.indexOf("const observer=typeof MutationObserver"))+'\nglobalThis.sync=syncLayout;',ctx);
  for(let i=0;i<10;i++){panel=false;slot=true;ctx.sync();assert.equal(panel,true);assert.equal(slot,false);}
  assert.equal(renders,10);assert.equal(decorations,10);assert.equal(observed,disconnected);
  for(let i=0;i<10;i++)ctx.sync();assert.equal(renders,10);assert.equal(decorations,10);
  ctx.window.currentUser=null;panel=false;ctx.sync();assert.equal(panel,false);
 });
 
+
+test('Drive agrupa las obras una sola vez por listado y conserva vínculos ambiguos sin elegir',()=>{
+ const ui=fs.readFileSync(require.resolve('../analisisPreliminarV1.js'),'utf8');let batches=0,singles=0;
+ const groups=Array.from({length:120},(_,i)=>({ids:['w'+i],members:[{id:'w'+i,driveFolderId:'folder_'+i+'_12345'}]}));
+ const ctx={window:{TIZObrasSeguimientoV2:{getGroups:()=>{batches++;return groups},getGroup:()=>{singles++;throw Error('No reagrupar por fila')}},TIZAnalisisPreliminarCoreV1:C,DB:{obras:[]}},data:[],esc:String};
+ vm.runInNewContext(ui.slice(ui.indexOf('function driveButton('),ui.indexOf('function decorate('))+'\nglobalThis.renderer=driveRenderer;',ctx);
+ const drive=ctx.renderer();for(let i=0;i<120;i++)assert.match(drive({id:'w'+i}),/Drive disponible/);
+ assert.equal(batches,1);assert.equal(singles,0);
+ groups[0].members.push({driveFolderId:'another_folder_12345'});assert.doesNotMatch(drive({id:'w0'}),/apv1-drive-ready/);
+});
+test('editar un formulario fuera de la página no vuelve a decorar sus listados',()=>{
+ const ui=fs.readFileSync(require.resolve('../analisisPreliminarV1.js'),'utf8'),page={querySelector:()=>true,contains:()=>false},outer={},modal={contains:()=>false};let decorations=0;
+ const ctx={window:{currentUser:{},currentPage:'obras'},document:{body:{},getElementById:()=>outer},host:()=>page,renderedPage:'obras',observer:{disconnect(){},observe(){}},render(){},decorate(){decorations++}};
+ vm.runInNewContext(ui.slice(ui.indexOf('function syncLayout('),ui.indexOf('const observer=typeof MutationObserver'))+'\nglobalThis.sync=syncLayout;',ctx);
+ ctx.sync([{target:ctx.document.body,type:'childList',addedNodes:[modal]}]);assert.equal(decorations,0);
+ ctx.sync([{target:modal,type:'attributes'}]);assert.equal(decorations,0);
+ ctx.sync([{target:page,type:'childList'}]);assert.equal(decorations,1);
+});
