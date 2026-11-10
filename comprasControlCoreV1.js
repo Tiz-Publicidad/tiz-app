@@ -16,11 +16,11 @@ function remaining(plan,article,stock){const items=(plan.items||[]).filter(i=>i.
 function requirements(articles,plans,metas,stock){
  const rows=[],pending=[];
  for(const p of plans.filter(active))for(const i of p.items||[])if(!articles.some(a=>a.id===i.articuloId))pending.push({ot:p.ot,descripcion:i.descripcion||'Insumo por vincular',motivo:'Catálogo pendiente'});
- for(const a of articles.filter(a=>a.control!=='sin_stock')){
+ for(const a of articles){
   const used=plans.filter(p=>active(p)&&(p.items||[]).some(i=>i.articuloId===a.id));if(!used.length)continue;
-  let required=0,error='';for(const p of used){try{required+=remaining(p,a,stock);}catch(e){error=e.message;pending.push({ot:p.ot,descripcion:a.descripcion,motivo:e.message});}}
-  const meta=metas.find(m=>m.id===a.id)||{},physical=Number.isFinite(meta.stockFisico)?meta.stockFisico:null;
-  rows.push({articuloId:a.id,codigo:a.codigo,descripcion:a.descripcion,unidad:meta.unidad||a.unidad,necesario:required,stock:physical,comprar:error||physical===null?null:Math.max(0,required-physical),error,ots:used.map(p=>p.ot),sinRevisar:used.filter(p=>!p.revisionMateriales).length});
+  let required=0,error='';const detalle=[];for(const p of used){try{const pendiente=remaining(p,a,stock);required+=pendiente;detalle.push({planId:p.id||'',ot:p.ot||'',cliente:p.cliente||'',pendiente});}catch(e){error=e.message;detalle.push({planId:p.id||'',ot:p.ot||'',cliente:p.cliente||'',pendiente:null,error:e.message});pending.push({ot:p.ot,descripcion:a.descripcion,motivo:e.message});}}
+  const meta=metas.find(m=>m.id===a.id)||{},physical=a.control==='sin_stock'?0:Number.isFinite(meta.stockFisico)?meta.stockFisico:null;
+  rows.push({articuloId:a.id,codigo:a.codigo,descripcion:a.descripcion,unidad:meta.unidad||a.unidadControl||a.unidad,necesario:required,stock:physical,comprar:error||physical===null?null:Math.max(0,required-physical),error,detalle,ots:used.map(p=>p.ot),sinRevisar:used.filter(p=>!p.revisionMateriales).length});
  }
  return {rows,pending};
 }

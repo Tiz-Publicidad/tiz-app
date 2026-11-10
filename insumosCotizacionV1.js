@@ -158,7 +158,7 @@ function canApprove(){
  if(pending.length||loading||aiBusy||error||!loaded)window.showToast?.('Se aprobará el presupuesto. Los insumos, unidades, stock y costos por completar quedan como alertas.');
  return true;
 }
-window.TIZInsumosCotizacionV1={open,canApprove,saveFields:()=>({insumosVentas:C.draft(rows),insumosCotizacionId:newQuoteId,aprobarConInsumosPendientes:true}),getDraft:()=>C.draft(rows)};
+window.TIZInsumosCotizacionV1={open,canApprove,requestShared,saveFields:()=>({insumosVentas:C.draft(rows),insumosCotizacionId:newQuoteId,aprobarConInsumosPendientes:true}),getDraft:()=>C.draft(rows)};
 function init(){ensure();render();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
