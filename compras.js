@@ -1,5 +1,5 @@
 import './comprasIngresoCoreV1.js?v=20261103-nombres';
-import { createMaterialsControl } from './comprasControlUIV1.js?v=20261109-control';
+import { createMaterialsControl } from './comprasControlUIV1.js?v=20261109-catalogo-ot';
 import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
@@ -18,6 +18,10 @@ const cpMaterialsControl=createMaterialsControl({
  data:()=>C,works:()=>cpWorks(),planForWork:o=>cpPlanForWork(o),sameOT:(a,b)=>window.TIZComprasObrasCoreV1.same(a,b),
  quoteForWork:o=>(window.DB?.presupuestos||[]).find(q=>q.id===o?.presupuestoId||window.TIZComprasObrasCoreV1.same(q.nro||q.numero,o?.ot)),
  esc:(...args)=>esc(...args),money:(...args)=>money(...args),today:()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),week:d=>weekKey(new Date(d+'T12:00:00')),user:()=>window.currentUser?.email||'',toast:msg=>toast(msg),stock:()=>cpStockSnapshot(),
+ editArticle:(id,onSaved)=>window.cpEditArticulo(id,null,{onSaved}),
+ units:(id,onSaved)=>window.TIZUnidadesStockV1.open(id,{onSaved:a=>{window.cpAfterStockUnitsChanged?.(a);onSaved?.(a);}}),
+ createArticle:async fields=>{const a=await cpCreateNumberedArticle(fields);C.articulos=[...C.articulos.filter(x=>x.id!==a.id),a];return a;},
+ suggest:async(query,plan)=>{const owner=window.currentUser?.email;await cpIaConfigReady;if(owner!==window.currentUser?.email)throw Error('Cambió la sesión. Volvé a ingresar.');if(!cpValidIaUrl(cpIaUrlShared))throw Error(cpIaConfigError||'Configurá la conexión compartida en IA comprobantes');if(!window.TIZInsumosCotizacionV1?.requestShared)throw Error('Actualizá TIZ para cargar el buscador');return window.TIZInsumosCotizacionV1.requestShared({url:cpIaUrlShared,datos:{descripcion:'Identificar alternativas de insumos existentes para: '+query+'. Trabajo: '+(plan?.descripcion||'')+'. Si es impresión, distinguir tinta y soporte de impresión propia y servicio contratado. No inventar cantidades ni elegir automáticamente.',items:[{descripcion:query,cantidad:1}],catalogo:C.articulos.map(a=>({articuloId:a.id,codigo:a.codigo,descripcion:a.descripcion,unidad:a.unidad,familia:a.familia||'',subfamilia:a.subfamilia||''}))}});},
  motherState:()=>cpMotherState(),refreshMother:()=>cpRefreshMother(true),refresh:()=>render(),
  savePlan:async(id,payload,revision)=>{const existing=cpPlanForWork({id:payload.obraId,ot:payload.ot});const ref=doc(db,'planesMateriales',id||existing?.id||'materiales-'+encodeURIComponent(payload.obraId));await runTransaction(db,async tx=>{const snap=await tx.get(ref),old=snap.exists()?snap.data():{};if((old.revisionMateriales||0)!==revision)throw Error('Otra persona revisó este plan. Cerrá y reabrí la revisión para conservar ambos cambios.');tx.set(ref,{...payload,_ts:serverTimestamp()},{merge:true});});},
  addMovement:async(id,m)=>{await runTransaction(db,async tx=>{const ref=doc(db,'planesMateriales',id),snap=await tx.get(ref);if(!snap.exists())throw Error('No se encontró el plan. Reabrí la OT.');tx.update(ref,{movimientosMateriales:[...(snap.data().movimientosMateriales||[]),m]});});},
@@ -1531,11 +1535,11 @@ window.cpLinkCatalogoIngreso=id=>{
 };
 
 let cpArticleEditor=null,cpArticleSaving=false;
-window.cpEditArticulo=(id,row=null)=>{
+window.cpEditArticulo=(id,row=null,options={})=>{
  if(cpArticleSaving)return;
  const a=C.articulos.find(x=>x.id===id);if(!a)return toast('El insumo ya no está disponible.');
- cpArticleEditor={id,row};let modal=document.getElementById('cp-modal-edit-insumo');
- if(!modal){modal=document.createElement('div');modal.id='cp-modal-edit-insumo';modal.className='cp-modal-bg';modal.style.zIndex='12005';document.body.append(modal);}
+ cpArticleEditor={id,row,...options};let modal=document.getElementById('cp-modal-edit-insumo');
+ if(!modal){modal=document.createElement('div');modal.id='cp-modal-edit-insumo';modal.className='cp-modal-bg';modal.style.zIndex='26000';document.body.append(modal);}
  const current=(selector,fallback)=>row?.querySelector(selector)?.value??fallback??'';
  const fields=[['desc','Descripción',a.descripcion],['unit','Unidad',current('.i-unit',a.unidad)],['family','Familia',current('.i-family',a.familia||a.rubro)],['subfamily','Subfamilia',current('.i-subfamily',a.subfamilia)]];
  modal.innerHTML=`<div class="cp-modal" style="max-width:720px" role="dialog" aria-label="Editar insumo"><h2>Editar insumo ${esc(a.codigo||'')}</h2><p class="cp-sub">Estos datos se actualizan en el catálogo y en la compra en curso. Las compras anteriores conservan sus datos.</p><div class="cp-row" style="grid-template-columns:repeat(2,minmax(0,1fr))">${fields.map(([key,label,value])=>`<div class="cp-field"><label for="cp-edit-${key}">${label}</label><input id="cp-edit-${key}" value="${esc(value)}" ${key==='family'?'list="cp-edit-families"':key==='subfamily'?'list="cp-edit-subfamilies"':''}></div>`).join('')}<div class="cp-field"><label for="cp-edit-control">Control de stock</label><select id="cp-edit-control"><option value="estrategico">Estratégico</option><option value="consumible">Consumible</option><option value="sin_stock">Sin stock</option></select></div><div class="cp-field"><label for="cp-edit-min">Stock mínimo</label><input id="cp-edit-min" type="number" min="0" step="0.01" value="${esc(a.stockMinimo??0)}"></div></div><datalist id="cp-edit-families">${familyOptions().map(f=>`<option value="${esc(f)}">`).join('')}</datalist><datalist id="cp-edit-subfamilies"></datalist><p id="cp-edit-error" role="alert" class="cp-match-warn"></p><div class="cp-actions" style="margin-top:14px"><button class="cp-btn" id="cp-edit-cancel" onclick="cpCloseEditArticulo()">Volver sin guardar</button><button class="cp-btn primary" id="cp-edit-save" onclick="cpSaveEditArticulo()">Guardar cambios del insumo</button></div></div>`;
@@ -1545,7 +1549,7 @@ window.cpEditArticulo=(id,row=null)=>{
 window.cpCloseEditArticulo=()=>{if(cpArticleSaving)return;document.getElementById('cp-modal-edit-insumo')?.classList.remove('open');cpArticleEditor=null;};
 window.cpSaveEditArticulo=async()=>{
  if(cpArticleSaving||!cpArticleEditor)return;
- const {id}=cpArticleEditor,existing=C.articulos.find(a=>a.id===id),v=k=>document.getElementById('cp-edit-'+k).value.trim(),error=document.getElementById('cp-edit-error');
+ const {id,onSaved}=cpArticleEditor,existing=C.articulos.find(a=>a.id===id),v=k=>document.getElementById('cp-edit-'+k).value.trim(),error=document.getElementById('cp-edit-error');
  if(!existing){error.textContent='El insumo ya no está disponible.';return;}
  const data={descripcion:v('desc'),unidad:v('unit'),familia:v('family'),subfamilia:v('subfamily'),control:v('control'),stockMinimo:Number(v('min'))};
  if(!data.descripcion||!data.unidad){error.textContent='Completá descripción y unidad.';return;}
@@ -1556,7 +1560,7 @@ window.cpSaveEditArticulo=async()=>{
   await updateDoc(doc(db,'articulosCompra',id),{...data,actualizado:serverTimestamp()});
   const updated={...existing,...data,id};C.articulos=C.articulos.map(a=>a.id===id?updated:a);
   document.querySelectorAll('#cp-items-body tr').forEach(tr=>{if(tr.dataset.articleId===id){if(cpIngreso?.confirmed&&tr.dataset.confirmed==='1')cpConfirmIngresoArticle(tr,updated);else applyArticleToRow(tr,updated);}});
-  refreshCatalogDatalist();cpRenderArticleRows();window.cpRenderCatalogoIngreso?.();calcTotals();cpArticleSaving=false;window.cpCloseEditArticulo();toast('Insumo actualizado. Se conservaron la cantidad y el precio de la compra.');
+  refreshCatalogDatalist();cpRenderArticleRows();window.cpRenderCatalogoIngreso?.();calcTotals();cpArticleSaving=false;window.cpCloseEditArticulo();onSaved?.(updated);toast('Insumo actualizado. Se conservaron la cantidad y el precio de la compra.');
  }catch(e){error.textContent='No se pudo guardar el insumo: '+e.message;}
  finally{cpArticleSaving=false;document.getElementById('cp-edit-save').disabled=false;document.getElementById('cp-edit-cancel').disabled=false;}
 };
