@@ -40,3 +40,21 @@ test('guardado confirma en la consulta y base local, invalida una lectura anteri
 test('fallo conserva estado anterior y muestra error; una respuesta de otra sesión no modifica la nueva',async()=>{
  const f=uiFixture();f.window.cambiarEstadoObraV1=async()=>{throw Error('Sin conexión');};await f.ctx.save(f.select('Cobrado'));assert.equal(f.consulta.works[0].estado,'Pendiente');assert.equal(f.window.DB.obras[0].estado,'Pendiente');assert.equal(f.S.error,'Sin conexión');let done;f.window.cambiarEstadoObraV1=()=>new Promise(r=>done=r);const saving=f.ctx.save(f.select('Cobrado'));f.window.currentUser={email:'otro'};done([{id:'a',patch:{estado:'Cobrado'}}]);await saving;assert.equal(f.consulta.works[0].estado,'Pendiente');
 });
+
+test('un refresh conserva el selector enfocado y pospone cambios de filas hasta terminar la interacción',()=>{
+ const select={dataset:{o2Status:'a'},matches:()=>true},body={__rowsHTML:undefined,contains:n=>n===select,querySelectorAll:()=>[select]},feedback={},count={};let html='',writes=0;
+ Object.defineProperty(body,'innerHTML',{get:()=>html,set:value=>{html=value;writes++;}});
+ const w=work('a',{ot:'4780'}),g=C.grouped([w])[0],doc={activeElement:null,getElementById:id=>({'obras2-body':body,'obras2-feedback':feedback,'obras2-count':count}[id]),querySelector:()=>null};
+ const ctx={document:doc,groups:()=>[g],C,S:{query:'',states:new Set(['Pendiente']),unmatched:[],error:'',message:''},statusSaving:new Set(),statusRenderPending:false,E:String,date:String,productionDate:()=>'',placementDate:()=>'',statusCell:()=>'<select>Pendiente</select>',editButton:()=>'',usesConsulta:()=>false,window:{},consulta:{}};
+ vm.runInNewContext(ui.slice(ui.indexOf('function renderRows(){'),ui.indexOf('\nfunction render(){'))+'\nglobalThis.paint=renderRows;',ctx);
+ ctx.paint();assert.equal(writes,1);ctx.paint();assert.equal(writes,1,'No recrear controles por un refresh sin cambios');
+ doc.activeElement=select;g.desc='Texto actualizado en segundo plano';ctx.paint();assert.equal(writes,1);assert.equal(ctx.statusRenderPending,true);assert.equal(select.__expectedStates.a,'Pendiente');
+ doc.activeElement=null;ctx.paint();assert.equal(writes,2);assert.equal(ctx.statusRenderPending,false);
+ ctx.statusSaving.add('a');g.desc='Otro cambio durante el guardado';ctx.paint();assert.equal(writes,2);ctx.statusSaving.clear();ctx.paint();assert.equal(writes,3);
+});
+test('cambiar a Entregado valida el estado que se mostraba al abrir el selector y libera foco al finalizar',async()=>{
+ const f=uiFixture(),select=f.select('Entregado');let blurred=0;select.blur=()=>blurred++;select.__workGroup=C.grouped(f.consulta.works)[0];select.__expectedStates={a:'Pendiente'};
+ f.consulta.works[0].estado='Cobrado pendiente';
+ f.window.cambiarEstadoObraV1=async(ids,estado,expected)=>{assert.equal(estado,'Entregado');assert.equal(expected.a,'Pendiente');throw Error('Otra persona actualizó la obra.');};
+ await f.ctx.save(select);assert.match(f.S.error,/Otra persona/);assert.equal(blurred,1);assert.equal(f.consulta.works[0].estado,'Cobrado pendiente');
+});

@@ -18,6 +18,7 @@ const workAlerts=g=>g.estado==='Cobrado'&&!g.seguimiento.planificadoPorCalidad&&
 const date=v=>{const d=C.iso(v);return d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'—';};
 const badge=s=>'<span class="o2-badge '+(s==='Cobrado'?'o2-paid':s==='Entregado'?'o2-delivered':'')+'">'+E(s)+'</span>';
 const statusSaving=new Set();
+let statusRenderPending=false;
 const statusCell=g=>C.canStatus(user())&&g.estado!=='Baja'?'<select class="o2-badge o2-status" data-o2-status="'+E(g.id)+'" aria-label="Estado de CT/OT '+E(g.ot||g.id)+'" '+(statusSaving.has(g.id)?'disabled aria-busy="true"':'')+'>'+C.EDITABLE_STATES.map(s=>'<option value="'+E(s)+'" '+(s===g.estado?'selected':'')+'>'+E(s)+'</option>').join('')+'</select>':badge(g.estado);
 function applyWorkPatches(patches){
  // Invalida consultas que empezaron antes de guardar y conserva los datos de la baja.
@@ -26,7 +27,7 @@ function applyWorkPatches(patches){
  S.qualityKey='';render();renderQuality();
 }
 async function saveStatus(select){
- const id=select.dataset.o2Status,g=groups().find(g=>g.ids.includes(id)),estado=select.value;
+ const id=select.dataset.o2Status,g=select.__workGroup||groups().find(g=>g.ids.includes(id)),estado=select.value;
  if(!g||statusSaving.has(id)||!C.canStatus(user()))return;
  if(estado===g.estado)return;
  if(estado==='Baja'){
@@ -37,7 +38,7 @@ async function saveStatus(select){
  const session=user();
  statusSaving.add(id);select.disabled=true;select.setAttribute('aria-busy','true');S.error='';S.message='';
  try{
-  const patches=await window.cambiarEstadoObraV1(g.ids,estado,Object.fromEntries(g.members.map(w=>[w.id,w.estado])));
+  const patches=await window.cambiarEstadoObraV1(g.ids,estado,select.__expectedStates||Object.fromEntries(g.members.map(w=>[w.id,w.estado])));
   if(user()!==session)return;
   // Una consulta iniciada antes de guardar no debe recuperar el estado anterior.
   consulta.generation++;consulta.busy=false;
@@ -45,7 +46,7 @@ async function saveStatus(select){
   S.message='CT/OT '+(g.ot||g.id)+': estado actualizado a '+estado+'.';S.qualityKey='';
   window.showToast?.(S.message);
  }catch(e){if(user()===session)S.error=e.message||'No se pudo guardar el estado. Volvé a intentarlo.';}
- finally{statusSaving.delete(id);if(user()===session){render();renderQuality();}}
+ finally{statusSaving.delete(id);if(user()===session){select.blur?.();render();renderQuality();}}
 }
 const oldEditButton=g=>'<button class="btn btn-ghost btn-sm" data-o2-edit="'+E(g.id)+'">'+(C.canProduction(user())?'Seguimiento / estadística':'Ver seguimiento')+'</button>';
 const editButton=g=>g.estado==='Baja'?'':oldEditButton(g);
@@ -61,8 +62,16 @@ function setup(){css();const page=document.getElementById('page-obras');if(!page
  root.innerHTML='<div class="o2-top"><div><h2>Obras</h2><p class="o2-muted">Alta, planificación y seguimiento por CT/OT</p></div><div class="o2-actions">'+(C.canSync(user())?'<button class="btn btn-ghost btn-sm" data-o2-sync>Actualizar referencia</button>':'')+(usesConsulta()?'<button class="btn btn-ghost btn-sm" data-o2-read-refresh>Actualizar obras</button>':'')+'<button class="btn btn-ghost btn-sm" data-o2-stats>Estadística</button></div></div><div id="obras2-feedback"></div><div class="o2-filter"><input type="search" aria-label="Buscar obras por CT/OT, descripción o cliente" placeholder="Buscar CT/OT, descripción o cliente"><fieldset class="o2-states"><legend>Estados · podés combinar opciones</legend>'+C.STATES.filter(s=>s!=='Baja').map(s=>'<label><input type="checkbox" data-o2-state="'+E(s)+'" '+(S.states.has(s)?'checked':'')+'>'+E(s)+'</label>').join('')+'</fieldset><button class="btn btn-ghost btn-sm" data-o2-all>Todos</button><span class="o2-muted" id="obras2-count"></span></div><div class="o2-table"><table aria-label="Listado de obras"><thead><tr><th>Alta</th><th>Semana de aprobación</th><th>CT/OT</th><th>Descripción</th><th>Cliente</th><th>Producción prevista</th><th>Colocación prevista</th><th>Estado</th><th></th></tr></thead><tbody id="obras2-body"></tbody></table></div>';
  root.addEventListener('input',e=>{if(e.target.type==='search'){S.query=e.target.value;renderRows();}});root.addEventListener('change',e=>{if(e.target.dataset.o2State){const k=e.target.dataset.o2State;e.target.checked?S.states.add(k):S.states.delete(k);renderRows();}});
  }return root;}
-function renderRows(){const body=document.getElementById('obras2-body');if(!body)return;const all=groups(),q=C.norm(S.query),shown=all.filter(g=>S.states.has(g.estado)&&(!q||C.norm([g.ot,g.desc,g.cliente].join(' ')).includes(q)));
- document.getElementById('obras2-count').textContent=usesConsulta()&&!consulta.loaded&&!localWorksFallback()?(consulta.busy?'Cargando obras…':'No se pudo cargar el listado'):shown.length+' de '+all.length+' obras';body.innerHTML=shown.map(g=>'<tr><td>'+date(g.fechaAlta)+'</td><td>'+E(g.semana||'—')+'</td><td><b>'+E(g.ot||'Sin OT')+'</b> <span data-ap-drive-ot="'+E(g.ot)+'" data-ap-drive-id="'+E(g.id)+'"></span></td><td>'+E(g.desc||'—')+'</td><td>'+E(g.cliente||'—')+'</td><td>'+productionDate(g)+'</td><td>'+placementDate(g)+'</td><td>'+statusCell(g)+'</td><td>'+editButton(g)+'</td></tr>').join('')||'<tr><td colspan="9" class="o2-muted">'+(usesConsulta()&&!consulta.loaded&&!localWorksFallback()?(consulta.busy?'Cargando el listado de obras…':'No se pudo cargar el listado. Usá «Actualizar obras» para reintentar.'):'No hay obras para los estados y la búsqueda seleccionados.')+'</td></tr>';
+function renderRows(){const body=document.getElementById('obras2-body');if(!body)return;
+ const focused=document.activeElement;
+ if(statusSaving.size||focused?.matches?.('[data-o2-status]')&&body.contains(focused)){statusRenderPending=true;return;}
+ statusRenderPending=false;const all=groups(),q=C.norm(S.query),shown=all.filter(g=>S.states.has(g.estado)&&(!q||C.norm([g.ot,g.desc,g.cliente].join(' ')).includes(q)));
+ document.getElementById('obras2-count').textContent=usesConsulta()&&!consulta.loaded&&!localWorksFallback()?(consulta.busy?'Cargando obras…':'No se pudo cargar el listado'):shown.length+' de '+all.length+' obras';const rowsHTML=shown.map(g=>'<tr><td>'+date(g.fechaAlta)+'</td><td>'+E(g.semana||'—')+'</td><td><b>'+E(g.ot||'Sin OT')+'</b> <span data-ap-drive-ot="'+E(g.ot)+'" data-ap-drive-id="'+E(g.id)+'"></span></td><td>'+E(g.desc||'—')+'</td><td>'+E(g.cliente||'—')+'</td><td>'+productionDate(g)+'</td><td>'+placementDate(g)+'</td><td>'+statusCell(g)+'</td><td>'+editButton(g)+'</td></tr>').join('')||'<tr><td colspan="9" class="o2-muted">'+(usesConsulta()&&!consulta.loaded&&!localWorksFallback()?(consulta.busy?'Cargando el listado de obras…':'No se pudo cargar el listado. Usá «Actualizar obras» para reintentar.'):'No hay obras para los estados y la búsqueda seleccionados.')+'</td></tr>';
+ // No reemplazar controles si otra colección disparó un refresh sin cambios de filas.
+ if(body.__rowsHTML!==rowsHTML){body.innerHTML=rowsHTML;body.__rowsHTML=rowsHTML;}
+ const byId=new Map(shown.flatMap(g=>g.ids.map(id=>[id,g])));
+ body.querySelectorAll('[data-o2-status]').forEach(select=>{const g=byId.get(select.dataset.o2Status);if(g){select.__workGroup=g;select.__expectedStates=Object.fromEntries(g.members.map(w=>[w.id,w.estado]));}});
+
  window.TIZAnalisisPreliminarV1?.decorate?.(body);
  const feedback=document.getElementById('obras2-feedback');feedback.innerHTML=(usesConsulta()?'<p class="o2-muted">Consulta de Obras · el estado se edita según los permisos de cada usuario.</p>'+(consulta.error?'<p class="o2-error" role="alert">'+E(consulta.error)+(consulta.loaded||localWorksFallback()?' Se mantiene el listado disponible; puede haber cambios pendientes de actualizar.':'')+'</p>':'')+(consulta.busy?'<p class="o2-message" role="status">Consultando obras…</p>':''):'')+(S.error?'<p class="o2-error" role="alert">'+E(S.error)+'</p>':'')+(S.message?'<p class="o2-message" role="status">'+E(S.message)+'</p>':'')+(S.unmatched.length?'<details class="o2-muted"><summary>Ver obras sin coincidencia segura</summary><ul>'+S.unmatched.map(g=>'<li>CT/OT '+E(g.ot||'sin número')+' · '+E(g.cliente)+'</li>').join('')+'</ul></details>':'');const button=document.querySelector('[data-o2-sync]');if(button){button.disabled=S.syncing;button.textContent=S.syncing?'Actualizando…':'Actualizar referencia';}
 }
@@ -144,6 +153,7 @@ function renderQualityRows(){const target=document.getElementById('obras2-qualit
 }
 document.addEventListener('click',e=>{const b=e.target.closest?.('[data-o2-edit],[data-o2-close],[data-o2-sync],[data-o2-stats],[data-o2-read-refresh],[data-o2-all],[data-o2-quality-all]');if(!b||S.saving)return;if(b.hasAttribute('data-o2-edit'))open(b.dataset.o2Edit);else if(b.hasAttribute('data-o2-close'))close();else if(b.hasAttribute('data-o2-sync'))sync();else if(b.hasAttribute('data-o2-stats'))stats();else if(b.hasAttribute('data-o2-read-refresh'))void loadConsulta();else if(b.hasAttribute('data-o2-quality-all')){S.qualityAll=!S.qualityAll;S.qualityKey='';renderQuality();}else{S.states=new Set(C.STATES.filter(s=>s!=='Baja'));document.querySelectorAll('[data-o2-state]').forEach(c=>c.checked=true);renderRows();}});
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-o2-status]'))void saveStatus(e.target);});
+document.addEventListener('focusout',e=>{if(e.target.matches?.('[data-o2-status]')&&statusRenderPending)setTimeout(()=>{if(window.currentPage==='obras'&&!statusSaving.size)renderRows();},0);});
 document.addEventListener('submit',e=>{if(e.target.id==='obras2-form'){e.preventDefault();save(e.target);}});
 function updateBadge(){const button=document.querySelector('.nav-item[onclick*="goTo(\'calidad\')"]');if(!button)return;let badge=button.querySelector('[data-o2-quality-badge]');if(!badge){badge=document.createElement('span');badge.dataset.o2QualityBadge='1';badge.className='nav-badge';button.appendChild(badge);}const n=groups().filter(g=>workAlerts(g).length).length;badge.textContent=String(n);badge.title=n+' obras con avisos de planificación o cierre';badge.style.display=n?'inline-flex':'none';}
 function install(){if(!window.renderObras||!window.TIZCalidadV1)return;window.renderObras=render;const quality=window.TIZCalidadV1.render;window.TIZCalidadV1.render=function(){const r=quality.apply(this,arguments);renderQuality();return r;};const refresh=window.refreshCurrent;if(refresh)window.refreshCurrent=function(){const r=refresh.apply(this,arguments);updateBadge();return r;};window.canEditFechasCompromiso=()=>C.canPlan(user());render();renderQuality();updateBadge();}
