@@ -1,6 +1,7 @@
 /* TIZ Calidad: registros por OT, seguimiento y liberaciones por etapa. */
 (function(root,factory){const core=factory();if(typeof module==='object'&&module.exports)module.exports=core;else root.TIZCalidadCore=core;})(typeof window==='object'?window:globalThis,()=>{
  'use strict';
+ const commercial=()=>typeof module==='object'&&module.exports?require(typeof __dirname==='string'&&/[\\/]functions$/.test(__dirname)?'./vigenciaComercialCoreV1':'./functions/vigenciaComercialCoreV1'):window.TIZVigenciaComercialV1;
  const TYPES=['Anomalía','Liberación','Control aleatorio'],STAGES=['Materiales','Diseño','Producción','Salida a colocación','Entrega'],AREAS=['Producción','Impresiones','Diseño','Compras','Colocaciones','Calidad'],CATEGORIES=['Medidas','Material','Color / impresión','Terminación','Armado / fijaciones','Electricidad / iluminación','Embalaje','Documentación','Otro'];
  const DECISIONS=['Aprobado','Rechazado','Aprobado con desvío'];
  const CAUSES=['Planos / medidas','Diseño','Herrería','Carpintería','Pintura','Gráfica / impresión','Iluminación / eléctrica','Armado','Terminación','Embalaje','Despacho','Colocación','Materiales / Compras','Otro'];
@@ -103,6 +104,7 @@
  function rows(db={}){const cancelled=new Set((db.obras||[]).filter(baja).map(o=>o.id));return [...(db.obras||[]).filter(o=>!baja(o)).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).filter(r=>!cancelled.has(r.obraId)).map(r=>({...r,obraId:''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
  // One quality queue entry per OT; preserve every source row/description.
  function motherWorks(source=[], works=[], internalRecords=[]){
+  source=commercial()?.filterSource(source,works)||source;
   const base=v=>{const m=text(v).match(/\d{4,7}/);return m?String(Number(m[0])):'';},groups=new Map(),cancelled=new Set(works.filter(o=>baja(o)&&o.revisionVigente!==false&&o.revisionOperativa!==false).map(o=>base(o.ot)).filter(Boolean));
   for(const r of source){
    if(cancelled.has(base(r.ot))||!['pendiente','cobrado pendiente'].includes(norm(r.status).replace(/[_\s]+/g,' ')))continue;
@@ -127,5 +129,5 @@
   const patterns=Object.entries(byCause).map(([key,count])=>({key,count,rate:decided.length?100*count/decided.length:0})).sort((a,b)=>b.count-a.count||a.key.localeCompare(b.key,'es'));
   return {decided:decided.length,controlledWorks:workIds.size,approved:counts['Aprobado']||0,rejected:counts['Rechazado']||0,deviations:counts['Aprobado con desvío']||0,firstPassRate:decided.length?100*(counts['Aprobado']||0)/decided.length:0,incidenceRate:decided.length?100*((counts['Rechazado']||0)+(counts['Aprobado con desvío']||0))/decided.length:0,patterns};
  }
- return {TYPES,STAGES,AREAS,CATEGORIES,DECISIONS,CAUSES,SUBCAUSES,day,norm,canRecord,canControl,isDeviationAuthorizer,validateDecision,pending,clean,registerPatch,closeRecord,rows,metrics,motherWorks};
+ return {commercial,TYPES,STAGES,AREAS,CATEGORIES,DECISIONS,CAUSES,SUBCAUSES,day,norm,canRecord,canControl,isDeviationAuthorizer,validateDecision,pending,clean,registerPatch,closeRecord,rows,metrics,motherWorks};
 });

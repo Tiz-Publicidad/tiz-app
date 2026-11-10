@@ -15,7 +15,7 @@ let compraEditId = null;
 let selectedFile = null;
 let currentTab = 'inicio';
 const cpMaterialsControl=createMaterialsControl({
- data:()=>C,works:()=>cpWorks(),planForWork:o=>cpPlanForWork(o),sameOT:(a,b)=>window.TIZComprasObrasCoreV1.same(a,b),
+ data:()=>window.TIZVigenciaComercialV1?{...C,planes:C.planes.filter(p=>window.TIZVigenciaComercialV1.relatedVisible(p))}:C,works:()=>cpWorks(),planForWork:o=>cpPlanForWork(o),sameOT:(a,b)=>window.TIZComprasObrasCoreV1.same(a,b),
  quoteForWork:o=>(window.DB?.presupuestos||[]).find(q=>q.id===o?.presupuestoId||window.TIZComprasObrasCoreV1.same(q.nro||q.numero,o?.ot)),
  esc:(...args)=>esc(...args),money:(...args)=>money(...args),today:()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),week:d=>weekKey(new Date(d+'T12:00:00')),user:()=>window.currentUser?.email||'',toast:msg=>toast(msg),stock:()=>cpStockSnapshot(),
  editArticle:(id,onSaved)=>window.cpEditArticulo(id,null,{onSaved}),

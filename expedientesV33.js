@@ -32,8 +32,8 @@
     const d=new Date(raw); return Number.isNaN(d.getTime())?0:d.getTime();
   };
   const isArchived = x => !!(x?.archivado || norm(x?.estado)==='archivado');
-  const isApproved = x => norm(x?.estado)==='aprobado' || x?.revisionEstado==='aprobada';
-  const isOperationalVisible = o => !isArchived(o) && o?.revisionVigente !== false && o?.revisionOperativa !== false;
+  const isApproved = x => window.TIZVigenciaComercialV1?.approved(x)??(norm(x?.estado)==='aprobado'||!x?.estado&&x?.revisionEstado==='aprobada');
+  const isOperationalVisible = o => (window.TIZVigenciaComercialV1?.visible(o)??true) && !isArchived(o) && o?.revisionVigente !== false && o?.revisionOperativa !== false;
 
   function groups(){
     const map=new Map();
@@ -168,14 +168,14 @@
     try{
       await originalUpdate('presupuestos',id,{
         expedienteId:key, revision, revisionVigente:approved,
-        revisionEstado:approved?'aprobada':(p.revisionEstado||'borrador'),
+        revisionEstado:approved?'aprobada':(norm(p.estado)==='baja'?'baja':norm(p.estado)==='enviado'?'enviada':'borrador'),
         actualizadoEn:new Date().toISOString()
       });
       const siblings=(window.DB?.presupuestos||[]).filter(x=>x.id!==id&&ctKey(x)===key);
       if(approved){
         for(const s of siblings)if(s.revisionVigente===true||isApproved(s))await originalUpdate('presupuestos',s.id,{revisionVigente:false,revisionEstado:'historica'});
       }
-      const related=(window.DB?.obras||[]).filter(o=>String(o.expedienteId||o.ctOrigen||o.nroPresupuesto||o.ot||'').replace(/\D/g,'')===key || o.id===p.obraId);
+      const related=(window.DB?.obras||[]).filter(o=>{const V=window.TIZVigenciaComercialV1;if(V)return approved?V.family(o,p)||o.id===p.obraId:V.quoteFor(o,[...(window.DB?.presupuestos||[]).filter(q=>q.id!==id),p])?.id===id;return o.presupuestoId===id||o.cotizacionId===id||o.id===p.obraId;});
       for(const o of related){
         const current=o.id===p.obraId || (!p.obraId && String(o.ot||'').replace(/\D/g,'')===key && approved);
         await originalUpdate('obras',o.id,{
@@ -193,12 +193,12 @@
   const originalUpdate=window.updateDoc_;
   if(originalAdd)window.addDoc_=async function(collection,data){
     const ref=await originalAdd.apply(this,arguments);
-    if(collection==='presupuestos'&&ref?.id)setTimeout(()=>reconcileBudget(ref.id,data).catch(console.error),0);
+    if(collection==='presupuestos'&&ref?.id)await reconcileBudget(ref.id,data);
     return ref;
   };
   if(originalUpdate)window.updateDoc_=async function(collection,id,data){
     const result=await originalUpdate.apply(this,arguments);
-    if(collection==='presupuestos'&&!writeGuard)setTimeout(()=>reconcileBudget(id,data).catch(console.error),0);
+    if(collection==='presupuestos'&&!writeGuard)await reconcileBudget(id,data);
     return result;
   };
 

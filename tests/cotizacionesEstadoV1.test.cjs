@@ -89,3 +89,9 @@ test('guardar Baja pide motivo y usa la operación conjunta sin validar logísti
 test('cerrar el motivo sin confirmar no modifica la cotización ni sus obras',async()=>{
  const f=fixture();f.window.abrirRevisionCotizacionV354('approved');f.field('pp-estado').value='Baja';f.context.prompt=()=>null;f.window.darBajaCotizacionV1=async()=>{throw Error('No debe guardar');};await f.window.guardarPresupuestoCompleto();assert.equal(f.approved.estado,'Aprobado');assert.equal(f.writes.length,0);
 });
+
+require('./vigenciaComercialV1.test.cjs');
+
+test('reaprobar una cotización en Borrador reactiva su misma obra y conserva las gestiones',async()=>{
+ const f=fixture();f.approved.estado='Borrador';const o={id:'obra-anterior',ot:'4800',cliente:'A',presupuestoId:f.approved.id,estado:'Aprobado',revisionVigente:false,revisionOperativa:false,colocacionesGestion:{notas:{n:{texto:'Conservar'}}}};f.window.DB.obras.push(o);f.window.abrirRevisionCotizacionV354(f.approved.id);f.field('pp-estado').value='Aprobado';await f.window.guardarPresupuestoCompleto();assert.equal(f.window.DB.obras.length,1);assert.equal(o.revisionOperativa,true);assert.equal(o.revisionVigente,true);assert.equal(o.colocacionesGestion.notas.n.texto,'Conservar');assert.equal(o.presupuestoId,f.approved.id);
+});
