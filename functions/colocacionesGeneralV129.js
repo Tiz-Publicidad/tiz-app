@@ -23,7 +23,7 @@ async function respondRequest(db,body,email){
  });return {ok:true,id,obraId,action};
 }
 async function review(db,body,email){
- if(!C.canReview(email))throw fail('Sólo Giancarlo puede validar los cierres.',403);
+ if(!C.canReview(email))throw fail('Sólo Giancarlo o Pablo pueden validar los cierres.',403);
  const whole=body.kind==='obra',obraId=body.obraId?ident(body.obraId):'',id=whole?'':ident(body.id);if(whole&&!obraId)throw fail('Seleccioná la obra.',400);
  const ref=db.collection(obraId?'obras':'colocacionesPendientes').doc(obraId||id);let action,closure,patch;
  await db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)throw fail('El cierre ya no existe.');const data=snap.data(),old=whole?data.colocacionesGestion?.cierre:obraId?data.colocacionesGestion?.acciones?.[id]:data;

@@ -24,7 +24,7 @@ test('editar descripción no cambia movimientos, costos ni equivalencias',async(
 });
 test('bloquea conflictos de ficha, descripciones duplicadas, unidad inválida y cuentas no autorizadas',async()=>{
  const f=fixture(),read=await f.read();f.docs.get('articulosCompra/tinta').descripcion='Otro cambió esta ficha';await assert.rejects(API.editArticle(f.db,{articuloId:'tinta',version:read.version,articulo:original()},sales),/Otra persona/);assert.equal(f.writes.length,0);
- for(const variant of ['duplicate','unit','permission']){const x=fixture([['articulosCompra/otro',{...original(),descripcion:'Otra tinta'}]]);await assert.rejects(update(x,variant==='duplicate'?{descripcion:'otra tinta'}:variant==='unit'?{unidad:'inventada'}:{},variant==='permission'?{email:'pablo.aciar@tizpublicidad.com'}:sales));assert.equal(x.writes.length,0);}
+ for(const variant of ['duplicate','unit','permission']){const x=fixture([['articulosCompra/otro',{...original(),descripcion:'Otra tinta'}]]);await assert.rejects(update(x,variant==='duplicate'?{descripcion:'otra tinta'}:variant==='unit'?{unidad:'inventada'}:{},variant==='permission'?{email:'arielbenitezpublicidad@gmail.com'}:sales));assert.equal(x.writes.length,0);}
 });
 test('no convierte un material con movimientos en servicio sin stock',async()=>{
  const f=fixture([['compras/p',{items:[{articuloId:'tinta'}]}]]);await assert.rejects(update(f,{control:'sin_stock'}),/Conservá el control/);assert.equal(f.writes.length,0);

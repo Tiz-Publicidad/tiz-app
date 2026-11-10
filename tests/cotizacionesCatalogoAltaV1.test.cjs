@@ -17,7 +17,7 @@ test('reintento con mismo identificador no duplica y una solicitud reutilizada c
 });
 test('descripción duplicada, datos inválidos o usuario sin permiso no escriben',async()=>{
  for(const change of [{descripcion:' lona FRONT '},{unidad:'inventada'},{familia:''},{subfamilia:''},{control:'otro'}]){const f=fixture(),p=payload();Object.assign(p.articulo,change);await assert.rejects(API.createArticle(f.db,p,sales));assert.equal(f.writes.length,0);}
- const f=fixture();await assert.rejects(API.createArticle(f.db,payload(),{email:'pablo.aciar@tizpublicidad.com'}),/Ventas o Compras/);assert.equal(f.writes.length,0);
+ const f=fixture();await assert.rejects(API.createArticle(f.db,payload(),{email:'arielbenitezpublicidad@gmail.com'}),/Ventas o Compras/);assert.equal(f.writes.length,0);
 });
 test('el contador compartido y códigos reservados se respetan para altas sucesivas',async()=>{
  const f=fixture();await API.createArticle(f.db,payload(),sales);const next=payload();next.solicitudId='request-test-00000002';next.articulo.descripcion='Tinta UV magenta';assert.equal((await API.createArticle(f.db,next,sales)).articulo.codigo,'000462');

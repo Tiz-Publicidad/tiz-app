@@ -69,7 +69,7 @@ test('la mutación genérica no puede falsificar la aceptación ni aprobar su pr
  const forged=C.governPatch(work,{'colocacionesGestion.acciones.a':{...pending,estadoSolicitud:'Aceptada por Ariel',confirmadaPor:C.ARIEL}},C.ARIEL,at)['colocacionesGestion.acciones.a'];assert.equal(C.needsAcceptance(forged),true);
  assert.throws(()=>C.governPatch(work,{'colocacionesGestion.acciones.a':{...pending,estado:'Cerrada',fechaReal:'2026-11-09'}},C.ARIEL,at),/aceptar/);
  const a=C.governAction(null,{...action(),fecha:'2026-11-08'},C.ARIEL,at),closed=C.governAction(a,{...a,estado:'Cerrada',fechaReal:'2026-11-09',resultado:'Trabajo realizado',revisionCierre:{estado:'Aprobado'}},C.ARIEL,at);assert.equal(closed.revisionCierre.estado,'Pendiente');
- assert.throws(()=>C.reviewClosure(closed,{decision:'aprobar'},'2026-11-10',at,C.ARIEL),/Sólo Giancarlo/);assert.throws(()=>C.reviewClosure(closed,{decision:'aprobar'},'2026-11-10',at,'pablo.aciar@tizpublicidad.com'),/Sólo Giancarlo/);
+ assert.throws(()=>C.reviewClosure(closed,{decision:'aprobar'},'2026-11-10',at,C.ARIEL),/Sólo Giancarlo/);assert.equal(C.reviewClosure(closed,{decision:'aprobar'},'2026-11-10',at,'pablo.aciar@tizpublicidad.com').revisionCierre.estado,'Aprobado');
  const approved=C.reviewClosure(closed,{decision:'aprobar',fechaValidada:'2026-11-10',detalle:'El cliente confirmó que se terminó ese día.'},'2026-11-10',at,'info@tizpublicidad.com');assert.equal(approved.fechaReal,'2026-11-09');assert.equal(approved.revisionCierre.fechaValidada,'2026-11-10');assert.equal(C.closureStatus(approved),'Aprobado');
  const edited=C.governAction(approved,{...approved,fechaReal:'2026-11-08'},C.ARIEL,'2026-11-10T13:00:00Z');assert.equal(C.closureStatus(edited),'Pendiente');assert.ok(Object.values(edited.revisionCierre.historial).some(h=>h.estado==='Aprobado'));assert.ok(Object.values(edited.revisionCierre.historial).some(h=>h.fechaDeclarada==='2026-11-08'));
  assert.throws(()=>C.reviewClosure(closed,{decision:'observar',detalle:'no'},'2026-11-10',at,'info@tizpublicidad.com'),/al menos 5/);
@@ -85,6 +85,10 @@ test('validación con y sin OT exige autorización y versión; una corrección c
 test('cierre completo conserva propuesta pendiente y sólo el OK del dueño acredita instalación',async()=>{
  const o=work(),at='2026-11-10T12:00:00Z',p=C.governPatch(o,{'colocacionesGestion.cierre':{cerrada:true,fecha:'2026-10-10',resultado:'Instalado',usuario:C.ARIEL},'sectores.colocaciones.real':'10/10/2026','sectores.colocaciones.instalada':true,'sectores.colocaciones.estado':'Instalada'},C.ARIEL,at);assert.equal(p['sectores.colocaciones.real'],undefined);assert.equal(p['sectores.colocaciones.instalada'],undefined);assert.equal(p['colocacionesGestion.cierre'].revisionCierre.estado,'Pendiente');o.colocacionesGestion.cierre=p['colocacionesGestion.cierre'];
  const db=database({'obras/o':o}),b=backend(db).Test,r=await b.review(db,{kind:'obra',obraId:'o',version:at,review:{decision:'aprobar'}},'giancarlo.pareja@tizpublicidad.com');assert.equal(r.patch['sectores.colocaciones.instalada'],true);assert.equal(r.closure.revisionCierre.estado,'Aprobado');
+});
+
+test('Pablo puede validar un cierre con su acceso completo y queda su identidad en el historial',async()=>{
+ const o=work();o.colocacionesGestion.acciones.a={...action(),estado:'Cerrada',fechaReal:'2026-10-09',resultado:'Trabajo terminado',actualizadoEn:'v1'};const db=database({'obras/o':o}),b=backend(db).Test,email='pablo.aciar@tizpublicidad.com',r=await b.review(db,{obraId:'o',id:'a',version:'v1',review:{decision:'aprobar'}},email);assert.equal(r.action.revisionCierre.estado,'Aprobado');assert.equal(r.action.revisionCierre.usuario,email);
 });
 
 test('informe cuenta cada OT una vez y distingue reprogramación, cierre validado, pendiente y causas',()=>{

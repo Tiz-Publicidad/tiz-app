@@ -24,7 +24,7 @@ const base=v=>{const m=ot(v).match(/^\d{4,7}/);return m?String(Number(m[0])):'';
 const day=(now=new Date())=>{const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now),get=k=>p.find(x=>x.type===k).value;return get('year')+'-'+get('month')+'-'+get('day');};
 function iso(v){let s=T(v),y,m,d;if(!s)return'';if(v?.toDate)return day(v.toDate());if(/^\d{4}-\d{2}-\d{2}T/.test(s))s=s.slice(0,10);let a=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(a)[,y,m,d]=a;else{a=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(!a)return'';[,d,m,y]=a;if(Number(y)<100)y=2000+Number(y);}const z=new Date(Date.UTC(+y,+m-1,+d));return z.getUTCFullYear()===+y&&z.getUTCMonth()===+m-1&&z.getUTCDate()===+d?z.toISOString().slice(0,10):'';}
 const state=v=>STATES.includes(T(v))?T(v):'Pendiente';
-const canPlan=u=>!!u&&(u.isAdmin||u.sector==='Calidad'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
+const canPlan=u=>!!u&&(u.isAdmin||u.sector==='Calidad'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
 const canProduction=u=>canPlan(u)||T(u?.email).toLowerCase()==='pablo.aciar@tizpublicidad.com';
 const canSync=u=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(T(u?.email).toLowerCase());
 const EDITABLE_STATES=['Pendiente','Entregado','Cobrado pendiente','Cobrado'];
@@ -37,7 +37,7 @@ function statusPatch(work,estado,user,at=new Date().toISOString()){
 }
 const active=o=>(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
 const isBaja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
-const canBaja=u=>!!u&&(u.sector==='Ventas'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
+const canBaja=u=>!!u&&(u.sector==='Ventas'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
 function stageSignal(g,phase,label,today=day()){
  const planned=iso(g[phase+'Prevista']),real=iso(g.seguimiento?.[phase+'Real']);
  if(!planned)return {color:'',label:'Sin fecha prevista'};

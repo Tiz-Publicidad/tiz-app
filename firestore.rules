@@ -14,7 +14,7 @@ service cloud.firestore {
       ];
     }
     function isSales() {
-      return signedIn() && request.auth.token.email in ["info@tizpublicidad.com", "giancarlo.pareja@tizpublicidad.com"];
+      return signedIn() && request.auth.token.email in ["info@tizpublicidad.com", "giancarlo.pareja@tizpublicidad.com", "pablo.aciar@tizpublicidad.com"];
     }
     function bajaCreateAllowed() {
       return isSales() || (request.resource.data.get('estado', '') != 'Baja'
