@@ -55,6 +55,13 @@ test('la ficha de cliente recibida después de abrir el presupuesto refresca con
 test('la sugerencia del presupuesto incluye Otros contactos y completa teléfono/correo',()=>{
  const f=formFixture();f.field('pp-entrega-contacto').value='Belen Nunez';f.window.sugerirContactoClientePP();assert.match(f.field('pp-entrega-contactos-list').innerHTML,/Belén Núñez/);assert.equal(f.field('pp-entrega-contacto-tel').value,'222');assert.equal(f.field('pp-entrega-contacto-email').value,'belen@example.test');
 });
+
+test('un único contacto guardado se propone automáticamente y Nuevo contacto permite cargar otro',()=>{
+ const f=formFixture();f.current.contacto='';f.current.contactos=[{nombre:'Agustin Mayorga',telefono:'111',cargo:'Gerente Comercial'}];
+ f.window.sugerirContactoClientePP();assert.equal(f.field('pp-entrega-contacto').value,'Agustin Mayorga');assert.equal(f.field('pp-entrega-contacto-tel').value,'111');assert.equal(f.field('pp-entrega-contacto-cargo').value,'Gerente Comercial');
+ f.field('pp-entrega-contacto-select').value='__nuevo';f.window.elegirContactoClientePP('contacto');f.window.sugerirContactoClientePP();assert.equal(f.field('pp-entrega-contacto').value,'');
+ f.field('pp-entrega-contacto').value='Otro manual';f.window.sugerirContactoClientePP();assert.equal(f.field('pp-entrega-contacto').value,'Otro manual');
+});
 test('el guardado del presupuesto suma contactos a la ficha actual sin perder altas concurrentes ni principal',async()=>{
  const f=formFixture();await f.window.remember('Miniso',{contacto:'Beatriz',contactoTelefono:'555',retira:'Retiro',retiraEmail:'retiro@example.test'});
  assert.deepEqual(f.latest().contactos.map(c=>c.nombre),['Belén Núñez','Agregado por otra persona','Beatriz','Retiro']);assert.equal(f.latest().contacto,'Ana');assert.equal(f.current.contactos.length,4);assert.equal(f.writes[0].ref.col,'clientes');
@@ -113,4 +120,3 @@ test('ficha de cliente conserva cargo del principal y de los contactos adicional
  f.field('fc-nombre').value='Miniso';f.field('fc-contacto').value='Ana';f.field('fc-cargo').value='Compradora';f.field('fc-contactos').value='Belén | 222 | belen@example.test | Compras';
  await f.window.saveCliente();assert.equal(f.current.contactoCargo,'Compradora');assert.equal(f.current.contactos[0].cargo,'Compras');
 });
-
