@@ -1,5 +1,6 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TIZComprasControlCoreV1=api;})(typeof window!=='undefined'?window:globalThis,function(){
 'use strict';
+const distribution=()=>typeof module==='object'&&module.exports?require('./functions/comprasDistribucionCoreV1'):window.TIZComprasDistribucionV1;
 const n=v=>v===null||v===undefined||String(v).trim()===''?null:Number(String(v).replace(',','.'));
 const valid=v=>Number.isFinite(v)&&v>=0;
 const day=v=>String(v||'').slice(0,10);
@@ -11,9 +12,10 @@ function amount(row,article,stock,field='cantidad'){
  const q=n(row[field]);if(!valid(q))throw Error('Cantidad pendiente');
  return stock.movementQuantity({...row,cantidad:q,cantidadStock:field==='cantidad'?row.cantidadStock:undefined},article);
 }
-function delivered(plan,article,stock){let total=0;for(const m of plan.movimientosMateriales||[])if(m.articuloId===article.id&&day(m.fecha)&&day(m.fecha)<=(stock.argentinaDay?.()||new Date().toISOString().slice(0,10)))total+=(m.tipo==='devolucion'?-1:1)*amount(m,article,stock);return total;}
-function remaining(plan,article,stock){const items=(plan.items||[]).filter(i=>i.articuloId===article.id);let total=0;for(const i of items)total+=amount({...i,cantidad:i.cantidadPlanificada??i.cantidadSugerida},article,stock);return Math.max(0,total-delivered(plan,article,stock));}
-function requirements(articles,plans,metas,stock){
+function delivered(plan,article,stock,purchases=[],plans=[plan]){let total=0;for(const m of [...(plan.movimientosMateriales||[]),...distribution().directFor(plan,purchases,plans)])if(m.articuloId===article.id&&day(m.fecha)&&day(m.fecha)<=(stock.argentinaDay?.()||new Date().toISOString().slice(0,10)))total+=(m.tipo==='devolucion'?-1:1)*amount(m,article,stock);return total;}
+function remaining(plan,article,stock,purchases=[],plans=[plan]){const items=(plan.items||[]).filter(i=>i.articuloId===article.id);let total=0;for(const i of items)total+=amount({...i,cantidad:i.cantidadPlanificada??i.cantidadSugerida},article,stock);return Math.max(0,total-delivered(plan,article,stock,purchases,plans));}
+function requirements(articles,plans,metas,stock,purchases=[]){
+ const originalPlans=plans,direct=distribution().directRows(purchases);plans=plans.map(p=>({...p,movimientosMateriales:[...(p.movimientosMateriales||[]),...distribution().directFor(p,purchases,originalPlans,direct)]}));
  const rows=[],pending=[];
  for(const p of plans.filter(active))for(const i of p.items||[])if(!articles.some(a=>a.id===i.articuloId))pending.push({ot:p.ot,descripcion:i.descripcion||'Insumo por vincular',motivo:'Catálogo pendiente'});
  for(const a of articles){
@@ -39,7 +41,7 @@ function reconcile(article,counts,purchases,plans,stock,to){
  const result={articuloId:article.id,descripcion:article.descripcion,unidad:stock.baseArticle(article).unidad,desde:previous?.count.fecha||'',hasta:day(to),inicial:null,ingresos:0,salidas:0,previsto:null,pendientes:[],compraIds:[],movimientoIds:[]};
  if(!previous)return result;
  try{result.inicial=amount(previous.item,article,stock);}catch(e){result.pendientes.push(e.message);return result;}
- for(const p of purchases.filter(p=>day(p.fecha)<=day(to)&&after(p.fecha,p._ts,previous.count)&&String(p.destino||'').toLowerCase()==='stock'))for(const i of p.items||[])if(i.articuloId===article.id){try{result.ingresos+=amount(i,article,stock);result.compraIds.push(p.id);}catch(e){result.pendientes.push(e.message);}}
+ for(const p of purchases.filter(p=>day(p.fecha)<=day(to)&&after(p.fecha,p._ts,previous.count)))for(const i of p.items||[])if(i.articuloId===article.id){try{const fraction=distribution().stockFraction(i,p);if(fraction>0){result.ingresos+=amount(i,article,stock)*fraction;result.compraIds.push(p.id);}}catch(e){result.pendientes.push(e.message);}}
  for(const m of movements(plans).filter(m=>m.articuloId===article.id&&m.origen!=='directo_ot'&&day(m.fecha)<=day(to)&&after(m.fecha,m.registradoEn,previous.count))){try{result.salidas+=(m.tipo==='devolucion'?-1:1)*amount(m,article,stock);result.movimientoIds.push(m.id);}catch(e){result.pendientes.push(e.message);}}
  const frozen=previous.count.previsionSiguiente;
  if(frozen&&frozen.hasta===day(to)){result.previsto=n(frozen.totals?.[article.id]??0);if(frozen.pending?.length){result.previstoParcial=result.previsto;result.previsto=null;result.pendientes.push('La previsión congelada tiene materiales sin completar.');}result.previsionCongelada=true;}

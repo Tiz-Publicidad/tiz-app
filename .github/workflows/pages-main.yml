@@ -81,6 +81,9 @@ jobs:
           node --check compras.js
           node --check comprasControlCoreV1.js
           node --check comprasControlUIV1.js
+          node --check functions/comprasDistribucionCoreV1.js
+          node --check comprasDistribucionUIV1.js
+          node --test tests/comprasDistribucionV1.test.cjs
           node --test tests/comprasControlV1.test.cjs tests/comprasVistasV1.test.cjs
           node --test tests/comprasIngresoV1.test.cjs tests/comprasProveedorContactosV1.test.cjs
           node --test tests/comprasLecturaEstadoV1.test.cjs
