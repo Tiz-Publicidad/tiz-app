@@ -305,6 +305,10 @@
     });
   }
 
+  async function syncProtectedMaterials(o){
+    if(!window.TIZMaterialesProduccionV1)return;
+    try{await window.TIZMaterialesProduccionV1.sync(o);}catch(err){console.warn('[Materiales por sector] La hoja principal se conserva; segunda solapa pendiente:',err.message);}
+  }
   window.syncProductionOtDocumentV315=async function(o){
     if(!o?.id&&!o?.firestoreId)throw new Error('Falta identificar la OT');
     const old=getGestion(o,'Producción'), data={...productionDataWithQuote(o,old),estadoInterno:old.estadoInterno||'Pendiente',checks:old.checks||{},porcentaje:pct('Producción',old),actualizadoPor:old.actualizadoPor||'Sincronización automática',actualizadoEn:new Date().toISOString()};
@@ -312,7 +316,7 @@
     data.sheetUrl=result.sheetUrl||data.sheetUrl||'';data.sheetId=result.sheetId||data.sheetId||'';data.cotizacionTecnicaSincronizada=data.materiales.length>0;
     const patch={gestionSectores:{...(o.gestionSectores||{}),produccion:data}};
     if(result.driveFolderUrl){patch.driveFolderUrl=result.driveFolderUrl;patch.driveFolderId=result.driveFolderId||result.folderId||'';}
-    await window.updateDoc_('obras',o.id||o.firestoreId,patch);Object.assign(o,patch);return result;
+    await window.updateDoc_('obras',o.id||o.firestoreId,patch);Object.assign(o,patch);await syncProtectedMaterials(o);return result;
   };
 
   window.saveSectorFichaV31 = async () => {
@@ -330,7 +334,7 @@
       const gestion2={...(o.gestionSectores||{}),[key]:data};
       const links={gestionSectores:gestion2};
       if(result.driveFolderUrl&&!o.driveFolderUrl){links.driveFolderUrl=result.driveFolderUrl;links.driveFolderId=result.driveFolderId||result.folderId||''}
-      await window.updateDoc_('obras',o.id,links);Object.assign(o,links);
+      await window.updateDoc_('obras',o.id,links);Object.assign(o,links);if(sector==='Producción')await syncProtectedMaterials(o);
       toast('Guardado en ERP ✓ Google Sheet actualizada ✓');
       root.classList.remove('show');renderSector(sector);
     } catch(err) {
@@ -427,6 +431,7 @@
           if(result.driveFolderUrl){patch.driveFolderUrl=result.driveFolderUrl;patch.driveFolderId=result.driveFolderId||result.folderId||'';}
           await window.updateDoc_('obras',o.id,patch);
           Object.assign(o,patch);
+          await syncProtectedMaterials(o);
           console.info('[V31.1] Producción sincronizada automáticamente',o.ot);
         } catch(err) {
           autoSyncState.attempted.delete(o.id);
