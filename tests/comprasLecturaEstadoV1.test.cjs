@@ -3,10 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const src=fs.readFileSync(path.join(__dirname,'../compras.js'),'utf8');
 const block=src.slice(src.indexOf('function cpSetIaStatus('),src.indexOf('function fileToBase64('));
 function fixture(read=()=>Promise.resolve('cHJ1ZWJh')){
- let serial=0,submitted=0;const sent=[];const timers=new Map(),status={hidden:true,textContent:'',style:{},setAttribute(k,v){this[k]=v;}},button={};
- const context={window:{},selectedFile:{name:'prueba.pdf',type:'application/pdf'},aiCleanupActive:null,cpIaConfigReady:Promise.resolve(),cpIaLoading:false,cpIaConfigError:'',cpIaUrlShared:'https://example.test/exec/token',cpLocalIaUrl:()=>'',cpValidIaUrl:()=>true,cpOpenConfigIA:()=>assert.fail('No debe pedir otra clave'),fileToBase64:read,cpIngreso:{},applyAI:()=>{},toast:()=>{},console:{info(){},log(){},error(){}},Date,Math,encodeURIComponent,setTimeout:(fn,ms)=>{timers.set(++serial,{fn,ms});return serial;},clearTimeout:id=>timers.delete(id),document:{getElementById:()=>status,querySelector:()=>button,querySelectorAll:()=>[],body:{appendChild(){}},createElement:tag=>({tagName:tag,dataset:{},style:{},children:[],appendChild(el){this.children.push(el);},remove(){},submit(){submitted++;sent.push(Object.fromEntries(this.children.map(el=>[el.name,el.value])));}})}};
+ let serial=0,submitted=0;const sent=[];const timers=new Map(),status={hidden:true,textContent:'',style:{},setAttribute(k,v){this[k]=v;}},button={},partial={hidden:true,children:[],replaceChildren(){this.children=[];},appendChild(el){this.children.push(el);}};
+ const context={window:{},selectedFile:{name:'prueba.pdf',type:'application/pdf'},aiCleanupActive:null,cpIaConfigReady:Promise.resolve(),cpIaLoading:false,cpIaConfigError:'',cpIaUrlShared:'https://example.test/exec/token',cpLocalIaUrl:()=>'',cpValidIaUrl:()=>true,cpOpenConfigIA:()=>assert.fail('No debe pedir otra clave'),fileToBase64:read,cpIngreso:{},applyAI:()=>{},toast:()=>{},console:{info(){},log(){},error(){}},Date,Math,encodeURIComponent,setTimeout:(fn,ms)=>{timers.set(++serial,{fn,ms});return serial;},clearTimeout:id=>timers.delete(id),document:{getElementById:id=>id==='cp-ia-partial'?partial:status,querySelector:()=>button,querySelectorAll:()=>[],body:{appendChild(){}},createElement:tag=>({tagName:tag,dataset:{},style:{},children:[],appendChild(el){this.children.push(el);},remove(){},submit(){submitted++;sent.push(Object.fromEntries(this.children.map(el=>[el.name,el.value])));}})}};
  vm.createContext(context);vm.runInContext(block,context);
- return {context,status,button,timers,sent,get submitted(){return submitted;},respond:p=>context.window[Object.keys(context.window).filter(k=>k.startsWith('__tizIaCb_')).at(-1)](p)};
+ return {context,status,button,partial,timers,sent,get submitted(){return submitted;},respond:p=>context.window[Object.keys(context.window).filter(k=>k.startsWith('__tizIaCb_')).at(-1)](p)};
 }
 test('un error del lector queda visible y permite volver a analizar sin otra clave',async()=>{
  const f=fixture();await f.context.window.cpAnalizarIA();assert.equal(f.submitted,1);f.respond({ok:false,error:'Servicio temporalmente no disponible'});
@@ -49,4 +49,19 @@ test('no reintenta cuotas agotadas, permisos, archivos ilegibles ni lecturas inv
 });
 test('no inicia otra lectura si queda poco tiempo del plazo total',async()=>{
  const f=fixture();let now=0;f.context.Date={now:()=>now};await f.context.window.cpAnalizarIA();now=92000;f.respond(unavailable);assert.equal(f.submitted,1);assert.equal(f.button.disabled,false);
+});
+
+
+test('conserva una lectura parcial hasta elegir cargar sin el ítem ilegible',async()=>{
+ const f=fixture();let applied=null;f.context.applyAI=data=>{applied=data;};await f.context.window.cpAnalizarIA();
+ f.respond({ok:true,data:{proveedor:{nombre:'ALL BIJOU SRL'},items:[{cantidad:4,precioUnitarioNeto:15033.06,ivaPorcentaje:21}],itemsNoLeidos:[{renglon:2,descripcionOriginal:'Costo Envio',motivo:'Cantidad ilegible'}],totalComprobante:72760}});
+ assert.equal(applied,null);assert.equal(f.button.disabled,false);assert.equal(f.partial.hidden,false);assert.equal(f.partial.children[0].textContent,'Cargar sin el ítem 2');assert.match(f.status.textContent,/Costo Envio/);
+ f.partial.children[0].onclick();assert.equal(applied.items.length,1);assert.equal(applied.proveedor.nombre,'ALL BIJOU SRL');assert.equal(applied.renglonesOmitidos[0].renglon,2);assert.equal(applied.totalComprobante,72760);assert.equal(f.partial.hidden,true);
+ applied=null;f.context.window.cpCargarLecturaParcial();assert.equal(applied,null);
+});
+test('no aplica una lectura parcial anterior al cambiar el archivo o volver a analizar',async()=>{
+ for(const change of [f=>{f.context.selectedFile={name:'otro.pdf'};},f=>f.context.window.cpAnalizarIA()]){
+  const f=fixture();let applied=0;f.context.applyAI=()=>applied++;await f.context.window.cpAnalizarIA();
+  f.respond({ok:true,data:{items:[{}],itemsNoLeidos:[{renglon:2,descripcionOriginal:'Envío'}]}});await change(f);f.context.window.cpCargarLecturaParcial();assert.equal(applied,0);assert.equal(f.partial.hidden,true);
+ }
 });

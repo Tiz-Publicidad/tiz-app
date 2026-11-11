@@ -102,13 +102,14 @@ function tizLeerComprobante_(p) {
     + 'Datos textuales ausentes: cadena vacía. Fecha ISO YYYY-MM-DD o cadena vacía. Conservá cada renglón y su descripción original, sin asignar códigos internos ni familias. '
     + 'codigoProveedor es sólo el código impreso del vendedor, si existe. Cantidad, precio unitario NETO y porcentaje de IVA deben provenir del documento o poder calcularse inequívocamente a partir de sus importes explícitos. '
     + 'Un dato numérico incierto debe ser null: no presupongas 21% de IVA ni cantidad 1. No conviertas unidades de compra a unidades de stock. Los importes son números decimales sin separador de miles. '
+    + 'Leé el importe total final impreso como totalComprobante; si no es legible devolvé null. Una descripción que continúa en la línea siguiente pertenece al mismo ítem. No inventes valores para filas de envío sin cargo. '
     + 'Si el archivo no es un comprobante de compra o no es legible, devolvé items vacío. No inventes una fecha actual.';
   const str = { type: 'STRING' }, n = { type: 'NUMBER', nullable: true };
   const schema = { type: 'OBJECT', properties: {
     proveedor: { type: 'OBJECT', properties: { nombre: str, cuit: str, domicilio: str, contacto: str, telefono: str, email: str }, required: ['nombre','cuit','domicilio','contacto','telefono','email'] },
-    fecha: str, fc: { type: 'BOOLEAN' }, tipoComprobante: { type: 'STRING', enum: ['Factura A','Factura B','Factura C','Ticket fiscal','Remito','Otro','Sin comprobante'] }, numeroComprobante: str,
+    totalComprobante: n, fecha: str, fc: { type: 'BOOLEAN' }, tipoComprobante: { type: 'STRING', enum: ['Factura A','Factura B','Factura C','Ticket fiscal','Remito','Otro','Sin comprobante'] }, numeroComprobante: str,
     items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { descripcionOriginal: str, codigoProveedor: str, cantidad: n, unidad: str, precioUnitarioNeto: n, ivaPorcentaje: n }, required: ['descripcionOriginal','codigoProveedor','cantidad','unidad','precioUnitarioNeto','ivaPorcentaje'] } }
-  }, required: ['proveedor','fecha','fc','tipoComprobante','numeroComprobante','items'] };
+  }, required: ['proveedor','fecha','fc','tipoComprobante','numeroComprobante','items','totalComprobante'] };
   const request = { systemInstruction: { parts: [{ text: prompt }] }, contents: [{ role: 'user', parts: [{ text: 'Leé este comprobante de compra y devolvé los datos solicitados.' }, { inlineData: { mimeType: mime, data: base64 } }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: schema, maxOutputTokens: 12000 } };
   const response = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
     method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(request), muteHttpExceptions: true
@@ -120,12 +121,19 @@ function tizLeerComprobante_(p) {
   let data;
   try { data = JSON.parse(raw); } catch (_) { throw new Error('Gemini devolvió una lectura inválida. Volvé a intentar.'); }
   if (!data || !Array.isArray(data.items) || !data.items.length) throw new Error('No se pudieron reconocer los renglones de una compra. Revisá que sea el PDF correcto.');
-  for (let i = 0; i < data.items.length; i++) {
-    const item = data.items[i];
-    if (!item.descripcionOriginal || !['cantidad','precioUnitarioNeto','ivaPorcentaje'].every(k => typeof item[k] === 'number' && Number.isFinite(item[k]))) throw new Error('El renglón ' + (i + 1) + ' tiene cantidad, precio neto o IVA ilegibles. Completá esa compra manualmente o usá una copia más clara.');
-    if (item.cantidad <= 0 || item.precioUnitarioNeto < 0 || item.ivaPorcentaje < 0) throw new Error('El renglón ' + (i + 1) + ' requiere revisión manual de sus importes.');
-    item.descripcion = item.descripcionOriginal;
-  }
+  const validos = [], pendientes = [];
+  data.items.forEach(function(item, index) {
+    const numeros = item && ['cantidad','precioUnitarioNeto','ivaPorcentaje'].every(function(k) { return typeof item[k] === 'number' && Number.isFinite(item[k]); });
+    const motivo = !item || !String(item.descripcionOriginal || '').trim() || !numeros
+      ? 'Cantidad, precio neto, IVA o descripción ilegibles.'
+      : item.cantidad <= 0 || item.precioUnitarioNeto < 0 || item.ivaPorcentaje < 0
+        ? 'Requiere revisión de sus importes.' : '';
+    if (motivo) pendientes.push({ renglon: index + 1, descripcionOriginal: String(item && item.descripcionOriginal || ''), motivo: motivo });
+    else validos.push(Object.assign({}, item, { descripcion: item.descripcionOriginal }));
+  });
+  if (!validos.length) throw new Error('No se pudo leer ningún renglón completo. Probá con una copia más clara.');
+  data.items = validos;
+  data.itemsNoLeidos = pendientes;
   return data;
 }
 
@@ -167,3 +175,4 @@ function probarMaterialesCotizacion() {
   const result = tizLeerMaterialesCotizacion_({ datos: JSON.stringify({ descripcion: 'Cartel plano de acrílico negro de 0,5 m², sin iluminación, para fijar a pared.', items: [{ descripcion: 'Cartel' }], catalogo: [{ articuloId: 'prueba-acrilico', descripcion: 'Acrílico negro 3 mm', unidad: 'UNID' }, { articuloId: 'prueba-tornillo', descripcion: 'Tornillo para pared', unidad: 'UNID' }] }) });
   console.log(JSON.stringify({ ok: true, materiales: result.materiales }));
 }
+

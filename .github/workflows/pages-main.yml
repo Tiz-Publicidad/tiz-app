@@ -91,7 +91,7 @@ jobs:
           node --test tests/comprasDistribucionV1.test.cjs
           node --test tests/comprasControlV1.test.cjs tests/comprasVistasV1.test.cjs
           node --test tests/comprasIngresoV1.test.cjs tests/comprasProveedorContactosV1.test.cjs
-          node --test tests/comprasLecturaEstadoV1.test.cjs
+          node --test tests/comprasLecturaEstadoV1.test.cjs tests/comprasLecturaParcialV1.test.cjs
           node --test tests/comprasConexionCompartidaV1.test.cjs
           node --test tests/comprasEditarInsumoV1.test.cjs tests/comprasCatalogoIngresoV1.test.cjs
           node --test tests/comprasObrasV1.test.cjs
