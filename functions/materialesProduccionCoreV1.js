@@ -15,12 +15,17 @@ function salesRows(quote={},work={}){
  const approved=quote.insumosVentasAprobados||work.insumosVentasAprobados;
  const source=Array.isArray(approved?.items)&&approved.items.length?approved.items:Array.isArray(quote.insumosVentas)?quote.insumosVentas:work.insumosVentas||[];
  if(source.length>LAST-FIRST+1)throw fail('El presupuesto supera la capacidad de la solapa de materiales.');
- return source.map(r=>[text(r.codigo),text(r.descripcion||r.articulo||r.desc),r.cantidad===null||r.cantidad===undefined||r.cantidad===''?'':Number.isFinite(Number(r.cantidad))?Number(r.cantidad):'',text(r.unidad||r.unidadStock),Number.isFinite(r.costoTotal)?r.costoTotal:'']).filter(r=>r[0]||r[1]);
+ return source.map(r=>{
+  const row=[text(r.codigo),text(r.descripcion||r.articulo||r.desc),r.cantidad===null||r.cantidad===undefined||r.cantidad===''?'':Number.isFinite(Number(r.cantidad))?Number(r.cantidad):'',text(r.unidad||r.unidadStock),Number.isFinite(r.costoTotal)?r.costoTotal:''];
+  const manual=r.costoOrigen==='manual'||text(r.precioPrevisto)!=='',price=r.costoUnitarioPrevisto??(text(r.precioPrevisto)!==''?Number(text(r.precioPrevisto).replace(',','.')):null);
+  const note=(manual?'Precio previsto manual.':'Precio de Compras conservado al aprobar.')+(Number.isFinite(price)?' Neto: ARS '+price.toLocaleString('es-AR',{maximumFractionDigits:6})+' / '+text(r.unidadCostoPrevisto||r.unidad):'')+(manual?' No modifica el precio del catálogo.':'');
+  Object.defineProperties(row,{costoManual:{value:manual},costoNota:{value:note}});return row;
+ }).filter(r=>r[0]||r[1]);
 }
-const hash=rows=>createHash('sha256').update(JSON.stringify(rows)).digest('hex');
+const hash=rows=>createHash('sha256').update(JSON.stringify(rows.map(r=>[...r,r.costoNota||'']))).digest('hex');
 const range=(sheetId,a,b,c=0,d=25)=>({sheetId,startRowIndex:a,endRowIndex:b,startColumnIndex:c,endColumnIndex:d});
 const cell=v=>({userEnteredValue:typeof v==='number'?{numberValue:v}:{stringValue:String(v??'')}});
-function values(sheetId,start,rows){return {updateCells:{range:range(sheetId,start,start+rows.length,0,rows[0].length),rows:rows.map(r=>({values:r.map(cell)})),fields:'userEnteredValue'}};}
+function values(sheetId,start,rows){const sales=start>=4&&rows[0].length===5;return {updateCells:{range:range(sheetId,start,start+rows.length,0,rows[0].length),rows:rows.map(r=>({values:r.map((v,i)=>({...cell(v),...(sales?{note:i===4?r.costoNota||'':'',userEnteredFormat:{numberFormat:i===4?{type:'NUMBER',pattern:r.costoManual?'#,##0.00" · manual"':'#,##0.00'}:{type:typeof v==='number'?'NUMBER':'TEXT',pattern:typeof v==='number'?'0.######':'@'}}}:{})}))})),fields:sales?'userEnteredValue,note,userEnteredFormat.numberFormat':'userEnteredValue'}};}
 function formulas(row){
  const key=(code,desc,unit)=>`IF(AND(${code}${row}="",${desc}${row}=""),"",IF(${code}${row}<>"","c:"&IFERROR(VALUE(${code}${row}),LOWER(TRIM(${code}${row}))),"n:"&LOWER(TRIM(${desc}${row})))&"|"&UPPER(TRIM(${unit}${row})))`;
  return [

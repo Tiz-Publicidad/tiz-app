@@ -75,7 +75,7 @@ jobs:
           node --check insumosCotizacionV1.js
           node --check functions/insumosCotizacionCoreV1.js
           node --check functions/insumosCotizacionApiV1.js
-          node --test tests/insumosCotizacionV1.test.cjs tests/cotizacionesCatalogoAltaV1.test.cjs tests/cotizacionesEditarInsumoV1.test.cjs
+          node --test tests/insumosPreciosPrevistosV1.test.cjs tests/insumosCotizacionV1.test.cjs tests/cotizacionesCatalogoAltaV1.test.cjs tests/cotizacionesEditarInsumoV1.test.cjs
           node --check sectorizacionV35.js
           node --test tests/cotizacionesEstadoV1.test.cjs tests/tipoFacturaCotizacionV1.test.cjs tests/cotizacionesOrdenV1.test.cjs
           node --check comprasObrasCoreV1.js

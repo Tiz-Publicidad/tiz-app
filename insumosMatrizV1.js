@@ -35,7 +35,7 @@ function create(materials,sales,savedItems=[]){
    const raw=text(state.values[col.id]);if(!raw)continue;const q=number(raw);
    if(!Number.isFinite(q)||q<0){complete=false;continue;}if(q===0)continue;used=true;
    const a=articles.find(a=>a.id===col.row.articuloId);
-   try{if(!a||!Number.isFinite(a.ultimoCosto)||a.ultimoCosto<=0||a.monedaCosto&&a.monedaCosto!=='ARS')throw Error('Costo pendiente');total+=core.stockQuantity(q,col.row.unidad,a)*a.ultimoCosto;}catch{complete=false;}
+   try{if(text(col.row.precioPrevisto)!==''){const p=number(col.row.precioPrevisto);if(!Number.isFinite(p)||p<0||!core.units.includes(core.unit(col.row.unidad)))throw Error('Precio previsto inválido');total+=q*p;continue;}if(!a||!Number.isFinite(a.ultimoCosto)||a.ultimoCosto<=0||a.monedaCosto&&a.monedaCosto!=='ARS')throw Error('Costo pendiente');total+=core.stockQuantity(q,col.row.unidad,a)*a.ultimoCosto;}catch{complete=false;}
   }
   if(!Number.isFinite(total))complete=false;
   const factor=number(state.indice),saleQty=number(item.cant??item.cantidad??1),ready=used&&complete&&text(state.indice)!==''&&Number.isFinite(factor)&&factor>0&&Number.isFinite(saleQty)&&saleQty>0&&!hasCommon();
@@ -47,7 +47,7 @@ function create(materials,sales,savedItems=[]){
  function hasCommon(){return columns().some(col=>text(common[col.id])!==''&&number(common[col.id])!==0);}
  function merge(fromIndex,toIndex){
   const cols=columns(),from=cols[fromIndex],to=cols[toIndex];if(!from||!to||from===to)return false;
-  if(!from.row.articuloId||from.row.articuloId!==to.row.articuloId||from.row.unidad!==to.row.unidad)return false;
+  if(!from.row.articuloId||from.row.articuloId!==to.row.articuloId||from.row.unidad!==to.row.unidad||text(from.row.precioPrevisto)!==text(to.row.precioPrevisto))return false;
   const combine=(a,b)=>{if(!text(a))return text(b);if(!text(b))return text(a);return Number.isFinite(number(a))&&number(a)>=0&&Number.isFinite(number(b))&&number(b)>=0?String(number(a)+number(b)):text(a)+' + '+text(b);};
   common[to.id]=combine(common[to.id],common[from.id]);delete common[from.id];
   for(const state of allocations.values()){state.values[to.id]=combine(state.values[to.id],state.values[from.id]);delete state.values[from.id];}

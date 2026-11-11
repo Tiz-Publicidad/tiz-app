@@ -3,6 +3,18 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const M=require('../insumosMatrizV1'),C=require('../functions/insumosCotizacionCoreV1');
 const material=()=>({articuloId:'acrilico',descripcion:'Acrílico cristal 3 mm',cantidad:'',unidad:'M²',revisado:true});
 const catalog=[{id:'acrilico',unidad:'PLACA',equivalenciasStock:{'M²':2.9768},ultimoCosto:137280,monedaCosto:'ARS'}];
+
+test('precio manual por m² reemplaza al sugerido y no vuelve a dividir por el área de la placa',()=>{
+ const materials=[{...material(),precioPrevisto:'50000'}],sales=[{desc:'Cartel',cant:2}],m=M.create(materials,sales);
+ m.set(sales[0],0,'0,09');m.setIndex(sales[0],'2');assert.equal(m.cost(sales[0],catalog,C).total,4500);assert.equal(m.cost(sales[0],catalog,C).suggested,9000);assert.equal(m.cost(sales[0],[],C).unitPrice,4500);
+ materials[0].precioPrevisto='no';assert.equal(m.cost(sales[0],catalog,C).total,null);
+ delete materials[0].precioPrevisto;assert.ok(Math.abs(m.cost(sales[0],catalog,C).total-4150.497178177909)<1e-8);
+});
+
+test('no fusiona insumos compartidos con distintos precios previstos',()=>{
+ const materials=[{...material(),precioPrevisto:'100'},{...material(),precioPrevisto:'200'}],sales=[{cant:1}],m=M.create(materials,sales);
+ m.set(sales[0],0,'1');m.set(sales[0],1,'2');assert.equal(m.merge(1,0),false);assert.equal(m.cost(sales[0],[],C).total,500);
+});
 test('suma insumos compartidos y aplica la equivalencia una sola vez por renglón',()=>{
  const materials=[material()],sales=[{desc:'Corpóreo Grupo GAG',cant:1},{desc:'Otra placa',cant:2}],m=M.create(materials,sales);
  m.set(sales[0],0,'0,09');m.set(sales[1],0,'0,18');m.totals(sales);assert.equal(materials[0].cantidad,'0.27');assert.equal(materials[0].revisado,false);

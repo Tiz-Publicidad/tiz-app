@@ -12,4 +12,12 @@ La distribución e índices se guardan en `items[].insumosMatrizV1`, campo inter
 
 Los presupuestos aprobados conservan su bloqueo y sus costos de aprobación. Para modificarlos se crea una nueva revisión.
 
-Validación: 39 pruebas de modelo, equivalencias, costos, aprobación y matriz; verificación del flujo de pantalla en DOM (editar cantidades, sumar totales, aplicar precios explícitamente, guardar/reabrir, agregar/quitar columnas, moneda y bloqueo de aprobaciones).
+Validación: 38 pruebas de modelo, equivalencias, costos, aprobación y matriz; verificación del flujo de pantalla en DOM (editar cantidades, sumar totales, aplicar precios explícitamente, guardar/reabrir, agregar/quitar columnas, moneda y bloqueo de aprobaciones).
+
+## Precios previstos y edición
+
+Cada columna tiene una × visible que elimina ese insumo y sus consumos. + Agregar insumo crea una columna. + Ítem a cotizar y la × del renglón permiten sumar o quitar trabajos; al quitar un trabajo desde la matriz se eliminan sus consumos, conservando los de los demás.
+
+El campo Previsto neto toma ARS por unidad de uso (por ejemplo, por m²). Vacío usa el precio sugerido de Compras convertido a esa unidad. Un valor explícito, incluso cero, es manual, se conserva al guardar y aprobar y nunca modifica Compras. Usar sugerido borra la excepción manual. Cambiar la unidad borra el precio manual para evitar aplicarlo a otra medida.
+
+La aprobación conserva precio, unidad y origen. MATERIALES OT mantiene numérico el costo neto en E y muestra «manual» en el formato de la celda, con precio por unidad y origen en su nota. Las actualizaciones sólo cambian A:E y conservan los bloques de Producción y Pañol.

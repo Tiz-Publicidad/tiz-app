@@ -58,7 +58,7 @@ jobs:
           node --test tests/baseMadreLayoutV1.test.cjs tests/baseMadreFilaExplicita.test.js tests/baseMadreBackendSafetyV124.test.js
           node --test tests/calidadV1.test.cjs tests/calidadBaseMadre.test.cjs
           node --check functions/insumosCotizacionApiV1.js
-          node --test tests/insumosCotizacionV1.test.cjs tests/cotizacionesCatalogoAltaV1.test.cjs tests/cotizacionesEditarInsumoV1.test.cjs
+          node --test tests/insumosPreciosPrevistosV1.test.cjs tests/insumosCotizacionV1.test.cjs tests/cotizacionesCatalogoAltaV1.test.cjs tests/cotizacionesEditarInsumoV1.test.cjs
           node --check functions/obrasConsultaV1.js
           node --test tests/obrasConsultaV1.test.cjs
           node --check obrasSeguimientoV2.js
@@ -151,6 +151,13 @@ jobs:
           # Account permissions are checked by every fiscal entry point separately.
           if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^functions/(index|facturacionEntregaV84|facturacionRecuperarV86)\.js$'; then
             targets="$targets,functions:arcaProduccionStatus,functions:arcaProduccionEmitirOT4680,functions:facturaEnviarEmail,functions:arcaHomologacionStatus,functions:arcaHomologacionEmitirPrueba,functions:facturacionHomologacionArchivarV84,functions:facturacionEnviarEmailV84,functions:facturacionRecuperarHistoricosV86"
+          fi
+          # Price estimates and production cost notes only affect the Base Madre endpoint.
+          if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            estimate_changed=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- functions/)
+            if [ -n "$estimate_changed" ] && ! printf '%s\n' "$estimate_changed" | grep -Ev '^functions/(insumosCotizacionCoreV1|materialesProduccionCoreV1)\.js$' | grep -q .; then
+              targets=functions:sincronizarBaseMadreV120
+            fi
           fi
           firebase deploy --only "$targets" --project tiz---app --non-interactive
           if [ "${{ github.event_name }}" = workflow_dispatch ] || git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq '^(firestore.rules|firebase.json)$'; then
