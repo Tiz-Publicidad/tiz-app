@@ -28,5 +28,5 @@ function useApp(){source='app';if(!['tabla','mensual'].includes(window.estTab)){
 function exportCSV(){
  if(source==='historico'||!['tabla','mensual'].includes(window.estTab))return window.TIZEstadisticaSourceV1?.exportCSV();if(!allowed())return;snapshot=data();const monthly=window.estTab==='mensual',rows=monthly?snapshot.monthly:snapshot.weekly,quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"',values=[['Período',...C.TYPES.flatMap(t=>[labels[t]+' ARS',labels[t]+' cantidad',labels[t]+' sin importe ARS',...(t==='cobranzas'?['Retenciones ARS']:[])])],...rows.map(r=>[r.key,...C.TYPES.flatMap(t=>[r[t].importe,r[t].cantidad,r[t].sinImporte,...(t==='cobranzas'?[r[t].retenciones]:[])])])],url=URL.createObjectURL(new Blob(['\ufeff'+values.map(r=>r.map(quote).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='TIZ-resultados-'+year+'-'+(monthly?'mensual':'semanal')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-window.TIZEstadisticaResultadosV1={render,useApp,exportCSV};
+window.TIZEstadisticaResultadosV1={render,useApp,exportCSV,isHistory:()=>source==='historico'};
 })();
