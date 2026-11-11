@@ -266,7 +266,7 @@ function injectUI(){
   modal.innerHTML=`<div class="cp-modal"><div style="display:flex;justify-content:space-between"><h2>Nueva compra detallada</h2><button class="cp-btn" onclick="cpCloseCompra()">✕</button></div>
     <div class="cp-panel"><div class="cp-row">
       <div class="cp-field"><label>Foto/PDF del comprobante</label><input id="cp-file" type="file" accept="image/*,application/pdf" capture="environment"></div>
-      <div class="cp-field"><label>Lectura IA</label><button class="cp-btn primary" style="width:100%;margin-top:16px" onclick="cpAnalizarIA()">✨ Analizar comprobante</button><p id="cp-ia-status" role="status" aria-live="polite" style="font-size:12px;line-height:1.4" hidden></p></div>
+      <div class="cp-field"><label>Lectura IA</label><button class="cp-btn primary" style="width:100%;margin-top:16px" onclick="cpAnalizarIA()">✨ Analizar comprobante</button><p id="cp-ia-status" role="status" aria-live="polite" style="font-size:12px;line-height:1.4" hidden></p><div id="cp-ia-partial" hidden></div></div>
       <div class="cp-field"><label>Fecha</label><input id="cp-fecha" type="date"></div>
       <div class="cp-field"><label>Proveedor</label><input id="cp-proveedor" placeholder="Ej. Indartubo"></div>
       <div class="cp-field"><label>¿FC?</label><select id="cp-fc"><option value="si">Sí</option><option value="no">No</option></select></div>
@@ -286,7 +286,7 @@ function injectUI(){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div id="cp-totales" style="font:700 13px 'DM Mono',monospace"></div><div class="cp-actions"><button class="cp-btn" onclick="cpCloseCompra()">Cancelar</button><button class="cp-btn primary" onclick="cpGuardarCompra()">Guardar compra</button></div></div>
   </div>`;
   document.body.appendChild(modal);
-  modal.querySelector('#cp-file').addEventListener('change',e=>{if(aiCleanupActive)aiCleanupActive('file-change');cpSetIaStatus('');selectedFile=e.target.files?.[0]||null;if(selectedFile){document.getElementById('cp-proveedor').value='';document.getElementById('cp-numero').value='';document.getElementById('cp-fecha').value='';document.getElementById('cp-items-body').replaceChildren();cpStartIngreso({});window.cpAddItem();}else cpResetIngreso();});
+  modal.querySelector('#cp-file').addEventListener('change',e=>{if(aiCleanupActive)aiCleanupActive('file-change');cpClearIaPartial();cpSetIaStatus('');selectedFile=e.target.files?.[0]||null;if(selectedFile){document.getElementById('cp-proveedor').value='';document.getElementById('cp-numero').value='';document.getElementById('cp-fecha').value='';document.getElementById('cp-items-body').replaceChildren();cpStartIngreso({});window.cpAddItem();}else cpResetIngreso();});
   modal.querySelector('#cp-fc').addEventListener('change',syncFC);
 
   const pay=document.createElement('div'); pay.id='cp-modal-pago'; pay.className='cp-modal-bg';
@@ -853,7 +853,7 @@ function renderAlertas(el){const al=alerts();el.innerHTML=`<div class="cp-panel"
 
 window.cpTab=t=>{if(t==='historico')cpPurchaseView='anual';currentTab=t==='base-datos'?'articulos':t==='obras'?'planes':t==='migracion'?'compras':t==='historico'?'compras':t==='contrataciones'?'compras':t;document.querySelectorAll('.cp-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));render();};
 window.cpNuevaCompra=()=>{compraEditId=null;selectedFile=null;document.getElementById('cp-modal-compra').classList.add('open');const file=document.getElementById('cp-file');if(file)file.value='';['cp-proveedor','cp-numero','cp-obs','cp-vencimiento','cp-primer-venc','cp-ref-pago'].forEach(id=>document.getElementById(id).value='');document.getElementById('cp-fecha').value=todayISO();document.getElementById('cp-fc').value='si';document.getElementById('cp-tipo').value='Factura A';document.getElementById('cp-condicion').value='contado';document.getElementById('cp-cuotas').value=1;document.getElementById('cp-dias-cuota').value=30;document.getElementById('cp-items-body').innerHTML='';cpAddItem();syncFC();calcTotals();};
-window.cpCloseCompra=()=>{ if(aiCleanupActive) aiCleanupActive('cancelled'); document.getElementById('cp-modal-compra').classList.remove('open'); };
+window.cpCloseCompra=()=>{ cpClearIaPartial();if(aiCleanupActive) aiCleanupActive('cancelled'); document.getElementById('cp-modal-compra').classList.remove('open'); };
 function refreshCatalogDatalist(){const dl=document.getElementById('cp-catalog-list');if(!dl)return;dl.innerHTML=C.articulos.map(a=>`<option value="${esc(a.descripcion)}">${esc(a.codigo||'')} · ${esc(a.familia||'')}${a.subfamilia?' / '+esc(a.subfamilia):''}</option>`).join('');}
 function cpRefreshItemText(tr){
  const input=tr.querySelector('.i-desc'),full=tr.querySelector('.cp-full-desc'),original=tr.querySelector('.i-original');
@@ -889,7 +889,7 @@ function calcTotals(){
 window.cpGuardarCompra=async()=>{
   const items=getItems(); if(!items.length)return toast('Agregá al menos un ítem.'); if(items.some(i=>i.errorDistribucion))return toast(items.find(i=>i.errorDistribucion).errorDistribucion); const fc=document.getElementById('cp-fc').value; const data={fecha:document.getElementById('cp-fecha').value,semana:weekKey(new Date(document.getElementById('cp-fecha').value+'T12:00:00')),proveedor:document.getElementById('cp-proveedor').value.trim(),fc,tipoComprobante:fc==='si'?document.getElementById('cp-tipo').value:'Sin comprobante',numeroComprobante:document.getElementById('cp-numero').value.trim(),medioPago:document.getElementById('cp-medio').value,vencimiento:document.getElementById('cp-vencimiento').value,condicionPago:document.getElementById('cp-condicion').value,cantidadPagos:Math.max(1,num(document.getElementById('cp-cuotas').value)),primerVencimiento:document.getElementById('cp-primer-venc').value,diasEntrePagos:Math.max(1,num(document.getElementById('cp-dias-cuota').value)||30),referenciaPago:document.getElementById('cp-ref-pago').value.trim(),destino:'Por artículo',ot:'',tipoCosto:'',observacion:document.getElementById('cp-obs').value.trim(),items,totalNeto:items.reduce((s,i)=>s+i.totalNeto,0),ivaTotal:items.reduce((s,i)=>s+i.ivaImporte,0),totalBruto:items.reduce((s,i)=>s+i.totalBruto,0),usuario:window.currentUser?.email||'',_ts:serverTimestamp()};
   if(!data.proveedor)return toast('Ingresá el proveedor.');
-  if(cpIngreso){data.proveedorId=cpIngreso.providerId;data.proveedorCuit=C.proveedores.find(p=>p.id===cpIngreso.providerId)?.cuit||'';data.ingresoGuiadoVersion=1;data.archivoOrigen=selectedFile?{nombre:selectedFile.name,tipo:selectedFile.type}:null;}
+  if(cpIngreso){data.proveedorId=cpIngreso.providerId;data.proveedorCuit=C.proveedores.find(p=>p.id===cpIngreso.providerId)?.cuit||'';data.ingresoGuiadoVersion=1;if(cpIngreso.renglonesOmitidos?.length)data.lecturaParcial={renglonesOmitidos:cpIngreso.renglonesOmitidos,totalComprobante:cpIngreso.totalComprobante??null};data.archivoOrigen=selectedFile?{nombre:selectedFile.name,tipo:selectedFile.type}:null;}
   let savedId=compraEditId;if(compraEditId)await updateDoc(doc(db,'compras',compraEditId),data);else{const ref=await addDoc(collection(db,'compras'),data);savedId=ref.id;compraEditId=savedId;}await cpSyncPagosCompra(savedId,data);
   cpCloseCompra();toast('Compra y previsión de pagos guardadas.');
 };
@@ -947,8 +947,29 @@ window.cpSaveConfigIA=async()=>{
  finally{cpIaSaving=false;}
 };
 function cpSetIaStatus(message,error=false){const el=document.getElementById('cp-ia-status');if(!el)return;el.hidden=!message;el.textContent=message;el.setAttribute('role',error?'alert':'status');el.style.color=error?'var(--amber)':'var(--text2)';}
+let cpIaPendingPartial=null;
+function cpClearIaPartial(){
+ cpIaPendingPartial=null;const box=document.getElementById('cp-ia-partial');if(box){box.hidden=true;box.replaceChildren();}
+}
+function cpOfferIaPartial(data,file){
+ cpClearIaPartial();cpIaPendingPartial={data,file};
+ const missing=data.itemsNoLeidos,indices=missing.map(item=>item.renglon).join(', ');
+ cpSetIaStatus('Se leyeron '+data.items.length+' renglones. No se pudieron leer: '+missing.map(item=>'ítem '+item.renglon+' ('+(item.descripcionOriginal||'sin descripción')+')').join('; ')+'. Podés cargar el resto y revisar los importes antes de guardar.',true);
+ const box=document.getElementById('cp-ia-partial');if(!box)return;
+ box.hidden=false;const button=document.createElement('button');button.type='button';button.className='cp-btn primary';
+ button.textContent=missing.length===1?'Cargar sin el ítem '+indices:'Cargar sin los ítems '+indices;
+ button.onclick=()=>window.cpCargarLecturaParcial();box.appendChild(button);
+}
+window.cpCargarLecturaParcial=()=>{
+ const pending=cpIaPendingPartial;if(!pending)return;
+ if(pending.file!==selectedFile){cpClearIaPartial();return;}
+ const data={...pending.data,renglonesOmitidos:pending.data.itemsNoLeidos};
+ try{applyAI(data);cpClearIaPartial();cpSetIaStatus('Se cargaron '+data.items.length+' renglones. Omitidos: '+data.renglonesOmitidos.map(item=>item.renglon).join(', ')+'. Revisá los insumos y el total antes de guardar.');toast('Lectura parcial cargada. Revisá antes de guardar.');}
+ catch(e){cpSetIaStatus('No se pudieron mostrar los datos. Volvé a analizar el comprobante.',true);console.error('[TIZ IA] lectura parcial',e);}
+};
 window.cpAnalizarIA=async()=>{
   if(!selectedFile)return toast('Seleccioná una foto o PDF.');
+  cpClearIaPartial();
   let waiting;await Promise.race([cpIaConfigReady,new Promise(resolve=>{waiting=setTimeout(resolve,5000);})]).finally(()=>clearTimeout(waiting));
   const local=cpLocalIaUrl(),url=cpIaUrlShared||(cpValidIaUrl(local)?local:'');
   if(!url&&(cpIaLoading||cpIaConfigError))return toast(cpIaConfigError||'Todavía se está consultando la conexión compartida. Intentá nuevamente en unos segundos.');
@@ -994,6 +1015,7 @@ window.cpAnalizarIA=async()=>{
       const message=transient?'Gemini sigue sin responder después de '+attempt+' intento(s). El archivo sigue seleccionado. Probá nuevamente en unos minutos.':'No se pudo leer el comprobante: '+(payload?.error||'No se recibió una respuesta válida.')+' Podés volver a intentarlo.';
       cpSetIaStatus(message,true);toast(transient?'El servicio de lectura sigue temporalmente no disponible.':'Error IA: '+(payload?.error||'No se pudo analizar'));return;
     }
+    if(payload.data?.items?.length&&payload.data?.itemsNoLeidos?.length){cpOfferIaPartial(payload.data,file);return;}
     try{applyAI(payload.data||{});cpSetIaStatus('Lectura terminada: '+(payload.data?.items?.length||0)+' renglones. Confirmá el proveedor y revisá los insumos.');toast('Lectura IA completa. Revisá y confirmá.');}
     catch(e){cpSetIaStatus('El lector respondió, pero no se pudieron mostrar los datos. Volvé a intentarlo; si persiste, informá este mensaje.',true);console.error('[TIZ IA] mostrar resultado',e);}
   };
@@ -1617,13 +1639,18 @@ function cpReviewIngreso(){
  if(!cpIngreso?.confirmed)return cpReviewError('Confirmá el proveedor.');
  const rows=cpIngresoRows();if(!rows.length||rows.some(tr=>tr.dataset.confirmed!=='1'||!C.articulos.some(a=>a.id===tr.dataset.articleId)))return cpReviewError('Resolvé todos los insumos antes de revisar.');
  if(rows.some(tr=>!tr.querySelector('.i-original').value.trim()||num(tr.querySelector('.i-qty').value)<=0||num(tr.querySelector('.i-price').value)<0))return cpReviewError('Revisá la descripción, cantidad y precio de cada renglón.');
+ if(cpIngreso.renglonesOmitidos?.length){
+  const total=rows.map(rowToItem).reduce((sum,item)=>sum+item.totalBruto,0),expected=cpIngreso.totalComprobante;
+  if(expected===null||!Number.isFinite(expected))return cpReviewError('No se pudo verificar el total de la lectura parcial. Volvé a analizar una copia más clara.');
+  if(Math.abs(total-expected)>0.05)return cpReviewError('El total cargado ('+money(total)+') no coincide con el comprobante ('+money(expected)+'). Revisá los renglones omitidos y los importes antes de guardar.');
+ }
  if(!document.getElementById('cp-fecha').value)return cpReviewError('Completá la fecha del comprobante.','cp-fecha');
  const number=document.getElementById('cp-numero').value.trim();
  if(number&&C.compras.some(c=>c.id!==compraEditId&&(c.proveedorId===cpIngreso.providerId||ING.norm(c.proveedor)===ING.norm(document.getElementById('cp-proveedor').value))&&ING.digits(c.numeroComprobante)===ING.digits(number)&&c.tipoComprobante===document.getElementById('cp-tipo').value))return cpReviewError('Este comprobante ya está cargado para ese proveedor. Revisá el número antes de volver a guardarlo.','cp-numero');
  cpIngreso.reviewError='';cpIngreso.reviewed=cpIngresoSignature();cpRefreshIngreso();return true;
 }
 const cpNuevaCompraLegacy=window.cpNuevaCompra;
-window.cpNuevaCompra=()=>{cpResetIngreso();cpSetIaStatus('');cpNuevaCompraLegacy();};
+window.cpNuevaCompra=()=>{cpClearIaPartial();cpResetIngreso();cpSetIaStatus('');cpNuevaCompraLegacy();};
 const cpCalcTotalsLegacy=calcTotals;
 calcTotals=function(){cpCalcTotalsLegacy();cpDistribution.refreshAll();cpRefreshIngreso();};
 const cpRowToItemLegacy=rowToItem;
@@ -1631,7 +1658,7 @@ rowToItem=function(tr){const i=cpRowToItemLegacy(tr),a=C.articulos.find(a=>a.id=
 const cpApplyAILegacy=applyAI;
 applyAI=function(data){
  // Sólo campos de datos: el contenido del comprobante nunca indica acciones a ejecutar.
- const safe={...data,items:Array.isArray(data.items)?data.items:[],proveedor:ING.supplier(data).nombre};cpStartIngreso(data);cpIngreso.aiRead=true;cpApplyAILegacy(safe);if(!data.fecha)document.getElementById('cp-fecha').value='';cpRefreshIngreso();
+ const safe={...data,items:Array.isArray(data.items)?data.items:[],proveedor:ING.supplier(data).nombre};cpStartIngreso(data);cpIngreso.aiRead=true;cpIngreso.renglonesOmitidos=Array.isArray(data.renglonesOmitidos)?data.renglonesOmitidos:[];cpIngreso.totalComprobante=typeof data.totalComprobante==='number'&&Number.isFinite(data.totalComprobante)?data.totalComprobante:null;cpApplyAILegacy(safe);if(!data.fecha)document.getElementById('cp-fecha').value='';cpRefreshIngreso();
  if(ING.supplierMatches(cpIngreso.supplier,C.proveedores).type==='missing')cpOpenIngresoProvider();
 };
 const cpGuardarCompraLegacy=window.cpGuardarCompra;
@@ -1680,4 +1707,5 @@ window.tizComprasCatalogoV32 = function(){
     return [];
   }
 };
+
 
