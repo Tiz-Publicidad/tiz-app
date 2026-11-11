@@ -61,6 +61,34 @@ function dbFixture(){
 const body=()=>({id:'p',insumosAnteriores:[row()],cotizacion:{cliente:'Cliente',nro:'4800',estado:'Aprobado',importe:20000,items:[{desc:'Cartel',precio:20000,cant:1}],insumosVentas:[row()]}});
 const sales={email:'giancarlo.pareja@tizpublicidad.com'};
 
+test('el precio previsto manual se conserva al aprobar y no altera Compras ni depende de su precio',async()=>{
+ const f=dbFixture(),input=body();input.cotizacion.insumosVentas=[{...row(),cantidad:'0.09',precioPrevisto:'46116,635313'}];
+ const before=structuredClone(f.docs.get('compras/compra'));
+ const result=await API.approve(f.db,input,sales),line=result.insumosVentasAprobados.items[0];
+ assert.equal(line.costoOrigen,'manual');assert.equal(line.costoUnitarioPrevisto,46116.635313);assert.equal(line.unidadCostoPrevisto,'M²');assert.ok(Math.abs(line.costoTotal-0.09*46116.635313)<1e-6);assert.equal(line.compraId,'');assert.equal(line.proveedor,'');assert.deepEqual(f.docs.get('compras/compra'),before);
+ assert.equal(result.insumosVentas[0].precioPrevisto,'46116,635313');
+ f.docs.get('compras/compra').items[0].precioUnitarioNeto=999999;
+ const retry=await API.approve(f.db,{...input,insumosAnteriores:result.insumosVentas},sales);assert.deepEqual(retry.insumosVentasAprobados,result.insumosVentasAprobados);
+ await assert.rejects(API.approve(f.db,{...input,insumosAnteriores:result.insumosVentas,cotizacion:{...input.cotizacion,insumosVentas:[{...input.cotizacion.insumosVentas[0],precioPrevisto:'1'}]}},sales),/congelado/);
+});
+
+test('precio manual sin compra, sin vínculo o equivalencia conserva el costo y mantiene alertas de stock separadas',()=>{
+ for(const variant of ['sin-compra','sin-equivalencia','sin-vinculo']){
+  const a={...catalog()[0],ultimoCosto:null,costoPendiente:true,equivalenciasStock:variant==='sin-equivalencia'?{}:catalog()[0].equivalenciasStock};
+  const rows=[{...row(),articuloId:variant==='sin-vinculo'?'':a.id,cantidad:'2',precioPrevisto:'100'}];
+  const snap=C.snapshot(rows,[a],{importe:1,aprobarConInsumosPendientes:true},sales,'2026-11-11T12:00:00Z');
+  assert.equal(snap.items[0].costoTotal,200);assert.equal(snap.items[0].costoOrigen,'manual');assert.equal(snap.totalCosto,200);
+  if(variant!=='sin-compra')assert.ok(snap.pendientesInsumos.length);
+ }
+});
+
+test('precio manual inválido no cae al sugerido y un cero explícito es distinto de un precio ausente',()=>{
+ for(const p of ['-1','Infinity','NaN','texto'])assert.equal(C.implementationValidation([{...row(),precioPrevisto:p}],catalog()).items[0].costoTotal,null);
+ assert.equal(C.validate([{...row(),precioPrevisto:'0'}],catalog()).items[0].costoTotal,0);
+ assert.equal(C.draft([{...row(),precioPrevisto:''}])[0].precioPrevisto,undefined);
+ assert.ok(C.validate([row()],catalog()).total>0);
+});
+
 test('entrega incompleta avisa y permite aprobar; conserva la validación en otros estados',()=>{
  const source=fs.readFileSync(require.resolve('../sectorizacionV35.js'),'utf8'),start=source.indexOf('  function validarLogisticaCotizacion('),end=source.indexOf('  window.validarLogisticaCotizacionTIZ=',start);
  let estado='Aprobado',warnings=[],alerts=[];
