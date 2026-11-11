@@ -30,7 +30,7 @@ function render(){
  }
  content.innerHTML=title+warning+html;bind();
 }
-function bind(){document.querySelector('[data-est-refresh]')?.addEventListener('click',()=>load(true));}
+function bind(){if(window.TIZEstadisticaResultadosV1){const host=document.getElementById('est-content');if(host&&!host.querySelector('[data-est-use-app]')){const button=document.createElement('button');button.type='button';button.className='btn btn-ghost btn-sm';button.dataset.estUseApp='';button.textContent='Ver resultados registrados en la app';button.addEventListener('click',()=>window.TIZEstadisticaResultadosV1.useApp());host.prepend(button);}} document.querySelector('[data-est-refresh]')?.addEventListener('click',()=>load(true));}
 function exportCSV(){if(!allowed()||!snapshot)return window.showToast?.('Primero actualizá los resultados de TIZ 2026.');const monthly=window.estTab!=='tabla',series=monthly?'monthly':'weekly',cell=v=>'"'+String(v??'').replace(/"/g,'""')+'"',rows=[['Mes',...(monthly?[]:['Semana']),...snapshot.sectors.flatMap(s=>monthly?[s.label,'Meta '+s.label]:[s.label])],...snapshot.sectors[0][series].map((r,i)=>[r.month,...(monthly?[]:[r.week]),...snapshot.sectors.flatMap(s=>{const v=s[series][i];return monthly?[v.actual,v.target]:[v.actual];})])],url=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(cell).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='TIZ-2026-estadistica-'+series+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 window.TIZEstadisticaSourceV1={render,exportCSV,reset};
 })();

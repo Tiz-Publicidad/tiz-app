@@ -714,7 +714,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="page-header">
         <div><div class="page-title">Estadística TIZ 2026</div><div class="page-subtitle">Ventas · Producción · Colocaciones · Cobranzas por semana</div></div>
         <div class="header-actions">
-          <button class="btn btn-ghost btn-sm" onclick="window.TIZEstadisticaSourceV1?.exportCSV()"><i class="ti ti-download"></i> Exportar CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="(window.TIZEstadisticaResultadosV1||window.TIZEstadisticaSourceV1)?.exportCSV()"><i class="ti ti-download"></i> Exportar CSV</button>
         </div>
       </div>
       <div style="padding:16px 28px 0">
@@ -1197,7 +1197,7 @@ window.doLogin = async () => {
 window.doLogout = async () => { await signOut(auth); };
 
 const dataSubscriptions=[];let dataGeneration=0,portalTimer=null,lastSessionEmail='';
-function stopDataSubscriptions(){dataGeneration++;dataSubscriptions.splice(0).forEach(fn=>fn());if(portalTimer)clearInterval(portalTimer);portalTimer=null;}
+function stopDataSubscriptions(){window.TIZResultadosFuentesCargadas={};dataGeneration++;dataSubscriptions.splice(0).forEach(fn=>fn());if(portalTimer)clearInterval(portalTimer);portalTimer=null;}
 onAuthStateChanged(auth, async user => {
   stopDataSubscriptions();
   if(user&&lastSessionEmail&&lastSessionEmail!==user.email){location.reload();return;}
@@ -1313,6 +1313,7 @@ function initListeners() {
     dataSubscriptions.push(onSnapshot(collection(db, col), snap => {
       if(generation!==dataGeneration)return;
       window.DB[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      window.TIZResultadosFuentesCargadas=window.TIZResultadosFuentesCargadas||{};window.TIZResultadosFuentesCargadas[key]=true;
       if(key==='presupuestos')window.TIZPresupuestosCargados=true;
       if(key==='clientes') window.DB[key].sort(clienteAZ);
       if(['clientes','presupuestos','obras'].includes(key)&&document.getElementById('modal-prespdf')?.classList.contains('open')){window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();}
@@ -3338,7 +3339,7 @@ function renderEstadistica() {
     page.querySelector('.header-actions').style.display='none';
     page.querySelector('.page-subtitle').textContent='Cumplimiento operativo registrado en la app';
     renderEstCumplimiento();
-  }else window.TIZEstadisticaSourceV1?.render();
+  }else if(['tabla','mensual'].includes(window.estTab)&&window.TIZEstadisticaResultadosV1)window.TIZEstadisticaResultadosV1.render();else window.TIZEstadisticaSourceV1?.render();
 }
 
 function renderEstCumplimiento() {
@@ -3822,12 +3823,14 @@ async function syncToSheets(data) {
 <script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&seguimiento=20261030&edicion=20261102&general=20261102"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022&aprobaciones=20261110&acceso-pablo=20261110"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-REALIZADO-20261029&baja=20261030&planificacion-demoras=20261110&aprobaciones=20261110&acceso-pablo=20261110&vigencia-comercial=20261110"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-FECHAS-DDMMYYYY-20261104"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-CONTACTOS-REALIZADO-20261029&aprobaciones=20261110&vigencia-comercial=20261110"></script>
 <script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE&baja-ventas=20261103&acceso-pablo=20261110&vigencia-comercial=20261110"></script>
-<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023&acceso-pablo=20261110"></script>
+<script src="estadisticaResultadosCoreV1.js?v=20261111-resultados-reales"></script>
+<script src="estadisticaResultadosV1.js?v=20261111-resultados-reales"></script>
+<script src="estadisticaSourceV1.js?v=TIZ-ESTADISTICA-FUENTE-20261015A-GIANCARLO-20261023&acceso-pablo=20261110&resultados-reales=20261111"></script>
 <script src="operacionesV1.js?v=TIZ-OPERACIONES-20261016C-OSCURO"></script>
 <script src="analisisPreliminarV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE-GIANCARLO-20261023&obras-semaforo=20261104"></script>
 <script src="clemenSecretariaCoreV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
 <script src="clemenSecretariaV1.js?v=TIZ-CLEMEN-SECRETARIA-20261016B-AGENDA-PERSONAL"></script>
-<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104&reprogramaciones=20261106&catalogo-aprobacion=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110&acceso-pablo=20261110&vigencia-comercial=20261110"></script>
+<script src="functions/obrasSeguimientoCoreV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030A&baja=20261030&estado=20261103&obras-semaforo=20261104&reprogramaciones=20261106&catalogo-aprobacion=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110&acceso-pablo=20261110&vigencia-comercial=20261110&resultados-reales=20261111"></script>
 <script src="obrasConsultaCacheV1.js?v=TIZ-OBRAS-COMUNES-20261102&baja-ventas=20261103&obras-semaforo=20261104&reprogramaciones=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110&vigencia-comercial=20261110"></script>
 <script src="obrasSeguimientoV2.js?v=TIZ-OBRAS-SEGUIMIENTO-20261030B&baja=20261030&obras-comunes=20261102&drive=20261102&estados-iniciales=20261102&carga-resiliente=20261102&estado=20261103&baja-ventas=20261103&obras-semaforo=20261104&reprogramaciones=20261106&orden-aprobacion=20261106&semanas-aprobacion=20261106&planificacion-demoras=20261110"></script>
 <script src="functions/comprasDistribucionCoreV1.js?v=20261111-distribucion"></script>
