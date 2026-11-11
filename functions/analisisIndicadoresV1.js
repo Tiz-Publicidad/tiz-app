@@ -22,5 +22,5 @@ function summarize(records,selected,at=new Date().toISOString()){
  bySector.forEach(r=>finalize(r,hours.get(r.sector)));finalize(totals,[...hours.values()].flat());
  return {ok:true,semana:periodo,obras:works.length,habilitacionesIniciales:works.filter(w=>w.inicioTipo==='habilitacion').length,totales:totals,porPuesto:bySector,porPersona:[...people.values()].map(({horas,...p})=>({...p,promedioHoras:horas.length?Math.round(horas.reduce((a,b)=>a+b,0)/horas.length*10)/10:null})),detalle:detail,servidorEn:at};
 }
-async function load(db,user,selected){if(!canView(user))throw Object.assign(Error('El indicador semanal está habilitado sólo para Administración y Pablo.'),{status:403});const snap=await db.collection('analisisPreliminares').get();return summarize(snap.docs.map(d=>({...d.data(),id:d.id})),selected);}
+async function load(db,user,selected){if(!canView(user))throw Object.assign(Error('El indicador semanal está habilitado sólo para Administración y Pablo.'),{status:403});const snap=await db.collection('analisisPreliminares').get();const V=require('./vigenciaComercialCoreV1'),quotes=await V.quoteRows(db),records=snap.docs.map(d=>({...d.data(),id:d.id}));return summarize(records.filter(w=>V.visible({...w,id:w.obraOperativaId||w.obraId||w.id},quotes)),selected);}
 module.exports={canView,localDate,shift,week,outcome,dedupe,summarize,load};

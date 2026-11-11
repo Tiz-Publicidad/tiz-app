@@ -1,6 +1,7 @@
 /* Shared operations only: no commercial or fiscal data. */
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TIZColocacionesGeneralCore=api})(typeof window==='object'?window:globalThis,function(){
   'use strict';
+  const commercial=()=>typeof module==='object'&&module.exports?require('./vigenciaComercialCoreV1'):window.TIZVigenciaComercialV1;
   const text=v=>String(v??'').trim(), norm=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   function iso(v){const s=text(v);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return '';const d=new Date(s+'T12:00:00Z');return !Number.isNaN(+d)&&d.toISOString().slice(0,10)===s?s:''}
   function shift(v,n){const d=new Date(iso(v)+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
@@ -150,6 +151,6 @@
   }
   function otGroup(r){return norm(r.obra.ot)?norm(r.obra.ot).replace(/^0+(?=\d)/,'')+'|'+norm(r.cliente):r.obra.id;}
 
-  return {REPLAN_CAUSES,RESPONSIBILITIES,isAriel,asRequest,needsAcceptance,scheduled,canReview,cause,closureStatus,governAction,governPatch,reviewClosure,controlReport,ARIEL,requestMetadata,respondRequest,text,norm,iso,shift,week,open,overdue,resolveDraftAction,correctClosedAction,visit,zone,validate,cleanAction,nearby,planPatch,report};
+  return {commercial,REPLAN_CAUSES,RESPONSIBILITIES,isAriel,asRequest,needsAcceptance,scheduled,canReview,cause,closureStatus,governAction,governPatch,reviewClosure,controlReport,ARIEL,requestMetadata,respondRequest,text,norm,iso,shift,week,open,overdue,resolveDraftAction,correctClosedAction,visit,zone,validate,cleanAction,nearby,planPatch,report};
 });
 

@@ -1,6 +1,7 @@
 /* Identidad por OT y seguimiento operativo. Compartido por servidor e interfaz. */
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TIZObrasSeguimientoCoreV2=api;})(typeof window==='object'?window:globalThis,function(){
 'use strict';
+const commercial=()=>typeof module==='object'&&module.exports?require('./vigenciaComercialCoreV1'):window.TIZVigenciaComercialV1;
 const STATES=['Cobrado','Cobrado pendiente','Pendiente','Entregado','Baja'];
 const REPLAN_REASONS=Object.freeze([
  ['cliente','Cliente / aprobación'],['diseno','Diseño / información faltante'],
@@ -35,7 +36,7 @@ function statusPatch(work,estado,user,at=new Date().toISOString()){
  if(!EDITABLE_STATES.includes(estado))throw Error('Elegí un estado válido para la obra.');
  return {estado,cobr:estado,estadoGestionV1:{estado,anterior:T(work.estado),fecha:at,usuario:T(user.email)}};
 }
-const active=o=>(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
+const active=o=>(commercial()?.visible(o)??true)&&(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
 const isBaja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
 const canBaja=u=>!!u&&(u.sector==='Ventas'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
 function stageSignal(g,phase,label,today=day()){
@@ -254,6 +255,6 @@ function delayReport(groups,{desde='',hasta='',etapa='',motivo='',responsabilida
  return {rows,evaluadas,enFecha,atrasadas:late.length,porResponsabilidad,porMotivo,internas:porResponsabilidad.find(r=>r.key==='interna').total,tasaInterna:evaluadas?Math.round(100*porResponsabilidad.find(r=>r.key==='interna').total/evaluadas):null,cobertura:late.length?Math.round(100*late.filter(r=>r.responsabilidad!=='pendiente').length/late.length):null};
 }
 
-return {delayData,delayReport,RESPONSIBILITIES,STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
+return {commercial,delayData,delayReport,RESPONSIBILITIES,STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });
 

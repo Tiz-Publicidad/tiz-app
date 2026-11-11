@@ -3,7 +3,7 @@
 const n=v=>v===null||v===undefined||String(v).trim()===''?null:Number(String(v).replace(',','.'));
 const valid=v=>Number.isFinite(v)&&v>=0;
 const day=v=>String(v||'').slice(0,10);
-const active=p=>!['cerrado','cancelado','baja'].includes(String(p.estado||'').toLowerCase());
+const active=p=>(typeof window!=='object'||!window.TIZVigenciaComercialV1||window.TIZVigenciaComercialV1.relatedVisible(p))&&!['cerrado','cancelado','baja'].includes(String(p.estado||'').toLowerCase());
 const stamp=v=>v?.toMillis?.()||v?.seconds*1000||Date.parse(v)||0;
 function after(date,time,cut){const d=day(date),c=day(cut.fecha);return d>c||(d===c&&!!cut.corteEn&&stamp(time)>stamp(cut.corteEn));}
 function movements(plans){return plans.flatMap(p=>(p.movimientosMateriales||[]).map(m=>({...m,planId:p.id,ot:p.ot})));}
