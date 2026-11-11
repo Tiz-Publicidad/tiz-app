@@ -70,6 +70,8 @@ jobs:
           node --test tests/clienteContactosV1.test.cjs
           node --check unidadesStockV1.js
           node --test tests/unidadesStockV1.test.cjs
+          node --check insumosMatrizV1.js
+          node --test tests/insumosMatrizV1.test.cjs
           node --check insumosCotizacionV1.js
           node --check functions/insumosCotizacionCoreV1.js
           node --check functions/insumosCotizacionApiV1.js
