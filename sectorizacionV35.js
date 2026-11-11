@@ -236,7 +236,10 @@
   }
   function aplicarContactoClientePP(inputId,telId,emailId,listId){
     const input=document.getElementById(inputId),list=document.getElementById(listId);if(!input||!list)return;
-    const contactos=contactosClienteActual();list.innerHTML=contactos.map(x=>'<option value="'+esc(x.nombre)+'">'+esc([x.cargo,x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('');
+    const contactos=contactosClienteActual(),clienteKey=window.TIZClienteContactosV1.norm(val('pp-cliente'));
+    if(input._tizSuggestedContact&&input._tizSuggestedContact.cliente!==clienteKey&&input.value===input._tizSuggestedContact.nombre){input.value='';delete input._tizSuggestedContact;}
+    if(contactos.length===1&&!input.value.trim()&&input._tizNewContactClient!==clienteKey){input.value=contactos[0].nombre;input._tizSuggestedContact={cliente:clienteKey,nombre:contactos[0].nombre};}
+    list.innerHTML=contactos.map(x=>'<option value="'+esc(x.nombre)+'">'+esc([x.cargo,x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('');
     const cargo=document.getElementById(inputId+'-cargo'),select=document.getElementById(inputId+'-select');
     if(select){
       select.innerHTML='<option value="">Seleccionar contacto…</option>'+contactos.map(x=>'<option value="'+esc('contacto:'+window.TIZClienteContactosV1.norm(x.nombre))+'">'+esc([x.nombre,x.cargo,x.telefono,x.email].filter(Boolean).join(' · '))+'</option>').join('')+'<option value="__nuevo">+ Agregar contacto nuevo</option>';
@@ -253,7 +256,7 @@
     if(!select||!input||!select.value)return;
     const choices=contactosClienteActual(),selected=select.value==='__nuevo'?null:choices.find(x=>'contacto:'+window.TIZClienteContactosV1.norm(x.nombre)===select.value);
     if(select.value!=='__nuevo'&&!selected)return;
-    input.value=selected?.nombre||'';
+    input.value=selected?.nombre||'';input._tizNewContactClient=selected?null:window.TIZClienteContactosV1.norm(val('pp-cliente'));delete input._tizSuggestedContact;
     for(const [suffix,key] of [['-tel','telefono'],['-email','email'],['-cargo','cargo']]){const el=document.getElementById(prefix+suffix);if(el)el.value=selected?.[key]||'';}
     input._tizContactAutofill={telefono:selected?.telefono||'',email:selected?.email||'',cargo:selected?.cargo||''};
     if(!selected)input.focus?.();
@@ -263,7 +266,7 @@
   }
   function cargarEntregaLogisticaPP(data={}){
     const e=data.entregaLogistica||data.logistica||{}, set=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value||'';};
-    for(const id of ['pp-entrega-contacto','pp-entrega-retira']){const el=document.getElementById(id);if(el)delete el._tizContactAutofill;}
+    for(const id of ['pp-entrega-contacto','pp-entrega-retira']){const el=document.getElementById(id);if(el){delete el._tizContactAutofill;delete el._tizSuggestedContact;delete el._tizNewContactClient;}}
     set('pp-entrega-contacto-cargo',e.contactoCargo);set('pp-entrega-retira-cargo',e.retiraCargo);
     set('pp-entrega-tipo',e.tipo||'a_definir');set('pp-entrega-domicilio',e.domicilio);set('pp-entrega-fecha',e.fecha);set('pp-entrega-contacto',e.contacto);set('pp-entrega-contacto-tel',e.contactoTelefono||e.telefonoContacto);set('pp-entrega-contacto-email',e.contactoEmail||e.emailContacto);set('pp-entrega-retira',e.retira);set('pp-entrega-retira-tel',e.retiraTelefono||e.telefonoRetira);set('pp-entrega-retira-email',e.retiraEmail||e.emailRetira);set('pp-entrega-detalle',e.detalle);
     window.actualizarEntregaLogisticaPP();window.sugerirContactoClientePP?.();window.sugerirRetiraClientePP?.();
@@ -622,4 +625,3 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })();
-

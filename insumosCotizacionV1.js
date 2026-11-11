@@ -6,7 +6,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const money=v=>'ARS '+Number(v||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const date=v=>C.day(v)?C.day(v).split('-').reverse().join('/'):String(v||'');
 let rows=[],catalog=[],baseline=null,generation=0,session='',loaded=0,loading=false,error='',aiBusy=false,newQuoteId='';
-let catalogDialog=null,catalogRequest=0,approving=false,matrix=null,showCommon=false;
+let catalogDialog=null,catalogRequest=0,approving=false,matrix=null,showCommon=false,costEditOrigin=null;
 const api=body=>window.insumosCotizacionApiV1(body);
 const quote=()=>({desc:document.getElementById('pp-desc')?.value||'',items:window.ppItems||[]});
 const sourceKey=()=>JSON.stringify(quote());
@@ -32,13 +32,28 @@ function ensure(){
 }
 const label=a=>a.codigo+' · '+a.descripcion;
 const selectedArticle=value=>{const matches=catalog.filter(a=>label(a)===value);return matches.length===1?matches[0]:null;};
+function editApprovedCosts(){
+ if(!locked())return true;
+ const id=window.editingId?.presupuesto,original=(window.DB?.presupuestos||[]).find(p=>p.id===id);
+ if(!original||typeof window.siguienteRevisionV354!=='function'){window.showToast?.('Reabrí la cotización desde Presupuestos para editar los costos.');return false;}
+ const revision=document.getElementById('pp-revision'),state=document.getElementById('pp-estado');
+ if(!revision||!state)return false;
+ let next=window.siguienteRevisionV354(revision.value||original.revision||'1.1');
+ const norm=window.normalizarRevisionV354||String,nro=String(original.nro||'').replace(/\D/g,'');
+ for(let count=0;(window.DB.presupuestos||[]).some(p=>String(p.nro||'').replace(/\D/g,'')===nro&&norm(p.revision||'1.1')===norm(next));count++){if(count>=200){window.showToast?.('No se pudo asignar una revisión libre.');return false;}next=window.siguienteRevisionV354(next);}
+ costEditOrigin=original;window.editingId.presupuesto=null;window._cotizacionBaseId=original.cotizacionBaseId||original.id;window._cotizacionRevisionAnteriorId=original.id;window._cotizacionEsRevisionNueva=true;
+ revision.value=next;state.value='Borrador';baseline=null;newQuoteId=crypto.randomUUID();
+ window.actualizarIdentificacionCotizacionV354?.();const revisionButton=document.getElementById('pp-btn-nueva-revision');if(revisionButton)revisionButton.style.display='none';
+ error='';render();window.showToast?.('Revisión '+next+' editable. Se conserva la aprobada. Guardá y aprobá esta revisión para actualizar la OT.');return true;
+}
 function render(){
  ensure();if(!host())return;
  document.getElementById('iv-catalog').innerHTML=catalog.map(a=>`<option value="${esc(label(a))}">${esc(a.unidad)}</option>`).join('');
  renderMatrix();
  host().querySelector('[data-iv="ai"]').disabled=locked()||aiBusy||loading;
  host().querySelector('[data-iv="ai"]').textContent=aiBusy?'Desglosando…':'Desglosar con IA';
- host().querySelector('[data-iv="add"]').disabled=locked();
+ host().querySelector('[data-iv="add"]').disabled=false;
+ let note=host().querySelector('[data-approved-edit]');if(!note){note=document.createElement('div');note.dataset.approvedEdit='';host().prepend(note);}note.hidden=!locked();note.innerHTML=locked()?'<p><b>Esta cotización está aprobada.</b> Para agregar, quitar insumos o cargar precios se crea una revisión editable, conservando la aprobada.</p><button type="button" class="btn btn-primary" data-edit-approved>Editar insumos y precios</button>':'';
  status();
 }
 function mergeDuplicateColumn(index){
@@ -50,7 +65,7 @@ function ensureMatrix(){if(!matrix)matrix=window.TIZInsumosMatrizV1.create(rows,
 function renderMatrix(){
  ensureMatrix();const sales=matrixSales(),off=locked()?'disabled':'';
  const cells=(item,i)=>rows.map((r,j)=>`<td><input data-matrix-sale="${i}" data-matrix-material="${j}" inputmode="decimal" aria-label="Cantidad de ${esc(r.descripcion||'insumo '+(j+1))} para ${esc(item?.desc||'consumos por repartir')}" value="${esc(matrix.get(item,j))}" ${off}></td>`).join('');
- const headers=rows.map((r,i)=>{const a=catalog.find(a=>a.id===r.articuloId),display=a?label(a):r.descripcion;return `<th data-iv-row="${i}"><div class="iv-actions" style="justify-content:space-between"><b>${esc(a?.codigo||'Sin código')}</b>${!locked()?`<button type="button" class="btn btn-ghost btn-sm" data-remove="${i}" aria-label="Quitar insumo ${i+1}" title="Quitar este insumo de todo el presupuesto">×</button>`:''}</div><span class="iv-material-name" title="${esc(display)}">${esc(a?.descripcion||r.descripcion||'Elegir insumo')}</span><select data-field="unidad" aria-label="Unidad material ${i+1}" ${off}><option value="">Unidad…</option>${[...new Set([...C.units,r.unidad].filter(Boolean))].map(u=>`<option value="${esc(u)}" ${u===r.unidad?'selected':''}>${esc(u)}</option>`).join('')}</select><div data-stock-price class="iv-muted"></div><label class="iv-muted">Previsto neto / <span data-price-unit>${esc(r.unidad||'unidad')}</span><input data-field="precioPrevisto" inputmode="decimal" aria-label="Precio previsto neto del insumo ${i+1}" value="${esc(r.precioPrevisto||'')}" ${off}></label><button type="button" class="btn btn-ghost btn-sm" data-reset-price="${i}" ${off}>Usar sugerido</button><div data-price></div><details><summary>Datos del insumo</summary><input data-field="descripcion" list="iv-catalog" aria-label="Insumo ${i+1}" value="${esc(display)}" ${off}><div class="iv-actions">${!locked()?`<button type="button" class="btn btn-ghost btn-sm" data-link="${i}">Buscar / vincular</button><button type="button" class="btn btn-ghost btn-sm" data-create="${i}">+ Nuevo insumo</button><button type="button" class="btn btn-ghost btn-sm" data-remove="${i}">Quitar columna</button>`:''}</div><small class="iv-muted">${r.origen==='ia'?'Sugerido por IA · ':''}${esc(r.nota||'')}</small><div data-stock><span></span>${!locked()?`<button type="button" class="btn btn-ghost btn-sm" data-equivalence="${i}">Definir equivalencia</button>`:''}</div><label><input type="checkbox" data-field="revisado" ${r.revisado?'checked':''} ${off}> Revisado</label><small><label><input type="checkbox" data-field="compraPendiente" ${r.compraPendiente?'checked':''} ${off}> Compra / verificación pendiente</label></small></details></th>`;}).join('');
+ const headers=rows.map((r,i)=>{const a=catalog.find(a=>a.id===r.articuloId),display=a?label(a):r.descripcion;return `<th data-iv-row="${i}"><div class="iv-actions" style="justify-content:space-between"><b>${esc(a?.codigo||'Sin código')}</b><button type="button" class="btn btn-ghost btn-sm" data-remove="${i}" aria-label="Quitar insumo ${i+1}" title="Quitar este insumo de todo el presupuesto">×</button></div><span class="iv-material-name" title="${esc(display)}">${esc(a?.descripcion||r.descripcion||'Elegir insumo')}</span><select data-field="unidad" aria-label="Unidad material ${i+1}" ${off}><option value="">Unidad…</option>${[...new Set([...C.units,r.unidad].filter(Boolean))].map(u=>`<option value="${esc(u)}" ${u===r.unidad?'selected':''}>${esc(u)}</option>`).join('')}</select><div data-stock-price class="iv-muted"></div><label class="iv-muted">Previsto neto / <span data-price-unit>${esc(r.unidad||'unidad')}</span><input data-field="precioPrevisto" inputmode="decimal" aria-label="Precio previsto neto del insumo ${i+1}" value="${esc(r.precioPrevisto||'')}" ${locked()?'readonly':''}></label><button type="button" class="btn btn-ghost btn-sm" data-reset-price="${i}">Usar sugerido</button><div data-price></div><details><summary>Datos del insumo</summary><input data-field="descripcion" list="iv-catalog" aria-label="Insumo ${i+1}" value="${esc(display)}" ${off}><div class="iv-actions">${!locked()?`<button type="button" class="btn btn-ghost btn-sm" data-link="${i}">Buscar / vincular</button><button type="button" class="btn btn-ghost btn-sm" data-create="${i}">+ Nuevo insumo</button><button type="button" class="btn btn-ghost btn-sm" data-remove="${i}">Quitar columna</button>`:''}</div><small class="iv-muted">${r.origen==='ia'?'Sugerido por IA · ':''}${esc(r.nota||'')}</small><div data-stock><span></span>${!locked()?`<button type="button" class="btn btn-ghost btn-sm" data-equivalence="${i}">Definir equivalencia</button>`:''}</div><label><input type="checkbox" data-field="revisado" ${r.revisado?'checked':''} ${off}> Revisado</label><small><label><input type="checkbox" data-field="compraPendiente" ${r.compraPendiente?'checked':''} ${off}> Compra / verificación pendiente</label></small></details></th>`;}).join('');
  document.getElementById('iv-matrix').style.setProperty('--iv-columns',String(rows.length+3));
  document.getElementById('iv-matrix').innerHTML=`<thead><tr><th class="iv-work">Ítem a cotizar<small class="iv-muted">Consumos para el renglón completo</small></th>${headers}<th>Costo neto</th><th>Índice ×</th><th>Precio sugerido<small class="iv-muted">Total del renglón, sin IVA</small></th></tr></thead><tbody>${sales.map((item,i)=>`<tr><td class="iv-work">${!locked()?`<button type="button" class="btn btn-ghost btn-sm" data-remove-sale="${i}" aria-label="Quitar ítem a cotizar ${i+1}" title="Quitar el ítem y sus consumos">×</button>`:''}<b>${i+1}. ${esc(item.desc||item.descripcion||'Completá la descripción del ítem')}</b><small class="iv-muted">Cantidad cotizada: ${esc(item.cant??item.cantidad??1)}</small></td>${cells(item,i)}<td data-matrix-cost="${i}"></td><td><input data-matrix-index="${i}" inputmode="decimal" placeholder="Ej.: 2,7" aria-label="Índice multiplicador del renglón ${i+1}" value="${esc(matrix.index(item))}" ${off}></td><td><b data-matrix-price="${i}"></b>${!locked()?`<button type="button" class="btn btn-primary btn-sm" data-matrix-apply="${i}" style="margin-top:7px">Usar precio</button>`:''}</td></tr>`).join('')||'<tr><td class="iv-work">Agregá un ítem a cotizar arriba para empezar.</td></tr>'}${showCommon||matrix.hasCommon()?`<tr class="iv-common"><td class="iv-work"><b>Consumos por repartir</b><small class="iv-muted">Se conservan los consumos anteriores sin asignarlos a un ítem arbitrariamente. Pasalos a las filas y vaciá estas celdas para calcular precios por renglón.</small></td>${cells(null,-1)}<td colspan="3" class="iv-muted">Estos consumos forman parte del total de materiales. Falta repartirlos para calcular los precios por renglón.</td></tr>`:''}</tbody><tfoot><tr><td class="iv-work">TOTAL DE INSUMOS</td>${rows.map((r,i)=>`<td data-matrix-total="${i}"></td>`).join('')}<td colspan="3" class="iv-muted">Las cantidades de los renglones se suman una sola vez.</td></tr></tfoot>`;
  refreshMatrix();
@@ -77,7 +92,7 @@ function matrixInput(e){
 }
 function matrixFields(){
  ensureMatrix();const active=matrixSales().filter(item=>C.text(item.desc)||C.number(item.precio)>0),items=matrix.exportItems(active).map((item,i)=>({...item,orden:i+1}));
- return {items,insumosVentas:C.draft(rows),insumosCotizacionId:newQuoteId,aprobarConInsumosPendientes:true};
+ return {items,insumosVentas:C.draft(rows),insumosCotizacionId:newQuoteId,aprobarConInsumosPendientes:true,...(costEditOrigin?{cotizacionBaseId:costEditOrigin.cotizacionBaseId||costEditOrigin.id,revisionAnteriorId:costEditOrigin.id,obraId:costEditOrigin.obraId||''}:{})};
 }
 function status(){
  if(!host())return;
@@ -113,7 +128,7 @@ async function load(force=false){
  catch(e){if(request===catalogRequest)error='No se pudo actualizar stock y precios: '+e.message;}
  finally{if(request===catalogRequest){loading=false;render();}}
 }
-function open(data={},newRevision=false){catalogDialog?.remove();catalogDialog=null;generation++;newQuoteId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');rows=C.draft(data.insumosVentas||[]);matrix=window.TIZInsumosMatrizV1.create(rows,matrixSales(),data.items||[]);showCommon=false;baseline=newRevision?null:data.insumosVentasAprobados||null;error='';ensure();render();load();}
+function open(data={},newRevision=false){costEditOrigin=null;catalogDialog?.remove();catalogDialog=null;generation++;newQuoteId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');rows=C.draft(data.insumosVentas||[]);matrix=window.TIZInsumosMatrizV1.create(rows,matrixSales(),data.items||[]);showCommon=false;baseline=newRevision?null:data.insumosVentasAprobados||null;error='';ensure();render();load();}
 function input(e){if(matrixInput(e))return;const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(['revisado','compraPendiente','unidad'].includes(key))return;row[key]=e.target.value;if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}}row.revisado=false;tr.querySelector('[data-field="revisado"]').checked=false;error='';status();}
 function change(e){if(matrixInput(e))return;const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(key==='unidad'&&row.unidad!==e.target.value){delete row.precioPrevisto;const editor=tr.querySelector('[data-field="precioPrevisto"]');if(editor)editor.value='';window.showToast?.('Cambió la unidad: revisá el precio previsto por la nueva unidad.');}if(['revisado','compraPendiente'].includes(key))row[key]=e.target.checked;else row[key]=e.target.value;
  if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}row.revisado=false;}
@@ -202,6 +217,9 @@ function createArticle(index,target=rows[index],expected=generation,owner=window
  field('descripcion').focus();
 }
 function click(e){
+ const editTrigger=e.target.closest('[data-edit-approved],[data-iv="add"],[data-remove],[data-reset-price],[data-field="precioPrevisto"],[data-iv="add-sale"]');
+ if(locked()&&editTrigger){const priceColumn=editTrigger.closest('[data-iv-row]')?.dataset.ivRow;if(!editApprovedCosts())return;if(editTrigger.dataset.field==='precioPrevisto'){host().querySelector('[data-iv-row="'+priceColumn+'"] [data-field="precioPrevisto"]')?.focus();return;}if(editTrigger.hasAttribute('data-edit-approved'))return;}
+
  const reset=e.target.closest('[data-reset-price]');if(reset&&!locked()){delete rows[Number(reset.dataset.resetPrice)].precioPrevisto;error='';render();return;}
  const removeSale=e.target.closest('[data-remove-sale]');if(removeSale&&!locked()){const i=Number(removeSale.dataset.removeSale),item=matrixSales()[i];if(item){rows.forEach((_,j)=>matrix.set(item,j,''));window.removeItemPP?.(i);render();}return;}
  if(e.target.closest('[data-iv="add-sale"]')&&!locked()){window.addItemPP?.();render();return;}
