@@ -2,7 +2,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TIZObrasSeguimientoCoreV2=api;})(typeof window==='object'?window:globalThis,function(){
 'use strict';
 const commercial=()=>typeof module==='object'&&module.exports?require('./vigenciaComercialCoreV1'):window.TIZVigenciaComercialV1;
-const STATES=['Cobrado','Cobrado pendiente','Pendiente','Entregado','Baja'];
+const STATES=['Cobrado','Cobrado pendiente','Pendiente','Producida','Entregado','Baja'];
 const REPLAN_REASONS=Object.freeze([
  ['cliente','Cliente / aprobación'],['diseno','Diseño / información faltante'],
  ['materiales','Materiales / insumos'],['proveedor','Proveedor externo'],
@@ -28,13 +28,23 @@ const state=v=>STATES.includes(T(v))?T(v):'Pendiente';
 const canPlan=u=>!!u&&(u.isAdmin||u.sector==='Calidad'||['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(T(u.email).toLowerCase()));
 const canProduction=u=>canPlan(u)||T(u?.email).toLowerCase()==='pablo.aciar@tizpublicidad.com';
 const canSync=u=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(T(u?.email).toLowerCase());
-const EDITABLE_STATES=['Pendiente','Entregado','Cobrado pendiente','Cobrado'];
+const EDITABLE_STATES=['Pendiente','Producida','Entregado','Cobrado pendiente','Cobrado'];
 const canStatus=u=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com','carolina.flores@tizpublicidad.com'].includes(T(u?.email).toLowerCase());
 function statusPatch(work,estado,user,at=new Date().toISOString()){
  if(!canStatus(user))throw Error('Tu cuenta no puede modificar el estado de Obras.');
  if(isBaja(work)||!active(work))throw Error('La obra ya no está activa. Actualizá el listado.');
  if(!EDITABLE_STATES.includes(estado))throw Error('Elegí un estado válido para la obra.');
- return {estado,cobr:estado,estadoGestionV1:{estado,anterior:T(work.estado),fecha:at,usuario:T(user.email)}};
+ const patch={estado,cobr:estado,estadoGestionV1:{estado,anterior:T(work.estado),fecha:at,usuario:T(user.email)}};
+ const actual=day(new Date(at));
+ if(estado==='Producida'&&work.estado!=='Producida'){
+  const real=iso(work.obraSeguimientoV2?.produccionReal||work.fprod_r)||actual;
+  Object.assign(patch,{fprod_r:real,'obraSeguimientoV2.produccionReal':real,'gestionSectores.produccion.real':real,'estadisticaResultadosV1.produccion':{fecha:real,registradoEn:at,usuario:T(user.email)}});
+ }
+ if(estado==='Entregado'&&work.estado!=='Entregado'&&work.estadisticaResultadosV1?.entrega?.activa!==true){
+  Object.assign(patch,{fechaEntregaReal:actual,'estadisticaResultadosV1.entrega':{fecha:actual,activa:true,registradoEn:at,usuario:T(user.email)}});
+ }
+ if(estado==='Pendiente'&&work.estadisticaResultadosV1?.entrega?.activa===true)patch['estadisticaResultadosV1.entrega']={...work.estadisticaResultadosV1.entrega,activa:false,corregidoEn:at,corregidoPor:T(user.email)};
+ return patch;
 }
 const active=o=>(commercial()?.visible(o)??true)&&(!o.archivado||isBaja(o))&&o.revisionVigente!==false&&o.revisionOperativa!==false;
 const isBaja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
@@ -61,7 +71,7 @@ function bajaPatch(work,motivo,user,reactivar=false,at=new Date().toISOString())
  return {estado,archivado:reactivar?!!old.archivadoAnterior:true,bajaObra:reactivar?{...old,activa:false,reactivadaEn:at,reactivadaPor:T(user.email),motivoReactivacion:motivo}:{activa:true,motivo,fecha:at,usuario:T(user.email),estadoAnterior:T(work.estado)||'Pendiente',archivadoAnterior:!!work.archivado},historialBajaObra:[...(Array.isArray(work.historialBajaObra)?work.historialBajaObra:[]),event]};
 }
 function family(v){const n=norm(v);if(n==='gtl'||n==='getthelook')return'getthelook';if(n==='kpl'||n==='kplconstructora'||n==='kplminiso')return'kpl';if(n==='yale'||n==='yalehid')return'yale';if(n==='fernahnossaxtiro'||n==='xtirofernahnos')return'fernahnos';if(n==='jumbaly'||n==='jumbalay')return'jumbalay';return n;}
-function aggregateStatus(rows){const states=rows.map(r=>T(r.estado));if(states.length&&states.every(s=>s==='Cobrado'))return'Cobrado';const saldo=rows.filter(r=>/\bsaldo\b/i.test(r.desc));if(saldo.length&&new Set(saldo.map(r=>r.estado)).size===1)return state(saldo[0].estado);for(const s of ['Pendiente','Cobrado pendiente','Entregado'])if(states.includes(s))return s;return'Pendiente';}
+function aggregateStatus(rows){const states=rows.map(r=>T(r.estado));if(states.length&&states.every(s=>s==='Cobrado'))return'Cobrado';const saldo=rows.filter(r=>/\bsaldo\b/i.test(r.desc));if(saldo.length&&new Set(saldo.map(r=>r.estado)).size===1)return state(saldo[0].estado);for(const s of ['Pendiente','Cobrado pendiente','Producida','Entregado'])if(states.includes(s))return s;return'Pendiente';}
 function references(data){
  if(!Array.isArray(data?.rows)||data.firstRow!==2)throw Error('La referencia de obras no tiene encabezados válidos.');
  const h=data.rows[0]||[],find=(names,required=true)=>{const hits=h.flatMap((v,i)=>names.includes(norm(v))?[i]:[]);if(required&&hits.length!==1)throw Error('Revisar la columna '+names[0]+' en la referencia.');return hits.length===1?hits[0]:-1;};
@@ -257,4 +267,3 @@ function delayReport(groups,{desde='',hasta='',etapa='',motivo='',responsabilida
 
 return {commercial,delayData,delayReport,RESPONSIBILITIES,STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });
-

@@ -12,3 +12,11 @@ test('UI imports source data once, shows all months and retains a labeled snapsh
  fail=true;refresh();await new Promise(r=>setImmediate(r));assert.match(content.innerHTML,/Se conserva la última lectura/);assert.equal((content.innerHTML.match(/class="card"/g)||[]).length,12);
  window.currentUser={email:'pablo.aciar@tizpublicidad.com'};window.TIZEstadisticaSourceV1.render();assert.equal(reads,2);
 });
+
+test('una lectura histórica tardía no pisa los resultados de la app al cambiar de origen',async()=>{
+ const content={innerHTML:''},kpis={innerHTML:''};let finish;
+ const window={currentUser:{email:'info@tizpublicidad.com',isAdmin:true},currentPage:'estadistica',estTab:'tabla',estadisticaSourceApiV1:()=>new Promise(resolve=>{finish=resolve;})};
+ const document={getElementById:id=>id==='est-content'?content:kpis,querySelector:()=>({addEventListener(){}})};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../estadisticaSourceV1.js'),'utf8'),{window,document,Intl,Date,setTimeout,URL,Blob});
+ window.TIZEstadisticaSourceV1.render();window.TIZEstadisticaResultadosV1={isHistory:()=>false};content.innerHTML='RESULTADOS DE LA APP';finish(S.parse(fixture()));await new Promise(r=>setImmediate(r));assert.equal(content.innerHTML,'RESULTADOS DE LA APP');
+});

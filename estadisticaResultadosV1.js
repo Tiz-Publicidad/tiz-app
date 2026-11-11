@@ -1,0 +1,32 @@
+/* Weekly/monthly results from live app records, with the source sheet available separately. */
+(function(){
+'use strict';
+const C=window.TIZEstadisticaResultadosCoreV1,labels={ventas:'Ventas aprobadas',produccion:'Obras producidas',entregas:'Obras entregadas',cobranzas:'Cobros recibidos'},esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=v=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(v);
+let year=Number(C.date(new Date()).slice(0,4)),source='app',snapshot=null;
+const allowed=()=>window.currentUser?.isAdmin&&['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser.email||'').toLowerCase());
+function data(){
+ const sources=window.TIZResultadosFuentesCargadas;if(!sources||!['obras','presupuestos','cobranzas','clientes'].every(k=>sources[k]))throw Error('Cargando Obras, Clientes, Cotizaciones y Cobranzas para calcular resultados…');
+ const db=window.DB||{},O=window.TIZObrasSeguimientoCoreV2,V=window.TIZVigenciaComercialV1,F=window.TIZFacturacionCobranzasDataV2;
+ if(!O||!V||!F)throw Error('No se cargaron las fuentes de Obras y Cobranzas. Actualizá TIZ.');
+ const financial=F.build(),groups=O.grouped((db.obras||[]).map(w=>w.archivado?{...w,archivado:false}:w)).map(g=>({...g,quote:V.quoteFor(g.members[0],db.presupuestos||[])||{}}));
+ for(const work of financial.workItems||[]){if(work.obraId||groups.some(g=>O.base(g.ot)===O.base(work.ot)&&C.date(g.fechaAprobacion)===C.date(work.presupuesto?.fechaAprobacion)))continue;const q=work.presupuesto;if(q&&V.approved(q))groups.push({id:'pres-'+q.id,key:'pres-'+q.id,ot:work.ot,cliente:work.clienteNombre,desc:work.descripcion,quote:q,members:[],estado:'Aprobado'});}
+ return C.build(groups,C.paymentDates(financial.payments||[],db),year);
+}
+const metric=(v,type)=>'<b>'+money(v.importe)+'</b><br><small>'+v.cantidad+' '+(type==='cobranzas'?'cobro(s)':'obra(s)')+(v.sinImporte?' · '+v.sinImporte+' sin importe ARS':'')+(type==='cobranzas'&&v.retenciones?' · Retenciones: '+money(v.retenciones):'')+'</small>';
+function render(){
+ if(!allowed()||!['tabla','mensual'].includes(window.estTab))return;
+ if(source==='historico'){window.TIZEstadisticaSourceV1?.render();return;}
+ const host=document.getElementById('est-content'),kpis=document.getElementById('est-kpis');if(!host||!kpis)return;
+ try{snapshot=data();}catch(e){kpis.innerHTML='';host.innerHTML='<p role="alert">'+esc(e.message)+'</p>';return;}
+ const monthly=window.estTab==='mensual',rows=monthly?snapshot.monthly:snapshot.weekly;
+ kpis.innerHTML=C.TYPES.map(t=>'<article class="kpi"><div class="kpi-label">'+esc(labels[t])+' · '+year+'</div><div class="kpi-val">'+money(snapshot.totals[t].importe)+'</div><div class="kpi-sub">'+snapshot.totals[t].cantidad+' '+(t==='cobranzas'?'cobro(s)':'obra(s)')+(snapshot.totals[t].sinImporte?' · '+snapshot.totals[t].sinImporte+' sin importe ARS':'')+'</div></article>').join('');
+ host.innerHTML='<section aria-label="Resultados registrados en la app"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0"><label>Año <input data-results-year type="number" min="2000" max="2200" value="'+year+'" style="width:100px"></label><button type="button" class="btn btn-ghost btn-sm" data-results-history>Ver planilla histórica TIZ 2026</button></div><p>Resultados de la app por fecha real. Producción y entregas: valor neto de la OT, contado una vez por etapa. Cobranzas: dinero recibido en su fecha de cobro; retenciones separadas. Los cuatro resultados se muestran por separado.</p><div class="table-wrap"><table aria-label="Resultados por '+(monthly?'mes':'semana')+'"><thead><tr><th>'+(monthly?'Mes':'Semana · lunes a domingo')+'</th>'+C.TYPES.map(t=>'<th>'+esc(labels[t])+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(monthly?r.key:r.key+' · '+r.inicio+' al '+r.fin)+'</td>'+C.TYPES.map(t=>'<td>'+metric(r[t],t)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div><details style="margin-top:16px"><summary>Detalle de los '+snapshot.events.length+' registros de '+year+'</summary><div class="table-wrap"><table><thead><tr><th>Fecha real</th><th>Resultado</th><th>OT / cliente</th><th>Importe</th><th>Retenciones</th></tr></thead><tbody>'+snapshot.events.map(e=>'<tr><td>'+esc(e.fecha)+'</td><td>'+esc(labels[e.tipo])+'</td><td>'+esc(e.ot)+' · '+esc(e.cliente)+'</td><td>'+(e.importe===null?'Importe ARS pendiente':money(e.importe))+'</td><td>'+money(e.retenciones||0)+'</td></tr>').join('')+'</tbody></table></div></details>'+(snapshot.warnings.length?'<details style="margin-top:12px"><summary>'+snapshot.warnings.length+' registros sin fecha real válida; no se asignan a una semana</summary><ul>'+snapshot.warnings.map(w=>'<li>'+esc(labels[w.tipo])+' · OT '+esc(w.ot)+' · '+esc(w.motivo)+'</li>').join('')+'</ul></details>':'')+'</section>';
+ host.querySelector('[data-results-year]').addEventListener('change',e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=2000&&n<=2200){year=n;render();}});
+ host.querySelector('[data-results-history]').addEventListener('click',()=>{source='historico';window.TIZEstadisticaSourceV1?.render();});
+}
+function useApp(){source='app';if(!['tabla','mensual'].includes(window.estTab)){window.setEstTab?.('tabla',document.querySelector('[data-est-tab="tabla"]'));return;}render();}
+function exportCSV(){
+ if(source==='historico'||!['tabla','mensual'].includes(window.estTab))return window.TIZEstadisticaSourceV1?.exportCSV();if(!allowed())return;snapshot=data();const monthly=window.estTab==='mensual',rows=monthly?snapshot.monthly:snapshot.weekly,quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"',values=[['Período',...C.TYPES.flatMap(t=>[labels[t]+' ARS',labels[t]+' cantidad',labels[t]+' sin importe ARS',...(t==='cobranzas'?['Retenciones ARS']:[])])],...rows.map(r=>[r.key,...C.TYPES.flatMap(t=>[r[t].importe,r[t].cantidad,r[t].sinImporte,...(t==='cobranzas'?[r[t].retenciones]:[])])])],url=URL.createObjectURL(new Blob(['\ufeff'+values.map(r=>r.map(quote).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='TIZ-resultados-'+year+'-'+(monthly?'mensual':'semanal')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+window.TIZEstadisticaResultadosV1={render,useApp,exportCSV,isHistory:()=>source==='historico'};
+})();

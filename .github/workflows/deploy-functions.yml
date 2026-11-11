@@ -35,6 +35,9 @@ jobs:
           node --check clemenSecretariaV1.js
           node --check clemenSecretariaCoreV1.js
           node --test tests/clemenSecretariaV1.test.cjs
+          node --check estadisticaResultadosCoreV1.js
+          node --check estadisticaResultadosV1.js
+          node --test tests/estadisticaResultadosV1.test.cjs
           node --check estadisticaSourceV1.js
           node --test tests/estadisticaSourceV1.test.cjs
           node --check operacionesV1.js
