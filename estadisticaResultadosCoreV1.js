@@ -20,7 +20,7 @@ function build(groups=[],payments=[],year=Number(date(new Date()).slice(0,4)),to
   if(fecha>today){warnings.push({tipo:type,ot:data.ot||'',motivo:'Fecha real futura',key});return;}
   seen.add(type+'|'+key);for(let i=warnings.length-1;i>=0;i--)if(warnings[i].tipo===type&&warnings[i].key===key)warnings.splice(i,1);
   const valid=typeof amount==='number'&&Number.isFinite(amount)&&amount>=0&&(!data.moneda||data.moneda==='ARS');
-  events.push({...data,tipo:type,key,fecha,importe:valid?round(amount):null,retenciones:Number.isFinite(data.retenciones)?round(data.retenciones):0});
+  events.push({...data,tipo:type,key,fecha,importe:valid?round(amount):null,retenciones:(!data.moneda||data.moneda==='ARS')&&Number.isFinite(data.retenciones)?round(data.retenciones):0});
  }
  for(const g of groups){
   if(g.estado==='Baja'||g.bajaObra?.activa)continue;
@@ -33,7 +33,7 @@ function build(groups=[],payments=[],year=Number(date(new Date()).slice(0,4)),to
   const delivery=delivered?.fecha||members.map(w=>w.fechaEntregaReal||w.entregaReal||(w.estadoGestionV1?.estado==='Entregado'?w.estadoGestionV1.fecha:'')).find(Boolean);
   if(!cancelled&&(delivery||g.estado==='Entregado'))add('entregas',key,delivery,value,info);
  }
- for(const p of payments){if(p.anulado||p.cancelado||p.moneda&&p.moneda!=='ARS')continue;const amount=Number(p.importe),ret=Number(p.retenciones)||0;if(!(amount>0||ret>0))continue;add('cobranzas',(p.obraId||p.ot||'')+'|'+(p.id||[date(p.fecha),amount,ret,p.referencia||'',p.medio||''].join('|')),p.fecha,amount,{ot:p.ot,cliente:p.clienteNombre||p.cliente,moneda:p.moneda||'ARS',retenciones:ret});}
+ for(const p of payments){if(p.anulado||p.cancelado)continue;const amount=Number(p.importe),ret=Number(p.retenciones)||0;if(!(amount>0||ret>0))continue;add('cobranzas',(p.obraId||p.ot||'')+'|'+(p.id||[date(p.fecha),amount,ret,p.referencia||'',p.medio||''].join('|')),p.fecha,amount,{ot:p.ot,cliente:p.clienteNombre||p.cliente,moneda:p.moneda||'ARS',retenciones:ret});}
  const weekly=new Map(),monthly=Array.from({length:12},(_,i)=>({key:year+'-'+String(i+1).padStart(2,'0'),...empty()})),totals=empty();
  for(let d=new Date(year+'-01-01T12:00:00Z');d.getUTCFullYear()===year;d.setUTCDate(d.getUTCDate()+1)){const w=week(d.toISOString().slice(0,10));if(!weekly.has(w.key))weekly.set(w.key,{...w,...empty()});}
  const selected=events.filter(e=>e.fecha.startsWith(year+'-'));
