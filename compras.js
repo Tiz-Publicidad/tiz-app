@@ -1,5 +1,5 @@
 import './comprasIngresoCoreV1.js?v=20261103-nombres';
-import { createPurchaseDistribution } from './comprasDistribucionUIV1.js?v=20261111-articulo';
+import { createPurchaseDistribution } from './comprasDistribucionUIV1.js?v=20261111-costo-insumo';
 import { createMaterialsControl } from './comprasControlUIV1.js?v=20261109-catalogo-ot&distribucion=20261111';
 import { getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -282,7 +282,7 @@ function injectUI(){
       <div class="cp-field"><label>Observación</label><input id="cp-obs"></div>
     </div></div>
     <div id="cp-ingreso" class="cp-panel" hidden></div>
-    <div id="cp-items-panel" class="cp-panel"><fieldset id="cp-items-gate" style="border:0;padding:0;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><b>Ítems del comprobante</b><div class="cp-sub">Vinculá cada artículo y elegí su propio destino, OT y CD / EX. Podés repartir cada renglón entre varias OT y stock.</div></div><button class="cp-btn" onclick="cpAddItem()">＋ Ítem</button></div><datalist id="cp-catalog-list"></datalist><div style="overflow:auto"><table class="cp-items"><thead><tr><th>Descripción de factura</th><th>Artículo TIZ</th><th>Destino · OT · CD / EX del artículo</th><th>Código</th><th>Familia</th><th>Subfamilia</th><th>Cant.</th><th>Unidad</th><th>P. unit. neto</th><th>IVA %</th><th>Total bruto</th><th></th></tr></thead><tbody id="cp-items-body"></tbody></table></div></fieldset></div>
+    <div id="cp-items-panel" class="cp-panel"><fieldset id="cp-items-gate" style="border:0;padding:0;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div><b>Ítems del comprobante</b><div class="cp-sub">Vinculá cada artículo y elegí su propio destino, OT y CD / EX. Podés repartir cada renglón entre varias OT y stock.</div></div><button class="cp-btn" onclick="cpAddItem()">＋ Ítem</button></div><datalist id="cp-catalog-list"></datalist><div style="overflow:auto"><table class="cp-items"><thead><tr><th>Descripción de factura</th><th>Artículo TIZ</th><th>Destino · OT del artículo</th><th>Costo / extracosto del insumo</th><th>Código</th><th>Familia</th><th>Subfamilia</th><th>Cant.</th><th>Unidad</th><th>P. unit. neto</th><th>IVA %</th><th>Total bruto</th><th></th></tr></thead><tbody id="cp-items-body"></tbody></table></div></fieldset></div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div id="cp-totales" style="font:700 13px 'DM Mono',monospace"></div><div class="cp-actions"><button class="cp-btn" onclick="cpCloseCompra()">Cancelar</button><button class="cp-btn primary" onclick="cpGuardarCompra()">Guardar compra</button></div></div>
   </div>`;
   document.body.appendChild(modal);
