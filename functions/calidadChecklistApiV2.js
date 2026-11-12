@@ -1,5 +1,5 @@
 'use strict';
-const admin=require('firebase-admin'),PDFDocument=require('pdfkit'),crypto=require('node:crypto'),C=require('./calidadChecklistCoreV2');
+const admin=require('firebase-admin'),crypto=require('node:crypto'),C=require('./calidadChecklistCoreV2');
 const USERS={'info@tizpublicidad.com':'Ventas','giancarlo.pareja@tizpublicidad.com':'Ventas','pablo.aciar@tizpublicidad.com':'Producción','julieta.aguirre@tizpublicidad.com':'Diseño','carolina.flores@tizpublicidad.com':'Compras','cristiantizpublicidad@gmail.com':'Calidad'};
 const ORIGINS=new Set(['https://tiz-publicidad.github.io','https://tiz---app.web.app','https://tiz---app.firebaseapp.com']);
 const fail=(s,status=400)=>Object.assign(Error(s),{status});
@@ -21,7 +21,7 @@ async function save(db,body,user,at=new Date().toISOString()){
   return {ok:true,key,id,record};
  });
 }
-function pdf(record,displayState){return new Promise((resolve,reject)=>{
+function pdf(record,displayState){const PDFDocument=require('pdfkit');return new Promise((resolve,reject)=>{
  const doc=new PDFDocument({size:'A4',margin:42,bufferPages:true,info:{Title:'TIZ - '+C.STAGES[record.etapa]}}),chunks=[];doc.on('data',c=>chunks.push(c));doc.on('error',reject);doc.on('end',()=>resolve(Buffer.concat(chunks)));
  const width=511;let pages=0;
  function header(){pages++;doc.fillColor('#db2374').font('Helvetica-Bold').fontSize(28).text('TIZ',42,35);doc.fillColor('#555').font('Helvetica').fontSize(9).text('PUBLICIDAD · GESTIÓN DE CALIDAD',110,45);doc.strokeColor('#db2374').moveTo(42,78).lineTo(553,78).stroke();doc.y=93;}

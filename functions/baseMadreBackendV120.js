@@ -193,7 +193,7 @@ async function syncBilling({db, sheets, requestedOt, obraId, email}) {
   return {ok:true, row:rowNumber, mode:"billing", updated:data.length > 0, numeroFactura:numbers};
 }
 
-exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"public", timeoutSeconds:60}, async (req, res) => {
+exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"public", timeoutSeconds:60, memory:"512MiB", concurrency:8}, async (req, res) => {
   cors(req, res);
   if (req.method === "OPTIONS") return res.status(204).send("");
   if (req.method !== "POST") return res.status(405).json({ok:false, error:"Método no permitido"});
