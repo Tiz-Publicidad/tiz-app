@@ -37,7 +37,7 @@ test('elegir Aprobado explícitamente sigue creando la obra y sincronizando Base
  const f=fixture(),p={...f.approved,id:'pending',nro:'4801',estado:'Enviado'};f.window.DB.presupuestos.push(p);f.window.abrirRevisionCotizacionV354('pending');f.field('pp-estado').value='Aprobado';await f.window.guardarPresupuestoCompleto();assert.equal(p.estado,'Aprobado');assert.equal(f.window.DB.obras.length,1);assert.equal(f.window.DB.obras[0].ot,'4801');assert.equal(f.syncs.length,1);
 });
 test('Estado comercial tiene sólo Borrador, Enviado, Aprobado y Baja; Obras mantiene sus estados',()=>{
- const f=fixture();f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,'Aprobado');const select=sector.match(/<select id="pp-estado">([\s\S]*?)<\/select>/)[1];assert.deepEqual([...select.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(m=>m[1]),['Borrador','Enviado','Aprobado','Baja']);const C=require('../functions/obrasSeguimientoCoreV2');assert.deepEqual(C.EDITABLE_STATES,['Pendiente','Entregado','Cobrado pendiente','Cobrado']);
+ const f=fixture();f.window.abrirRevisionCotizacionV354('approved');assert.equal(f.field('pp-estado').value,'Aprobado');const select=sector.match(/<select id="pp-estado">([\s\S]*?)<\/select>/)[1];assert.deepEqual([...select.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(m=>m[1]),['Borrador','Enviado','Aprobado','Baja']);const C=require('../functions/obrasSeguimientoCoreV2');assert.deepEqual(C.EDITABLE_STATES,['Pendiente','Producida','Entregado','Cobrado pendiente','Cobrado']);
 });
 
 test('Cotizaciones bloquea aprobar sin revisión de materiales o si el módulo no está disponible',async()=>{
