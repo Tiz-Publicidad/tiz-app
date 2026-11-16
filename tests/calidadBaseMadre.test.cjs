@@ -1,6 +1,32 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const C=require('../calidadV1.js');
+function bindingFixture(works,selected){
+ const source=fs.readFileSync(require.resolve('../calidadV1.js'),'utf8'),select={value:'',innerHTML:'',setCustomValidity(){},focus(){this.focused=true;}},note={},fields={'[name=obraId]':select,'#q1-binding-note':note,'[name=tipo]':{value:'Liberación'}};
+ const form={__qualitySource:selected,querySelector:s=>fields[s]},window={DB:{obras:works}},context={C,window,form,busy:false,document:{activeElement:null},E:String};vm.createContext(context);
+ vm.runInContext(source.slice(source.indexOf(' function qualityBinding('),source.indexOf(' function newForm('))+'\nglobalThis.resolve=qualityBinding;globalThis.refresh=refreshFormWorks;globalThis.changed=bindingChanged;',context);
+ return {context,window,form,select,note};
+}
+test('Revisar recupera la OT exacta y cliente cuando hay variantes de anticipo/saldo',()=>{
+ const source={ot:'4773',cliente:'Cliente S.A.',referencia:'OT 4773 · Cliente'},works=[{id:'real',ot:'4773',cliente:'Cliente S.A.'},{id:'saldo',ot:'4773.1',cliente:'Cliente S.A.'},{id:'otro',ot:'4773',cliente:'Otro'}],f=bindingFixture(works,source),r=f.context.resolve(source,works);
+ assert.equal(r.id,'real');assert.equal(r.candidates.length,1);
+ f.context.refresh();assert.equal(f.select.value,'real');assert.equal(f.select.required,true);assert.match(f.note.textContent,/4773/);
+ const user={email:'cristiantizpublicidad@gmail.com',sector:'Calidad'},record=C.clean({id:'release',obraId:f.select.value,tipo:'Liberación',etapa:'Entrega',area:'Calidad',categoria:'Medidas',fecha:C.day(),responsable:'Cristian Campo',detalle:'ok',criterio:'aspecto ok',resultado:'Liberado'},user,new Date().toISOString());
+ assert.equal(record.obraId,'real');assert.equal(record.creadoPor,user.email);assert.ok(C.registerPatch({...works[0],id:'real'},record)['calidadGestion.registros.release']);
+});
+test('si las OT llegan después de abrir el formulario se actualiza la vinculación sin borrar lo completado',()=>{
+ const selected={ot:'4773',cliente:'Cliente'},f=bindingFixture([],selected);f.form.detalle='Texto que ya completó Cristian';f.context.refresh();assert.equal(f.select.value,'');assert.match(f.note.textContent,/todavía no está vinculada/);
+ f.window.DB.obras=[{id:'w',ot:'4773',cliente:'Cliente'}];f.context.refresh();assert.equal(f.select.value,'w');assert.equal(f.form.detalle,'Texto que ya completó Cristian');assert.match(f.note.textContent,/Registro vinculado/);
+});
+test('no elige automáticamente entre duplicados, otra obra o una baja y conserva una selección explícita',()=>{
+ const selected={ot:'4773',cliente:'Cliente'},works=[{id:'a',ot:'4773',cliente:'Cliente'},{id:'b',ot:'4773',cliente:'Cliente'},{id:'baja',ot:'4773',cliente:'Cliente',bajaObra:{activa:true}},{id:'arch',ot:'4773',cliente:'Cliente',archivado:true}],f=bindingFixture(works,selected);
+ assert.equal(f.context.resolve(selected,works).id,'');f.select.value='b';f.context.refresh();assert.equal(f.select.value,'b');assert.doesNotMatch(f.select.innerHTML,/value="baja"|value="arch"/);
+ assert.equal(f.context.resolve(selected,[{id:'other',ot:'4773',cliente:'Otro'}]).id,'');
+});
+test('la liberación exige la OT desde el inicio y el error conserva el formulario',()=>{
+ const source=fs.readFileSync(require.resolve('../calidadV1.js'),'utf8'),f=bindingFixture([],null);f.context.changed();assert.equal(f.select.required,true);assert.match(f.note.textContent,/Seleccioná la OT/);
+ assert.match(source,/Los datos que completaste se conservan/);assert.match(source,/id="q1-work" aria-describedby="q1-binding-note"/);
+});
 test('consulta Calidad con los permisos del módulo y no con el helper exclusivo de Colocaciones',async()=>{
  const source=fs.readFileSync(require.resolve('../index.html'),'utf8'),start=source.indexOf('window.leerCalidadBaseMadreV1 ='),end=source.indexOf('window.saveCalidadV1 =',start);
  let requests=0;const auth={currentUser:{getIdToken:async()=> 'test-token'}},window={TIZCalidadCore:C,canViewPage:page=>page==='colocaciones'};
@@ -45,4 +71,6 @@ test('backend consulta las columnas por encabezado sin leer importes ni escribir
  await handler(req,res);assert.equal(output[0].ok,true);assert.equal(output[0].rows.length,2);assert.equal(output[0].rows[1].ot,'');assert.deepEqual(JSON.parse(JSON.stringify(readArgs.ranges)),["'Base de datos'!D3:D","'Base de datos'!E3:E","'Base de datos'!G3:G","'Base de datos'!Y3:Y","'Base de datos'!A2:AL2"]);assert.equal(output[0].rows[0].neto,undefined);
  admin.auth=()=>({verifyIdToken:async()=>({email:'outsider@example.com'})});await handler(req,res);assert.equal(output[1].ok,false);
 });
+
+
 
