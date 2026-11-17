@@ -127,3 +127,13 @@ test('es posible registrar una factura de reemplazo tras NC total', async () => 
   assert.equal(w.porFacturar, 0);
   assert.equal(w.porCobrar, 36300);
 });
+
+
+test('anticipo de OT 4782 acepta importes argentinos y propone sólo el saldo restante en ARCA',async()=>{
+ const o=obra();o.ot='4782';o.finanzas.total=2393816;const {window}=app(o);await window.TIZFactCobActionsV2.registrarFacturaManual(o.id,{...fc,tipoParte:'anticipo',neto:'1.196.908,00',iva:'251.350,68',total:'1.448.258,68'});const w=window.TIZFacturacionCobranzasDataV2.build().workItems[0];assert.equal(w.facturadoNeto,1196908);assert.equal(w.porFacturar,1196908);assert.equal(w.facturadoPct,50);assert.equal(w.invoices[0].tipoParte,'anticipo');
+ let markup='';const stop=new Error('markup'),document={getElementById:id=>id==='fv83-style'?{}:null,createElement:()=>({set innerHTML(value){markup=value;throw stop;}})};window.TIZArcaFechasV1={today:()=> '2026-11-17'};window.addEventListener=()=>{};vm.runInNewContext(fs.readFileSync(path.join(root,'facturadorIntegralV83.js'),'utf8'),{window,document,Intl,Date,console,setInterval(){},clearInterval(){}});assert.throws(()=>window.abrirFacturacionIntegralV83(o.id),e=>e===stop);assert.match(markup,/id="fv83-net"[^>]*value="1196908.00"/);assert.match(markup,/id="fv83-pct"[^>]*value="50"/);
+});
+
+test('el panel conserva la edición y el guardado ante refrescos, y no se reutiliza al cambiar de OT o usuario',()=>{
+ const source=fs.readFileSync(path.join(root,'facturacionCobranzasUIV2.js'),'utf8'),start=source.indexOf('function keepDrawer()'),end=source.indexOf('function drawer()',start),user={email:'info@tizpublicidad.com'},x={dataset:{obraId:'ot-1',drawerTab:'facturas',editorUser:user.email,editorDirty:'1'},contains:()=>false},context={window:{currentUser:user},document:{getElementById:()=>x,activeElement:null},drawerId:'ot-1',drawerTab:'facturas'};vm.createContext(context);vm.runInContext(source.slice(start,end)+'globalThis.keep=keepDrawer;',context);assert.equal(context.keep(),true);x.dataset.editorDirty='';assert.equal(context.keep(),false);x.dataset.saving='1';assert.equal(context.keep(),true);context.drawerId='ot-2';assert.equal(context.keep(),false);context.drawerId='ot-1';context.window.currentUser={email:'otra@tizpublicidad.com'};assert.equal(context.keep(),false);
+});
