@@ -15,7 +15,7 @@ test('Revisar recupera la OT exacta y cliente cuando hay variantes de anticipo/s
  assert.equal(record.obraId,'real');assert.equal(record.creadoPor,user.email);assert.ok(C.registerPatch({...works[0],id:'real'},record)['calidadGestion.registros.release']);
 });
 test('si las OT llegan después de abrir el formulario se actualiza la vinculación sin borrar lo completado',()=>{
- const selected={ot:'4773',cliente:'Cliente'},f=bindingFixture([],selected);f.form.detalle='Texto que ya completó Cristian';f.context.refresh();assert.equal(f.select.value,'');assert.match(f.note.textContent,/todavía no está vinculada/);
+ const selected={ot:'4773',cliente:'Cliente'},f=bindingFixture([],selected);f.form.detalle='Texto que ya completó Cristian';f.context.refresh();assert.equal(f.select.value,'');assert.match(f.note.textContent,/Registro asociado a OT/);assert.equal(f.select.required,false);
  f.window.DB.obras=[{id:'w',ot:'4773',cliente:'Cliente'}];f.context.refresh();assert.equal(f.select.value,'w');assert.equal(f.form.detalle,'Texto que ya completó Cristian');assert.match(f.note.textContent,/Registro vinculado/);
 });
 test('no elige automáticamente entre duplicados, otra obra o una baja y conserva una selección explícita',()=>{
@@ -74,3 +74,21 @@ test('backend consulta las columnas por encabezado sin leer importes ni escribir
 
 
 
+
+
+test('el formulario de la OT 4819 guarda la liberación de origen y conserva los datos si falla el servidor',async()=>{
+ const source=fs.readFileSync(require.resolve('../calidadV1.js'),'utf8'),selected={ot:'4819',cliente:'Ases y Reinas',desc:'Siemens Healthineers',referencia:'OT 4819 · Ases y Reinas · Siemens Healthineers'},fixture=bindingFixture([],selected),calls=[];
+ const button={disabled:false},error={},f={dataset:{qForm:'new'},setAttribute(){},removeAttribute(){},querySelector:s=>s==='[type=submit]'?button:error},form=fixture.form;let removed=0,fail=true;
+ form.remove=()=>removed++;const fields={obraId:'',tipo:'Liberación',area:'Producción',categoria:'Medidas',fecha:C.day(),responsable:'Cristian Campo',etapa:'Entrega',resultado:'Liberado',detalle:'Revisado según plano',criterio:'Medidas aprobadas',decision:'Aprobado'};
+ let submit;Object.assign(fixture.context,{form,crypto:{randomUUID:()=> 'test4819'},Date,user:()=>({email:'cristiantizpublicidad@gmail.com',sector:'Calidad'}),render:()=>{},FormData:class{[Symbol.iterator](){return Object.entries(fields)[Symbol.iterator]();}},document:{addEventListener:(_event,handler)=>submit=handler}});
+ fixture.window.saveCalidadV1=async payload=>{calls.push(payload);if(fail)throw Error('Sin conexión');};
+ const start=source.indexOf(" document.addEventListener('submit'"),end=source.indexOf(' window.TIZCalidadV1=',start);vm.runInContext(source.slice(start,end),fixture.context);
+ await submit({target:f,preventDefault(){}});assert.equal(removed,0);assert.equal(error.textContent,'Sin conexión');assert.equal(button.disabled,false);assert.equal(fields.detalle,'Revisado según plano');assert.equal(calls[0].record.sourceOt,'4819');assert.equal(calls[0].record.sourceCliente,'Ases y Reinas');assert.equal(calls[0].record.obraId,'');
+ fail=false;await submit({target:f,preventDefault(){}});assert.equal(removed,1);
+});
+
+
+test('al vincular una ficha se conserva la decisión más reciente del registro de origen',()=>{
+ const source=fs.readFileSync(require.resolve('../calidadV1.js'),'utf8'),selected={ot:'4819',cliente:'Ases y Reinas'},work={id:'w',ot:'4819',cliente:'Ases y Reinas',calidadGestion:{registros:{old:{decision:'Aprobado',creadoEn:'2026-11-10'}}}},f=bindingFixture([work],selected);
+ f.window.DB.calidad=[{sourceOt:'4819',decision:'Rechazado',creadoEn:'2026-11-17'}];f.context.motherRows=[{row:34,...selected,desc:'Siemens Healthineers',status:'Pendiente'}];const start=source.indexOf(' function sourceWorks()'),end=source.indexOf('\n function ',start+1);vm.runInContext(source.slice(start,end)+'globalThis.items=sourceWorks();',f.context);assert.equal(f.context.items[0].id,'w');assert.equal(f.context.items[0].calidadEstado,'Rechazado');
+});

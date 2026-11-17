@@ -1537,7 +1537,7 @@ window.loadChecklistsPortalV2=async()=>{
   finally{checklistPortalBusy=false;}
 };
 window.saveCalidadV1 = async payload => {
-  if(window.currentUser?.restrictedChecklists){const result=await window.calidadChecklistApiV2({...payload,mode:'record-save'});await window.loadChecklistsPortalV2();return result;}
+  if(window.currentUser?.restrictedChecklists||window.TIZCalidadCore?.canControl(window.currentUser)){const result=await window.calidadChecklistApiV2({...payload,mode:'record-save'});await window.loadChecklistsPortalV2();return result;}
   const C=window.TIZCalidadCore,u=window.currentUser;
   if(!C?.canRecord(u))throw new Error('Tu cuenta no puede registrar Calidad.');
   const at=new Date().toISOString(),record=payload.record?C.clean(payload.record,u,at):null;
@@ -3783,7 +3783,7 @@ async function syncToSheets(data) {
 <script src="migracionBaseMadreV29_1.js?v=TIZ-V40-4-BASE-20260903"></script>
 <script src="functions/calidadChecklistCoreV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C-GIANCARLO-20261023"></script>
 <script src="calidadChecklistsV2.js?v=TIZ-CHECKLISTS-CRISTIAN-20261014C&baja-ventas=20261103"></script>
-<script src="calidadV1.js?v=TIZ-CALIDAD-COMPLETA-20261015&baja-ventas=20261103&vigencia-comercial=20261110&vinculo-ot=20261116"></script>
+<script src="calidadV1.js?v=TIZ-CALIDAD-COMPLETA-20261015&baja-ventas=20261103&vigencia-comercial=20261110&vinculo-ot=20261116&registro-origen=20261117"></script>
 <script src="comprasObrasCoreV1.js?v=TIZ-COMPRAS-OBRAS-20261015&baja-ventas=20261103&vigencia-comercial=20261110"></script>
 <script src="comprasBaseDatosV1.js?v=TIZ-CATALOGO-COMPARTIDO-20261109"></script>
 <script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015-DRIVE&base-datos=20261030&import-mes=20261030&orden-fecha=20261030&ingreso-guiado=20261103&proveedor-nombres=20261103&editar-insumo=20261103&ia-compartida=20261104&estado-lectura=20261104&vincular-catalogo=20261104&editar-catalogo=20261104&reintentos-ia=20261104&contactos-proveedor=20261104&descripcion-completa=20261109&costo-compra=20261109&guardar-compra=20261109&costos-equivalencias=20261109&catalogo-unificado=20261109&materiales-ot=20261109&sin-migracion-contrataciones=20261109&vistas-compras=20261109&control-materiales=20261109&catalogo-ot=20261109&vigencia-comercial=20261110&distribucion=20261111&por-articulo=20261111&costo-insumo=20261111"></script>

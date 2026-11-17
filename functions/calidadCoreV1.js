@@ -51,7 +51,7 @@
   if(!canRecord(user))throw Error('Tu cuenta no puede registrar Calidad.');
   if(!TYPES.includes(fields.tipo))throw Error('Seleccioná el tipo de registro.');
   if(fields.tipo!=='Anomalía'&&!canControl(user))throw Error('Los controles y liberaciones los registra Calidad, Pablo o Administración.');
-  const r={};for(const k of ['id','obraId','referencia','tipo','etapa','area','categoria','fecha','detalle','criterio','responsable','vencimiento','resultado','evidencia'])r[k]=text(fields[k]);
+  const r={};for(const k of ['id','obraId','sourceOt','sourceCliente','sourceObra','referencia','tipo','etapa','area','categoria','fecha','detalle','criterio','responsable','vencimiento','resultado','evidencia'])r[k]=text(fields[k]);
   if(!/^[\w-]{1,150}$/.test(r.id)||r.obraId&&!/^[\w-]{1,150}$/.test(r.obraId))throw Error('Identificador inválido.');
   if(!AREAS.includes(r.area)||!CATEGORIES.includes(r.categoria))throw Error('Seleccioná área y categoría.');
   r.fecha=date(r.fecha);if(r.fecha>today)throw Error('La fecha del registro no puede ser futura.');
@@ -67,7 +67,7 @@
   }else{
    if(!STAGES.includes(r.etapa)||!r.criterio)throw Error('Indicá etapa y criterio de aceptación.');
    if(r.tipo==='Liberación'){
-    if(!r.obraId)throw Error('La liberación debe estar vinculada a una OT.');
+    if(!r.obraId&&!/^\d{4,7}$/.test(r.sourceOt))throw Error('La liberación debe estar vinculada a una OT.');
     if(!['Liberado','Retenido'].includes(r.resultado))throw Error('Seleccioná Liberado o Retenido.');
    }else{
     if(!['Conforme','No conforme'].includes(r.resultado))throw Error('Seleccioná el resultado del control.');
@@ -101,7 +101,7 @@
   return {...record,estado:'Cerrado',accion:action,verificacion:verification,fechaReal:real,cerradoEn:at,cerradoPor:user.email,historial:[...(record.historial||[]),{evento:'Corrección verificada',fecha:at,usuario:user.email}]};
  }
  const baja=o=>o?.bajaObra?.activa===true||norm(o?.estado)==='baja';
- function rows(db={}){const cancelled=new Set((db.obras||[]).filter(baja).map(o=>o.id));return [...(db.obras||[]).filter(o=>!baja(o)).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).filter(r=>!cancelled.has(r.obraId)).map(r=>({...r,obraId:''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
+ function rows(db={}){const cancelled=new Set((db.obras||[]).filter(baja).map(o=>o.id));return [...(db.obras||[]).filter(o=>!baja(o)).flatMap(o=>Object.values(o.calidadGestion?.registros||{}).map(r=>({...r,obraId:o.id,ot:o.ot,cliente:o.cliente,obra:o.desc||o.descripcion||''}))),...(db.calidad||[]).filter(r=>!cancelled.has(r.obraId)).map(r=>({...r,obraId:'',ot:r.sourceOt||'',cliente:r.sourceCliente||'',obra:r.sourceObra||''}))].sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));}
  // One quality queue entry per OT; preserve every source row/description.
  function motherWorks(source=[], works=[], internalRecords=[]){
   source=commercial()?.filterSource(source,works)||source;
@@ -118,12 +118,12 @@
    // Do not guess among duplicate operational works; the queue still shows the source reference.
    const work=matches.length===1?matches[0]:null;
    const reference=(g.ot?'OT '+g.ot+' · ':'')+g.clients.join(' / ')+' · '+g.descriptions.join(' / ');
-   const rs=work?Object.values(work.calidadGestion?.registros||{}):internalRecords.filter(r=>norm(r.referencia)===norm(reference)),last=rs.filter(r=>DECISIONS.includes(r.decision)).sort((a,b)=>String(b.creadoEn||'').localeCompare(String(a.creadoEn||'')))[0];
+   const rs=[...Object.values(work?.calidadGestion?.registros||{}),...internalRecords.filter(r=>r.sourceOt===g.ot||!r.sourceOt&&norm(r.referencia)===norm(reference))],last=rs.filter(r=>DECISIONS.includes(r.decision)).sort((a,b)=>String(b.creadoEn||'').localeCompare(String(a.creadoEn||'')))[0];
    return {...g,id:work?.id||'',desc:g.descriptions.join(' / '),cliente:g.clients.join(' / '),status:g.statuses.join(' / '),calidadEstado:last?.decision||'Sin revisar',referencia:reference};
   }).sort((a,b)=>Number(b.ot||0)-Number(a.ot||0)||a.sourceRows[0]-b.sourceRows[0]);
  }
  function metrics(db={}){
-  const rs=rows(db),decided=rs.filter(r=>DECISIONS.includes(r.decision)),workIds=new Set(decided.map(r=>r.obraId).filter(Boolean));
+  const rs=rows(db),decided=rs.filter(r=>DECISIONS.includes(r.decision)),workIds=new Set(decided.map(r=>r.ot||r.sourceOt?'ot:'+(String(r.ot||r.sourceOt).match(/\d{4,7}/)?.[0]||text(r.ot||r.sourceOt)):r.obraId).filter(Boolean));
   const counts=Object.fromEntries(DECISIONS.map(d=>[d,decided.filter(r=>r.decision===d).length]));
   const byCause={};for(const r of decided){if(r.decision==='Aprobado'||!r.causa)continue;const key=r.causa+' · '+(r.subcausa||'Sin subcausa');byCause[key]=(byCause[key]||0)+1;}
   const patterns=Object.entries(byCause).map(([key,count])=>({key,count,rate:decided.length?100*count/decided.length:0})).sort((a,b)=>b.count-a.count||a.key.localeCompare(b.key,'es'));
