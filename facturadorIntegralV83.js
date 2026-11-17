@@ -88,6 +88,7 @@
     return { p, emit, saldo: Math.max(0, p - emit) };
   }
   function items(o, net) {
+    if(o._multiple)return o._multiple.distribucion.map(r=>({descripcion:'OT '+r.ot+' · '+r.descripcion,cantidad:1,unitario:r.neto}));
     const src = (Array.isArray(o.itemsCotizados) ? o.itemsCotizados : [])
       .map((x) => ({
         descripcion: String(x.descripcion || x.desc || "").trim(),
@@ -164,11 +165,13 @@
   window.abrirFacturacionIntegralV83 = function (id, options = {}) {
     if (!window.currentUser?.isAdmin)
       return window.showToast?.("Sólo administración puede facturar");
-    const o = (window.DB?.obras || []).find((x) => x.id === id);
+    const primary = (window.DB?.obras || []).find((x) => x.id === id);
+    const o=primary?{...primary,_multiple:options.multiple||null}:null;
+    const operationKey='ot'+base(o?.ot)+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     if (!o) return;
     ensureStyle();
     const c = cli(o),
-      f = fiscal(o),
+      f = o._multiple?{p:o._multiple.presupuesto,emit:o._multiple.emitido||0,saldo:o._multiple.neto}:fiscal(o),
       cuit = String(o.clienteCuit || o.cuit || c.cuit || "").replace(/\D/g, ""),
       domicilio = String(
         o.clienteDomicilioFiscal ||
@@ -188,7 +191,7 @@
     const root = document.createElement("div");
     root.id = "modal-fv83";
     root.className = "modal-overlay open";
-    root.innerHTML = `<div class="modal" style="max-width:820px"><div class="modal-title">Facturación ARCA · PV 00009 · OT ${esc(o.ot || "")}</div><div class="fv83-note"><b>Comprobante fiscal real.</b> La autorización ARCA es irreversible. TIZ consulta el domicilio fiscal del receptor en el Padrón de ARCA antes de emitir y lo incorpora al PDF.</div><div class="fv83-grid" style="margin-top:12px"><div class="form-group"><label>Cliente</label><input value="${esc(o.cliente || "")}" disabled></div><div class="form-group"><label>CUIT</label><div style="display:flex;gap:6px"><input id="fv83-cuit" value="${esc(cuit)}"><button type="button" class="btn btn-ghost btn-sm" id="fv83-padron">Consultar ARCA</button></div></div><div class="form-group fv83-full"><label>Domicilio fiscal del receptor</label><input id="fv83-domicilio" value="${esc(domicilio)}" placeholder="Se completa automáticamente desde el Padrón de ARCA"><div id="fv83-padron-status" style="font-size:10px;color:var(--text3);margin-top:4px">${domicilio ? "Domicilio guardado; se verificará con ARCA." : "Consultando domicilio fiscal…"}</div></div><div class="form-group"><label>Condición IVA receptor</label><select id="fv83-cond"><option value="1" ${cond === "1" ? "selected" : ""}>IVA Responsable Inscripto</option><option value="4" ${cond === "4" ? "selected" : ""}>IVA Exento</option><option value="5" ${cond === "5" ? "selected" : ""}>Consumidor Final</option><option value="6" ${cond === "6" ? "selected" : ""}>Monotributo</option></select></div><div class="form-group"><label>Tipo de comprobante</label><select id="fv83-type">${types.map(([v, l]) => `<option value="${v}" ${v === tipo ? "selected" : ""}>${l}</option>`).join("")}</select>${!options.notaCredito&&requestedLetter(o)?`<small style="color:var(--text2)">Solicitado en esta cotización: Factura ${esc(requestedLetter(o))}</small>`:''}</div><div class="fv83-full fv83-note"><div id="fv83-fce-status" role="status">Verificando si corresponde Factura de Crédito Electrónica…</div><button type="button" class="btn btn-ghost btn-sm" id="fv83-fce-refresh">Verificar FCE</button> <button type="button" class="btn btn-primary btn-sm" id="fv83-fce-switch" style="display:none">Usar comprobante correspondiente</button></div><div class="form-group fv83-full" id="fv83-fce-note-wrap" style="display:none"><label>Nota FCE</label><select id="fv83-fce-anulacion"><option value="N">Ajuste de importe (no es de anulación)</option><option value="S">Anulación de una FCE rechazada</option></select></div><div class="form-group"><label for="fv83-concept">Concepto de la operación</label><select id="fv83-concept"><option value="1">Productos</option><option value="2">Servicios</option><option value="3">Productos y servicios</option></select></div><div class="form-group"><label for="fv83-date">Fecha de emisión</label><input id="fv83-date" type="date" value="${window.TIZArcaFechasV1.today()}"></div><div class="fv83-full" id="fv83-date-status" style="font-size:11px;color:var(--text3)">Consultando fechas permitidas en ARCA…</div><div class="fv83-full"><button type="button" class="btn btn-ghost btn-sm" id="fv83-date-refresh">Consultar fechas</button> <button type="button" class="btn btn-ghost btn-sm" id="fv83-date-oldest" disabled>Usar fecha más antigua permitida</button></div><div class="form-group" id="fv83-service-from-wrap" style="display:none"><label for="fv83-service-from">Período de servicios desde</label><input id="fv83-service-from" type="date"></div><div class="form-group" id="fv83-service-to-wrap" style="display:none"><label for="fv83-service-to">Período de servicios hasta</label><input id="fv83-service-to" type="date"></div><div id="fv83-date-error" class="fv83-full" role="alert" style="font-size:11px;color:var(--red)"></div><div class="form-group"><label>IVA</label><select id="fv83-iva"><option value="21">21%</option><option value="10.5">10,5%</option><option value="27">27%</option><option value="5">5%</option><option value="2.5">2,5%</option><option value="0">0%</option><option value="exento">Exento</option></select></div><div class="form-group"><label for="fv83-term">Plazo de pago obligatorio</label><select id="fv83-term" required><option value="">Seleccionar plazo…</option><option value="0">Contado</option><option value="7">7 días</option><option value="15">15 días</option><option value="30">30 días</option><option value="45">45 días</option><option value="manual">Plazo manual</option></select><div id="fv83-manual-wrap" style="display:none;margin-top:6px"><label for="fv83-days">Cantidad de días</label><input id="fv83-days" type="number" min="1" max="3650" step="1" placeholder="Ingresá el plazo en días"></div></div><div class="form-group"><label>Porcentaje del presupuesto</label><input id="fv83-pct" type="number" min="0.01" max="100" step="0.01" value="${f.p ? Math.round((f.saldo / f.p) * 10000) / 100 : 100}"></div><div class="form-group"><label>Importe neto</label><input id="fv83-net" type="number" min="0.01" step="0.01" value="${f.saldo.toFixed(2)}"></div><div id="fv83-assoc-wrap" class="form-group fv83-full" style="display:none"><label>Comprobante original asociado</label><select id="fv83-assoc"></select><div style="font-size:9px;color:var(--text3);margin-top:4px">Obligatorio para notas de crédito y débito.</div></div><div class="fv83-full" style="font-size:10px;color:var(--text3)">Presupuesto: ${money(f.p)} · Emitido neto: ${money(f.emit)} · Saldo por facturar: ${money(f.saldo)}</div><div class="fv83-full"><b style="font-size:10px">Ítems que irán al PDF</b><div id="fv83-items" class="fv83-items"></div></div><div class="fv83-full" style="font-size:11px;color:var(--text2)"><b>PDF en Drive:</b> automático en <b>2026 Facturacion</b>. El domicilio fiscal quedará guardado en el cliente para próximas facturas.</div><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-send" type="checkbox">Además, después de guardar el PDF, abrir el envío por correo.</label><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-ok" type="checkbox">Revisé cliente, CUIT, domicilio fiscal, tipo, concepto, fecha, IVA, importe y comprobante asociado. Confirmo que deseo emitir.</label></div><div class="modal-actions"><button class="btn btn-ghost" id="fv83-cancel">Cancelar</button><button class="btn btn-primary" id="fv83-emit" disabled>EMITIR COMPROBANTE REAL · PV 00009</button></div></div>`;
+    root.innerHTML = `<div class="modal" style="max-width:820px"><div class="modal-title">Facturación ARCA · PV 00009 · OT ${esc(o.ot || "")}</div><div class="fv83-note"><b>Comprobante fiscal real.</b> La autorización ARCA es irreversible. TIZ consulta el domicilio fiscal del receptor en el Padrón de ARCA antes de emitir y lo incorpora al PDF.</div><div class="fv83-grid" style="margin-top:12px">${!options.notaCredito?window.TIZFacturaMultipleV1?.selectorHTML?.(o,o._multiple)||'':''}<div class="form-group"><label>Cliente</label><input value="${esc(o.cliente || "")}" disabled></div><div class="form-group"><label>CUIT</label><div style="display:flex;gap:6px"><input id="fv83-cuit" value="${esc(cuit)}"><button type="button" class="btn btn-ghost btn-sm" id="fv83-padron">Consultar ARCA</button></div></div><div class="form-group fv83-full"><label>Domicilio fiscal del receptor</label><input id="fv83-domicilio" value="${esc(domicilio)}" placeholder="Se completa automáticamente desde el Padrón de ARCA"><div id="fv83-padron-status" style="font-size:10px;color:var(--text3);margin-top:4px">${domicilio ? "Domicilio guardado; se verificará con ARCA." : "Consultando domicilio fiscal…"}</div></div><div class="form-group"><label>Condición IVA receptor</label><select id="fv83-cond"><option value="1" ${cond === "1" ? "selected" : ""}>IVA Responsable Inscripto</option><option value="4" ${cond === "4" ? "selected" : ""}>IVA Exento</option><option value="5" ${cond === "5" ? "selected" : ""}>Consumidor Final</option><option value="6" ${cond === "6" ? "selected" : ""}>Monotributo</option></select></div><div class="form-group"><label>Tipo de comprobante</label><select id="fv83-type">${types.map(([v, l]) => `<option value="${v}" ${v === tipo ? "selected" : ""}>${l}</option>`).join("")}</select>${!options.notaCredito&&requestedLetter(o)?`<small style="color:var(--text2)">Solicitado en esta cotización: Factura ${esc(requestedLetter(o))}</small>`:''}</div><div class="fv83-full fv83-note"><div id="fv83-fce-status" role="status">Verificando si corresponde Factura de Crédito Electrónica…</div><button type="button" class="btn btn-ghost btn-sm" id="fv83-fce-refresh">Verificar FCE</button> <button type="button" class="btn btn-primary btn-sm" id="fv83-fce-switch" style="display:none">Usar comprobante correspondiente</button></div><div class="form-group fv83-full" id="fv83-fce-note-wrap" style="display:none"><label>Nota FCE</label><select id="fv83-fce-anulacion"><option value="N">Ajuste de importe (no es de anulación)</option><option value="S">Anulación de una FCE rechazada</option></select></div><div class="form-group"><label for="fv83-concept">Concepto de la operación</label><select id="fv83-concept"><option value="1">Productos</option><option value="2">Servicios</option><option value="3">Productos y servicios</option></select></div><div class="form-group"><label for="fv83-date">Fecha de emisión</label><input id="fv83-date" type="date" value="${window.TIZArcaFechasV1.today()}"></div><div class="fv83-full" id="fv83-date-status" style="font-size:11px;color:var(--text3)">Consultando fechas permitidas en ARCA…</div><div class="fv83-full"><button type="button" class="btn btn-ghost btn-sm" id="fv83-date-refresh">Consultar fechas</button> <button type="button" class="btn btn-ghost btn-sm" id="fv83-date-oldest" disabled>Usar fecha más antigua permitida</button></div><div class="form-group" id="fv83-service-from-wrap" style="display:none"><label for="fv83-service-from">Período de servicios desde</label><input id="fv83-service-from" type="date"></div><div class="form-group" id="fv83-service-to-wrap" style="display:none"><label for="fv83-service-to">Período de servicios hasta</label><input id="fv83-service-to" type="date"></div><div id="fv83-date-error" class="fv83-full" role="alert" style="font-size:11px;color:var(--red)"></div><div class="form-group"><label>IVA</label><select id="fv83-iva"><option value="21">21%</option><option value="10.5">10,5%</option><option value="27">27%</option><option value="5">5%</option><option value="2.5">2,5%</option><option value="0">0%</option><option value="exento">Exento</option></select></div><div class="form-group"><label for="fv83-term">Plazo de pago obligatorio</label><select id="fv83-term" required><option value="">Seleccionar plazo…</option><option value="0">Contado</option><option value="7">7 días</option><option value="15">15 días</option><option value="30">30 días</option><option value="45">45 días</option><option value="manual">Plazo manual</option></select><div id="fv83-manual-wrap" style="display:none;margin-top:6px"><label for="fv83-days">Cantidad de días</label><input id="fv83-days" type="number" min="1" max="3650" step="1" placeholder="Ingresá el plazo en días"></div></div><div class="form-group"><label>Porcentaje del presupuesto</label><input id="fv83-pct" type="number" min="0.01" max="100" step="0.01" value="${f.p ? Math.round((f.saldo / f.p) * 10000) / 100 : 100}"></div><div class="form-group"><label>Importe neto</label><input id="fv83-net" type="number" min="0.01" step="0.01" value="${f.saldo.toFixed(2)}"></div><div id="fv83-assoc-wrap" class="form-group fv83-full" style="display:none"><label>Comprobante original asociado</label><select id="fv83-assoc"></select><div style="font-size:9px;color:var(--text3);margin-top:4px">Obligatorio para notas de crédito y débito.</div></div><div id="fv83-work-totals" class="fv83-full" style="font-size:10px;color:var(--text3)">Presupuesto: ${money(f.p)} · Emitido neto: ${money(f.emit)} · Saldo por facturar: ${money(f.saldo)}</div><div class="fv83-full"><b style="font-size:10px">Ítems que irán al PDF</b><div id="fv83-items" class="fv83-items"></div></div><div class="fv83-full" style="font-size:11px;color:var(--text2)"><b>PDF en Drive:</b> automático en <b>2026 Facturacion</b>. El domicilio fiscal quedará guardado en el cliente para próximas facturas.</div><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-send" type="checkbox">Además, después de guardar el PDF, abrir el envío por correo.</label><label class="fv83-full" style="display:flex;gap:8px;align-items:flex-start;font-size:11px"><input id="fv83-ok" type="checkbox">Revisé cliente, CUIT, domicilio fiscal, tipo, concepto, fecha, IVA, importe y comprobante asociado. Confirmo que deseo emitir.</label></div><div class="modal-actions"><button class="btn btn-ghost" id="fv83-cancel">Cancelar</button><button class="btn btn-primary" id="fv83-emit" disabled>EMITIR COMPROBANTE REAL · PV 00009</button></div></div>`;
     document.body.appendChild(root);
     const $ = (q) => root.querySelector(q),
       pct = $("#fv83-pct"),
@@ -197,6 +200,7 @@
       assocWrap = $("#fv83-assoc-wrap"),
       assoc = $("#fv83-assoc"),
       itemsBox = $("#fv83-items");
+    let multipleError='';
     async function consultarPadron() {
       const cuitActual = $("#fv83-cuit").value.replace(/\D/g, ""),
         status = $("#fv83-padron-status"),
@@ -233,6 +237,7 @@
         button.disabled = false;
       }
     }
+    if(o._multiple){$('#fv83-net').readOnly=true;$('#fv83-pct').disabled=true;for(const option of typeEl.options)if(notes.has(Number(option.value)))option.disabled=true;const title=root.querySelector('.modal-title');title.textContent='Factura única · OT '+o._multiple.ots.join(', ');}
     function drawItems() {
       const its = items(o, num(net.value));
       itemsBox.innerHTML = its
@@ -245,6 +250,7 @@
     function syncAssoc() {
       const t = Number(typeEl.value),
         need = notes.has(t);
+      if(window.TIZFacturaMultipleV1){const section=$("#fv83-multiple");if(section)section.hidden=need;}
       assocWrap.style.display = need ? "block" : "none";
       assoc.innerHTML = need ? associatedOptions(o, t) : "";
       if (need && options.notaCredito) {
@@ -258,11 +264,13 @@
     }
     pct.oninput = () => {
       net.value = ((f.p * num(pct.value)) / 100).toFixed(2);
+      if(!o._multiple&&window.TIZFacturaMultipleV1){const primaryAmount=root.querySelector('[data-fv-multiple-net="'+o.id+'"]');if(primaryAmount)primaryAmount.value=net.value;}
       drawItems();
       programarConsultaFce();
     };
     net.oninput = () => {
       pct.value = f.p ? Math.round((num(net.value) / f.p) * 10000) / 100 : 0;
+      if(!o._multiple&&window.TIZFacturaMultipleV1){const primaryAmount=root.querySelector('[data-fv-multiple-net="'+o.id+'"]');if(primaryAmount)primaryAmount.value=net.value;}
       drawItems();
       programarConsultaFce();
     };
@@ -331,7 +339,7 @@
     function paymentReady(){
       let error='';try{dateValues();}catch(e){error=e.message;}
       $('#fv83-date-error').textContent=error;
-      $('#fv83-emit').disabled=emitiendo||!$('#fv83-ok').checked||paymentDays()===null||!!error||!!fceProblem();
+      $('#fv83-emit').disabled=emitiendo||!$('#fv83-ok').checked||paymentDays()===null||!!error||!!fceProblem()||!!multipleError;
     }
     function changedDate(){
       for(const id of ['#fv83-service-from','#fv83-service-to'])if(!$(id).value||$(id).value===previousDate)$(id).value=dateInput.value;
@@ -379,12 +387,27 @@
       pct.value=f.p?Math.round(num(net.value)/f.p*10000)/100:0;
       drawItems();
     }
+    if(window.TIZFacturaMultipleV1&&!options.notaCredito){const section=$('#fv83-multiple');if(section){
+      function updateMultiple(){
+        multipleError='';try{
+          const selections=[...section.querySelectorAll('[data-fv-multiple-check]:checked')].map(input=>({obraId:input.dataset.fvMultipleCheck,neto:Number([...section.querySelectorAll('[data-fv-multiple-net]')].find(field=>field.dataset.fvMultipleNet===input.dataset.fvMultipleCheck).value)}));
+          o._multiple=selections.length>1?window.TIZFacturaMultipleCoreV1.plan(window.DB.obras,selections,{cuit:$('#fv83-cuit').value,oc:$('#fv83-multiple-oc').value},window.DB.clientes||[]):null;
+          const next=o._multiple?{p:o._multiple.presupuesto,emit:o._multiple.emitido,saldo:o._multiple.neto}:fiscal(primary);if(!o._multiple){const chosen=selections[0]?.neto;if(!Number.isFinite(chosen)||chosen<=0||chosen-next.saldo>.01)throw Error('Revisá el importe neto de la OT actual.');next.saldo=chosen;}Object.assign(f,next);net.value=f.saldo.toFixed(2);pct.value=f.p?Math.round(f.saldo/f.p*10000)/100:0;
+          net.readOnly=!!o._multiple;pct.disabled=!!o._multiple;for(const option of typeEl.options)if(notes.has(Number(option.value)))option.disabled=!!o._multiple;
+          root.querySelector('.modal-title').textContent=o._multiple?'Factura única · OT '+o._multiple.ots.join(', '):'Facturación ARCA · PV 00009 · OT '+o.ot;
+          $('#fv83-work-totals').textContent='Presupuesto: '+money(f.p)+' · Emitido neto: '+money(f.emit)+' · Neto en esta factura: '+money(f.saldo);drawItems();
+        }catch(e){multipleError=e.message;}
+        $('#fv83-multiple-error').textContent=multipleError;$('#fv83-ok').checked=false;paymentReady();programarConsultaFce();
+      }
+      section.addEventListener('change',updateMultiple);section.addEventListener('input',updateMultiple);$('#fv83-cuit').addEventListener('change',updateMultiple);
+    }}
     consultarFechas();
     consultarFce();
     if (/^\d{11}$/.test(cuit)) consultarPadron();
     $("#fv83-emit").onclick = async () => {
       const t = Number(typeEl.value),
         need = notes.has(t);
+      if(multipleError)return alert(multipleError);
       if(fceProblem())return alert(fceProblem());
       let selectedDates;try{selectedDates=dateValues();}catch(e){return alert(e.message);}
       if(paymentDays()===null)return alert("Seleccioná el plazo de pago. Si es manual, ingresá una cantidad válida de días.");
@@ -418,7 +441,8 @@
           payload = {
             obraId: o.id,
             confirmacion: "EMITIR COMPROBANTE REAL PV 00009",
-            idempotencyKey: `ot${base(o.ot)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            idempotencyKey: operationKey,
+            ...(o._multiple?{distribucion:o._multiple.distribucion,oc:o._multiple.oc}:{}),
             docNro: $("#fv83-cuit").value.replace(/\D/g, ""),
             domicilioFiscal: $("#fv83-domicilio").value.trim(),
             cbteTipo: t,
@@ -448,6 +472,8 @@
           d = await r.json().catch(() => ({}));
         if (!r.ok || !d.ok)
           throw new Error(d.error || "ARCA no autorizó el comprobante");
+        if(d.grupoFactura)for(const id of d.grupoFactura.obraIds){const target=(window.DB?.obras||[]).find(w=>w.id===id);if(!target)continue;const share=window.TIZFacturaMultipleCoreV1.portion(d,id);target.facturaArca=share;target.comprobantesArca=[...(target.comprobantesArca||[]).filter(c=>c.cae!==d.cae),share];target.facturasArca=target.comprobantesArca;}
+        if(!d.grupoFactura)Object.assign(primary,{facturaArca:d,comprobantesArca:[...(primary.comprobantesArca||[]),d],facturaDrivePendiente:!!d.drivePendiente});
         o.facturaArca = d;
         o.comprobantesArca = [...(o.comprobantesArca || []), d];
         o.facturaDrivePendiente = Boolean(d.drivePendiente);

@@ -200,6 +200,7 @@ exports.facturaEnviarEmail = onRequest({region:"us-central1", invoker:"public", 
       "facturaArca.emailUltimoEnvioPor":user.email,
       facturaDrivePendiente:false,
     });
+    if(factura.grupoFactura)await require('./facturacionMultipleBackendV1').sent(admin.firestore(),factura,destinatario,user.email);
     return res.json({ok:true,destinatario,remitente:"info@tizpublicidad.com",fileId,fileName:result.fileName||"",numero:factura.numeroCompleto});
   } catch (error) {
     console.error("Invoice email failed", error);

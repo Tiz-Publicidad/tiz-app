@@ -205,6 +205,7 @@ const facturacionEnviarEmailV84 = onRequest({ region: "us-central1", invoker: "p
         estadoGestionFactura: "Factura enviada",
       });
     }
+    if(!prueba&&factura.grupoFactura)await require('./facturacionMultipleBackendV1').sent(admin.firestore(),factura,destinatario,user.email);
     let emailsCliente = [];
     if (req.body?.guardarEnCliente && obra.clienteId) {
       const clienteRef = admin.firestore().collection("clientes").doc(String(obra.clienteId));

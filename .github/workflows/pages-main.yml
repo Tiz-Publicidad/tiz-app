@@ -136,6 +136,10 @@ jobs:
           node --test tests/arcaFceMinimoV1.test.cjs
           node --test tests/arcaFechasV1.test.cjs tests/arcaFceV1.test.cjs
           node --check facturacionCobranzasDataV2.js
+          node --check facturacionMultipleUIV1.js
+          node --check functions/facturacionMultipleCoreV1.js
+          node --check functions/facturacionMultipleBackendV1.js
+          node --test tests/facturacionMultipleV1.test.cjs
           node --check facturacionCobranzasActionsV2.js
           node --check facturacionBaseMadreReconcileV2.js
           node --test tests/retencionesCobrosV2.test.cjs
