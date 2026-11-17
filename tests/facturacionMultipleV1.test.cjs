@@ -1,0 +1,62 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const C=require('../functions/facturacionMultipleCoreV1'),B=require('../functions/facturacionMultipleBackendV1'),root=path.join(__dirname,'..');
+const cuit='30715740326',works=()=>['4824','4795','4793'].map((ot,i)=>({id:'o'+i,ot,cliente:'MINISO',clienteCuit:cuit,neto:1000,estado:'Aprobado',sectores:{produccion:{estado:'Pendiente'}}})),selections=()=>works().map((o,i)=>({obraId:o.id,neto:(i+1)*100}));
+function database(initial=works()){
+ const docs=new Map(initial.map(o=>['obras/'+o.id,structuredClone(o)])),writes=[];
+ const clone=v=>v===undefined?undefined:structuredClone(v),snap=key=>({exists:docs.has(key),data:()=>clone(docs.get(key))}),query=name=>({docs:[...docs].filter(([k])=>k.startsWith(name+'/')&&k.split('/').length===2).map(([k])=>({id:k.split('/')[1],data:()=>clone(docs.get(k))}))});
+ function apply(ref,data,merge){if(merge){const o=docs.get(ref.key)||{};for(const[k,v]of Object.entries(data)){const parts=k.split('.');let target=o;for(const p of parts.slice(0,-1))target=target[p]||={};target[parts.at(-1)]=clone(v);}docs.set(ref.key,o);}else docs.set(ref.key,clone(data));writes.push({key:ref.key,data:clone(data)});}
+ const collection=name=>({name,get:async()=>query(name),doc:id=>{const ref={key:name+'/'+id,get:async()=>snap(ref.key),set:async(d,opts)=>apply(ref,d,!!opts?.merge),update:async d=>apply(ref,d,true)};return ref;}});
+ return {docs,writes,collection,runTransaction:async fn=>{const pending=[],tx={get:async ref=>ref.name?query(ref.name):snap(ref.key),set:(ref,d,opts)=>pending.push(()=>apply(ref,d,!!opts?.merge)),update:(ref,d)=>pending.push(()=>apply(ref,d,true))};const result=await fn(tx);pending.forEach(f=>f());return result;}};
+}
+const invoice=()=>({familia:'factura',cbteTipo:1,ptoVta:9,cbteNro:101,numeroCompleto:'00009-00000101',cae:'12345678901234',neto:600,iva:126,total:726,fecha:'2026-11-17',diasPago:30,drivePendiente:true});
+function data(ww){const window={DB:{obras:ww,clientes:[],presupuestos:[]}};vm.runInNewContext(fs.readFileSync(path.join(root,'facturacionCobranzasDataV2.js'),'utf8'),{window,Intl,Date,console});return window.TIZFacturacionCobranzasDataV2.build();}
+test('MINISO agrupa tres OT, reparte importes y cuenta un único comprobante sin multiplicar totales',async()=>{
+ const d=database(),p=await B.prepare(d,{distribucion:selections(),docNro:cuit,oc:'OC-MINISO'}),comp=C.attach(invoice(),p);await B.persist(d,comp);
+ const saved=works().map(o=>d.docs.get('obras/'+o.id));assert.deepEqual(saved.map(o=>o.facturaArca.neto),[100,200,300]);assert.deepEqual(saved.map(o=>o.facturaArca.total),[121,242,363]);assert.equal(saved[0].facturaArca.grupoFactura.oc,'OC-MINISO');assert.equal(saved[0].sectores.produccion.estado,'Pendiente');
+ const result=data(saved);assert.equal(result.invoices.length,1);assert.equal(result.invoices[0].neto,600);assert.equal(result.invoices[0].total,726);assert.equal(result.workItems.reduce((s,w)=>s+w.facturadoNeto,0),600);assert.equal(result.workItems.reduce((s,w)=>s+w.porCobrar,0),726);assert.equal(result.invoices[0].ot,'4824, 4795, 4793');
+ const before=d.writes.length;await B.persist(d,comp);assert.equal(d.writes.length,before);await B.archive(d,comp,{fileId:'pdf-unico',webViewLink:'https://drive.google.com/file/d/pdf-unico/view',fileName:'Factura.pdf'});assert.ok(works().every(o=>d.docs.get('obras/'+o.id).facturaArca.driveFileId==='pdf-unico'));assert.equal(C.whole(saved[0].facturaArca).total,726);
+});
+test('IVA se reparte al centavo y conserva la suma aunque haya redondeos',()=>{
+ const selections=[{obraId:'o0',neto:.01},{obraId:'o1',neto:.01},{obraId:'o2',neto:.01}],p=C.plan(works(),selections,{cuit}),comp=C.attach({...invoice(),neto:.03,iva:.01,total:.04},p),parts=p.obraIds.map(id=>C.portion(comp,id));assert.equal(C.round(parts.reduce((s,p)=>s+p.iva,0)),.01);assert.equal(C.round(parts.reduce((s,p)=>s+p.total,0)),.04);
+});
+test('rechaza distintos receptores, OT repetidas, bajas, revisiones inactivas y exceso por OT',()=>{
+ for(const changed of [{clienteCuit:'30111111118'},{bajaObra:{activa:true}},{revisionOperativa:false},{archivado:true}]){const w=works();Object.assign(w[1],changed);assert.throws(()=>C.plan(w,selections(),{cuit}));}
+ assert.throws(()=>C.plan(works(),[selections()[0],selections()[0]],{cuit}),/repetida/);assert.throws(()=>C.plan(works(),[{obraId:'o0',neto:1001},selections()[1]],{cuit}),/saldo/);assert.throws(()=>C.plan(works(),[{obraId:'o0',neto:.001},selections()[1]],{cuit}),/decimales/);assert.throws(()=>C.attach({...invoice(),neto:599},C.plan(works(),selections(),{cuit})),/suma/);
+});
+test('un conflicto de saldo no produce escrituras parciales ni borra facturas previas',async()=>{
+ const d=database(),p=await B.prepare(d,{distribucion:selections(),docNro:cuit}),comp=C.attach(invoice(),p);d.docs.get('obras/o2').facturasArca=[{...invoice(),cbteNro:99,numeroCompleto:'00009-00000099',neto:950}];const before=JSON.stringify([...d.docs]);await assert.rejects(B.persist(d,comp),/Cambió el saldo/);assert.equal(JSON.stringify([...d.docs]),before);assert.equal(d.writes.length,0);
+});
+test('registro manual guarda todas las OT atómicamente, conserva un CAE y rechaza duplicados y totales inconsistentes',async()=>{
+ const d=database(),body={distribucion:selections(),docNro:cuit,oc:'OC-MINISO',factura:{...invoice(),numeroCompleto:'00003-00000007',driveUrl:'https://drive.google.com/file/d/manual/view'}},result=await B.manual(d,body,'info@tizpublicidad.com');assert.equal(result.comprobante.ptoVta,3);assert.equal(d.docs.get('obras/o1').facturasManual[0].total,242);assert.equal(data(works().map(o=>d.docs.get('obras/'+o.id))).invoices.length,1);assert.equal(d.docs.get('facturasAgrupadas/multiple-1-3-7').estadoRegistro,'registrada');const n=d.writes.length;await assert.rejects(B.manual(d,body,'info@tizpublicidad.com'),/registrado/);assert.equal(d.writes.length,n);
+ const bad=database();await assert.rejects(B.manual(bad,{...body,factura:{...body.factura,total:999}},'admin'),/total/);assert.equal(bad.writes.length,0);
+});
+test('acceso a Drive de General usa sólo carpetas válidas y el encabezado incluye Facturación 2026',()=>{
+ const ui=require('../facturacionCobranzasSeguimientoV1');assert.equal(ui.driveFolder({obra:{driveFolderId:'carpeta_4824'}}),'https://drive.google.com/drive/folders/carpeta_4824');assert.equal(ui.driveFolder({obra:{driveFolderUrl:'https://drive.google.com/drive/folders/carpeta?usp=sharing'}}),'https://drive.google.com/drive/folders/carpeta');for(const url of ['javascript:alert(1)','https://drive.google.com.evil.example/drive/folders/x','https://evil.example/x'])assert.equal(ui.driveFolder({obra:{driveFolderUrl:url}}),'');const html=ui.table({workItems:[{obraId:'o',ot:'4824',clienteNombre:'MINISO',obra:{driveFolderId:'carpeta_4824'},invoices:[],payments:[],seguimiento:{},porFacturar:100}]},{view:'general'});assert.match(html,/ti-brand-google-drive/);assert.match(html,/noopener noreferrer/);const source=fs.readFileSync(path.join(root,'facturacionCobranzasUIV2.js'),'utf8');assert.match(source,/1XYk0vAIsGZCAiJ4s7TGyQYJdVBYvYdGy/);assert.match(source,/Factura para varias OT/);
+});
+
+function server(){
+ const db=database(),calls=[],pdf=[],base=[],secrets={value:()=> 'info@tizpublicidad.com'},firestore=()=>db;firestore.FieldValue={serverTimestamp:()=>({_timestamp:true})};
+ const admin={apps:[{}],firestore,auth:()=>({verifyIdToken:async()=>({email:'info@tizpublicidad.com'})})},exports={},dates=require('../functions/arcaFechasV1');
+ const context={module:{exports},Intl,Date,console:{error(){}},require:name=>name==='firebase-admin'?admin:name==='googleapis'?{google:{}}:name==='node-forge'?{}:name==='firebase-functions/v2/https'?{onRequest:(_,fn)=>fn}:name==='firebase-functions/params'?{defineSecret:()=>secrets}:name==='./facturaDrive2026'?{archivarFacturaPdfEnDrive:async input=>{pdf.push(input);return {fileId:'pdf-unico',webViewLink:'https://drive.google.com/file/d/pdf-unico/view'};}}:name==='./arcaFechasV1'?{...dates,today:()=> '2026-11-17',limits:x=>dates.limits({...x,hoy:'2026-11-17'})}:require(path.join(root,'functions',name)),testCall:async(method,inner)=>{calls.push({method,inner});return '<Resultado>A</Resultado><CAE>12345678901234</CAE><CAEFchVto>20261127</CAEFchVto>';},testSync:async o=>{base.push(o);return {ok:true};}};
+ vm.runInNewContext(fs.readFileSync(path.join(root,'functions/facturacionIntegralApiV83.js'),'utf8')+'\ncredentials=async()=>({});lastAuthorized=async()=>({ultimoNumero:100,ultimaFecha:"2026-11-17"});consultarObligacionFce=async()=>({requiereFce:false});call=async(m,i)=>testCall(m,i);syncBaseMadreFactura=async o=>testSync(o);',context);
+ const body={obraId:'o0',distribucion:selections(),docNro:cuit,oc:'OC-MINISO',confirmacion:'EMITIR COMPROBANTE REAL PV 00009',idempotencyKey:'misma-operacion',cbteTipo:1,neto:600,diasPago:30,domicilioFiscal:'Domicilio verificado',fechaEmision:'2026-11-17',items:selections().map((r,i)=>({descripcion:'OT '+works()[i].ot,cantidad:1,unitario:r.neto}))};
+ async function run(extra={}){let value,status=200;await context.module.exports.facturacionIntegralEmitirV83({method:'POST',get:k=>k==='authorization'?'Bearer test':'',body:{...body,...extra}},{set(){},status(n){status=n;return this;},json(v){value=v;return this;}});return {status,body:value};}return {db,calls,pdf,base,run};
+}
+test('emisión completa solicita un único CAE por 726, archiva un PDF y sincroniza las tres OT; reintento no emite otra vez',async()=>{
+ const s=server(),result=await s.run();assert.equal(result.status,200,result.body?.error);assert.equal(s.calls.length,1);assert.equal(s.calls[0].method,'FECAESolicitar');assert.match(s.calls[0].inner,/<ImpTotal>726.00<\/ImpTotal>/);assert.equal(s.pdf.length,1);assert.equal(s.pdf[0].factura.total,726);assert.equal(s.base.length,3);assert.deepEqual(works().map(o=>s.db.docs.get('obras/'+o.id).facturaArca.total),[121,242,363]);await s.run();assert.equal(s.calls.length,1);assert.equal(s.pdf.length,1);
+});
+test('rechaza distribución incompatible antes de pedir CAE',async()=>{const s=server();const result=await s.run({neto:601});assert.equal(result.status,400);assert.match(result.body.error,/distribución/);assert.equal(s.calls.length,0);assert.equal(s.pdf.length,0);});
+
+
+test('una factura agrupada conserva comprobantes antiguos aunque sólo existieran en facturasArca',async()=>{
+ const d=database(),old={...invoice(),cbteNro:70,numeroCompleto:'00009-00000070',neto:50,iva:10.5,total:60.5};d.docs.get('obras/o0').facturasArca=[old];const plan=await B.prepare(d,{distribucion:selections(),docNro:cuit}),comp=C.attach(invoice(),plan);await B.persist(d,comp);const w=d.docs.get('obras/o0');assert.equal(w.facturasArca.length,2);assert.equal(w.facturasArca[0].numeroCompleto,old.numeroCompleto);assert.equal(w.finanzas.facturadoNeto,150);assert.equal(data(works().map(o=>d.docs.get('obras/'+o.id))).workItems.find(w=>w.ot==='4824').facturadoNeto,150);
+});
+test('el envío compartido queda registrado en todas las OT sin alterar importes ni otros comprobantes',async()=>{
+ const d=database(),plan=await B.prepare(d,{distribucion:selections(),docNro:cuit}),comp=C.attach(invoice(),plan);await B.persist(d,comp);await B.sent(d,comp,'cuentas@miniso.example','info@tizpublicidad.com');const result=data(works().map(o=>d.docs.get('obras/'+o.id)));assert.ok(result.workItems.every(w=>w.invoices[0].estadoEnvio==='enviado'));assert.deepEqual(works().map(o=>d.docs.get('obras/'+o.id).facturaArca.total),[121,242,363]);assert.equal(result.invoices.length,1);
+});
+
+
+test('el selector habitual de Facturar deja tildada la OT actual y ofrece sólo otras OT del mismo cliente',()=>{
+ const window={TIZFacturaMultipleCoreV1:C,DB:{obras:works().concat([{id:'otro',ot:'4000',cliente:'Otro',clienteCuit:'30111111118',neto:1000}]),clientes:[]}},context={window,Intl};vm.runInNewContext(fs.readFileSync(path.join(root,'facturacionMultipleUIV1.js'),'utf8'),context);const html=window.TIZFacturaMultipleV1.selectorHTML(works()[0],null);assert.match(html,/OT incluidas en esta factura/);assert.match(html,/data-fv-multiple-check="o0"[^>]*checked[^>]*disabled/);assert.match(html,/data-fv-multiple-check="o1"/);assert.match(html,/data-fv-multiple-check="o2"/);assert.doesNotMatch(html,/data-fv-multiple-check="otro"/);assert.match(html,/Orden de compra común/);
+});

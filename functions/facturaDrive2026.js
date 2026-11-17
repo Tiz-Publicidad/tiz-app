@@ -90,6 +90,8 @@ function condicionIvaReceptor(id) {
 }
 
 function pdfBuffer(factura, obra, issuerCuit) {
+  factura=require('./facturacionMultipleCoreV1').whole(factura);
+  if(factura.grupoFactura)obra={...obra,ot:factura.grupoFactura.ots.join(', '),desc:factura.grupoFactura.distribucion.map(r=>'OT '+r.ot+' · '+r.descripcion).join(' / ')};
   return new Promise(async (resolve, reject) => {
     try {
       const doc = new PDFDocument({
@@ -250,7 +252,7 @@ function pdfBuffer(factura, obra, issuerCuit) {
         275,
       );
       const ot = String(obra.ot || "").replace(/^0+/, "");
-      const ref = [ot ? `OT ${ot}` : "", obra.desc || obra.descripcion || ""]
+      const ref = [factura.oc ? `OC ${factura.oc}` : "",ot ? `OT ${ot}` : "", obra.desc || obra.descripcion || ""]
         .filter(Boolean)
         .join(" - ");
       if (ref)
@@ -484,6 +486,8 @@ async function archivarFacturaPdfEnDrive({
   issuerCuit,
   accessToken,
 }) {
+  factura=require('./facturacionMultipleCoreV1').whole(factura);
+  if(factura.grupoFactura)obra={...obra,ot:factura.grupoFactura.ots.join(', '),desc:factura.grupoFactura.distribucion.map(r=>'OT '+r.ot+' · '+r.descripcion).join(' / ')};
   const drive = driveClient(accessToken);
   const ot =
     String(obra.ot || "")

@@ -345,6 +345,7 @@ const facturacionIntegralEmitirV83 = onRequest(
       authorized = false;
     try {
       const email = await operator(req);
+      if(req.body?.mode==='register-multiple')return res.json(await require('./facturacionMultipleBackendV1').manual(db,req.body,email));
       if(req.body?.mode==='fce-check'){
         const cfg=validateType(Number(req.body.cbteTipo));
         if(cfg.familia!=='factura')return res.json({ok:true,nota:true,requiereFce:false});
@@ -377,13 +378,16 @@ const facturacionIntegralEmitirV83 = onRequest(
         });
       op = db.collection("arcaEmisiones").doc(`v83-${obraId}-${idKey}`);
       const old = await op.get();
-      if(old.exists&&old.data()?.status==='autorizada')return res.json({ok:true,...old.data().comprobante,repetida:true});
+      if(old.exists&&old.data()?.status==='autorizada'){const saved=old.data().comprobante;if(saved?.grupoFactura)await require('./facturacionMultipleBackendV1').persist(db,saved);return res.json({ok:true,...saved,repetida:true});}
       const concepto=fechas.concept(req.body?.concepto??1),fecha=fechas.validate(req.body?.fechaEmision||fechas.today(),fechas.limits({concepto,fce:!!cfg.fce}));
       const periodo=fechas.serviceDates({concepto,fecha,desde:req.body?.fechaServicioDesde,hasta:req.body?.fechaServicioHasta,diasPago:diasPagoElegidos});
       const ref = db.collection("obras").doc(obraId),
         snap = await ref.get();
       if (!snap.exists)
         throw Object.assign(new Error("No se encontró la OT"), { status: 404 });
+      const multiple=Array.isArray(req.body?.distribucion)&&req.body.distribucion.length>1?await require('./facturacionMultipleBackendV1').prepare(db,req.body):null;
+      if(multiple&&(!multiple.obraIds.includes(obraId)||cfg.familia!=='factura'))throw Object.assign(Error('La agrupación sólo admite facturas y debe incluir la OT principal.'),{status:400});
+      if(multiple&&Math.abs(multiple.neto-Number(req.body.neto))>.001)throw Object.assign(Error('El importe no coincide con la distribución por OT.'),{status:400});
       const obra = snap.data() || {},
         cuit = String(
           req.body?.docNro || obra.clienteCuit || obra.cuit || "",
@@ -411,7 +415,7 @@ const facturacionIntegralEmitirV83 = onRequest(
           new Error("Falta el domicilio fiscal del receptor"),
           { status: 400 },
         );
-      const items = (Array.isArray(req.body?.items) ? req.body.items : [])
+      const items = (multiple ? multiple.distribucion.map(r=>({descripcion:'OT '+r.ot+' · '+r.descripcion,cantidad:1,unitario:r.neto})) : (Array.isArray(req.body?.items) ? req.body.items : []))
         .slice(0, 60)
         .map((x) => ({
           descripcion: String(x.descripcion || x.desc || "").trim(),
@@ -431,7 +435,7 @@ const facturacionIntegralEmitirV83 = onRequest(
             obra.importe ||
             obra.infoPresupuesto?.importe,
         ),
-        fiscal = saldoFiscal(pres, fiscalPrev),
+        fiscal = multiple?{saldo:multiple.neto}:saldoFiscal(pres, fiscalPrev),
         asoc = validateAssociated(tipo, req.body?.asociado || null);
       if (cfg.familia === "factura" && neto - fiscal.saldo > 0.01)
         throw Object.assign(
@@ -522,6 +526,7 @@ const facturacionIntegralEmitirV83 = onRequest(
       authorized = true;
       const numero = `${String(PTO).padStart(5, "0")}-${String(next).padStart(8, "0")}`,
         comp = {
+          ...(multiple?{oc:multiple.oc,grupoFactura:{...multiple,iva,total}}:{}),
           ambiente: "produccion",
           tipo: cfg.nombre,
           familia: cfg.familia,
@@ -572,7 +577,7 @@ const facturacionIntegralEmitirV83 = onRequest(
         },
         { merge: true },
       );
-      await ref.update({
+      if(multiple)await require('./facturacionMultipleBackendV1').persist(db,comp);else await ref.update({
         facturaArca: comp,
         comprobantesArca: all,
         facturasArca: all,
@@ -603,7 +608,7 @@ const facturacionIntegralEmitirV83 = onRequest(
           issuerCuit: issuer.value(),
           accessToken: String(req.body?.driveAccessToken || "").trim(),
         });
-        await ref.update({
+        if(multiple)await require('./facturacionMultipleBackendV1').archive(db,comp,drive);else await ref.update({
           "facturaArca.driveFileId": drive.fileId,
           "facturaArca.driveFileName": drive.fileName,
           "facturaArca.driveWebViewLink": drive.webViewLink,
@@ -619,7 +624,7 @@ const facturacionIntegralEmitirV83 = onRequest(
         const archived = all.map(x => x.cae === comp.cae && Number(x.cbteTipo) === tipo && Number(x.cbteNro) === next
           ? { ...x, driveFileId: drive.fileId, driveFileName: drive.fileName, driveWebViewLink: drive.webViewLink, drivePendiente: false }
           : x);
-        await ref.update({ comprobantesArca: archived, facturasArca: archived });
+        if(!multiple)await ref.update({ comprobantesArca: archived, facturasArca: archived });
         await op.set({ comprobante: comp }, { merge: true });
       } catch (e) {
         driveError = e.message || String(e);
@@ -641,7 +646,7 @@ const facturacionIntegralEmitirV83 = onRequest(
       let baseMadre = null,
         baseMadreError = "";
       try {
-        baseMadre = await syncBaseMadreFactura(obra, [...fiscalPrev, comp], db, obraId, email);
+        if(multiple){baseMadre=[];for(const part of multiple.distribucion){const snap=await db.collection('obras').doc(part.obraId).get();baseMadre.push(await syncBaseMadreFactura(snap.data(),fiscalList(snap.data()),db,part.obraId,email));}}else baseMadre = await syncBaseMadreFactura(obra, [...fiscalPrev, comp], db, obraId, email);
       } catch (e) {
         baseMadreError = e.message || String(e);
         console.error("Base Madre factura pendiente", {
@@ -661,7 +666,7 @@ const facturacionIntegralEmitirV83 = onRequest(
         drivePendiente: !drive,
         baseMadre,
         baseMadreError,
-        saldoNeto: nextFiscal.saldo,
+        saldoNeto: multiple?round2(multiple.saldoTotal-multiple.neto):nextFiscal.saldo,
       });
     } catch (e) {
       if (lock)

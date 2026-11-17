@@ -121,6 +121,7 @@ const facturacionReintentarDriveV83 = onRequest(
       if (Array.isArray(obra.comprobantesArca)) updates.comprobantesArca = obra.comprobantesArca.map(archived);
       if (Array.isArray(obra.facturasArca)) updates.facturasArca = obra.facturasArca.map(archived);
       if (Object.keys(updates).length) await ref.update(updates);
+      if(factura.grupoFactura)await require('./facturacionMultipleBackendV1').archive(db,factura,drive);
       return res.json({ ok: true, ...drive });
     } catch (e) {
       const actor = await driveActorEmail();
