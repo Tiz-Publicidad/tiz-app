@@ -54,3 +54,29 @@ test('vincular el mismo insumo con la misma unidad une columnas sin perder consu
 test('el total sugerido coincide con el precio unitario redondeado que se aplica a la venta',()=>{
  const sale={desc:'Tres piezas',cant:3},rows=[material()],m=M.create(rows,[sale]);m.set(sale,0,'0.09');m.setIndex(sale,'2.7');const price=m.cost(sale,catalog,C);assert.equal(price.suggested,Math.round(price.unitPrice*3*100)/100);
 });
+
+
+test('consumos por unidad de 10, 23 y 20 piezas suman 17,65 m² y conservan el costo y la venta unitarios',()=>{
+ const sales=[{desc:'90x60',cant:10,precio:45760},{desc:'60x60',cant:23,precio:25420},{desc:'20x10',cant:20,precio:2500}],rows=[{...material(),precioPrevisto:'10000'}],m=M.create(rows,sales,[],{defaultBasis:'unidad'});[.65,.45,.04].forEach((q,i)=>{m.set(sales[i],0,q);m.setIndex(sales[i],'2,7');});m.totals(sales);assert.equal(rows[0].cantidad,'17.65');assert.deepEqual(sales.map(s=>m.cost(s,[],C).unitCost),[6500,4500,400]);assert.deepEqual(sales.map(s=>m.cost(s,[],C).total),[65000,103500,8000]);assert.deepEqual(sales.map(s=>m.cost(s,[],C).unitPrice),[17550,12150,1080]);assert.deepEqual(sales.map(s=>s.precio),[45760,25420,2500]);
+ m.totals(sales);assert.equal(rows[0].cantidad,'17.65');sales[0].cant=20;m.totals(sales);assert.equal(rows[0].cantidad,'24.15');assert.equal(m.cost(sales[0],[],C).unitCost,6500);
+});
+
+test('guardar y reabrir modo unitario no vuelve a multiplicar los totales ya guardados',()=>{
+ const item={desc:'Diez piezas',cant:10,precio:45760},rows=[{...material(),precioPrevisto:'10000'}],m=M.create(rows,[item],[],{defaultBasis:'unidad'});m.set(item,0,'.65');m.setIndex(item,'2.7');const saved=m.exportItems([item]),flat=C.draft(rows),reopened=[{...item}],restored=M.create(flat,reopened,saved,{defaultBasis:'unidad'});assert.equal(saved[0].insumosMatrizV1.version,2);assert.equal(restored.basis(),'unidad');assert.equal(restored.get(reopened[0],0),'.65');restored.totals(reopened);assert.equal(flat[0].cantidad,'6.5');assert.equal(restored.cost(reopened[0],[],C).unitCost,6500);assert.equal(restored.index(reopened[0]),'2.7');restored.exportItems(reopened);assert.equal(flat[0].cantidad,'6.5');
+});
+
+test('matrices anteriores conservan totales; cambiar explícitamente a unidad interpreta las necesidades como unitarias',()=>{
+ const item={desc:'A',cant:10},rows=[{...material(),precioPrevisto:'10000'}],old=M.create(rows,[item]);old.set(item,0,'.65');const saved=old.exportItems([item]);for(const it of saved){it.insumosMatrizV1.version=1;delete it.insumosMatrizV1.baseNecesidad;}const flat=C.draft(rows),m=M.create(flat,[item],saved,{defaultBasis:'unidad'});assert.equal(m.basis(),'total');m.totals([item]);assert.equal(flat[0].cantidad,'0.65');assert.equal(m.cost(item,[],C).unitCost,650);m.setBasis('unidad');m.totals([item]);assert.equal(flat[0].cantidad,'6.5');assert.equal(m.cost(item,[],C).unitCost,6500);
+});
+
+test('los consumos comunes siguen siendo totales y quitar un renglón conserva todo su consumo',()=>{
+ const item={desc:'A',cant:10},rows=[{...material(),precioPrevisto:'100'}],m=M.create(rows,[item],[],{defaultBasis:'unidad'});m.set(item,0,'.65');m.set(null,0,'2');m.setIndex(item,'2');m.totals([item]);assert.equal(rows[0].cantidad,'8.5');assert.equal(m.cost(item,[],C).unitPrice,null);m.totals([]);assert.equal(rows[0].cantidad,'8.5');assert.equal(m.get(null,0),'8.5');
+});
+
+test('la aprobación y el Excel de OT reciben el total de insumos con equivalencia aplicada una sola vez',()=>{
+ const OT=require('../functions/materialesProduccionCoreV1'),sale={desc:'Diez placas impresas',cant:10,precio:45760},rows=[material()],cat=[{...catalog[0],codigo:'000107',stockDisponible:100}],m=M.create(rows,[sale],[],{defaultBasis:'unidad'});m.set(sale,0,'.65');m.totals([sale]);rows[0].revisado=true;const snapshot=C.snapshot(C.draft(rows),cat,{importe:457600,moneda:'ARS'},{email:'info@tizpublicidad.com'},'2026-11-17T15:00:00Z');assert.equal(snapshot.items[0].cantidad,'6.5');assert.ok(Math.abs(snapshot.items[0].cantidadStock-6.5/2.9768)<1e-12);const exported=OT.salesRows({insumosVentasAprobados:snapshot});assert.equal(exported[0][2],6.5);assert.equal(exported[0][3],'M²');assert.ok(Math.abs(exported[0][4]-6.5/2.9768*137280)<1e-8);assert.ok(Math.abs(m.cost(sale,cat,C).unitCost-exported[0][4]/10)<1e-8);
+});
+
+test('modo unitario con cantidad cotizada inválida no inventa totales ni costos',()=>{
+ for(const qty of [0,-1,'no',Infinity]){const sale={cant:qty},rows=[{...material(),precioPrevisto:'100'}],m=M.create(rows,[sale],[],{defaultBasis:'unidad'});m.set(sale,0,'1');m.totals([sale]);assert.equal(rows[0].cantidad,'');assert.equal(m.cost(sale,[],C).unitCost,null);}
+});
