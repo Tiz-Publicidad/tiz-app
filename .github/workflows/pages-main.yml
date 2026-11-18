@@ -91,7 +91,7 @@ jobs:
           node --check functions/materialesProduccionApiV1.js
           node --check functions/materialesProduccionBackfillV1.js
           node --check materialesProduccionV1.js
-          node --test tests/materialesProduccionV1.test.cjs
+          node --test tests/materialesProduccionV1.test.cjs tests/otLogisticaV1.test.cjs tests/facturacionOtV1.test.cjs
           node --test tests/comprasDistribucionV1.test.cjs
           node --test tests/comprasControlV1.test.cjs tests/comprasVistasV1.test.cjs
           node --test tests/comprasIngresoV1.test.cjs tests/comprasProveedorContactosV1.test.cjs

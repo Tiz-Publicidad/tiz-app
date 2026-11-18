@@ -74,9 +74,15 @@ test('los consumos comunes siguen siendo totales y quitar un renglón conserva t
 });
 
 test('la aprobación y el Excel de OT reciben el total de insumos con equivalencia aplicada una sola vez',()=>{
- const OT=require('../functions/materialesProduccionCoreV1'),sale={desc:'Diez placas impresas',cant:10,precio:45760},rows=[material()],cat=[{...catalog[0],codigo:'000107',stockDisponible:100}],m=M.create(rows,[sale],[],{defaultBasis:'unidad'});m.set(sale,0,'.65');m.totals([sale]);rows[0].revisado=true;const snapshot=C.snapshot(C.draft(rows),cat,{importe:457600,moneda:'ARS'},{email:'info@tizpublicidad.com'},'2026-11-17T15:00:00Z');assert.equal(snapshot.items[0].cantidad,'6.5');assert.ok(Math.abs(snapshot.items[0].cantidadStock-6.5/2.9768)<1e-12);const exported=OT.salesRows({insumosVentasAprobados:snapshot});assert.equal(exported[0][2],6.5);assert.equal(exported[0][3],'M²');assert.ok(Math.abs(exported[0][4]-6.5/2.9768*137280)<1e-8);assert.ok(Math.abs(m.cost(sale,cat,C).unitCost-exported[0][4]/10)<1e-8);
+ const OT=require('../functions/materialesProduccionCoreV1'),sale={desc:'Diez placas impresas',cant:10,precio:45760},rows=[material()],cat=[{...catalog[0],codigo:'000107',stockDisponible:100}],m=M.create(rows,[sale],[],{defaultBasis:'unidad'});m.set(sale,0,'.65');m.totals([sale]);rows[0].revisado=true;const snapshot=C.snapshot(C.draft(rows),cat,{importe:457600,moneda:'ARS'},{email:'info@tizpublicidad.com'},'2026-11-17T15:00:00Z');assert.equal(snapshot.items[0].cantidad,'6.5');assert.ok(Math.abs(snapshot.items[0].cantidadStock-6.5/2.9768)<1e-12);const exported=OT.salesRows({insumosVentasAprobados:snapshot});assert.equal(exported[0][2],6.5);assert.equal(exported[0][3],'M²');assert.ok(Math.abs(exported[0][5]-6.5/2.9768*137280)<1e-8);assert.ok(Math.abs(m.cost(sale,cat,C).unitCost-exported[0][5]/10)<1e-8);
 });
 
 test('modo unitario con cantidad cotizada inválida no inventa totales ni costos',()=>{
  for(const qty of [0,-1,'no',Infinity]){const sale={cant:qty},rows=[{...material(),precioPrevisto:'100'}],m=M.create(rows,[sale],[],{defaultBasis:'unidad'});m.set(sale,0,'1');m.totals([sale]);assert.equal(rows[0].cantidad,'');assert.equal(m.cost(sale,[],C).unitCost,null);}
+});
+
+test('margen previsto usa la venta como base y el total se calcula con importes ponderados',()=>{
+ const a=M.profit(1000,700),b=M.profit(100,90);assert.equal(a.difference,300);assert.equal(a.margin,30);assert.equal(b.margin,10);
+ const total=M.profit(a.sale*2+b.sale*10,a.cost*2+b.cost*10);assert.equal(total.difference,700);assert.ok(Math.abs(total.margin-23.333333333333332)<1e-9);assert.notEqual(total.margin,(a.margin+b.margin)/2);
+ assert.equal(M.profit(100,150).margin,-50);assert.equal(M.profit(0,20).margin,null);assert.equal(M.profit(100,0).margin,100);assert.equal(M.profit(100,null),null);assert.equal(M.profit(NaN,20),null);
 });
