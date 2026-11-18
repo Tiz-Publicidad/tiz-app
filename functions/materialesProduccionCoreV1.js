@@ -26,7 +26,7 @@ const hash=rows=>createHash('sha256').update(JSON.stringify(rows.map(r=>[...r,r.
 const range=(sheetId,a,b,c=0,d=26)=>({sheetId,startRowIndex:a,endRowIndex:b,startColumnIndex:c,endColumnIndex:d});
 const cell=v=>({userEnteredValue:typeof v==='number'?{numberValue:v}:{stringValue:String(v??'')}});
 function values(sheetId,start,rows){const sales=start>=4&&rows[0].length===6;return {updateCells:{range:range(sheetId,start,start+rows.length,0,rows[0].length),rows:rows.map(r=>({values:r.map((v,i)=>({...cell(v),...(sales?{note:i>=4?r.costoNota||'':'',userEnteredFormat:{numberFormat:i>=4?{type:'NUMBER',pattern:'#,##0.00'}:{type:typeof v==='number'?'NUMBER':'TEXT',pattern:typeof v==='number'?'0.######':'@'}}}:{})}))})),fields:sales?'userEnteredValue,note,userEnteredFormat.numberFormat':'userEnteredValue'}};}
-function formulas(row){
+function formulas(row,locale='en_US'){
  const key=(code,desc,unit)=>`IF(AND(${code}${row}="",${desc}${row}=""),"",IF(${code}${row}<>"","c:"&IFERROR(VALUE(${code}${row}),LOWER(TRIM(${code}${row}))),"n:"&LOWER(TRIM(${desc}${row})))&"|"&UPPER(TRIM(${unit}${row})))`;
  return [
   `=IF(Y${row}="","",IF(COUNTIFS($W${FIRST}:$W${LAST},Y${row},$C${FIRST}:$C${LAST},"<>")=0,"",SUMIF($W$${FIRST}:$W$${LAST},Y${row},$C$${FIRST}:$C$${LAST})))`,
@@ -35,14 +35,14 @@ function formulas(row){
   `=IF(OR(Y${row}="",S${row}=""),"",T${row}-S${row})`,
   `=IF(Y${row}="","",IF(OR(M${row}="",N${row}="",O${row}="",P${row}=""),"Completar cantidad, unidad, CD/EX y fecha",IF(O${row}="EX","EX declarado",IF(S${row}="","Sin previsión Producción",IF(U${row}>0,"Entrega mayor a prevista","Dentro de previsión")))))`,
   '='+key('A','B','D'),'='+key('F','G','I'),'='+key('K','L','N')
- ].map(f=>f.replace(/(\$?)([A-Z]+)(?=\$?\d)/g,(m,d,col)=>d+(col.charCodeAt(0)>=70?String.fromCharCode(col.charCodeAt(0)+1):col)));
+ ].map(f=>f.replace(/(\$?)([A-Z]+)(?=\$?\d)/g,(m,d,col)=>d+(col.charCodeAt(0)>=70?String.fromCharCode(col.charCodeAt(0)+1):col))).map(f=>/^(?:es|pt|fr|de|it)(?:_|$)/i.test(locale)?f.replace(/"(?:""|[^"])*"|,/g,m=>m===','?';':m):f);
 }
 function protections(sheetId,existing=[]){
  const managed=existing.filter(p=>text(p.description).startsWith(KEY+':'));
  const specs=[{name:'estructura',range:{sheetId},unprotectedRanges:[range(sheetId,FIRST-1,LAST,0,18)],users:[]},{name:'ventas',range:range(sheetId,FIRST-1,LAST,0,6),users:SALES_GOOGLE},{name:'produccion',range:range(sheetId,FIRST-1,LAST,6,11),users:PRODUCTION},{name:'panol',range:range(sheetId,FIRST-1,LAST,11,18),users:STORE}];
  return specs.map(s=>{const old=managed.find(p=>p.description===KEY+':'+s.name),protectedRange={description:KEY+':'+s.name,range:s.range,warningOnly:false,editors:{users:[...s.users,...AUTOMATION],domainUsersCanEdit:false},...(s.unprotectedRanges?{unprotectedRanges:s.unprotectedRanges}:{})};return old?{updateProtectedRange:{protectedRange:{...protectedRange,protectedRangeId:old.protectedRangeId},fields:'description,range,warningOnly,editors,unprotectedRanges'}}:{addProtectedRange:{protectedRange}};});
 }
-function initialize(sheetId,work,rows,metadata){
+function initialize(sheetId,work,rows,metadata,locale='en_US'){
  const title='MATERIALES OT · Ventas / Producción / Pañol',info=`OT ${text(work.ot)} · ${text(work.cliente)} · Ventas: presupuesto original. Producción desglosa “varios”. Pañol registra entregas reales. Comparación por código o descripción + unidad; no convierte unidades automáticamente.`;
  const req=[values(sheetId,0,[[title,...Array(25).fill('')],[info,...Array(25).fill('')],['VENTAS · Giancarlo',...Array(5).fill(''),'PRODUCCIÓN · Pablo / Juli / Fede',...Array(4).fill(''),'PAÑOL · Cristian (Calidad)',...Array(6).fill(''),'COMPARACIÓN AUTOMÁTICA',...Array(7).fill('')],HEADERS]),{createDeveloperMetadata:{developerMetadata:{metadataKey:KEY,metadataValue:JSON.stringify(metadata),visibility:'DOCUMENT',location:{sheetId}}}}];
  for(const [start,end,row] of [[0,26,0],[0,26,1],[0,6,2],[6,11,2],[11,18,2],[18,23,2]])req.push({mergeCells:{range:range(sheetId,row,row+1,start,end),mergeType:'MERGE_ALL'}});
@@ -51,12 +51,13 @@ function initialize(sheetId,work,rows,metadata){
  for(const c of [0,6,11])req.push({repeatCell:{range:range(sheetId,4,LAST,c,c+1),cell:{userEnteredFormat:{numberFormat:{type:'TEXT'}}},fields:'userEnteredFormat.numberFormat'}});
  for(const c of [2,8,13])req.push({setDataValidation:{range:range(sheetId,4,LAST,c,c+1),rule:{condition:{type:'NUMBER_GREATER_THAN_EQ',values:[{userEnteredValue:'0'}]},strict:true,showCustomUi:true,inputMessage:'Cantidad en la unidad indicada; no cargues importes aquí.'}}});
  req.push({setDataValidation:{range:range(sheetId,4,LAST,15,16),rule:{condition:{type:'ONE_OF_LIST',values:[{userEnteredValue:'CD'},{userEnteredValue:'EX'}]},strict:true,showCustomUi:true,inputMessage:'CD = costo directo; EX = extracosto. Desglosar “varios” no es automáticamente un extracosto.'}}},{setDataValidation:{range:range(sheetId,4,LAST,16,17),rule:{condition:{type:'DATE_IS_VALID'},strict:true,showCustomUi:true}}},{repeatCell:{range:range(sheetId,4,LAST,16,17),cell:{userEnteredFormat:{numberFormat:{type:'DATE',pattern:'dd/mm/yyyy'}}},fields:'userEnteredFormat.numberFormat'}});
- const form=Array.from({length:LAST-FIRST+1},(_,i)=>({values:formulas(FIRST+i).map(formulaValue=>({userEnteredValue:{formulaValue}}))}));req.push({updateCells:{range:range(sheetId,4,LAST,18,26),rows:form,fields:'userEnteredValue'}});
+ req.push(comparison(sheetId,locale));
  if(rows.length){req.push(values(sheetId,4,rows));req.push({updateCells:{range:range(sheetId,4,4+rows.length,6,11),rows:rows.map(r=>({values:[r[0],r[1],r[2],r[3],''].map(cell)})),fields:'userEnteredValue'}});}
  if(rows.length)req.push({autoResizeDimensions:{dimensions:{sheetId,dimension:'ROWS',startIndex:4,endIndex:4+rows.length}}});
  req.push(...protections(sheetId));return req;
 }
+function comparison(sheetId,locale='en_US'){return {updateCells:{range:range(sheetId,4,LAST,18,26),rows:Array.from({length:LAST-FIRST+1},(_,i)=>({values:formulas(FIRST+i,locale).map(formulaValue=>({userEnteredValue:{formulaValue}}))})),fields:'userEnteredValue'}};}
 const UNIT_KEY='tiz_materiales_ot_unitario_v2';
 function migrate(sheetId){return [{createDeveloperMetadata:{developerMetadata:{metadataId:1711182026,metadataKey:UNIT_KEY,metadataValue:'2',visibility:'DOCUMENT',location:{sheetId}}}},{insertDimension:{range:{sheetId,dimension:'COLUMNS',startIndex:4,endIndex:5},inheritFromBefore:false}},{updateCells:{range:range(sheetId,3,4,0,26),rows:[{values:HEADERS.map(cell)}],fields:'userEnteredValue'}},{repeatCell:{range:range(sheetId,4,LAST,4,6),cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0.00'}}},fields:'userEnteredFormat.numberFormat'}},{updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:4,endIndex:6},properties:{pixelSize:150},fields:'pixelSize'}}];}
 function updateSales(sheetId,rows,metadata){const padded=Array.from({length:LAST-FIRST+1},(_,i)=>rows[i]||Array(6).fill(''));return [values(sheetId,4,padded),{updateDeveloperMetadata:{dataFilters:[{developerMetadataLookup:{metadataKey:KEY,metadataLocation:{sheetId},locationMatchingStrategy:'EXACT_LOCATION'}}],developerMetadata:{metadataValue:JSON.stringify(metadata)},fields:'metadataValue'}}];}
-module.exports={TITLE,KEY,FIRST,LAST,SALES,SALES_GOOGLE,AUTOMATION,PRODUCTION,STORE,READERS,HEADERS,UNIT_KEY,text,norm,fail,sector,salesRows,hash,range,formulas,initialize,protections,updateSales,migrate};
+module.exports={TITLE,KEY,FIRST,LAST,SALES,SALES_GOOGLE,AUTOMATION,PRODUCTION,STORE,READERS,HEADERS,UNIT_KEY,text,norm,fail,sector,salesRows,hash,range,formulas,initialize,protections,updateSales,migrate,comparison};

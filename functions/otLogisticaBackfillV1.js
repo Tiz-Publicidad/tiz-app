@@ -1,4 +1,5 @@
 'use strict';
+// Incluye las fórmulas automáticas con los separadores de la configuración regional.
 // Reparación solicitada para la OT mostrada por el usuario. Sin tocar otras obras.
 async function run(db){
  const A=require('./materialesProduccionApiV1'),C=require('./materialesProduccionCoreV1');
