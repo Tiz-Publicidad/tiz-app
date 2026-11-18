@@ -72,3 +72,41 @@ test('no reasigna causas al cambiar la base de comparación y reconoce las archi
 
 
 
+
+test('planificación incluye vencidas abiertas y distingue el atraso confirmado',()=>{
+ const works=[...Array.from({length:11},(_,i)=>group('ok'+i,'2026-11-10','2026-11-10')),...Array.from({length:10},(_,i)=>group('late'+i,'2026-11-10','2026-11-12')),group('open1','2026-11-10'),group('open2','2026-11-10')];
+ const r=R.indicatorReport(works,{},today),s=r.porEtapa.produccion;
+ assert.equal(r.base,'planificacion');assert.equal(s.evaluadas,23);assert.equal(s.atrasadas,10);assert.equal(s.vencidas,2);assert.equal(s.conAtraso,12);assert.equal(s.atraso,52.2);assert.equal(s.demoraMedia,2);
+ assert.equal(r.meses[0].produccion.evaluadas,23);assert.equal(R.visibleRows(r.rows,'vencida').length,2);assert.match(R.distribution(r),/Vencidas sin fecha real/);assert.equal(R.csv(r.rows).split('\r\n').length,24);
+ assert.equal(R.indicatorReport(works,{base:'terminadas'},today).total.evaluadas,21);
+});
+test('etapas sin fechas, futuras, en plazo y cerradas sin real quedan fuera del porcentaje',()=>{
+ const works=[group('ok','2026-11-10','2026-11-10'),group('late','2026-11-10'),group('no',''),group('future','2026-11-20'),group('due',today),group('invalid','2026-11-10','2026-11-20'),group('closed','2026-11-10','',{estado:'Entregado'})];
+ const r=R.planningReport(works,{etapa:'produccion'},today);
+ assert.equal(r.total.evaluadas,2);assert.equal(r.total.atraso,50);assert.deepEqual(r.excluidas,{sinPrevista:1,enPlazo:2,sinRealCerradas:1,realFutura:1});
+ assert.equal(R.planningReport([],{},today).total.atraso,null);
+});
+test('al cargar fechas y cambiar el día se recalculan denominador, situación y etapa',()=>{
+ const g=group('a',today,'',{colocacionPrevista:'2026-11-10'});
+ assert.equal(R.planningReport([g],{},today).porEtapa.produccion.evaluadas,0);
+ assert.equal(R.planningReport([g],{},'2026-11-17').porEtapa.produccion.vencidas,1);
+ g.seguimiento.produccionReal=today;
+ let r=R.planningReport([g],{},'2026-11-17');assert.equal(r.porEtapa.produccion.cumplimiento,100);assert.equal(r.porEtapa.colocacion.atraso,100);
+ g.seguimiento.produccionReal='2026-11-17';r=R.planningReport([g],{},'2026-11-17');assert.equal(r.porEtapa.produccion.atrasadas,1);assert.equal(r.porEtapa.produccion.vencidas,0);
+ const no=group('b','');assert.equal(R.planningReport([no],{etapa:'produccion'},today).total.evaluadas,0);no.produccionPrevista='2026-11-10';assert.equal(R.planningReport([no],{etapa:'produccion'},today).total.evaluadas,1);
+});
+test('planificación respeta reprogramación, período, bajas y agrupación por OT',()=>{
+ const g=group('1','2026-11-20','',{seguimiento:{produccionPrevistaOriginal:'2026-11-10'}});
+ assert.equal(R.planningReport([g],{},today).total.vencidas,1);assert.equal(R.planningReport([g],{referencia:'vigente'},today).total.evaluadas,0);
+ assert.equal(R.planningReport([g],{desde:'2026-11-11'},today).total.evaluadas,0);
+ const works=[{id:'a',ot:'4800',cliente:'Cliente',estado:'Pendiente',fprod_c:'2026-11-10'},{id:'b',ot:'4800',cliente:'Cliente',estado:'Pendiente'},{id:'c',ot:'4801',cliente:'Cliente',estado:'Baja',fprod_c:'2026-11-10'}];
+ assert.equal(R.planningReport(C.grouped(works),{},today).total.vencidas,1);
+});
+test('tres sectores redondeados suman 100 sin negativos ni sectores inventados',()=>{
+ for(let enFecha=0;enFecha<=20;enFecha++)for(let atrasadas=0;atrasadas<=20;atrasadas++)for(let vencidas=0;vencidas<=3;vencidas++){
+  const total=enFecha+atrasadas+vencidas,p=R.planningPieData({enFecha,atrasadas,vencidas,evaluadas:total});
+  if(!total){assert.equal(p.enFechaPct,null);continue;}
+  assert.ok(Math.abs(p.enFechaPct+p.atrasadasPct+p.vencidasPct-100)<1e-9);assert.ok(p.enFechaPct>=0&&p.atrasadasPct>=0&&p.vencidasPct>=0);
+  if(!vencidas)assert.equal(p.vencidasPct,0);
+ }
+});
