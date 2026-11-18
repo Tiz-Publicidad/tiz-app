@@ -79,7 +79,7 @@ async function operator(req) {
   if (!header.startsWith("Bearer ")) throw Object.assign(new Error("Falta iniciar sesión"), {status:401});
   const decoded = await admin.auth().verifyIdToken(header.slice(7));
   const email = text(decoded.email).toLowerCase();
-  if (!email.endsWith("@tizpublicidad.com")) throw Object.assign(new Error("Usuario sin permiso"), {status:403});
+  if (!email.endsWith("@tizpublicidad.com") && email !== "reta.paulo@gmail.com") throw Object.assign(new Error("Usuario sin permiso"), {status:403});
   return email;
 }
 async function findBudget(db, requestedOt) {
@@ -222,7 +222,7 @@ exports.sincronizarBaseMadreV120 = onRequest({region:"us-central1", invoker:"pub
       return res.json({ok:true, rows, leidoEn:new Date().toISOString()});
     }
     if (["read-billing", "read-obras"].includes(text(req.body?.mode).toLowerCase())) {
-      if (email !== "info@tizpublicidad.com" && email !== "giancarlo.pareja@tizpublicidad.com" && email !== "pablo.aciar@tizpublicidad.com") {
+      if (email !== "info@tizpublicidad.com" && email !== "giancarlo.pareja@tizpublicidad.com" && email !== "reta.paulo@gmail.com" && email !== "pablo.aciar@tizpublicidad.com") {
         throw Object.assign(new Error("Sin permiso para conciliar facturación"), {status:403});
       }
       const works = text(req.body?.mode).toLowerCase() === "read-obras";

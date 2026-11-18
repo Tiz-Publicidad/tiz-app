@@ -3,7 +3,7 @@
 'use strict';
 const C=window.TIZObrasPlanillaCoreV1;
 const state={copy:null,email:'',view:'sheet',query:'',cliente:'',estado:'',loading:false,copying:false,error:'',request:0,loaded:false,key:''};
-const writers=['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'];
+const writers=['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com', "reta.paulo@gmail.com",'pablo.aciar@tizpublicidad.com'];
 const canCopy=()=>writers.includes(String(window.currentUser?.email||'').toLowerCase());
 const time=v=>new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',dateStyle:'short',timeStyle:'short',hourCycle:'h23'}).format(new Date(v));
 function reset(email){state.request++;Object.assign(state,{copy:null,email,query:'',cliente:'',estado:'',loading:false,copying:false,error:'',loaded:false,key:''});}
