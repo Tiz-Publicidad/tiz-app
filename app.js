@@ -16,7 +16,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-provider.setCustomParameters({ hd: 'tizpublicidad.com' });
+provider.setCustomParameters({ prompt: 'select_account' });
 
 // ============================================================
 // ROLES / PUESTOS OPERATIVOS
@@ -25,7 +25,7 @@ provider.setCustomParameters({ hd: 'tizpublicidad.com' });
 // Para sumar/quitar usuarios, modificar solo este mapa.
 const USER_ROLE_MAP = {
   'info@tizpublicidad.com':              'Admin',
-  'giancarlo.pareja@tizpublicidad.com': 'Admin',
+  'giancarlo.pareja@tizpublicidad.com': 'Admin', 'reta.paulo@gmail.com': 'Admin',
   'giancarlo.pareja@gmail.com':          'Admin',
   'pablo.aciar@tizpublicidad.com':       'Producción',
   'julieta.aguirre@tizpublicidad.com':   'Diseño',

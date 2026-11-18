@@ -7,14 +7,14 @@ service cloud.firestore {
     function isTizUser() {
       return signedIn() && request.auth.token.email in [
         "info@tizpublicidad.com",
-        "giancarlo.pareja@tizpublicidad.com",
+        "giancarlo.pareja@tizpublicidad.com", "reta.paulo@gmail.com",
         "pablo.aciar@tizpublicidad.com",
         "julieta.aguirre@tizpublicidad.com",
         "carolina.flores@tizpublicidad.com"
       ];
     }
     function isSales() {
-      return signedIn() && request.auth.token.email in ["info@tizpublicidad.com", "giancarlo.pareja@tizpublicidad.com", "pablo.aciar@tizpublicidad.com"];
+      return signedIn() && request.auth.token.email in ["info@tizpublicidad.com", "giancarlo.pareja@tizpublicidad.com", "reta.paulo@gmail.com", "pablo.aciar@tizpublicidad.com"];
     }
     function bajaCreateAllowed() {
       return isSales() || (request.resource.data.get('estado', '') != 'Baja'

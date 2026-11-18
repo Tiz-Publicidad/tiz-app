@@ -2,11 +2,11 @@
 'use strict';
 const SECTORS={ventas:'Ventas',diseno:'Diseño',compras:'Compras',produccion:'Producción',operaciones:'Operaciones',calidad:'Calidad',colocaciones:'Colocaciones',facturacion:'Facturación y Cobranzas'};
 const commercial=()=>typeof module==='object'&&module.exports?require('./vigenciaComercialCoreV1'):window.TIZVigenciaComercialV1;
-const USERS={'contrerasfedericogabriel365@gmail.com':'operaciones','info@tizpublicidad.com':'ventas','giancarlo.pareja@tizpublicidad.com':'ventas','pablo.aciar@tizpublicidad.com':'produccion','julieta.aguirre@tizpublicidad.com':'diseno','carolina.flores@tizpublicidad.com':'compras','cristiantizpublicidad@gmail.com':'calidad','arielbenitezpublicidad@gmail.com':'colocaciones'};
+const USERS={'contrerasfedericogabriel365@gmail.com':'operaciones','info@tizpublicidad.com':'ventas','giancarlo.pareja@tizpublicidad.com':'ventas', 'reta.paulo@gmail.com': 'ventas','pablo.aciar@tizpublicidad.com':'produccion','julieta.aguirre@tizpublicidad.com':'diseno','carolina.flores@tizpublicidad.com':'compras','cristiantizpublicidad@gmail.com':'calidad','arielbenitezpublicidad@gmail.com':'colocaciones'};
 const text=x=>String(x??'').trim();
 const norm=x=>text(x).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const LIMIT_MS=48*60*60*1000;
-function operator(email){email=norm(email);if(!USERS[email])throw Error('Tu cuenta no tiene acceso al análisis preliminar.');return {email,sector:USERS[email],isAdmin:['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(email)};}
+function operator(email){email=norm(email);if(!USERS[email])throw Error('Tu cuenta no tiene acceso al análisis preliminar.');return {email,sector:USERS[email],isAdmin:['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com', "reta.paulo@gmail.com",'pablo.aciar@tizpublicidad.com'].includes(email)};}
 function reportFor(reports,sector){if(sector!=='facturacion')return reports?.[sector];const a=reports?.facturacion,b=reports?.cobranzas;if(!a)return b;if(!b)return a;if(b.presentadoEn&&(!a.presentadoEn||b.presentadoEn<a.presentadoEn))return {...b,revision:Math.max(Number(a.revision)||0,Number(b.revision)||0)};return {...a,revision:Math.max(Number(a.revision)||0,Number(b.revision)||0)};}
 function canWrite(user,sector){return !!SECTORS[sector]&&!!user&&(user.isAdmin||user.sector===sector||user.email==='pablo.aciar@tizpublicidad.com'&&['calidad','colocaciones','operaciones'].includes(sector)||user.sector==='compras'&&sector==='colocaciones');}
 function isApproval(before,after){return !!after&&norm(after.estado)==='aprobado'&&(!before||norm(before.estado)!=='aprobado');}

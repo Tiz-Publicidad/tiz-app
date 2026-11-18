@@ -68,7 +68,7 @@
   const REPLAN_CAUSES=Object.freeze([['cliente','Cliente / aprobación'],['acceso','Acceso a la obra'],['produccion','Producción no terminada'],['materiales','Materiales / insumos'],['planos','Planos / información faltante'],['capacidad','Capacidad / personal'],['coordinacion','Planificación / coordinación'],['transporte','Transporte / herramientas'],['clima','Clima'],['calidad','Calidad / retrabajo'],['otro','Otro'],['investigacion','En investigación']]);
   const RESPONSIBILITIES=Object.freeze([['interna','Interna · TIZ'],['externa','Externa'],['mixta','Mixta'],['pendiente','Pendiente de analizar']]);
   const isAriel=a=>/(^| )(ariel|ari)( |$)/.test(norm(a?.responsable))||text(a?.responsable).toLowerCase()===ARIEL;
-  const canReview=email=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','giancarlo.pareja@gmail.com','pablo.aciar@tizpublicidad.com'].includes(text(email).toLowerCase());
+  const canReview=email=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com', "reta.paulo@gmail.com",'giancarlo.pareja@gmail.com','pablo.aciar@tizpublicidad.com'].includes(text(email).toLowerCase());
   function asRequest(a){if(a?.solicitudExterna)return a;const creator=text(a?.creadoPor).toLowerCase();return isAriel(a)&&creator.includes('@')&&creator!==ARIEL?{...a,solicitudExterna:true,estadoSolicitud:a.estadoSolicitud||'Pendiente de Ariel'}:a;}
   function needsAcceptance(a){a=asRequest(a);return isAriel(a)&&!!a?.solicitudExterna&&!['Aceptada por Ariel','Confirmada por Ariel','Reprogramada por Ariel'].includes(a.estadoSolicitud);}
   const scheduled=a=>open(a)&&!needsAcceptance(a);

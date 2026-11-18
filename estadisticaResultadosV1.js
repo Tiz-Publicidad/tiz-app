@@ -3,7 +3,7 @@
 'use strict';
 const C=window.TIZEstadisticaResultadosCoreV1,labels={ventas:'Ventas aprobadas',produccion:'Obras producidas',entregas:'Obras entregadas',cobranzas:'Cobros recibidos'},esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=v=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:2}).format(v);
 let year=Number(C.date(new Date()).slice(0,4)),source='app',snapshot=null;
-const allowed=()=>window.currentUser?.isAdmin&&['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com','pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser.email||'').toLowerCase());
+const allowed=()=>window.currentUser?.isAdmin&&['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com', "reta.paulo@gmail.com",'pablo.aciar@tizpublicidad.com'].includes(String(window.currentUser.email||'').toLowerCase());
 function data(){
  const sources=window.TIZResultadosFuentesCargadas;if(!sources||!['obras','presupuestos','cobranzas','clientes'].every(k=>sources[k]))throw Error('Cargando Obras, Clientes, Cotizaciones y Cobranzas para calcular resultados…');
  const db=window.DB||{},O=window.TIZObrasSeguimientoCoreV2,V=window.TIZVigenciaComercialV1,F=window.TIZFacturacionCobranzasDataV2;

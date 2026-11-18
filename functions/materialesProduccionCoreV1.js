@@ -1,7 +1,7 @@
 'use strict';
 const {createHash}=require('node:crypto');
 const TITLE='MATERIALES OT',KEY='tiz_materiales_ot_v1',FIRST=5,LAST=504;
-const SALES=['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'];
+const SALES=['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com', "reta.paulo@gmail.com"];
 const SALES_GOOGLE=['info@tizpublicidad.com'];
 const AUTOMATION=['github-arca-constancia@tiz---app.iam.gserviceaccount.com','tiz---app@appspot.gserviceaccount.com','52620104053-compute@developer.gserviceaccount.com'];
 const PRODUCTION=['pablo.aciar@tizpublicidad.com','julieta.aguirre@tizpublicidad.com','contrerasfedericogabriel365@gmail.com'];

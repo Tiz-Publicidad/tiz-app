@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const sales=()=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com'].includes(String(window.currentUser?.email||'').toLowerCase()),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sales=()=>['info@tizpublicidad.com','giancarlo.pareja@tizpublicidad.com', "reta.paulo@gmail.com"].includes(String(window.currentUser?.email||'').toLowerCase()),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let dialog,busy=false,works=[],cancelled=false;
 async function api(body){if(typeof window.materialesProduccionApiV1!=='function')throw Error('Recargá TIZ para habilitar los materiales por sector.');return window.materialesProduccionApiV1(body);}
 async function sync(work,interactive=false){if(!work?.id)throw Error('Falta identificar la obra.');let driveAccessToken='';if(sales())driveAccessToken=interactive?await window.obtenerDriveAccessTokenTizV97?.()||'':window.obtenerDriveAccessTokenCacheTizV123?.()||'';const r=await api({mode:'production-materials-ensure',obraId:work.id,...(driveAccessToken?{driveAccessToken}:{})});work.materialesProduccionSheet={version:1,url:r.url};return r;}
