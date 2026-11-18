@@ -525,7 +525,7 @@
       // de Obras.
       await window.updateDoc_('presupuestos',presupuestoId,{obraId,promovidoAObra:true,promovidoEn:new Date().toISOString()});
       if(typeof window.syncProductionOtDocumentV315==='function'){
-        try{const drive=await window.syncProductionOtDocumentV315({...(existente||{}),...obra,id:obraId,firestoreId:obraId});if(drive?.driveFolderUrl)await window.updateDoc_('presupuestos',presupuestoId,{driveFolderUrl:drive.driveFolderUrl,driveFolderId:drive.driveFolderId||drive.folderId||''});}
+        try{const drive=await window.syncProductionOtDocumentV315({...(existente||{}),...obra,presupuestoActual:data,id:obraId,firestoreId:obraId});if(drive?.driveFolderUrl)await window.updateDoc_('presupuestos',presupuestoId,{driveFolderUrl:drive.driveFolderUrl,driveFolderId:drive.driveFolderId||drive.folderId||''});}
         catch(e){console.warn('[TIZ] La obra fue creada; la hoja de Producción se reintentará automáticamente',e);}
       }
       return obraId;

@@ -346,21 +346,22 @@
   const autoSyncState = { running:false, attempted:new Set(), timer:null };
 
   function productionDataWithQuote(o,old={}) {
-    const presupuesto=(window.DB?.presupuestos||[]).find(p=>p.id&&(p.id===o.presupuestoId||p.id===o.cotizacionId));
+    const presupuesto=o.presupuestoActual||(window.DB?.presupuestos||[]).find(p=>p.id&&(p.id===o.presupuestoId||p.id===o.cotizacionId));
     const tipo=presupuesto?.tipoFacturaSolicitada??o.tipoFacturaSolicitada??o.infoPresupuesto?.tipoFacturaSolicitada??'';
     const factura=tipo==='A'||tipo==='B'?'Factura '+tipo:'A definir';
     const sources=[old.materiales,o.itemsTecnicos,o.itemsCotizados,o.items,o.infoPresupuesto?.items,presupuesto?.items,old.materialesCotizados,old.detalleCotizacion];
     const materiales=sources.map(normalizeProductionMaterials).find(rows=>rows.length)||[];
     const quoteNotes=new Set(materiales.map((item,i)=>`${i+1}. ${item.articulo} — Cantidad: ${item.cantidad} ${item.unidad}${item.observaciones?' — '+item.observaciones:''}`));
     const notes=String(old.observaciones||'').split(/\r?\n/).filter(line=>!quoteNotes.has(line.trim())&&!materiales.some((item,i)=>line.trim().startsWith((i+1)+'. '+item.articulo+' — Cantidad: '))&&!/^(?:Teléfono contacto:|Tipo de factura:)/.test(line)).join('\n').trim();
+    const log=window.TIZOtLogisticaV1.logistics(o,presupuesto||{});
+    const prior=old.entregaLogistica?.detalle;
+    const currentNotes=window.TIZOtLogisticaV1.notes(prior?notes.replace('Indicaciones logísticas: '+prior,''):notes,log);
     return {
       ...old,
+      entregaLogistica:log,
+      direccionColocacion:log.domicilio||'',contactoColocacion:log.contacto||'',fechaColocacion:window.TIZOtLogisticaV1.date(log.fecha),modalidadEntrega:log.tipo||'a_definir',
       materiales,
-      observaciones: [
-        String(o.entregaLogistica?.contactoTelefono||o.infoPresupuesto?.contactoTelefono||'').trim(),
-        'Tipo de factura: '+factura,
-        notes
-      ].map((text,i)=>i===0&&text?'Teléfono contacto: '+text:text).filter(Boolean).join('\n'),
+      observaciones: ['Tipo de factura: '+factura,currentNotes].filter(Boolean).join('\n'),
       detalleCotizacion: materiales,
       datosCotizacionSinPrecios: true
     };
@@ -379,7 +380,8 @@
       estadoInterno:String(data.estadoInterno||'Pendiente'),
       prioridad:String(data.prioridad||'Normal'),
       responsable:String(data.responsable||''),
-      observaciones:String(data.observaciones||''),
+      observaciones:window.TIZOtLogisticaV1.displayNotes(data.observaciones),
+      direccionColocacion:String(data.direccionColocacion||''),contactoColocacion:String(data.contactoColocacion||''),fechaColocacion:String(data.fechaColocacion||''),modalidadEntrega:String(data.modalidadEntrega||'a_definir'),
       fechaInicioPlan:String(data.fechaInicioPlan||''),
       fechaFinPlan:String(data.fechaFinPlan||''),
       personal:String(data.personal||''),

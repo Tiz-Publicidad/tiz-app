@@ -59,5 +59,6 @@ function create(materials,sales,savedItems=[],{defaultBasis='total'}={}){
  function exportItems(current){sync(current);totals(current);const cols=columns().map(col=>({id:col.id,identidad:identity(col.row)}));return current.map((item,i)=>({...item,insumosMatrizV1:{version:2,baseNecesidad:basis,columnas:cols,cantidades:{...allocations.get(item).values},indice:allocations.get(item).indice,...(i===0?{comunes:{...common}}:{})}}));}
  return {columns,sync,totals,set,get,cost,hasCommon,merge,exportItems,basis:()=>basis,setBasis(value){if(!['unidad','total'].includes(value))throw Error('Base de consumo inválida.');basis=value;for(const row of materials)row.revisado=false;},setIndex(item,value){if(!allocations.has(item))allocations.set(item,{values:{},indice:''});allocations.get(item).indice=text(value);},index:item=>allocations.get(item)?.indice||''};
 }
-return {create};
+function profit(sale,cost){if(!Number.isFinite(sale)||sale<0||!Number.isFinite(cost)||cost<0)return null;const difference=sale-cost;return {sale,cost,difference,margin:sale>0?difference/sale*100:null};}
+return {create,profit};
 });
