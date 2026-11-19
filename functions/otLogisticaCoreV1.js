@@ -7,7 +7,9 @@
  const date=value=>{const v=iso(value);return v?v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4):'';};
  function logistics(work={},quote={}){
   const info=work.infoPresupuesto||{};
-  return {...{tipo:info.modalidadEntrega||'a_definir',domicilio:info.domicilio||'',fecha:info.fechaEntrega||'',contacto:info.contacto||'',contactoTelefono:info.contactoTelefono||'',detalle:info.indicacionesEntrega||''},...(work.entregaLogistica||{}),...(quote.entregaLogistica||{})};
+  const obra=work.entregaLogistica||{}, presupuesto=quote.entregaLogistica||{};
+  const domicilio=[presupuesto.domicilio,obra.domicilio,quote.infoPresupuesto?.domicilio,info.domicilio].map(text).find(Boolean)||'';
+  return {...{tipo:info.modalidadEntrega||'a_definir',fecha:info.fechaEntrega||'',contacto:info.contacto||'',contactoTelefono:info.contactoTelefono||'',detalle:info.indicacionesEntrega||''},...obra,...presupuesto,domicilio};
  }
  function notes(previous,log){
   // Marcadores propios permiten reemplazar también indicaciones de varias líneas.
