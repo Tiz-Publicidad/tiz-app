@@ -7,6 +7,33 @@ const count=()=>({fecha:'2026-11-04',items:[{articuloId:'acrilico',cantidad:2}]}
 const catalog=()=>C.catalog([article()],[purchase()],[count()],[]);
 const row=()=>({articuloId:'acrilico',descripcion:'Acrílico negro 3 mm',cantidad:'0,5',unidad:'M²',revisado:true,compraPendiente:false,origen:'manual',nota:''});
 
+function automaticBreakdown(){
+ const timers=new Map(),calls=[],fields={'pp-desc':{value:'Cartel de acrílico'},'modal-prespdf':{classList:{contains:()=>true}}};let seq=0,reply;
+ const window={TIZInsumosCotizacionCoreV1:C,DB:{presupuestos:[]},editingId:{},ppItems:[{desc:'Cartel',cant:1,precio:100}],insumosCotizacionApiV1:body=>{calls.push(body);return new Promise(r=>reply=r);}};
+ const source=fs.readFileSync(require.resolve('../insumosCotizacionV1.js'),'utf8'),footer="if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();";
+ const hook="render=()=>{};ensure=()=>{};catalog=testCatalog;rows=testRows;window.testAuto={scheduleAutomatic,suggest,change,sourceKey,getRows:()=>rows,lock:()=>baseline={},pause:()=>autoEnabled=false,getError:()=>error};";
+ vm.runInNewContext(source.replace(footer,hook),{window,document:{getElementById:id=>fields[id]||null},testCatalog:catalog(),testRows:[{...row(),precioPrevisto:'123'}],setTimeout:fn=>{timers.set(++seq,fn);return seq;},clearTimeout:id=>timers.delete(id),console});
+ const tick=async()=>{const pending=[...timers.values()];timers.clear();pending.forEach(fn=>fn());await Promise.resolve();};
+ const respond=async materials=>{reply({materiales:materials});await Promise.resolve();await Promise.resolve();};
+ return {window,fields,calls,timers,tick,respond,A:window.testAuto};
+}
+
+test('desglose automático espera la pausa y no repite por precios ni duplica materiales manuales',async()=>{
+ const f=automaticBreakdown();f.A.scheduleAutomatic();f.A.scheduleAutomatic();assert.equal(f.timers.size,1);assert.equal(f.calls.length,0);await f.tick();assert.equal(f.calls.length,1);
+ await f.respond([{articuloId:'acrilico'},{descripcion:'Pintura',unidad:'UNID'}]);assert.equal(f.A.getRows().length,2);assert.equal(f.A.getRows()[0].precioPrevisto,'123');assert.equal(f.A.getRows()[0].revisado,true);assert.equal(f.A.getRows()[1].revisado,false);
+ f.window.ppItems[0].precio=200;f.A.scheduleAutomatic();await f.tick();assert.equal(f.calls.length,1);assert.equal(f.A.getRows()[0].cantidad,'0,5');
+});
+
+test('si cambia el trabajo durante la respuesta automática descarta lo anterior y consulta el nuevo',async()=>{
+ const f=automaticBreakdown();f.A.scheduleAutomatic();await f.tick();f.fields['pp-desc'].value='Cartel con letras de acero';f.A.scheduleAutomatic();await f.tick();assert.equal(f.calls.length,1);
+ await f.respond([{descripcion:'No corresponde'}]);assert.equal(f.A.getRows().length,1);assert.equal(f.timers.size,1);await f.tick();assert.equal(f.calls.length,2);assert.match(f.calls[1].cotizacion.desc,/acero/);await f.respond([{descripcion:'Acero',unidad:'UNID'}]);assert.equal(f.A.getRows()[1].descripcion,'Acero');assert.equal(f.A.getError(),'');
+});
+
+test('automático respeta pausa, modal cerrado, aprobaciones y texto insuficiente',async()=>{
+ for(const mode of ['pause','closed','approved','legacy','short','saving']){const f=automaticBreakdown();if(mode==='pause')f.A.pause();if(mode==='closed')f.fields['modal-prespdf'].classList.contains=()=>false;if(mode==='approved')f.A.lock();if(mode==='legacy'){f.window.editingId.presupuesto='q';f.window.DB.presupuestos=[{id:'q',estado:'Aprobado'}];}if(mode==='short'){f.fields['pp-desc'].value='';f.window.ppItems=[];}if(mode==='saving')f.window.__tizPresupuestoGuardando=true;f.A.scheduleAutomatic();await f.tick();assert.equal(f.calls.length,0,mode);}
+ const f=automaticBreakdown();f.A.scheduleAutomatic();await f.tick();f.A.pause();await f.respond([{descripcion:'No aplicar'}]);assert.equal(f.A.getRows().length,1);
+});
+
 function approvedBreakdown({fail=false,missing=false}={}){
  const original={id:'aprobada',nro:'4900',revision:'1.1',estado:'Aprobado',obraId:'obra',desc:'Cartel de acrílico',items:[{desc:'Cartel',precio:100,cant:1}],insumosVentas:[],insumosVentasAprobados:{aprobadoEn:'2026-11-19',totalCosto:null,items:[]}};
  const fields={'pp-revision':{value:'1.1'},'pp-estado':{value:'Aprobado'},'pp-desc':{value:original.desc}},calls=[],messages=[];
