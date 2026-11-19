@@ -50,10 +50,10 @@ function render(){
  ensure();if(!host())return;
  document.getElementById('iv-catalog').innerHTML=catalog.map(a=>`<option value="${esc(label(a))}">${esc(a.unidad)}</option>`).join('');
  renderMatrix();
- host().querySelector('[data-iv="ai"]').disabled=locked()||aiBusy||loading;
- host().querySelector('[data-iv="ai"]').textContent=aiBusy?'Desglosando…':'Desglosar con IA';
+ host().querySelector('[data-iv="ai"]').disabled=aiBusy||loading;
+ host().querySelector('[data-iv="ai"]').textContent=aiBusy?'Desglosando…':locked()&&!rows.length?'Completar desglose con IA':'Desglosar con IA';
  host().querySelector('[data-iv="add"]').disabled=false;
- let note=host().querySelector('[data-approved-edit]');if(!note){note=document.createElement('div');note.dataset.approvedEdit='';host().prepend(note);}note.hidden=!locked();note.innerHTML=locked()?'<p><b>Esta cotización está aprobada.</b> Para agregar, quitar insumos o cargar precios se crea una revisión editable, conservando la aprobada.</p><button type="button" class="btn btn-primary" data-edit-approved>Editar insumos y precios</button>':'';
+ let note=host().querySelector('[data-approved-edit]');if(!note){note=document.createElement('div');note.dataset.approvedEdit='';host().prepend(note);}note.hidden=!locked();note.innerHTML=locked()?'<p><b>Esta cotización está aprobada.</b> Podés completar el desglose con IA o editar los insumos y precios. Se abre una revisión editable y se conserva la aprobada. Revisá los materiales y aprobá la nueva revisión para actualizar la OT.</p><button type="button" class="btn btn-primary" data-edit-approved>Editar insumos y precios</button>':'';
  status();
 }
 function mergeDuplicateColumn(index){
@@ -147,7 +147,7 @@ function change(e){if(matrixInput(e))return;const tr=e.target.closest('[data-iv-
  error='';status();
 }
 async function suggest(){
- if(locked()||aiBusy)return;const current=generation,source=sourceKey();aiBusy=true;error='';render();
+ if(aiBusy||loading)return;if(locked()&&!editApprovedCosts())return;const current=generation,source=sourceKey();aiBusy=true;error='';render();
  try{const prepared=await api({mode:'suggest',cotizacion:quote()}),result=prepared.servicioIA?await requestShared(prepared.servicioIA):prepared;if(current!==generation)return;if(source!==sourceKey())throw Error('Cambió la descripción del trabajo durante el desglose. Volvé a pedirlo para usar los datos actuales.');const existing=new Set(rows.map(r=>r.articuloId||C.norm(r.descripcion)));const proposed=C.printingMaterials(quote(),catalog,[...rows,...(result.materiales||[])],prepared.memoriaInsumos||[]).filter(r=>!rows.includes(r)).map(r=>{const a=catalog.find(a=>a.id===r.articuloId);return {articuloId:a?.id||'',descripcion:a?.descripcion||String(r.descripcion||''),cantidad:'',unidad:C.unit(a?.unidad||r.unidad),revisado:false,compraPendiente:false,origen:'ia',nota:String(r.motivo||r.nota||'')};});const added=proposed.filter(r=>!existing.has(r.articuloId||C.norm(r.descripcion)));if(!proposed.length)throw Error('La IA no devolvió materiales. Ampliá la descripción o cargalos manualmente.');if(rows.length+added.length>200)throw Error('El detalle admite hasta 200 materiales.');rows.push(...C.draft(added));}
  catch(e){if(current===generation)error=e.message;}
  finally{aiBusy=false;render();}
