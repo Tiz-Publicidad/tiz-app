@@ -43,6 +43,49 @@ function ensure(){
  anchor.insertAdjacentElement('beforebegin',box);box.addEventListener('click',click);box.addEventListener('input',input);box.addEventListener('change',change);
 }
 const label=a=>a.codigo+' · '+a.descripcion;
+const validItemArea=value=>Number.isFinite(value)&&value>=0;
+function itemAreaText(item){
+ const dimensions=window.TIZInsumosMatrizV1?.rectangleDimensions?.(item.desc||item.descripcion);
+ const computed=dimensions?dimensions.width*dimensions.height:NaN;
+ const area=validItemArea(item.areaM2Manual)?item.areaM2Manual:Number(computed.toPrecision(12));
+ return validItemArea(area)?area.toLocaleString('es-AR',{useGrouping:false,maximumFractionDigits:20}):'';
+}
+function editItemArea(item,value){
+ const raw=C.text(value),area=C.number(raw);
+ if(!raw)delete item.areaM2Manual;
+ else if(/^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(raw)&&validItemArea(area))item.areaM2Manual=area;
+ else window.showToast?.('Ingresá el área en m² con un número mayor o igual a cero.');
+ return itemAreaText(item);
+}
+function restoreItemAreas(data,sales){
+ sales.forEach((item,index)=>{
+  const saved=data.items?.[index]?.areaM2Manual;
+  if(validItemArea(saved))item.areaM2Manual=saved;
+ });
+}
+function renderItemAreas(quoteItems){
+ const header=quoteItems.previousElementSibling;
+ if(header?.children[2]&&!header.querySelector('[data-pp-area-heading]')){
+  const title=document.createElement('span');title.dataset.ppAreaHeading='';title.textContent='Área (m²)';
+  title.style.cssText='flex:0 0 88px;font-size:10px;color:var(--text3);text-transform:uppercase';
+  header.children[2].before(title);
+ }
+ quoteItems.querySelectorAll('.pp-item-row').forEach((row,index)=>{
+  const item=matrixSales()[index];
+  const price=row.querySelector('[oninput*="\'precio\'"]');
+  if(!item||!price)return;
+  let area=row.querySelector('[data-pp-item-area]');
+  if(!area){
+   area=document.createElement('input');area.dataset.ppItemArea='';area.inputMode='decimal';area.placeholder='m²';
+   area.style.cssText='width:88px;min-width:0;flex-shrink:0;box-sizing:border-box';
+   area.title='Podés editar el área. Borrá el valor para volver al cálculo automático.';
+   area.setAttribute('aria-label',`Área en metros cuadrados del ítem ${index+1}`);
+   area.addEventListener('change',()=>{area.value=editItemArea(item,area.value);});
+   price.before(area);
+  }
+  if(area!==document.activeElement)area.value=itemAreaText(item);
+ });
+}
 const selectedArticle=value=>{const matches=catalog.filter(a=>label(a)===value);return matches.length===1?matches[0]:null;};
 function editApprovedCosts(){
  if(!locked())return true;
@@ -184,7 +227,7 @@ async function load(force=false){
  catch(e){if(request===catalogRequest)error='No se pudo actualizar stock y precios: '+e.message;}
  finally{if(request===catalogRequest){loading=false;if(autoEnabled)calculateSignNeeds();render();if(autoEdited)scheduleAutomatic();}}
 }
-function open(data={},newRevision=false){clearTimeout(autoTimer);autoEdited=false;autoAttempt='';signNeedsDirty=false;signMessage='';costEditOrigin=null;catalogDialog?.remove();catalogDialog=null;generation++;newQuoteId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');rows=C.draft(data.insumosVentas||[]);matrix=window.TIZInsumosMatrizV1.create(rows,matrixSales(),data.items||[],{defaultBasis:'unidad'});showCommon=false;baseline=newRevision?null:data.insumosVentasAprobados||null;error='';ensure();render();load();}
+function open(data={},newRevision=false){clearTimeout(autoTimer);autoEdited=false;autoAttempt='';signNeedsDirty=false;signMessage='';costEditOrigin=null;catalogDialog?.remove();catalogDialog=null;generation++;newQuoteId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');rows=C.draft(data.insumosVentas||[]);restoreItemAreas(data,matrixSales());matrix=window.TIZInsumosMatrizV1.create(rows,matrixSales(),data.items||[],{defaultBasis:'unidad'});showCommon=false;baseline=newRevision?null:data.insumosVentasAprobados||null;error='';ensure();render();load();}
 function input(e){if(matrixInput(e))return;const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(['revisado','compraPendiente','unidad'].includes(key))return;row[key]=e.target.value;if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}}row.revisado=false;tr.querySelector('[data-field="revisado"]').checked=false;error='';status();}
 function change(e){if(e.target.matches('[data-iv-auto]')){autoEnabled=e.target.checked;clearTimeout(autoTimer);if(autoEnabled){if(!loading&&signNeedsDirty){calculateSignNeeds();render();}autoAttempt='';scheduleAutomatic();}return;}if(matrixInput(e))return;const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(key==='unidad'&&row.unidad&&row.unidad!==e.target.value){delete row.precioPrevisto;const editor=tr.querySelector('[data-field="precioPrevisto"]');if(editor)editor.value='';window.showToast?.('Cambió la unidad: revisá el precio previsto por la nueva unidad.');}if(['revisado','compraPendiente'].includes(key))row[key]=e.target.checked;else row[key]=e.target.value;
  if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}row.revisado=false;}
@@ -307,7 +350,21 @@ function scheduleMatrixRefresh(event){
  scheduleAutomatic();clearTimeout(matrixRefreshTimer);
  matrixRefreshTimer=setTimeout(()=>{if(host()&&matrix&&document.getElementById('modal-prespdf')?.classList.contains('open')){if(autoEnabled&&!loading)calculateSignNeeds();render();}},150);
 }
-function init(){ensure();render();const quoteItems=document.getElementById('pp-items');if(quoteItems){quoteItems.addEventListener('input',scheduleMatrixRefresh);new MutationObserver(scheduleMatrixRefresh).observe(quoteItems,{childList:true,subtree:true});}document.getElementById('pp-desc')?.addEventListener('input',scheduleAutomatic);document.getElementById('pp-desc')?.addEventListener('change',scheduleAutomatic);document.getElementById('pp-moneda')?.addEventListener('change',status);}
+function init(){
+ ensure();render();
+ const quoteItems=document.getElementById('pp-items');
+ if(quoteItems){
+  quoteItems.addEventListener('input',event=>{
+   if(event.target.matches('[data-pp-item-area]'))return;
+   if(event.target.matches('[oninput*="\'desc\'"]'))renderItemAreas(quoteItems);
+   scheduleMatrixRefresh(event);
+  });
+  new MutationObserver(()=>renderItemAreas(quoteItems)).observe(quoteItems,{childList:true});
+  new MutationObserver(scheduleMatrixRefresh).observe(quoteItems,{childList:true,subtree:true});
+  renderItemAreas(quoteItems);
+ }
+ document.getElementById('pp-desc')?.addEventListener('input',scheduleAutomatic);document.getElementById('pp-desc')?.addEventListener('change',scheduleAutomatic);document.getElementById('pp-moneda')?.addEventListener('change',status);
+}
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
