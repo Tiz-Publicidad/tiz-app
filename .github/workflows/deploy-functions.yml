@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - 'functions/**'
+      - 'tests/arcaFechasV1.test.cjs'
+      - 'tests/canalVentaV1.test.cjs'
       - 'firestore.rules'
       - 'firebase.json'
       - '.github/workflows/deploy-functions.yml'
