@@ -17,3 +17,11 @@ test('fechas válidas, sin ambigüedad ni cambio de día; datos ausentes no se i
  assert.equal(C.date('2026-12-07'),'07/12/2026');assert.equal(C.iso('07/12/2026'),'2026-12-07');assert.equal(C.iso('31/02/2026'),'');assert.equal(C.date(''),'');assert.equal(C.iso('2026-02-29'),'');assert.equal(C.iso('2024-02-29'),'2024-02-29');
  const r=C.requests(sheet(),{},{}),date=r.find(x=>x.updateCells?.range.startRowIndex===2&&x.updateCells.range.startColumnIndex===1);assert.equal(date.updateCells.rows[0].values[0].userEnteredValue.stringValue,'');
 });
+
+test('un domicilio vacío en el presupuesto no borra el domicilio de la obra ni el dato histórico',()=>{
+ const quote={entregaLogistica:{domicilio:'  '}};
+ assert.equal(C.logistics({entregaLogistica:{domicilio:'Calle vigente 123'},infoPresupuesto:{domicilio:'Calle anterior 112'}},quote).domicilio,'Calle vigente 123');
+ assert.equal(C.logistics({entregaLogistica:{domicilio:''},infoPresupuesto:{domicilio:'Calle anterior 112'}},quote).domicilio,'Calle anterior 112');
+ assert.equal(C.logistics({entregaLogistica:{domicilio:'Calle anterior 112'}},{entregaLogistica:{domicilio:'Calle revisada 123'}}).domicilio,'Calle revisada 123');
+ assert.equal(C.logistics({}, {infoPresupuesto:{domicilio:'Calle de cotización 112'}}).domicilio,'Calle de cotización 112');
+});
