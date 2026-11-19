@@ -8,10 +8,12 @@ const date=v=>C.day(v)?C.day(v).split('-').reverse().join('/'):String(v||'');
 let rows=[],catalog=[],baseline=null,generation=0,session='',loaded=0,loading=false,error='',aiBusy=false,newQuoteId='';
 let catalogDialog=null,catalogRequest=0,approving=false,matrix=null,showCommon=false,costEditOrigin=null;
 let autoTimer,autoEnabled=true,autoEdited=false,autoAttempt='';
+let signNeedsDirty=false,signMessage='';
 const api=body=>window.insumosCotizacionApiV1(body);
 const quote=()=>({desc:document.getElementById('pp-desc')?.value||'',items:window.ppItems||[]});
 const sourceKey=()=>{const q=quote();return JSON.stringify({desc:C.text(q.desc),items:q.items.filter(i=>C.text(i.desc||i.descripcion)).map(i=>({desc:C.text(i.desc||i.descripcion),cantidad:i.cant??i.cantidad??1}))});};
-const automaticReady=()=>autoEnabled&&!locked()&&!approving&&!window.__tizPresupuestoGuardando&&!(window.DB?.presupuestos||[]).some(p=>p.id===window.editingId?.presupuesto&&p.estado==='Aprobado')&&document.getElementById('modal-prespdf')?.classList.contains('open')&&C.text([quote().desc,...quote().items.map(i=>i.desc||i.descripcion||'')].join(' ')).length>=12;
+const approvedQuote=()=>locked()||(window.DB?.presupuestos||[]).some(p=>p.id===window.editingId?.presupuesto&&p.estado==='Aprobado');
+const automaticReady=()=>autoEnabled&&!approvedQuote()&&!approving&&!window.__tizPresupuestoGuardando&&document.getElementById('modal-prespdf')?.classList.contains('open')&&C.text([quote().desc,...quote().items.map(i=>i.desc||i.descripcion||'')].join(' ')).length>=12;
 function scheduleAutomatic(){
  autoEdited=true;clearTimeout(autoTimer);if(!automaticReady()||sourceKey()===autoAttempt)return;
  autoTimer=setTimeout(()=>{if(!automaticReady()||sourceKey()===autoAttempt)return;if(aiBusy||loading)return;void suggest({automatic:true});},1800);
@@ -35,6 +37,9 @@ function ensure(){
  const box=document.createElement('section');box.id='pp-insumos-ventas';box.setAttribute('aria-label','Insumos previstos por Ventas');
  box.innerHTML=`<div class="iv-actions"><div style="flex:1"><b>Costos por renglón · insumos compartidos</b><div class="iv-muted">Uso interno: no se incluye en el PDF del cliente.</div></div><button type="button" class="btn btn-ghost btn-sm" data-iv="reload">Actualizar stock y precios</button><button type="button" class="btn btn-primary btn-sm" data-iv="ai">Desglosar con IA</button><button type="button" class="btn btn-ghost btn-sm" data-iv="add">+ Agregar insumo</button></div><p class="iv-muted">Cada fila es un ítem a cotizar. En cada columna cargá arriba la NECESIDAD de cada ítem y el PRECIO por 1 m², unidad, hora, etc. Abajo se muestra el importe calculado: necesidad × precio unitario. Elegí si cargás la necesidad por unidad cotizada o por renglón completo. La comparación de costo y venta se muestra por unidad; los totales de insumos para la OT se calculan multiplicando por la cantidad cotizada una sola vez.</p><div class="iv-actions"><label class="iv-muted">Necesidades cargadas<select data-matrix-basis aria-label="Base de las necesidades de insumos"><option value="unidad">Por unidad cotizada</option><option value="total">Por renglón completo</option></select></label><label class="iv-muted">Índice para todos <input data-matrix-index-all inputmode="decimal" placeholder="Ej.: 2,7" aria-label="Índice multiplicador para todos los renglones"></label><button type="button" class="btn btn-ghost btn-sm" data-iv="index-all">Aplicar índice</button><button type="button" class="btn btn-ghost btn-sm" data-iv="add-sale">+ Ítem a cotizar</button><button type="button" class="btn btn-ghost btn-sm" data-iv="common">Consumos por repartir</button><small class="iv-muted">Venta unitaria sugerida = costo estimado unitario × índice. Ej.: 2,7 multiplica el costo por 2,7; no representa un margen del 270%.</small></div><div class="iv-table" tabindex="0" role="region" aria-label="Matriz de insumos por renglón"><table id="iv-matrix"></table></div><datalist id="iv-catalog"></datalist><div class="iv-actions" style="margin-top:12px"><button type="button" class="btn btn-primary" data-iv="pending-costs" hidden>Aprobar presupuesto</button><small class="iv-muted" data-pending-cost-note></small></div><p id="iv-status" class="iv-result" role="status"></p><div id="iv-summary"></div>`;
  const auto=document.createElement('label');auto.className='iv-muted';auto.style.display='block';auto.style.marginTop='9px';auto.innerHTML='<input type="checkbox" data-iv-auto checked> Detectar insumos automáticamente al escribir. Revisá las cantidades y precios propuestos.';box.querySelector('.iv-actions').insertAdjacentElement('afterend',auto);
+ const calculate=document.createElement('button');calculate.type='button';calculate.className='btn btn-ghost btn-sm';calculate.dataset.iv='sign';calculate.textContent='Calcular lona y caños';
+ box.querySelector('[data-iv="ai"]').after(calculate);
+ const signStatus=document.createElement('div');signStatus.className='iv-muted iv-result';signStatus.dataset.signStatus='';signStatus.setAttribute('role','status');signStatus.hidden=true;auto.after(signStatus);
  anchor.insertAdjacentElement('beforebegin',box);box.addEventListener('click',click);box.addEventListener('input',input);box.addEventListener('change',change);
 }
 const label=a=>a.codigo+' · '+a.descripcion;
@@ -61,6 +66,8 @@ function render(){
  host().querySelector('[data-iv="ai"]').disabled=aiBusy||loading;
  host().querySelector('[data-iv="ai"]').textContent=aiBusy?'Desglosando…':locked()&&!rows.length?'Completar desglose con IA':'Desglosar con IA';
  host().querySelector('[data-iv="add"]').disabled=false;
+ host().querySelector('[data-iv="sign"]').disabled=approvedQuote()||loading;
+ const signStatus=host().querySelector('[data-sign-status]');signStatus.textContent=signMessage;signStatus.hidden=!signMessage;
  let note=host().querySelector('[data-approved-edit]');if(!note){note=document.createElement('div');note.dataset.approvedEdit='';host().prepend(note);}note.hidden=!locked();note.innerHTML=locked()?'<p><b>Esta cotización está aprobada.</b> Podés completar el desglose con IA o editar los insumos y precios. Se abre una revisión editable y se conserva la aprobada. Revisá los materiales y aprobá la nueva revisión para actualizar la OT.</p><button type="button" class="btn btn-primary" data-edit-approved>Editar insumos y precios</button>':'';
  status();
 }
@@ -70,6 +77,36 @@ function mergeDuplicateColumn(index){
 }
 function matrixSales(){return Array.isArray(window.ppItems)?window.ppItems:[];}
 function ensureMatrix(){if(!matrix)matrix=window.TIZInsumosMatrizV1.create(rows,matrixSales(),[],{defaultBasis:'unidad'});matrix.sync(matrixSales());matrix.totals(matrixSales());}
+function calculateSignNeeds({manual=false}={}){
+ if(approvedQuote()||!matrix||(!manual&&!signNeedsDirty))return;
+ signNeedsDirty=false;
+ let found=0,missingBrace=false,checkExisting=false;
+ const sales=matrixSales();matrix.sync(sales);
+ for(const item of sales){
+  const sign=window.TIZInsumosMatrizV1.signMaterials(item.desc||item.descripcion,C.norm),needs=new Map();
+  if(sign){found++;missingBrace||=sign.missingBrace;}
+  for(const material of sign?.materials||[]){
+   const isMatch=row=>material.matches(C.norm(row.descripcion));
+   const compatible=rows.map((row,index)=>({row,index})).filter(({row})=>isMatch(row)&&C.unit(row.unidad)===material.unit);
+   const conflicting=rows.some((row,index)=>isMatch(row)&&(matrix.get(null,index)||C.unit(row.unidad)!==material.unit&&matrix.get(item,index)));
+   if(compatible.length>1||conflicting){checkExisting=true;continue;}
+   let index=compatible[0]?.index;
+   if(index===undefined&&rows.length<200){
+    const matches=catalog.filter(article=>isMatch(article));
+    const article=matches.find(candidate=>candidate.codigo===material.catalogCode)||(matches.length===1?matches[0]:null);
+    rows.push(C.draft([{articuloId:article?.id,descripcion:article?.descripcion||material.description,unidad:material.unit}])[0]);
+    index=rows.length-1;
+   }
+   if(index!==undefined)needs.set(index,material);
+  }
+  matrix.applySignNeeds(item,needs);
+ }
+ signMessage=[
+  manual&&!found?'Indicá una estructura de hierro con lona y sus medidas, por ejemplo 2 m × 2 m.':'',
+  missingBrace?'Para un marco distinto de 20 × 20, indicá también la medida del caño de refuerzo.':'',
+  checkExisting?'Revisá los insumos repetidos, con consumos por repartir o cargados en otra unidad.':'',
+ ].filter(Boolean).join('\n');
+}
 function renderMatrix(){
  ensureMatrix();const sales=matrixSales(),off=locked()?'disabled':'';
  const needs=(r,j)=>'<div class="iv-needs"><b>Necesidad</b>'+[...sales.map((item,i)=>({item,i})),...(showCommon||matrix.hasCommon()?[{item:null,i:-1}]:[])].map(({item,i})=>`<label class="iv-quantity-label" title="${esc(item?.desc||item?.descripcion||'Consumos por repartir')}"><span>${i<0?'Por repartir':'Ítem '+(i+1)} · <span data-need-unit>${esc(r.unidad||'unidad')}</span></span><input placeholder="Cantidad necesaria" data-matrix-sale="${i}" data-matrix-material="${j}" inputmode="decimal" aria-label="Cantidad de ${esc(r.descripcion||'insumo '+(j+1))} para ${esc(item?.desc||'consumos por repartir')}" value="${esc(matrix.get(item,j))}" ${off}></label>`).join('')+'</div>';
@@ -101,13 +138,13 @@ function refreshMatrix(){
 }
 function matrixInput(e){
  if(locked()||!matrix)return false;const el=e.target;
- if(el.dataset.matrixBasis!==undefined){matrix.setBasis(el.value);error='';render();return true;}
+ if(el.dataset.matrixBasis!==undefined){matrix.setBasis(el.value);if(autoEnabled)calculateSignNeeds();error='';render();return true;}
  if(el.dataset.matrixMaterial!==undefined){const i=Number(el.dataset.matrixSale),item=i<0?null:matrixSales()[i];if(i>=0&&!item)return true;matrix.set(item,Number(el.dataset.matrixMaterial),el.value);error='';matrix.totals(matrixSales());status();return true;}
  if(el.dataset.matrixIndex!==undefined){const item=matrixSales()[Number(el.dataset.matrixIndex)];if(item)matrix.setIndex(item,el.value);error='';refreshMatrix();return true;}
  return false;
 }
 function matrixFields(){
- ensureMatrix();const active=matrixSales().filter(item=>C.text(item.desc)||C.number(item.precio)>0),items=matrix.exportItems(active).map((item,i)=>({...item,orden:i+1}));
+ ensureMatrix();if(autoEnabled)calculateSignNeeds();const active=matrixSales().filter(item=>C.text(item.desc)||C.number(item.precio)>0),items=matrix.exportItems(active).map((item,i)=>({...item,orden:i+1}));
  return {items,insumosVentas:C.draft(rows),insumosCotizacionId:newQuoteId,aprobarConInsumosPendientes:true,...(costEditOrigin?{cotizacionBaseId:costEditOrigin.cotizacionBaseId||costEditOrigin.id,revisionAnteriorId:costEditOrigin.id,obraId:costEditOrigin.obraId||''}:{})};
 }
 function status(){
@@ -145,11 +182,11 @@ async function load(force=false){
  if(!user||loading&&!force||(!force&&Date.now()-loaded<30000)){status();return;}loading=true;error='';status();const expected=user,request=++catalogRequest;
  try{const result=await api({mode:'catalog'});if(expected!==window.currentUser?.email||request!==catalogRequest)return;catalog=result.articulos||[];loaded=Date.now();}
  catch(e){if(request===catalogRequest)error='No se pudo actualizar stock y precios: '+e.message;}
- finally{if(request===catalogRequest){loading=false;render();if(autoEdited)scheduleAutomatic();}}
+ finally{if(request===catalogRequest){loading=false;if(autoEnabled)calculateSignNeeds();render();if(autoEdited)scheduleAutomatic();}}
 }
-function open(data={},newRevision=false){clearTimeout(autoTimer);autoEdited=false;autoAttempt='';costEditOrigin=null;catalogDialog?.remove();catalogDialog=null;generation++;newQuoteId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');rows=C.draft(data.insumosVentas||[]);matrix=window.TIZInsumosMatrizV1.create(rows,matrixSales(),data.items||[],{defaultBasis:'unidad'});showCommon=false;baseline=newRevision?null:data.insumosVentasAprobados||null;error='';ensure();render();load();}
+function open(data={},newRevision=false){clearTimeout(autoTimer);autoEdited=false;autoAttempt='';signNeedsDirty=false;signMessage='';costEditOrigin=null;catalogDialog?.remove();catalogDialog=null;generation++;newQuoteId=crypto.randomUUID?.()||Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');rows=C.draft(data.insumosVentas||[]);matrix=window.TIZInsumosMatrizV1.create(rows,matrixSales(),data.items||[],{defaultBasis:'unidad'});showCommon=false;baseline=newRevision?null:data.insumosVentasAprobados||null;error='';ensure();render();load();}
 function input(e){if(matrixInput(e))return;const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(['revisado','compraPendiente','unidad'].includes(key))return;row[key]=e.target.value;if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}}row.revisado=false;tr.querySelector('[data-field="revisado"]').checked=false;error='';status();}
-function change(e){if(e.target.matches('[data-iv-auto]')){autoEnabled=e.target.checked;clearTimeout(autoTimer);if(autoEnabled){autoAttempt='';scheduleAutomatic();}return;}if(matrixInput(e))return;const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(key==='unidad'&&row.unidad&&row.unidad!==e.target.value){delete row.precioPrevisto;const editor=tr.querySelector('[data-field="precioPrevisto"]');if(editor)editor.value='';window.showToast?.('Cambió la unidad: revisá el precio previsto por la nueva unidad.');}if(['revisado','compraPendiente'].includes(key))row[key]=e.target.checked;else row[key]=e.target.value;
+function change(e){if(e.target.matches('[data-iv-auto]')){autoEnabled=e.target.checked;clearTimeout(autoTimer);if(autoEnabled){if(!loading&&signNeedsDirty){calculateSignNeeds();render();}autoAttempt='';scheduleAutomatic();}return;}if(matrixInput(e))return;const tr=e.target.closest('[data-iv-row]'),key=e.target.dataset.field;if(!tr||!key||locked())return;const row=rows[Number(tr.dataset.ivRow)];if(key==='unidad'&&row.unidad&&row.unidad!==e.target.value){delete row.precioPrevisto;const editor=tr.querySelector('[data-field="precioPrevisto"]');if(editor)editor.value='';window.showToast?.('Cambió la unidad: revisá el precio previsto por la nueva unidad.');}if(['revisado','compraPendiente'].includes(key))row[key]=e.target.checked;else row[key]=e.target.value;
  if(key==='descripcion'){const a=selectedArticle(e.target.value);row.articuloId=a?.id||'';if(a){row.descripcion=a.descripcion;if(!row.unidad){row.unidad=a.unidad;tr.querySelector('[data-field="unidad"]').value=a.unidad;}}row.revisado=false;}
  if(['descripcion','unidad'].includes(key)&&mergeDuplicateColumn(Number(tr.dataset.ivRow))){error='';render();return;}
  error='';status();
@@ -242,6 +279,7 @@ function click(e){
  const reset=e.target.closest('[data-reset-price]');if(reset&&!locked()){delete rows[Number(reset.dataset.resetPrice)].precioPrevisto;error='';render();return;}
  const removeSale=e.target.closest('[data-remove-sale]');if(removeSale&&!locked()){const i=Number(removeSale.dataset.removeSale),item=matrixSales()[i];if(item){rows.forEach((_,j)=>matrix.set(item,j,''));window.removeItemPP?.(i);render();}return;}
  if(e.target.closest('[data-iv="add-sale"]')&&!locked()){window.addItemPP?.();render();return;}
+ if(e.target.closest('[data-iv="sign"]')&&!locked()&&!loading){calculateSignNeeds({manual:true});render();return;}
  const apply=e.target.closest('[data-matrix-apply]');if(apply&&!locked()){
   const i=Number(apply.dataset.matrixApply),item=matrixSales()[i],cost=item&&matrix.cost(item,matrixCostCatalog(),C),currency=document.getElementById('pp-moneda')?.value||'ARS';
   if(item&&currency==='ARS'&&Number.isFinite(cost?.unitPrice)){if(typeof window.updateItemPP==='function')window.updateItemPP(i,'precio',cost.unitPrice);else item.precio=cost.unitPrice;window.renderPPItems?.();window.updatePPTotal?.();refreshMatrix();window.showToast?.('Precio unitario aplicado desde el costo estimado unitario y el índice.');}
@@ -264,7 +302,11 @@ function canApprove(){
 }
 window.TIZInsumosCotizacionV1={open,canApprove,requestShared,saveFields:matrixFields,getDraft:()=>C.draft(rows)};
 let matrixRefreshTimer;
-function scheduleMatrixRefresh(){scheduleAutomatic();clearTimeout(matrixRefreshTimer);matrixRefreshTimer=setTimeout(()=>{if(host()&&matrix)render();},150);}
+function scheduleMatrixRefresh(event){
+ if(event?.type==='input'&&event.target.matches('[oninput*="\'desc\'"], [oninput*="\'cant\'"]'))signNeedsDirty=true;
+ scheduleAutomatic();clearTimeout(matrixRefreshTimer);
+ matrixRefreshTimer=setTimeout(()=>{if(host()&&matrix&&document.getElementById('modal-prespdf')?.classList.contains('open')){if(autoEnabled&&!loading)calculateSignNeeds();render();}},150);
+}
 function init(){ensure();render();const quoteItems=document.getElementById('pp-items');if(quoteItems){quoteItems.addEventListener('input',scheduleMatrixRefresh);new MutationObserver(scheduleMatrixRefresh).observe(quoteItems,{childList:true,subtree:true});}document.getElementById('pp-desc')?.addEventListener('input',scheduleAutomatic);document.getElementById('pp-desc')?.addEventListener('change',scheduleAutomatic);document.getElementById('pp-moneda')?.addEventListener('change',status);}
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

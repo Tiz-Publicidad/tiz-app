@@ -4,6 +4,31 @@ const M=require('../insumosMatrizV1'),C=require('../functions/insumosCotizacionC
 const material=()=>({articuloId:'acrilico',descripcion:'Acrílico cristal 3 mm',cantidad:'',unidad:'M²',revisado:true});
 const catalog=[{id:'acrilico',unidad:'PLACA',equivalenciasStock:{'M²':2.9768},ultimoCosto:137280,monedaCosto:'ARS'}];
 
+test('cartel con lona: separa el perfil de las medidas y calcula el marco y la cruz',()=>{
+ const sign=M.signMaterials('Estructura de hierro 20mm x 20mm con lona de 2.0 mts x 2,0 mts',C.norm);
+ assert.deepEqual(sign.materials.map(m=>[m.unit,m.quantity]),[['M²',4],['MTS LINEALES',8],['MTS LINEALES',4]]);
+ assert.equal(sign.materials[1].matches(C.norm('Caño 20x20 x1,24 mm espesor 6 mts')),true);
+ assert.equal(sign.materials[2].matches(C.norm('Caño 15x15 x1,24 mm espesor 6 mts')),true);
+ const narrow=M.signMaterials('Estructura de hierro + lona frontal de 15 cm x 292 cm',C.norm);
+ assert.deepEqual(narrow.materials.map(m=>Number(m.quantity.toFixed(4))),[0.438,6.14,0.3]);
+ assert.equal(M.signMaterials('Estructura de hierro sin lona de 2 m x 2 m',C.norm),null);
+ assert.equal(M.signMaterials('Estructura de hierro + lona de 1 m x 2 m x 3 m',C.norm),null);
+ const custom=M.signMaterials('Estructura de hierro: caño 30x30 y refuerzo en caño 20x20 con lona de 3 x 2 m',C.norm);
+ assert.deepEqual(custom.materials.map(m=>m.quantity),[6,10,7]);
+ assert.equal(custom.missingBrace,false);
+});
+
+test('los consumos calculados se actualizan al reabrir y respetan la corrección manual y la base',()=>{
+ const rows=[{...material(),precioPrevisto:'100'}],item={cant:3};
+ const needs=quantity=>new Map([[0,{quantity}]]);
+ const matrix=M.create(rows,[item],[],{defaultBasis:'unidad'});
+ matrix.applySignNeeds(item,needs(4));matrix.setBasis('total');assert.equal(matrix.get(item,0),'12');
+ const reopened=M.create(rows,[item],matrix.exportItems([item]));
+ reopened.applySignNeeds(item,needs(5));assert.equal(reopened.get(item,0),'15');
+ assert.equal(reopened.cost(item,[],C).total,1500);
+ reopened.set(item,0,'17');reopened.applySignNeeds(item,needs(6));assert.equal(reopened.get(item,0),'17');
+});
+
 test('precio manual por m² reemplaza al sugerido y no vuelve a dividir por el área de la placa',()=>{
  const materials=[{...material(),precioPrevisto:'50000'}],sales=[{desc:'Cartel',cant:2}],m=M.create(materials,sales);
  m.set(sales[0],0,'0,09');m.setIndex(sales[0],'2');assert.equal(m.cost(sales[0],catalog,C).total,4500);assert.equal(m.cost(sales[0],catalog,C).suggested,9000);assert.equal(m.cost(sales[0],[],C).unitPrice,4500);

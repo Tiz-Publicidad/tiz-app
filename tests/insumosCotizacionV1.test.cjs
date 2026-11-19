@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const C=require('../functions/insumosCotizacionCoreV1'),API=require('../functions/insumosCotizacionApiV1');
+const M=require('../insumosMatrizV1');
 const article=()=>({id:'acrilico',codigo:'001',descripcion:'Acrílico negro 3 mm',unidad:'UNID',control:'estrategico',equivalenciasStock:{'M²':1.22*2.44}});
 const purchase=(price=6000,date='2026-11-04')=>({id:'compra',fecha:date,proveedor:'Acrílicos SA',destino:'Stock',items:[{articuloId:'acrilico',cantidad:1,unidad:'UNID',precioUnitarioNeto:price}]});
 const count=()=>({fecha:'2026-11-04',items:[{articuloId:'acrilico',cantidad:2}]});
@@ -9,9 +10,9 @@ const row=()=>({articuloId:'acrilico',descripcion:'Acrílico negro 3 mm',cantida
 
 function automaticBreakdown(){
  const timers=new Map(),calls=[],fields={'pp-desc':{value:'Cartel de acrílico'},'modal-prespdf':{classList:{contains:()=>true}}};let seq=0,reply;
- const window={TIZInsumosCotizacionCoreV1:C,DB:{presupuestos:[]},editingId:{},ppItems:[{desc:'Cartel',cant:1,precio:100}],insumosCotizacionApiV1:body=>{calls.push(body);return new Promise(r=>reply=r);}};
+ const window={TIZInsumosCotizacionCoreV1:C,TIZInsumosMatrizV1:M,DB:{presupuestos:[]},editingId:{},ppItems:[{desc:'Cartel',cant:1,precio:100}],insumosCotizacionApiV1:body=>{calls.push(body);return new Promise(r=>reply=r);}};
  const source=fs.readFileSync(require.resolve('../insumosCotizacionV1.js'),'utf8'),footer="if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();";
- const hook="render=()=>{};ensure=()=>{};catalog=testCatalog;rows=testRows;window.testAuto={scheduleAutomatic,suggest,change,sourceKey,getRows:()=>rows,lock:()=>baseline={},pause:()=>autoEnabled=false,getError:()=>error};";
+ const hook="render=()=>{};ensure=()=>{};catalog=testCatalog;rows=testRows;window.testAuto={scheduleAutomatic,scheduleMatrixRefresh,suggest,change,sourceKey,getRows:()=>rows,lock:()=>baseline={},pause:()=>autoEnabled=false,getError:()=>error,startEmpty:()=>{rows=[];ensureMatrix();},matrixFields};";
  vm.runInNewContext(source.replace(footer,hook),{window,document:{getElementById:id=>fields[id]||null},testCatalog:catalog(),testRows:[{...row(),precioPrevisto:'123'}],setTimeout:fn=>{timers.set(++seq,fn);return seq;},clearTimeout:id=>timers.delete(id),console});
  const tick=async()=>{const pending=[...timers.values()];timers.clear();pending.forEach(fn=>fn());await Promise.resolve();};
  const respond=async materials=>{reply({materiales:materials});await Promise.resolve();await Promise.resolve();};
@@ -22,6 +23,17 @@ test('desglose automático espera la pausa y no repite por precios ni duplica ma
  const f=automaticBreakdown();f.A.scheduleAutomatic();f.A.scheduleAutomatic();assert.equal(f.timers.size,1);assert.equal(f.calls.length,0);await f.tick();assert.equal(f.calls.length,1);
  await f.respond([{articuloId:'acrilico'},{descripcion:'Pintura',unidad:'UNID'}]);assert.equal(f.A.getRows().length,2);assert.equal(f.A.getRows()[0].precioPrevisto,'123');assert.equal(f.A.getRows()[0].revisado,true);assert.equal(f.A.getRows()[1].revisado,false);
  f.window.ppItems[0].precio=200;f.A.scheduleAutomatic();await f.tick();assert.equal(f.calls.length,1);assert.equal(f.A.getRows()[0].cantidad,'0,5');
+});
+
+test('el flujo de edición guarda la lona y los caños antes de recibir el desglose de IA',()=>{
+ const f=automaticBreakdown();f.A.startEmpty();
+ f.window.ppItems[0].desc='Estructura de hierro 20mm x 20mm de 2 m x 2 m con lona';
+ f.window.ppItems[0].cant=3;
+ f.A.scheduleMatrixRefresh({type:'input',target:{matches:()=>true}});
+ const payload=f.A.matrixFields();
+ assert.equal(f.calls.length,0);
+ assert.deepEqual(Array.from(payload.insumosVentas,r=>r.cantidad),['12','24','12']);
+ assert.deepEqual(Object.values(payload.items[0].insumosMatrizV1.cantidades),['4','8','4']);
 });
 
 test('si cambia el trabajo durante la respuesta automática descarta lo anterior y consulta el nuevo',async()=>{
