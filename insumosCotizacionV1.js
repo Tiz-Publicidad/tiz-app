@@ -234,10 +234,49 @@ function change(e){if(e.target.matches('[data-iv-auto]')){autoEnabled=e.target.c
  if(['descripcion','unidad'].includes(key)&&mergeDuplicateColumn(Number(tr.dataset.ivRow))){error='';render();return;}
  error='';status();
 }
+function addSuggestions(work,suggestions){
+ const helpers=window.TIZInsumosMatrizV1;
+ const existing=new Set(rows.map(r=>r.articuloId||C.norm(r.descripcion)));
+ const occupied=new Set(rows.map(r=>helpers?.laborRole?.(r.descripcion,C.norm)).filter(Boolean));
+ const added=[];
+ const append=(r,a)=>{
+  const description=a?.descripcion||C.text(r.descripcion),identity=a?.id||C.norm(description);
+  if(!identity||existing.has(identity))return;
+  existing.add(identity);
+  added.push({articuloId:a?.id||'',descripcion:description,unidad:C.unit(a?.unidad||r.unidad),origen:'ia',nota:r.motivo||r.nota||''});
+ };
+ for(const r of suggestions){
+  const article=catalog.find(a=>a.id===r.articuloId);
+  const role=helpers?.laborRole?.(article?.descripcion||r.descripcion,C.norm);
+  if(role)continue;
+  append(r,article);
+ }
+ for(const need of helpers?.laborSuggestions?.(work,C.norm)||[]){
+  if(occupied.has(need.role))continue;
+  const options=catalog.filter(a=>a.control==='sin_stock'&&helpers.laborRole(a.descripcion,C.norm)===need.role);
+  const article=options.find(a=>a.codigo===need.code)||(options.length===1?options[0]:null);
+  const target=need.items.length?'Ítems '+need.items.join(', ')+'. ':'';
+  append({descripcion:need.description,unidad:need.unit,nota:target+'Completá la necesidad y revisá el precio unitario.'},article);
+  occupied.add(need.role);
+ }
+ if(rows.length+added.length>200)throw Error('El detalle admite hasta 200 insumos.');
+ rows.push(...C.draft(added));
+ return added.length;
+}
 async function suggest({automatic=false}={}){
- if(aiBusy||loading)return;if(automatic&&!automaticReady())return;if(locked()&&!editApprovedCosts())return;clearTimeout(autoTimer);autoAttempt=sourceKey();const current=generation,source=sourceKey();aiBusy=true;error='';render();
- try{const prepared=await api({mode:'suggest',cotizacion:quote()}),result=prepared.servicioIA?await requestShared(prepared.servicioIA):prepared;if(current!==generation||automatic&&!automaticReady())return;if(source!==sourceKey()){if(automatic)return;throw Error('Cambió la descripción del trabajo durante el desglose. Volvé a pedirlo para usar los datos actuales.');}const existing=new Set(rows.map(r=>r.articuloId||C.norm(r.descripcion)));const proposed=C.printingMaterials(quote(),catalog,[...rows,...(result.materiales||[])],prepared.memoriaInsumos||[]).filter(r=>!rows.includes(r)).map(r=>{const a=catalog.find(a=>a.id===r.articuloId);return {articuloId:a?.id||'',descripcion:a?.descripcion||String(r.descripcion||''),cantidad:'',unidad:C.unit(a?.unidad||r.unidad),revisado:false,compraPendiente:false,origen:'ia',nota:String(r.motivo||r.nota||'')};});const added=proposed.filter(r=>!existing.has(r.articuloId||C.norm(r.descripcion)));if(!proposed.length)throw Error('La IA no devolvió materiales. Ampliá la descripción o cargalos manualmente.');if(rows.length+added.length>200)throw Error('El detalle admite hasta 200 materiales.');rows.push(...C.draft(added));}
- catch(e){if(current===generation)error=e.message;}
+ if(aiBusy||loading)return;if(automatic&&!automaticReady())return;if(locked()&&!editApprovedCosts())return;
+ clearTimeout(autoTimer);autoAttempt=sourceKey();const current=generation,source=sourceKey(),work=quote();aiBusy=true;error='';render();
+ try{
+  let prepared,result,aiError;
+  try{prepared=await api({mode:'suggest',cotizacion:work});result=prepared.servicioIA?await requestShared(prepared.servicioIA):prepared;}
+  catch(e){aiError=e;}
+  if(current!==generation||automatic&&!automaticReady())return;
+  if(source!==sourceKey()){if(automatic)return;throw Error('Cambió la descripción del trabajo durante el desglose. Volvé a pedirlo para usar los datos actuales.');}
+  const proposed=aiError?[]:C.printingMaterials(work,catalog,[...rows,...(result?.materiales||[])],prepared?.memoriaInsumos||[]).filter(r=>!rows.includes(r));
+  const added=addSuggestions(work,proposed);
+  if(aiError)throw Error(added?'Se agregó la mano de obra detectada. El desglose de materiales falló: '+aiError.message:aiError.message);
+  if(!proposed.length&&!added)throw Error('El desglose no encontró insumos adicionales. Revisá la descripción o cargalos manualmente.');
+ }catch(e){if(current===generation)error=e.message;}
  finally{aiBusy=false;if(current===generation)render();if(autoEdited&&sourceKey()!==autoAttempt)scheduleAutomatic();}
 }
 function requestShared(service){

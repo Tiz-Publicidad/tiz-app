@@ -8,21 +8,54 @@ const count=()=>({fecha:'2026-11-04',items:[{articuloId:'acrilico',cantidad:2}]}
 const catalog=()=>C.catalog([article()],[purchase()],[count()],[]);
 const row=()=>({articuloId:'acrilico',descripcion:'Acrílico negro 3 mm',cantidad:'0,5',unidad:'M²',revisado:true,compraPendiente:false,origen:'manual',nota:''});
 
-function automaticBreakdown(){
- const timers=new Map(),calls=[],fields={'pp-desc':{value:'Cartel de acrílico'},'modal-prespdf':{classList:{contains:()=>true}}};let seq=0,reply;
- const window={TIZInsumosCotizacionCoreV1:C,TIZInsumosMatrizV1:M,DB:{presupuestos:[]},editingId:{},ppItems:[{desc:'Cartel',cant:1,precio:100}],insumosCotizacionApiV1:body=>{calls.push(body);return new Promise(r=>reply=r);}};
+function automaticBreakdown(extraCatalog=[]){
+ const timers=new Map(),calls=[],fields={'pp-desc':{value:'Cartel de acrílico'},'modal-prespdf':{classList:{contains:()=>true}}};let seq=0,reply,reject;
+ const window={TIZInsumosCotizacionCoreV1:C,TIZInsumosMatrizV1:M,DB:{presupuestos:[]},editingId:{},ppItems:[{desc:'Cartel',cant:1,precio:100}],insumosCotizacionApiV1:body=>{calls.push(body);return new Promise((resolve,fail)=>{reply=resolve;reject=fail;});}};
  const source=fs.readFileSync(require.resolve('../insumosCotizacionV1.js'),'utf8'),footer="if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();";
  const hook="render=()=>{};ensure=()=>{};catalog=testCatalog;rows=testRows;window.testAuto={scheduleAutomatic,scheduleMatrixRefresh,suggest,change,sourceKey,getRows:()=>rows,lock:()=>baseline={},pause:()=>autoEnabled=false,getError:()=>error,startEmpty:()=>{rows=[];ensureMatrix();},matrixFields};";
- vm.runInNewContext(source.replace(footer,hook),{window,document:{getElementById:id=>fields[id]||null},testCatalog:catalog(),testRows:[{...row(),precioPrevisto:'123'}],setTimeout:fn=>{timers.set(++seq,fn);return seq;},clearTimeout:id=>timers.delete(id),console});
+ vm.runInNewContext(source.replace(footer,hook),{window,document:{getElementById:id=>fields[id]||null},testCatalog:[...catalog(),...extraCatalog],testRows:[{...row(),precioPrevisto:'123'}],setTimeout:fn=>{timers.set(++seq,fn);return seq;},clearTimeout:id=>timers.delete(id),console});
  const tick=async()=>{const pending=[...timers.values()];timers.clear();pending.forEach(fn=>fn());await Promise.resolve();};
  const respond=async materials=>{reply({materiales:materials});await Promise.resolve();await Promise.resolve();};
- return {window,fields,calls,timers,tick,respond,A:window.testAuto};
+ return {window,fields,calls,timers,tick,respond,fail:message=>reject(Error(message)),A:window.testAuto};
 }
 
 test('desglose automático espera la pausa y no repite por precios ni duplica materiales manuales',async()=>{
  const f=automaticBreakdown();f.A.scheduleAutomatic();f.A.scheduleAutomatic();assert.equal(f.timers.size,1);assert.equal(f.calls.length,0);await f.tick();assert.equal(f.calls.length,1);
  await f.respond([{articuloId:'acrilico'},{descripcion:'Pintura',unidad:'UNID'}]);assert.equal(f.A.getRows().length,2);assert.equal(f.A.getRows()[0].precioPrevisto,'123');assert.equal(f.A.getRows()[0].revisado,true);assert.equal(f.A.getRows()[1].revisado,false);
  f.window.ppItems[0].precio=200;f.A.scheduleAutomatic();await f.tick();assert.equal(f.calls.length,1);assert.equal(f.A.getRows()[0].cantidad,'0,5');
+});
+
+test('el desglose completa fabricación y colocación aunque la IA devuelva sólo insumos',async()=>{
+ const f=automaticBreakdown([
+  {id:'fabricacion',codigo:'000298',descripcion:'Fabricación externa',unidad:'UNID',control:'sin_stock'},
+  {id:'colocaciones',codigo:'000261',descripcion:'Colocaciones externas',unidad:'UNID',control:'sin_stock'},
+ ]);
+ f.window.ppItems=[{desc:'Fabricación interna del cartel'},{desc:'Fabricación externa de estructura'},{desc:'Colocación externa del cartel'}];
+ for(let i=0;i<2;i++){
+  const pending=f.A.suggest();await f.respond([{descripcion:'Pintura',unidad:'UNID'}]);await pending;
+ }
+ const labor=f.A.getRows().slice(2);
+ assert.deepEqual(Array.from(labor,r=>[r.descripcion,r.articuloId,r.unidad,r.cantidad]),[
+  ['Mano de obra interna','','HORA',''],['Fabricación externa','fabricacion','UNID',''],['Colocaciones externas','colocaciones','UNID',''],
+ ]);
+ assert.ok(labor.every(r=>r.precioPrevisto===undefined));
+ assert.match(labor[2].nota,/Ítems 3/);
+});
+
+test('vinilo impreso y colocación se desglosan por separado y se respeta una colocación excluida',()=>{
+ const needs=(...items)=>M.laborSuggestions({items:items.map(desc=>({desc}))},C.norm);
+ assert.deepEqual(needs('Vinilo esmerilado impreso de 1.29 mts x 1.2 mts','Colocación').map(r=>[r.role,r.items]),[['production-pending',[1]],['installation',[2]]]);
+ assert.deepEqual(needs('Vinilo impreso sin colocación').map(r=>r.role),['production-pending']);
+ assert.deepEqual(needs('Solo instalación del vinilo impreso').map(r=>r.role),['installation']);
+});
+
+test('la falla del servicio de IA permite agregar la colocación indicada',async()=>{
+ const f=automaticBreakdown();f.window.ppItems=[{desc:'Colocación'}];
+ const pending=f.A.suggest();f.fail('Servicio no disponible');await pending;
+ const item=f.A.getRows()[1];
+ assert.equal(item.descripcion,'Mano de obra de colocación');
+ assert.equal(item.cantidad,'');
+ assert.match(f.A.getError(),/Se agregó la mano de obra detectada/);
 });
 
 test('el flujo de edición guarda la lona y los caños antes de recibir el desglose de IA',()=>{
