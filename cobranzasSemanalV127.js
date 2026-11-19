@@ -13,6 +13,7 @@ function informe(data,mes){
  let sinVencimiento=0,sinFechaCobro=0;
  for(const work of data.workItems||[]){
   if(work.anuladaConNC)continue;
+  if(work.cobranzaSinFacturaHabilitada&&!work.bajaObra){const date=work.proximoVencimiento;if(!fechaValida(date))sinVencimiento++;else if(date.slice(0,7)===mes)groups.get(semana(date).inicio).proyectado+=Number(work.importeCobroSinFactura)||0;}
   for(const i of work.invoices||[]){
    if(i.familia==="credito")continue;
    const creditos=(work.invoices||[]).filter(c=>c.familia==="credito"&&Number(c.raw?.asociado?.cbteTipo)===Number(i.cbteTipo)&&Number(c.raw?.asociado?.ptoVta)===Number(i.ptoVta)&&Number(c.raw?.asociado?.cbteNro)===Number(i.cbteNro)).reduce((s,c)=>s+Number(c.total||c.neto||0),0);

@@ -385,6 +385,7 @@ const facturacionIntegralEmitirV83 = onRequest(
         snap = await ref.get();
       if (!snap.exists)
         throw Object.assign(new Error("No se encontró la OT"), { status: 404 });
+      if(cfg.familia==='factura'&&require('./canalVentaCoreV1').channel(snap.data()||{})==='canal_2')throw Object.assign(Error('La OT está marcada Canal 2 · Sin facturación. Gestioná su cobro sin emitir una factura.'),{status:409});
       const multiple=Array.isArray(req.body?.distribucion)&&req.body.distribucion.length>1?await require('./facturacionMultipleBackendV1').prepare(db,req.body):null;
       if(multiple&&(!multiple.obraIds.includes(obraId)||cfg.familia!=='factura'))throw Object.assign(Error('La agrupación sólo admite facturas y debe incluir la OT principal.'),{status:400});
       if(multiple&&Math.abs(multiple.neto-Number(req.body.neto))>.001)throw Object.assign(Error('El importe no coincide con la distribución por OT.'),{status:400});
