@@ -759,6 +759,7 @@ td.strong { color: var(--text); font-weight: 500; }
       <div class="form-group"><label>Estado</label>
         <select id="f-estado"><option selected>Pendiente</option><option>Enviado</option><option>Aprobado</option><option>Entregado</option><option>Cobrado pendiente</option><option>Cobrado</option><option disabled>Baja</option></select>
       </div>
+      <div class="form-group"><label for="f-canal-venta">Canal de venta</label><select id="f-canal-venta"><option value="habitual">Facturación habitual</option><option value="canal_2">Sin facturación · Canal 2</option></select></div>
       <div class="form-group"><label>Semana</label><input id="f-semana" type="number" placeholder="22"></div>
       <div class="form-group"><label>Precio de venta (neto)</label><input id="f-neto" type="number" placeholder="0"></div>
       <div class="form-group"><label>Precio de venta (bruto)</label><input id="f-bruto" type="number" placeholder="0"></div>
@@ -2306,6 +2307,7 @@ window.openModal = (type) => {
       document.getElementById('f-sector').value = 'Producción';
       document.getElementById('f-vendedor').value = 'G';
       document.getElementById('f-estado').value = 'Pendiente';
+      document.getElementById('f-canal-venta').value = 'habitual';
       document.getElementById('modal-obra-title').textContent = 'Nueva obra';
       window.obraItems = [{descripcion:'', cantidad:1, unitario:0, subtotal:0, observaciones:''}];
       window.calculosAuxiliares = [];
@@ -2335,6 +2337,7 @@ window.editObra = id => {
   { const input=document.getElementById('f-cliente'),norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''),fiscal=c=>c.razonSocial||c.razon_social||c.nombreFiscal||c.nombre||'',cli=(window.DB.clientes||[]).find(c=>c.id===o.clienteId||norm(fiscal(c))===norm(o.cliente)||norm(c.nombre)===norm(o.cliente)); if(input){input.dataset.clienteId=cli?.id||o.clienteId||'';input.dataset.clienteCuit=cli?.cuit||o.clienteCuit||''} const info=document.getElementById('f-cliente-cuit');if(info)info.textContent=(cli?.cuit||o.clienteCuit)?'CUIT '+(cli?.cuit||o.clienteCuit):'Seleccioná un cliente de la lista para vincular su CUIT'; }
   document.getElementById('f-vendedor').value = o.vendedor||'G';
   document.getElementById('f-estado').value = o.estado||'Pendiente';
+  document.getElementById('f-canal-venta').value = o.canalVenta||'habitual';
   document.getElementById('f-semana').value = o.semana||'';
   document.getElementById('f-neto').value = o.neto||'';
   document.getElementById('f-bruto').value = o.bruto||'';
@@ -2375,8 +2378,10 @@ window.editObra = id => {
 window.delObra = async id => { if(confirm('¿Eliminar esta obra?')) await deleteDoc_('obras',id); };
 window.quickChangeEstado = async (id, val) => {
   const obra = window.DB.obras.find(o => o.id === id);
-  const data = { ...(obra || {}), estado: val, cobr: val, firestoreId: id };
-  await updateDoc_('obras', id, { estado: val, cobr: val, historial: window.buildHistorialV58 ? window.buildHistorialV58(obra, val) : (obra?.historial || []) });
+  let canalVenta=obra?.canalVenta||'habitual';
+  if(val==='Aprobado'&&obra?.estado!=='Aprobado'&&window.TIZCanalVentaUIV1){const chosen=await window.TIZCanalVentaUIV1.approval(obra);if(chosen===null){window.renderObras?.();return;}canalVenta=chosen;}
+  const data = { ...(obra || {}), canalVenta, estado: val, cobr: val, firestoreId: id };
+  await updateDoc_('obras', id, { estado: val, cobr: val, canalVenta, historial: window.buildHistorialV58 ? window.buildHistorialV58(obra, val) : (obra?.historial || []) });
   if (String(val || '').toLowerCase() === 'aprobado') {
     if (!obra?.autoTasksCreatedAt && window.crearTareasAutomaticasV58) { await window.crearTareasAutomaticasV58({...obra, estado:val, id}); await updateDoc_('obras', id, { autoTasksCreatedAt: new Date().toISOString() }); } 
     showToast('Actualizando estado...');
@@ -2724,7 +2729,7 @@ window.saveObra = async () => {
   const data = {
     ot: document.getElementById('f-ot').value.trim(), sector: document.getElementById('f-sector').value,
     desc: document.getElementById('f-desc').value.trim(), cliente: document.getElementById('f-cliente').value.trim(),
-    vendedor: document.getElementById('f-vendedor').value, estado: document.getElementById('f-estado').value,
+    vendedor: document.getElementById('f-vendedor').value, estado: document.getElementById('f-estado').value, canalVenta: document.getElementById('f-canal-venta').value,
     semana: +document.getElementById('f-semana').value||0, neto: +document.getElementById('f-neto').value||totalItems||0,
     bruto: +document.getElementById('f-bruto').value||0, gastos: +document.getElementById('f-gastos').value||0,
     fprod_c: document.getElementById('f-fprod-c').value.trim(), fprod_r: document.getElementById('f-fprod-r').value.trim(),
@@ -3787,6 +3792,8 @@ async function syncToSheets(data) {
 <script src="comprasObrasCoreV1.js?v=TIZ-COMPRAS-OBRAS-20261015&baja-ventas=20261103&vigencia-comercial=20261110"></script>
 <script src="comprasBaseDatosV1.js?v=TIZ-CATALOGO-COMPARTIDO-20261109"></script>
 <script type="module" src="compras.js?v=TIZ-COMPRAS-OBRAS-20261015-DRIVE&base-datos=20261030&import-mes=20261030&orden-fecha=20261030&ingreso-guiado=20261103&proveedor-nombres=20261103&editar-insumo=20261103&ia-compartida=20261104&estado-lectura=20261104&vincular-catalogo=20261104&editar-catalogo=20261104&reintentos-ia=20261104&contactos-proveedor=20261104&descripcion-completa=20261109&costo-compra=20261109&guardar-compra=20261109&costos-equivalencias=20261109&catalogo-unificado=20261109&materiales-ot=20261109&sin-migracion-contrataciones=20261109&vistas-compras=20261109&control-materiales=20261109&catalogo-ot=20261109&vigencia-comercial=20261110&distribucion=20261111&por-articulo=20261111&costo-insumo=20261111"></script>
+<script src="functions/canalVentaCoreV1.js?v=TIZ-CANAL2-20261119"></script>
+<script src="canalVentaUIV1.js?v=TIZ-CANAL2-20261119"></script>
 <script src="functions/otLogisticaCoreV1.js?v=TIZ-OT-LOGISTICA-20261118"></script>
 <script src="operacionesV31.js?v=TIZ-OT-LOGISTICA-20261118"></script>
 <script src="materialesProduccionV1.js?v=20261111-permisos-sector&admin-paulo=20261118"></script>
@@ -3797,7 +3804,7 @@ async function syncToSheets(data) {
 <script src="produccionV34.js?v=TIZ-PRODUCCION-INTEGRAL-V1-20260914-LISTADO-20261104-LEGIBLE"></script>
 <script src="functions/vigenciaComercialCoreV1.js?v=TIZ-VIGENCIA-COMERCIAL-20261110"></script>
 <script src="vigenciaComercialUIV1.js?v=TIZ-VIGENCIA-COMERCIAL-20261110"></script>
-<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103&obras-semaforo=20261104&insumos=20261104&catalogo-aprobacion=20261106&solo-alertas=20261106&matriz-insumos=20261111&buscador-ot=20261109&orden-aprobacion=20261106&semanas-aprobacion=20261106&vigencia-comercial=20261110&edicion-costos-aprobados=20261111b&logistica-ot=20261118"></script>
+<script src="sectorizacionV35.js?v=TIZ-V35-26-ESTADO-COTIZACION-20261016-CONTACTOS-CARGO-20261026-DOMICILIO-20261030&baja=20261030&tipo-factura=20261030&comercial=20261103&obras-semaforo=20261104&insumos=20261104&catalogo-aprobacion=20261106&solo-alertas=20261106&matriz-insumos=20261111&buscador-ot=20261109&orden-aprobacion=20261106&semanas-aprobacion=20261106&vigencia-comercial=20261110&edicion-costos-aprobados=20261111b&logistica-ot=20261118&canal2=20261119"></script>
 <script src="vincularCarpetasV38.js?v=TIZ-CT-CEROS-20260930"></script>
 <script src="driveFolderNameSyncV110.js?v=TIZ-DRIVE-FOLDER-NAME-SYNC-V1103-NO-AUTO-POPUP-20260923"></script>
 <script src="functions/baseMadreLayoutV1.js?v=TIZ-BASE-MADRE-FILA-VISIBLE-20261023"></script>
@@ -3811,18 +3818,18 @@ async function syncToSheets(data) {
 -->
 
 <!-- FACTURACIÓN / COBRANZAS V2: única interfaz activa -->
-<script src="cobranzasSemanalV127.js?v=TIZ-FC-PAGOS-SEMANAS-20260930"></script>
+<script src="cobranzasSemanalV127.js?v=TIZ-FC-PAGOS-SEMANAS-20260930&canal2=20261119"></script>
 <script src="functions/arcaFechasV1.js?v=TIZ-ARCA-FECHA-20261023"></script>
-<script src="functions/facturacionMultipleCoreV1.js?v=20261117"></script><script src="facturacionMultipleUIV1.js?v=20261117"></script>
+<script src="functions/facturacionMultipleCoreV1.js?v=20261117&canal2=20261119"></script><script src="facturacionMultipleUIV1.js?v=20261117"></script>
 <script src="facturadorIntegralV83.js?v=TIZ-FCE-MINIMO-OFICIAL-20261026&tipo-factura=20261030&factura-varias-ot=20261117"></script>
 <script src="facturacionEntregaUIV84.js?v=TIZ-FC-V2-EMAIL-V86-DIRECT-SAVE-20260922"></script>
 <script src="facturacionDriveRetryUIV83.js?v=TIZ-FC-DRIVE-AUTO-20260930"></script>
-<script src="facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&general=20261102&factura-varias-ot=20261117"></script>
-<script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930&r=retenciones-20261030&baja=20261030&seguimiento=20261030&general=20261102&carga-anticipo=20261117"></script>
+<script src="facturacionCobranzasDataV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&general=20261102&factura-varias-ot=20261117&canal2=20261119"></script>
+<script src="facturacionCobranzasActionsV2.js?v=TIZ-FC-PAGOS-SEMANAS-20260930&r=retenciones-20261030&baja=20261030&seguimiento=20261030&general=20261102&carga-anticipo=20261117&canal2=20261119"></script>
 <script src="facturacionBaseMadreReconcileV2.js?v=TIZ-BASE-MADRE-COLUMNAS-20261016"></script>
 <script src="facturacionCobranzasMadreV1.js?v=TIZ-COBRANZAS-GENERAL-20261102"></script>
-<script src="facturacionCobranzasSeguimientoV1.js?v=TIZ-FC-SEGUIMIENTO-20261030&edicion=20261102&general=20261102&factura-varias-ot=20261117"></script>
-<script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&seguimiento=20261030&edicion=20261102&general=20261102&factura-varias-ot=20261117&carga-anticipo=20261117"></script>
+<script src="facturacionCobranzasSeguimientoV1.js?v=TIZ-FC-SEGUIMIENTO-20261030&edicion=20261102&general=20261102&factura-varias-ot=20261117&canal2=20261119"></script>
+<script src="facturacionCobranzasUIV2.js?v=TIZ-FC-REFACTURAR-NC-20261016&r=retenciones-20261030&baja=20261030&seguimiento=20261030&edicion=20261102&general=20261102&factura-varias-ot=20261117&carga-anticipo=20261117&canal2=20261119"></script>
 <script src="functions/colocacionesCoreV129.js?v=TIZ-COLOCACIONES-V153-20261012-SOLICITUDES-20261022&aprobaciones=20261110&acceso-pablo=20261110&admin-paulo=20261118"></script><script src="colocacionesGeneralUIV129.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-REALIZADO-20261029&baja=20261030&planificacion-demoras=20261110&aprobaciones=20261110&acceso-pablo=20261110&vigencia-comercial=20261110"></script><script src="colocacionesFotosV146.js?v=TIZ-COLOCACIONES-V153-20261012"></script><script src="colocacionesDatesV150.js?v=TIZ-FECHAS-DDMMYYYY-20261104"></script><script src="colocacionesV128.js?v=TIZ-COLOCACIONES-V153-20261012-OT-IMPRIMIR-20261019-SOLICITUDES-20261022-CONTACTOS-REALIZADO-20261029&aprobaciones=20261110&vigencia-comercial=20261110"></script>
 <script src="functions/analisisPreliminarCoreV1.js?v=TIZ-ANALISIS-PRELIMINAR-20261019M-FEDE&baja-ventas=20261103&acceso-pablo=20261110&vigencia-comercial=20261110&admin-paulo=20261118"></script>
 <script src="estadisticaResultadosCoreV1.js?v=20261111-resultados-reales"></script>

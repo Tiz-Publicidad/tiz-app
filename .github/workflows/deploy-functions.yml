@@ -32,6 +32,7 @@ jobs:
       - name: Validate fiscal code
         run: |
           node --test tests/giancarloAdminV1.test.cjs
+          node --test tests/canalVentaV1.test.cjs
           node --check clemenSecretariaV1.js
           node --check clemenSecretariaCoreV1.js
           node --test tests/clemenSecretariaV1.test.cjs

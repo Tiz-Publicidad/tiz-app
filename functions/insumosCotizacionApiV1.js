@@ -5,11 +5,12 @@ const USERS=new Set([...SALES,'pablo.aciar@tizpublicidad.com','julieta.aguirre@t
 const fail=(message,status=400)=>Object.assign(Error(message),{status});
 const list=s=>s.docs.map(d=>({...d.data(),id:d.id}));
 async function readCatalog(db,tx){const names=['articulosCompra','compras','conteosStock','planesMateriales'],snaps=await Promise.all(names.map(name=>tx?tx.get(db.collection(name)):db.collection(name).get()));return C.catalog(...snaps.map(list));}
-const FIELDS=['emisorComercial','nro','revision','cliente','desc','importe','fecha','estado','nota','cond','validez','items','calculosAuxiliares','vendedor','moneda','tipoFacturaSolicitada','plazoEstimado','anticipoPct','diasPago','oc','observacionesComerciales','entregaLogistica','creadoPor','obraId','cotizacionBase','revisionAnteriorId','cotizacionBaseId'];
+const FIELDS=['emisorComercial','canalVenta','nro','revision','cliente','desc','importe','fecha','estado','nota','cond','validez','items','calculosAuxiliares','vendedor','moneda','tipoFacturaSolicitada','plazoEstimado','anticipoPct','diasPago','oc','observacionesComerciales','entregaLogistica','creadoPor','obraId','cotizacionBase','revisionAnteriorId','cotizacionBaseId'];
 async function approve(db,body,user,at=new Date().toISOString()){
  if(!SALES.has(user.email))throw fail('Sólo Ventas puede aprobar una cotización.',403);
  const id=C.text(body.id)||db.collection('presupuestos').doc().id;if(!/^[\w-]{1,150}$/.test(id))throw fail('Cotización inválida.');
  const ref=db.collection('presupuestos').doc(id),audit=db.collection('aprobacionesInsumosCotizacion').doc(id),input=body.cotizacion||{};
+ if(input.canalVenta!==undefined&&!['habitual','canal_2'].includes(input.canalVenta))throw fail('Canal de venta inválido.');
  if(input.estado!=='Aprobado'||!C.text(input.cliente)||!Array.isArray(input.items)||!input.items.length||!Number.isFinite(Number(input.importe))||Number(input.importe)<0)throw fail('Revisá los datos de la cotización.');
  if(!Array.isArray(input.insumosVentas)||input.insumosVentas.length>200)throw fail('Cargá entre 1 y 200 materiales.');
  const saleTotal=input.items.reduce((s,i)=>s+Number(i.precio??i.unitario??0)*Number(i.cant??i.cantidad??1),0);
