@@ -6,6 +6,28 @@ const purchase=(price=6000,date='2026-11-04')=>({id:'compra',fecha:date,proveedo
 const count=()=>({fecha:'2026-11-04',items:[{articuloId:'acrilico',cantidad:2}]});
 const catalog=()=>C.catalog([article()],[purchase()],[count()],[]);
 const row=()=>({articuloId:'acrilico',descripcion:'Acrílico negro 3 mm',cantidad:'0,5',unidad:'M²',revisado:true,compraPendiente:false,origen:'manual',nota:''});
+
+function approvedBreakdown({fail=false,missing=false}={}){
+ const original={id:'aprobada',nro:'4900',revision:'1.1',estado:'Aprobado',obraId:'obra',desc:'Cartel de acrílico',items:[{desc:'Cartel',precio:100,cant:1}],insumosVentas:[],insumosVentasAprobados:{aprobadoEn:'2026-11-19',totalCosto:null,items:[]}};
+ const fields={'pp-revision':{value:'1.1'},'pp-estado':{value:'Aprobado'},'pp-desc':{value:original.desc}},calls=[],messages=[];
+ const window={TIZInsumosCotizacionCoreV1:C,DB:{presupuestos:missing?[]:[original,{id:'otra',nro:'4900',revision:'1.2'}]},editingId:{presupuesto:original.id},ppItems:structuredClone(original.items),normalizarRevisionV354:String,siguienteRevisionV354:r=>'1.'+(Number(r.split('.')[1])+1),showToast:m=>messages.push(m),insumosCotizacionApiV1:async body=>{calls.push(body);if(fail)throw Error('IA sin conexión');return {materiales:[{articuloId:'acrilico'}]};}};
+ const document={getElementById:id=>fields[id]||null},source=fs.readFileSync(require.resolve('../insumosCotizacionV1.js'),'utf8');
+ const footer="if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();";
+ assert.ok(source.includes(footer));
+ const hook="render=()=>{};ensure=()=>{};baseline=testOriginal.insumosVentasAprobados;rows=[];catalog=testCatalog;window.testBreakdown={suggest,locked,getError:()=>error,origin:()=>costEditOrigin};";
+ vm.runInNewContext(source.replace(footer,hook),{window,document,crypto:{randomUUID:()=> 'revision-ia'},testOriginal:original,testCatalog:catalog(),console,setTimeout,clearTimeout});
+ return {original,window,fields,calls,messages,run:window.testBreakdown.suggest,state:window.testBreakdown};
+}
+
+test('IA completa una aprobada vacía en una revisión libre sin cambiar la aprobada ni su venta',async()=>{
+ const f=approvedBreakdown(),before=JSON.stringify(f.original);await f.run();assert.equal(f.calls.length,1);assert.equal(f.calls[0].mode,'suggest');assert.equal(f.fields['pp-revision'].value,'1.3');assert.equal(f.fields['pp-estado'].value,'Borrador');assert.equal(f.window.editingId.presupuesto,null);assert.equal(f.window._cotizacionRevisionAnteriorId,'aprobada');assert.equal(f.state.locked(),false);assert.equal(JSON.stringify(f.original),before);
+ const draft=f.window.TIZInsumosCotizacionV1.getDraft();assert.equal(draft.length,1);assert.equal(draft[0].articuloId,'acrilico');assert.equal(draft[0].revisado,false);assert.equal(draft[0].cantidad,'');assert.equal(f.window.ppItems[0].precio,100);assert.equal(f.state.origin(),f.original);
+});
+
+test('IA fallida conserva la aprobada y deja la revisión editable para completar o reintentar',async()=>{
+ const f=approvedBreakdown({fail:true}),before=JSON.stringify(f.original);await f.run();assert.equal(f.state.getError(),'IA sin conexión');assert.equal(f.state.locked(),false);assert.equal(JSON.stringify(f.original),before);assert.equal(f.fields['pp-estado'].value,'Borrador');assert.equal(f.window.TIZInsumosCotizacionV1.getDraft().length,0);
+ const missing=approvedBreakdown({missing:true});await missing.run();assert.equal(missing.calls.length,0);assert.equal(missing.state.locked(),true);assert.match(missing.messages[0],/Reabrí/);
+});
 test('0,5 m² se convierte por la equivalencia explícita de la placa y se costea en la unidad de compra',()=>{
  const r=C.validate([row()],catalog());assert.equal(r.ok,true);assert.ok(Math.abs(r.items[0].cantidadStock-.5/2.9768)<1e-12);assert.ok(Math.abs(r.total-6000*.5/2.9768)<1e-9);assert.equal(C.stockQuantity(50,'CM',{unidad:'MTS LINEALES'}),.5);assert.equal(C.unit('mts 2'),'M²');
 });
