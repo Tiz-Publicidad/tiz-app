@@ -90,9 +90,8 @@ function create(materials,sales,savedItems=[],{defaultBasis='total'}={}){
 }
 function profit(sale,cost){if(!Number.isFinite(sale)||sale<0||!Number.isFinite(cost)||cost<0)return null;const difference=sale-cost;return {sale,cost,difference,margin:sale>0?difference/sale*100:null};}
 
-function signMaterials(description,normalize){
- const s=normalize(description);
- if(!/\b(?:estructura|marco|bastidor)\b/.test(s)||!/\b(?:hierro|metalica|metalico|cano)\b/.test(s)||!/\blonas?\b/.test(s)||/\b(?:sin|no incluye|no lleva)\s+(?:la\s+)?lona\b/.test(s))return null;
+function rectangleDimensions(description){
+ const s=text(description).toLowerCase();
  const dimensions=[...s.matchAll(/(?<![\d.,+\-])(\d+(?:[.,]\d+)?)\s*(metros?|mts?|m|cm)?\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(metros?|mts?|m|cm)\b(?!\s*[x×]\s*\d)/g)]
   .filter(match=>!/[\d]\s*(?:metros?|mts?|m|cm)?\s*[x×]\s*$/.test(s.slice(0,match.index)));
  if(dimensions.length!==1)return null;
@@ -100,6 +99,15 @@ function signMaterials(description,normalize){
  const width=number(widthText)*((widthUnit||heightUnit)==='cm'?.01:1);
  const height=number(heightText)*(heightUnit==='cm'?.01:1);
  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)return null;
+ return {width,height};
+}
+
+function signMaterials(description,normalize){
+ const s=normalize(description);
+ if(!/\b(?:estructura|marco|bastidor)\b/.test(s)||!/\b(?:hierro|metalica|metalico|cano)\b/.test(s)||!/\blonas?\b/.test(s)||/\b(?:sin|no incluye|no lleva)\s+(?:la\s+)?lona\b/.test(s))return null;
+ const dimensions=rectangleDimensions(s);
+ if(!dimensions)return null;
+ const {width,height}=dimensions;
  const profiles=[...s.matchAll(/\b(hierro|cano|refuerzos?)(?:\s+(?:de\s+)?cano)?\s*(?:de\s+)?(\d+)\s*(?:mm)?\s*[x×]\s*(\d+)(?:\s*mm\b|\b(?![.,\d]|\s*(?:m\b|mts?\b|metros?\b|cm\b)))/g)]
   .map(([,role,a,b])=>({role,profile:`${Number(a)}x${Number(b)}`}));
  const pipes=profiles.filter(({role})=>!role.startsWith('refuerzo'));
@@ -120,5 +128,5 @@ function signMaterials(description,normalize){
  else if(braces&&brace)materials.push(pipe(brace,braces));
  return materials.every(material=>Number.isFinite(material.quantity))?{materials,missingBrace:braces>0&&!brace}:null;
 }
-return {create,profit,signMaterials};
+return {create,profit,rectangleDimensions,signMaterials};
 });
