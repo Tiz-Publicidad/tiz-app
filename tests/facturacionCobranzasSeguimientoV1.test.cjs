@@ -1,6 +1,23 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),S=require('../facturacionCobranzasSeguimientoV1.js');
 const root=path.join(__dirname,'..');
+
+test('Drive en Cobranzas abre la planilla OT en verde desde General, Para facturar y Cobros',()=>{
+ const obra={otSheetUrl:'https://docs.google.com/spreadsheets/d/ot_4832/edit?usp=sharing',driveFolderId:'carpeta_4832',gestionSectores:{produccion:{sheetUrl:'https://docs.google.com/spreadsheets/d/produccion/edit'}}};
+ const w={obraId:'o1',ot:'4832',clienteNombre:'Cliente',obra,estadoOperativo:'pendiente_cobro',sinFacturacion:true,porFacturar:0,invoices:[],seguimiento:{}};
+ assert.equal(S.otDocument(w),'https://docs.google.com/spreadsheets/d/ot_4832/edit');
+ for(const view of ['general','facturar','cobrar']){const html=S.table({workItems:[w]},{view});assert.match(html,/href="https:\/\/docs.google.com\/spreadsheets\/d\/ot_4832\/edit"/);assert.match(html,/fcs-drive-ot/);assert.match(html,/noopener noreferrer/);assert.doesNotMatch(html,/href="https:\/\/drive.google.com\/drive\/folders\//);}
+ assert.match(S.css,/#fcv2-root \.fcs-drive-ot i\{color:#79cca7!important/);
+});
+
+test('enlaces OT anteriores y hoja de producción tienen acceso directo sin usar carpetas ni URLs ajenas',()=>{
+ assert.equal(S.otDocument({otExcelUrl:'https://drive.google.com/file/d/excel_ot/view'}),'https://drive.google.com/file/d/excel_ot/view');
+ assert.equal(S.otDocument({gestionSectores:{produccion:{sheetUrl:'https://docs.google.com/spreadsheets/d/prod_ot/edit'}}}),'https://docs.google.com/spreadsheets/d/prod_ot/edit');
+ assert.equal(S.otDocument({gestionSectores:{produccion:{sheetId:'prod_ot'}}}),'https://docs.google.com/spreadsheets/d/prod_ot/edit');
+ for(const bad of ['javascript:alert(1)','https://docs.google.com.evil.test/spreadsheets/d/ot','https://evil.test/ot','https://drive.google.com/drive/folders/ot','https://docs.google.com/spreadsheets/d/id%22onclick=x'])assert.equal(S.otDocument({otSheetUrl:bad}),'');
+ const w={obraId:'o',ot:'1',obra:{driveFolderId:'carpeta'},estadoOperativo:'facturado',invoices:[],seguimiento:{}};
+ const html=S.table({workItems:[w]});assert.match(html,/Planilla OT no vinculada/);assert.doesNotMatch(html,/href=/);
+});
 test('actualizaciones sucesivas conservan el foco, selección y desplazamiento del comentario',()=>{
  const doc={activeElement:null};let node;
  const make=()=>({dataset:{fcsNote:'obra-con-id-especial:1'},disabled:false,readOnly:false,selectionStart:7,selectionEnd:12,selectionDirection:'backward',scrollTop:30,scrollLeft:2,matches:s=>s==='[data-fcs-note]',focus(opts){assert.equal(opts.preventScroll,true);doc.activeElement=this;},setSelectionRange(a,b,d){this.selectionStart=a;this.selectionEnd=b;this.selectionDirection=d;}});
