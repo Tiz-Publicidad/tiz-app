@@ -128,5 +128,50 @@ function signMaterials(description,normalize){
  else if(braces&&brace)materials.push(pipe(brace,braces));
  return materials.every(material=>Number.isFinite(material.quantity))?{materials,missingBrace:braces>0&&!brace}:null;
 }
-return {create,profit,rectangleDimensions,signMaterials};
+const laborOptions={
+ 'production-internal':{description:'Mano de obra interna',unit:'HORA'},
+ 'production-external':{description:'Fabricación externa',unit:'SERVICIO',code:'000298'},
+ 'production-pending':{description:'Mano de obra de fabricación (interna o externa a definir)',unit:'HORA'},
+ 'installation':{description:'Mano de obra de colocación',unit:'HORA'},
+ 'installation-external':{description:'Colocaciones externas',unit:'SERVICIO',code:'000261'},
+};
+function laborRole(description,normalize){
+ const s=normalize(description);
+ if(/^(?:mano de obra (?:de |para )?)?(?:colocacion(?:es)?|instalacion(?:es)?|montaje)\b/.test(s))return /\b(?:extern[ao]s?|tercerizad[ao]s?)\b/.test(s)?'installation-external':'installation';
+ if(!/^(?:mano de obra|fabricacion\s+(?:externa|interna)|produccion\s+(?:externa|interna))\b/.test(s))return '';
+ if(/\ba definir\b/.test(s))return 'production-pending';
+ if(/\b(?:extern[ao]s?|tercerizad[ao]s?)\b/.test(s))return 'production-external';
+ if(/\b(?:intern[ao]s?|propi[ao]s?)\b/.test(s))return 'production-internal';
+ return 'production-pending';
+}
+function laborSuggestions(quote,normalize){
+ const needs=new Map();
+ const add=(role,index)=>{if(!needs.has(role))needs.set(role,[]);if(index!==null)needs.get(role).push(index+1);};
+ const installation='(?:colocacion(?:es)?|instalacion(?:es)?|montaje)';
+ const production='(?:mano de obra (?:de )?(?:fabricacion |produccion )?|fabricacion |produccion )';
+ const qualifier='(?:extern[ao]s?|tercerizad[ao]s?)';
+ function roles(description,inferProduction){
+  const s=normalize(description);
+  const result=[];
+  const omitsInstallation=new RegExp(`\\b(?:sin|no incluye|no lleva)\\s+(?:la\\s+)?${installation}\\b`).test(s);
+  if(!omitsInstallation&&new RegExp(`\\b${installation}\\b`).test(s)){
+   result.push(new RegExp(`\\b${installation}\\s+${qualifier}\\b`).test(s)?'installation-external':'installation');
+  }
+  if(/\b(?:sin|no incluye|no lleva)\s+(?:la\s+)?(?:mano de obra|fabricacion|produccion)\b/.test(s)||new RegExp(`\\bsolo ${installation}\\b`).test(s))return result;
+  if(new RegExp(`\\b${production}${qualifier}\\b`).test(s))result.push('production-external');
+  else if(new RegExp(`\\b${production}(?:intern[ao]s?|propi[ao]s?)\\b`).test(s)||/\b(?:fabricacion|produccion) en (?:el )?taller\b/.test(s))result.push('production-internal');
+  else if(inferProduction&&/\b(?:fabricacion|fabricar|impresion|impres[oa]s?|troquel(?:ad[oa]s?)?|soldadura|estructura de hierro)\b/.test(s))result.push('production-pending');
+  return result;
+ }
+ for(const [index,item] of (quote.items||[]).entries())for(const role of roles(item.desc||item.descripcion,true))add(role,index);
+ for(const role of roles(quote.desc,false)){
+  if(role.startsWith('installation')){
+   if(!needs.has('installation')&&!needs.has('installation-external'))add(role,null);
+  }else if(!needs.has('production-internal')&&!needs.has('production-external')){
+   needs.set(role,needs.get('production-pending')||[]);needs.delete('production-pending');
+  }
+ }
+ return [...needs].map(([role,items])=>({role,items,...laborOptions[role]}));
+}
+return {create,profit,rectangleDimensions,signMaterials,laborRole,laborSuggestions};
 });
