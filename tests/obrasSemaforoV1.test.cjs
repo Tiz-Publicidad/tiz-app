@@ -49,7 +49,7 @@ test('listado de Obras aplica el semáforo a las dos columnas y expone el motivo
  vm.runInNewContext(code+'\nglobalThis.production=productionDate;globalThis.placement=placementDate;',ctx);
  const g={produccionPrevista:'2026-10-29',colocacionPrevista:'2026-10-30',seguimiento:{produccionReal:'2026-10-29'}};
  assert.match(ctx.production(g),/o2-date-green/);assert.match(ctx.placement(g),/o2-date-red/);assert.match(ctx.placement(g),/aria-label="[^"]*Colocación vencida/);
- assert.match(ui,/placementDate\(g\)\+'<\/td><td>'\+statusCell/);
+ assert.match(ui,/placementDate\(g\)\+plannedDays\(g,'colocacion'\)\+'<\/td><td>'\+statusCell/);
 });
 
 test('OT 4799: colocación prevista 06/12 permanece gris aunque exista una fecha real previa o futura',()=>{

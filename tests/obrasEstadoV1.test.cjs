@@ -45,7 +45,7 @@ test('un refresh conserva el selector enfocado y pospone cambios de filas hasta 
  const select={dataset:{o2Status:'a'},matches:()=>true},body={__rowsHTML:undefined,contains:n=>n===select,querySelectorAll:()=>[select]},feedback={},count={};let html='',writes=0;
  Object.defineProperty(body,'innerHTML',{get:()=>html,set:value=>{html=value;writes++;}});
  const w=work('a',{ot:'4780'}),g=C.grouped([w])[0],doc={activeElement:null,getElementById:id=>({'obras2-body':body,'obras2-feedback':feedback,'obras2-count':count}[id]),querySelector:()=>null};
- const ctx={document:doc,groups:()=>[g],C,S:{query:'',states:new Set(['Pendiente']),unmatched:[],error:'',message:''},statusSaving:new Set(),statusRenderPending:false,E:String,date:String,productionDate:()=>'',placementDate:()=>'',deliveryCell:()=>'',statusCell:()=>'<select>Pendiente</select>',editButton:()=>'',usesConsulta:()=>false,window:{},consulta:{}};
+ const ctx={document:doc,groups:()=>[g],C,S:{query:'',states:new Set(['Pendiente']),unmatched:[],error:'',message:''},statusSaving:new Set(),statusRenderPending:false,E:String,date:String,productionDate:()=>'',placementDate:()=>'',deliveryCell:()=>'',plannedDays:()=>'',statusCell:()=>'<select>Pendiente</select>',editButton:()=>'',usesConsulta:()=>false,window:{},consulta:{}};
  vm.runInNewContext(ui.slice(ui.indexOf('function renderRows(){'),ui.indexOf('\nfunction render(){'))+'\nglobalThis.paint=renderRows;',ctx);
  ctx.paint();assert.equal(writes,1);ctx.paint();assert.equal(writes,1,'No recrear controles por un refresh sin cambios');
  doc.activeElement=select;g.desc='Texto actualizado en segundo plano';ctx.paint();assert.equal(writes,1);assert.equal(ctx.statusRenderPending,true);assert.equal(select.__expectedStates.a,'Pendiente');
@@ -76,8 +76,21 @@ test('las entregas históricas sin fecha real no muestran un plazo estimado',()=
  assert.match(ctx.cell(C.grouped([legacy])[0],'2026-11-23'),/title="Sin fecha real de entrega"[^>]*>—/);
  const historical={...legacy,estadoGestionV1:{estado:'Entregado',fecha:'2026-11-21T01:30:00Z'}};
  assert.match(ctx.cell(C.grouped([historical])[0],'2026-11-23'),/>1 día<\/span>/);
- assert.match(ui,/<th[^>]*>Prod\. prev\.<\/th><th[^>]*>Días hasta entrega<\/th><th[^>]*>Col\. prev\.<\/th>/);
- assert.match(ui,/productionDate\(g\)\+'<\/td><td>'\+deliveryCell\(g,today\)\+'<\/td><td>'\+placementDate\(g\)/);
+ assert.match(ui,/<th[^>]*>Prod\. prev\.<\/th><th[^>]*>Días hasta<br>entrega<\/th><th[^>]*>Col\. prev\.<\/th>/);
+ assert.match(ui,/productionDate\(g\)\+plannedDays\(g,'produccion'\)\+'<\/td><td>'\+deliveryCell\(g,today\)\+'<\/td><td>'\+placementDate\(g\)\+plannedDays\(g,'colocacion'\)/);
+});
+
+test('los dos plazos previstos parten del día local de la venta y pueden usar el alta histórica',()=>{
+ const ctx={C,E:String,date:String};
+ vm.runInNewContext(ui.slice(ui.indexOf('function plannedDays('),ui.indexOf('function css(){'))+'\nglobalThis.planned=plannedDays;',ctx);
+ const group={fechaAprobacion:'2026-11-20T01:30:00Z',fechaAlta:'2026-11-16',produccionPrevista:'2026-11-23',colocacionPrevista:'2026-11-25'};
+ assert.match(ctx.planned(group,'produccion'),/4 días desde la venta del 2026-11-19.*>4 días<\/span>/);
+ assert.match(ctx.planned(group,'colocacion'),/6 días desde la venta del 2026-11-19.*>6 días<\/span>/);
+ assert.match(ctx.planned({...group,fechaAprobacion:''},'produccion'),/7 días desde el alta del 2026-11-16/);
+ assert.match(ctx.planned({...group,produccionPrevista:'2026-11-19'},'produccion'),/>0 días<\/span>/);
+ assert.match(ctx.planned({...group,produccionPrevista:'2026-11-18'},'produccion'),/prevista es anterior.*>—<\/span>/);
+ assert.equal(ctx.planned({...group,colocacionPrevista:''},'colocacion'),'');
+ assert.equal(ctx.planned({...group,fechaAprobacion:'',fechaAlta:''},'produccion'),'');
 });
 test('cambiar a Entregado valida el estado que se mostraba al abrir el selector y libera foco al finalizar',async()=>{
  const f=uiFixture(),select=f.select('Entregado');let blurred=0;select.blur=()=>blurred++;select.__workGroup=C.grouped(f.consulta.works)[0];select.__expectedStates={a:'Pendiente'};
