@@ -76,7 +76,8 @@ test('las entregas históricas sin fecha real no muestran un plazo estimado',()=
  assert.match(ctx.cell(C.grouped([legacy])[0],'2026-11-23'),/title="Sin fecha real de entrega"[^>]*>—/);
  const historical={...legacy,estadoGestionV1:{estado:'Entregado',fecha:'2026-11-21T01:30:00Z'}};
  assert.match(ctx.cell(C.grouped([historical])[0],'2026-11-23'),/>1 día<\/span>/);
- assert.match(ui,/<th[^>]*>Días hasta entrega<\/th>/);
+ assert.match(ui,/<th[^>]*>Prod\. prev\.<\/th><th[^>]*>Días hasta entrega<\/th><th[^>]*>Col\. prev\.<\/th>/);
+ assert.match(ui,/productionDate\(g\)\+'<\/td><td>'\+deliveryCell\(g,today\)\+'<\/td><td>'\+placementDate\(g\)/);
 });
 test('cambiar a Entregado valida el estado que se mostraba al abrir el selector y libera foco al finalizar',async()=>{
  const f=uiFixture(),select=f.select('Entregado');let blurred=0;select.blur=()=>blurred++;select.__workGroup=C.grouped(f.consulta.works)[0];select.__expectedStates={a:'Pendiente'};
