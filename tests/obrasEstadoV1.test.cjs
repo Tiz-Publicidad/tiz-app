@@ -77,6 +77,7 @@ test('las entregas históricas sin fecha real no muestran un plazo estimado',()=
  const historical={...legacy,estadoGestionV1:{estado:'Entregado',fecha:'2026-11-21T01:30:00Z'}};
  assert.match(ctx.cell(C.grouped([historical])[0],'2026-11-23'),/>1 día<\/span>/);
  assert.match(ui,/<th[^>]*>Prod\. prev\.<\/th><th[^>]*>Días hasta<br>entrega<\/th><th[^>]*>Col\. prev\.<\/th>/);
+ assert.match(ui,/<th aria-label="Semana de aprobación">Semana de<br>aprobación<\/th>/);
  assert.match(ui,/productionDate\(g\)\+plannedDays\(g,'produccion'\)\+'<\/td><td>'\+deliveryCell\(g,today\)\+'<\/td><td>'\+placementDate\(g\)\+plannedDays\(g,'colocacion'\)/);
 });
 
