@@ -45,12 +45,38 @@ test('un refresh conserva el selector enfocado y pospone cambios de filas hasta 
  const select={dataset:{o2Status:'a'},matches:()=>true},body={__rowsHTML:undefined,contains:n=>n===select,querySelectorAll:()=>[select]},feedback={},count={};let html='',writes=0;
  Object.defineProperty(body,'innerHTML',{get:()=>html,set:value=>{html=value;writes++;}});
  const w=work('a',{ot:'4780'}),g=C.grouped([w])[0],doc={activeElement:null,getElementById:id=>({'obras2-body':body,'obras2-feedback':feedback,'obras2-count':count}[id]),querySelector:()=>null};
- const ctx={document:doc,groups:()=>[g],C,S:{query:'',states:new Set(['Pendiente']),unmatched:[],error:'',message:''},statusSaving:new Set(),statusRenderPending:false,E:String,date:String,productionDate:()=>'',placementDate:()=>'',statusCell:()=>'<select>Pendiente</select>',editButton:()=>'',usesConsulta:()=>false,window:{},consulta:{}};
+ const ctx={document:doc,groups:()=>[g],C,S:{query:'',states:new Set(['Pendiente']),unmatched:[],error:'',message:''},statusSaving:new Set(),statusRenderPending:false,E:String,date:String,productionDate:()=>'',placementDate:()=>'',deliveryCell:()=>'',statusCell:()=>'<select>Pendiente</select>',editButton:()=>'',usesConsulta:()=>false,window:{},consulta:{}};
  vm.runInNewContext(ui.slice(ui.indexOf('function renderRows(){'),ui.indexOf('\nfunction render(){'))+'\nglobalThis.paint=renderRows;',ctx);
  ctx.paint();assert.equal(writes,1);ctx.paint();assert.equal(writes,1,'No recrear controles por un refresh sin cambios');
  doc.activeElement=select;g.desc='Texto actualizado en segundo plano';ctx.paint();assert.equal(writes,1);assert.equal(ctx.statusRenderPending,true);assert.equal(select.__expectedStates.a,'Pendiente');
  doc.activeElement=null;ctx.paint();assert.equal(writes,2);assert.equal(ctx.statusRenderPending,false);
  ctx.statusSaving.add('a');g.desc='Otro cambio durante el guardado';ctx.paint();assert.equal(writes,2);ctx.statusSaving.clear();ctx.paint();assert.equal(writes,3);
+});
+
+test('la entrega congela los días corridos desde el alta, incluso después de cobrar',()=>{
+ const initial=work('a',{fechaAltaObra:'2026-11-19',fcol_c:'2026-11-20'});
+ const elapsed=(record,today)=>C.deliveryElapsed(C.grouped([record])[0],today);
+ assert.deepEqual(elapsed(initial,'2026-11-19'),{days:0,end:''});
+ assert.deepEqual(elapsed({...initial,estado:'Producida'},'2026-11-23'),{days:4,end:''});
+ const delivered={...initial,...C.statusPatch(initial,'Entregado',user,'2026-11-22T01:30:00Z')};
+ assert.deepEqual(elapsed(delivered,'2026-11-23'),{days:2,end:'2026-11-21'});
+ const {['estadisticaResultadosV1.entrega']:entrega,...record}=delivered;
+ const saved={...record,estadisticaResultadosV1:{entrega}};
+ for(const status of ['Cobrado','Cobrado pendiente']){
+  assert.deepEqual(elapsed({...saved,estado:status},'2026-12-02'),{days:2,end:'2026-11-21'});
+ }
+ const reopened={...saved,...C.statusPatch(saved,'Pendiente',user,'2026-11-23T12:00:00Z')};
+ assert.deepEqual(elapsed(reopened,'2026-11-23'),{days:4,end:''});
+});
+
+test('las entregas históricas sin fecha real no muestran un plazo estimado',()=>{
+ const legacy=work('a',{fechaAltaObra:'19/11/2026',estado:'Entregado',fcol_c:'2026-11-22'});
+ const ctx={C,E:String,date:String};
+ vm.runInNewContext(ui.slice(ui.indexOf('function deliveryCell('),ui.indexOf('function css(){'))+'\nglobalThis.cell=deliveryCell;',ctx);
+ assert.match(ctx.cell(C.grouped([legacy])[0],'2026-11-23'),/title="Sin fecha real de entrega"[^>]*>—/);
+ const historical={...legacy,estadoGestionV1:{estado:'Entregado',fecha:'2026-11-21T01:30:00Z'}};
+ assert.match(ctx.cell(C.grouped([historical])[0],'2026-11-23'),/>1 día<\/span>/);
+ assert.match(ui,/<th[^>]*>Días hasta entrega<\/th>/);
 });
 test('cambiar a Entregado valida el estado que se mostraba al abrir el selector y libera foco al finalizar',async()=>{
  const f=uiFixture(),select=f.select('Entregado');let blurred=0;select.blur=()=>blurred++;select.__workGroup=C.grouped(f.consulta.works)[0];select.__expectedStates={a:'Pendiente'};
