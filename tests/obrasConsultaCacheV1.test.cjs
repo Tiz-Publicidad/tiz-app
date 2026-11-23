@@ -6,6 +6,19 @@ test('semana faltante se completa igual en la consulta y en la caché, sin modif
  const API=require('../functions/obrasConsultaV1'),w=work('1',{fechaAltaObra:'2026-11-02',semanaVenta:0});assert.equal(API.projectWork({id:w.id,data:()=>w}).semanaVenta,45);assert.equal(M.project(w,C).semanaVenta,45);assert.equal(w.fechaAltaObra,'2026-11-02');
 });
 
+test('la fecha de entrega viaja por la consulta y se actualiza en la caché al corregir el estado',()=>{
+ const API=require('../functions/obrasConsultaV1');
+ const delivered=work('1',{estado:'Cobrado',fechaAltaObra:'2026-11-19',fechaEntregaReal:'2026-11-21',estadisticaResultadosV1:{entrega:{activa:true,fecha:'2026-11-21',usuario:'no-proyectar'}}});
+ const server=API.projectWork({id:delivered.id,data:()=>delivered});
+ assert.equal(server.fechaEntregaReal,'2026-11-21');
+ assert.equal(M.project(delivered,C).fechaEntregaReal,server.fechaEntregaReal);
+ assert.doesNotMatch(JSON.stringify(server),/no-proyectar/);
+ const reopened={...delivered,estado:'Pendiente',estadisticaResultadosV1:{entrega:{activa:false,fecha:'2026-11-21'}}};
+ const {works}=M.merge([server],M.snapshot([delivered],C),[reopened],C);
+ assert.equal(works[0].fechaEntregaReal,'');
+ assert.deepEqual(C.deliveryElapsed(C.grouped(works)[0],'2026-11-23'),{days:4,end:''});
+});
+
 test('consulta y caché conservan hora exacta para ordenar aprobaciones del mismo día',()=>{
  const API=require('../functions/obrasConsultaV1'),w=work('1',{fechaAltaObra:'2026-11-06',fechaAprobacion:'2026-11-06T18:30:25.123Z'}),server=API.projectWork({id:w.id,data:()=>w}),local=M.project(w,C);
  assert.equal(server.fechaAprobacion,w.fechaAprobacion);assert.equal(local.fechaAprobacion,w.fechaAprobacion);const result=M.merge([server],M.snapshot([w],C),[w],C);assert.equal(result.works[0].fechaAprobacion,w.fechaAprobacion);

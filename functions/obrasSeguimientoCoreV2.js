@@ -87,6 +87,35 @@ function instant(value){
  const s=T(value);if(/^\d{4}-\d{2}-\d{2}T/.test(s)){const n=Date.parse(s);return Number.isFinite(n)?n:0;}
  const date=iso(s);return date?Date.parse(date+'T00:00:00-03:00'):0;
 }
+function deliveryDay(work){
+ const delivery=work['estadisticaResultadosV1.entrega']??work.estadisticaResultadosV1?.entrega;
+ if(delivery?.activa===false)return '';
+ const transition=work.estadoGestionV1;
+ const dates=[delivery?.fecha,work.fechaEntregaReal,work.entregaReal,transition?.estado==='Entregado'?transition.fecha:null];
+ for(const date of dates){
+  if(typeof date==='string'&&!date.includes('T')){
+   const civil=iso(date);
+   if(civil)return civil;
+   continue;
+  }
+  const recorded=instant(date);
+  if(recorded)return day(new Date(recorded));
+ }
+ return '';
+}
+function deliveryElapsed(group,today=day()){
+ const start=iso(group.fechaAlta);
+ if(!start)return {days:null,reason:'Sin fecha de alta'};
+ const asOf=iso(today);
+ const end=(group.members||[]).reduce((latest,work)=>{
+  const date=deliveryDay(work);
+  return date>latest?date:latest;
+ },'');
+ if(!end&&group.estado==='Entregado')return {days:null,reason:'Sin fecha real de entrega'};
+ const elapsed=days(end||asOf,start);
+ if(!asOf||!Number.isFinite(elapsed)||elapsed<0||end>asOf)return {days:null,reason:'Revisá las fechas de alta y entrega'};
+ return {days:elapsed,end};
+}
 function approvalStamp(work={}){const n=instant(work.fechaAprobacion)||instant(work.insumosVentasAprobados?.aprobadoEn);return n?new Date(n).toISOString():'';}
 function approvalTime(work={}){return instant(approvalStamp(work))||instant(work.fechaAltaObra)||instant(work.fechaAlta)||instant(work.fecha)||instant(work._ts);}
 function approvalWeek(work={}){
@@ -265,5 +294,5 @@ function delayReport(groups,{desde='',hasta='',etapa='',motivo='',responsabilida
  return {rows,evaluadas,enFecha,atrasadas:late.length,porResponsabilidad,porMotivo,internas:porResponsabilidad.find(r=>r.key==='interna').total,tasaInterna:evaluadas?Math.round(100*porResponsabilidad.find(r=>r.key==='interna').total/evaluadas):null,cobertura:late.length?Math.round(100*late.filter(r=>r.responsabilidad!=='pendiente').length/late.length):null};
 }
 
-return {commercial,delayData,delayReport,RESPONSIBILITIES,STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
+return {commercial,delayData,delayReport,deliveryDay,deliveryElapsed,RESPONSIBILITIES,STATES,REPLAN_REASONS,EDITABLE_STATES,T,norm,ot,base,day,iso,instant,approvalStamp,approvalTime,approvalWeek,compareApproved,state,canPlan,canProduction,canSync,canStatus,statusPatch,active,isBaja,canBaja,productionSignal,placementSignal,bajaPatch,aggregateStatus,references,grouped,linkReference,referencePlan,trackingPatch,deadlines,alerts,metrics,replanHistory,replanReport};
 });
